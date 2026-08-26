@@ -107,6 +107,21 @@ export function getLoginErrorMessage(
   return getRawAuthErrorMessage(error);
 }
 
+/** 注册资格校验结果（Edge Function check-register 返回） */
+export type RegisterEligibility =
+  | { eligible: true }
+  | { eligible: false; reason: 'not-staff' | 'department-disabled' };
+
+/** 注册被拒时的提示文案 */
+export function getRegisterDeniedMessage(
+  result: Extract<RegisterEligibility, { eligible: false }>
+): string {
+  if (result.reason === 'not-staff') {
+    return 'Yue画布只供越建科内部人员使用，如果您是员工，请联系科创中心陈锴迪';
+  }
+  return 'Yue画布目前只提供给方案中心、设计中心、环艺中心部门使用，如果您是部门员工，请联系科创中心陈锴迪';
+}
+
 /** 把 supabase 的错误对象映射为友好的中文提示（不区分未注册/密码错误） */
 export function getRawAuthErrorMessage(error: Error | null): string {
   if (!error) {

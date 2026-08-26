@@ -16,6 +16,7 @@ import {
 import type { Session, User } from '@supabase/supabase-js';
 import { getSupabaseClient } from './supabase-client';
 import { normalizeLoginAccount } from './auth-validation';
+import type { RegisterEligibility } from './auth-validation';
 
 export type AuthStatus =
   | { state: 'unknown' }
@@ -31,6 +32,8 @@ interface AuthContextValue {
   signOut: () => Promise<void>;
   /** 查询邮箱是否已注册；返回 null 表示查询失败（函数未部署/网络错误） */
   checkEmailRegistered: (email: string) => Promise<boolean | null>;
+  /** 注册资格校验；返回 null 表示查询失败 */
+  checkRegisterEligibility: (oaAccount: string) => Promise<RegisterEligibility | null>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -139,6 +142,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const checkRegisterEligibility = useCallback(
+    async (oaAccount: string): Promise<RegisterEligibility | null> => {
+      try {
+        const { data, error } = await getSupabaseClient().functions.invoke(
+          'check-register',
+          { body: { oaAccount } }
+        );
+        if (error) {
+          console.warn('[Auth] check-register invoke failed:', error);
+          return null;
+        }
+        if (data?.eligible === true) {
+          return { eligible: true };
+        }
+        if (data?.eligible === false) {
+          const reason = data.reason;
+          if (reason === 'not-staff' || reason === 'department-disabled') {
+            return { eligible: false, reason };
+          }
+        }
+        return null;
+      } catch (err) {
+        console.warn('[Auth] check-register unexpected error:', err);
+        return null;
+      }
+    },
+    []
+  );
+
   const value = useMemo<AuthContextValue>(
     () => ({
       status,
@@ -148,8 +180,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signIn,
       signOut,
       checkEmailRegistered,
+      checkRegisterEligibility,
     }),
-    [status, signUp, signIn, signOut, checkEmailRegistered]
+    [status, signUp, signIn, signOut, checkEmailRegistered, checkRegisterEligibility]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

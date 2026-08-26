@@ -10,6 +10,7 @@ import { useAuth } from './auth-context';
 import {
   getLoginErrorMessage,
   getRawAuthErrorMessage,
+  getRegisterDeniedMessage,
   hasAuthErrors,
   validateLoginInput,
   validateSignUpInput,
@@ -25,7 +26,13 @@ interface AuthFormProps {
 }
 
 export function AuthForm({ mode, onModeChange }: AuthFormProps) {
-  const { signIn, signUp, isReady, checkEmailRegistered } = useAuth();
+  const {
+    signIn,
+    signUp,
+    isReady,
+    checkEmailRegistered,
+    checkRegisterEligibility,
+  } = useAuth();
   const [account, setAccount] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -62,6 +69,13 @@ export function AuthForm({ mode, onModeChange }: AuthFormProps) {
     setSubmitting(true);
     try {
       if (isSignUp) {
+        // 注册前校验资格：oa账号需在 staff_directory 且部门 enabled
+        const eligibility = await checkRegisterEligibility(trimmedAccount);
+        if (eligibility && !eligibility.eligible) {
+          MessagePlugin.error(getRegisterDeniedMessage(eligibility));
+          return;
+        }
+        // 查询失败（null）时放行（不阻塞注册，避免函数不可用时用户无法注册）
         const { error } = await signUp(trimmedAccount, password);
         if (error) {
           MessagePlugin.error(getRawAuthErrorMessage(error));
@@ -83,7 +97,7 @@ export function AuthForm({ mode, onModeChange }: AuthFormProps) {
     } finally {
       setSubmitting(false);
     }
-  }, [account, password, confirm, isSignUp, signIn, signUp, checkEmailRegistered]);
+  }, [account, password, confirm, isSignUp, signIn, signUp, checkEmailRegistered, checkRegisterEligibility]);
 
   const canSubmit = !submitting && isReady;
 

@@ -14,6 +14,7 @@ import {
   normalizeLoginAccount,
   getLoginErrorMessage,
   getRawAuthErrorMessage,
+  getRegisterDeniedMessage,
   MIN_PASSWORD_LENGTH,
   OA_EMAIL_DOMAIN,
 } from './auth-validation';
@@ -115,6 +116,22 @@ describe('getLoginErrorMessage / getRawAuthErrorMessage', () => {
     );
     expect(message).toBe(
       `密码设置不合规，请至少使用 ${MIN_PASSWORD_LENGTH} 位以上`
+    );
+  });
+});
+
+describe('getRegisterDeniedMessage', () => {
+  it('not-staff 提示内部人员文案', () => {
+    expect(getRegisterDeniedMessage({ eligible: false, reason: 'not-staff' })).toBe(
+      'Yue画布只供越建科内部人员使用，如果您是员工，请联系科创中心陈锴迪'
+    );
+  });
+
+  it('department-disabled 提示部门限制文案', () => {
+    expect(
+      getRegisterDeniedMessage({ eligible: false, reason: 'department-disabled' })
+    ).toBe(
+      'Yue画布目前只提供给方案中心、设计中心、环艺中心部门使用，如果您是部门员工，请联系科创中心陈锴迪'
     );
   });
 });
