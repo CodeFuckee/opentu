@@ -1,11 +1,11 @@
 /**
- * 登录 / 注册对话框
+ * 登录 / 注册内联表单
  *
- * 支持两种模式：登录（sign in）与注册（sign up）。注册成功后若后端配置了
- * 邮箱确认，会提示"请前往邮箱确认"；否则直接进入已登录状态（本后端已开启自动确认）。
+ * 直接渲染在认证门禁卡片内（不使用 Dialog 弹窗）。
+ * 登录/注册成功后由 AuthProvider 的会话状态驱动 AuthGate 自动切换到工作区。
  */
 import { useCallback, useState } from 'react';
-import { Button, Dialog, Input, MessagePlugin } from 'tdesign-react';
+import { Button, Input, MessagePlugin } from 'tdesign-react';
 import { useAuth } from './auth-context';
 import {
   getLoginErrorMessage,
@@ -18,19 +18,12 @@ import {
 
 export type AuthMode = 'signin' | 'signup';
 
-interface AuthDialogProps {
-  visible: boolean;
+interface AuthFormProps {
   mode: AuthMode;
   onModeChange: (mode: AuthMode) => void;
-  onClose: () => void;
 }
 
-export function AuthDialog({
-  visible,
-  mode,
-  onModeChange,
-  onClose,
-}: AuthDialogProps) {
+export function AuthForm({ mode, onModeChange }: AuthFormProps) {
   const { signIn, signUp, isReady, checkEmailRegistered } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -74,7 +67,6 @@ export function AuthDialog({
           return;
         }
         MessagePlugin.success('注册成功');
-        onClose();
       } else {
         const { error } = await signIn(trimmedEmail, password);
         if (error) {
@@ -84,25 +76,20 @@ export function AuthDialog({
           return;
         }
         MessagePlugin.success('登录成功');
-        onClose();
       }
     } finally {
       setSubmitting(false);
     }
-  }, [email, password, confirm, isSignUp, signIn, signUp, checkEmailRegistered, onClose]);
+  }, [email, password, confirm, isSignUp, signIn, signUp, checkEmailRegistered]);
 
   const canSubmit = !submitting && isReady;
 
   return (
-    <Dialog
-      visible={visible}
-      header={isSignUp ? '注册账号' : '登录'}
-      width={420}
-      footer={null}
-      onClose={onClose}
-      closeOnOverlayClick
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div className="auth-form">
+      <h2 className="auth-form-title">
+        {isSignUp ? '注册账号' : '登录 OpenTu'}
+      </h2>
+      <div className="auth-form-fields">
         <div>
           <Input
             value={email}
@@ -179,6 +166,6 @@ export function AuthDialog({
           )}
         </div>
       </div>
-    </Dialog>
+    </div>
   );
 }

@@ -14,6 +14,7 @@
 import { sanitizeUrl } from '@aitu/utils';
 import { swChannelClient } from '@drawnix/drawnix/runtime';
 import { shouldReportBoardMissing } from './utils/whitescreen-detector';
+import { isExtensionError } from './utils/extension-error-filter';
 
 // ==================== 类型定义 ====================
 
@@ -706,6 +707,11 @@ export function setupErrorCapture(): void {
       return;
     }
 
+    // 过滤浏览器扩展注入的错误，避免污染项目崩溃监控
+    if (isExtensionError(event.error, event.message)) {
+      return;
+    }
+
     const snapshot: CrashSnapshot = {
       id: `error-${Date.now()}`,
       timestamp: Date.now(),
@@ -737,6 +743,12 @@ export function setupErrorCapture(): void {
     const errorStack = reason?.stack || '';
 
     if (isExpectedBrowserCapabilityError(reason, errorMessage)) {
+      return;
+    }
+
+    // 过滤浏览器扩展注入的错误（background.js / chrome-extension:// 等），
+    // 避免把第三方扩展的 Failed to fetch 当作项目崩溃记录、放大日志
+    if (isExtensionError(reason, errorMessage)) {
       return;
     }
 

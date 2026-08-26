@@ -1,17 +1,15 @@
 /**
  * AuthGate 启动门禁单测
  *
- * 复现"卡在 88% 正在唤起工作台" bug：
- * 白屏 boot 覆盖层（index.html 的 #app-boot-loading）只能通过
- * bootController.markReady() 移除，而 markReady 原本只在 <App/> 内部调用。
- * AuthGate 在未登录时只渲染登录页、不渲染 <App/> => markReady 永远不被调用，
- * boot 覆盖层永远卡在前端 bootstrap 的最后进度（88%）。
+ * 覆盖两类行为：
+ * 1. boot ready 信号：会话就绪后必须调用 markReady()，否则 boot 覆盖层卡在 88%。
+ * 2. 内联登录表单：未登录且会话就绪时，直接在门禁卡片内渲染 AuthForm（非弹窗）。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { AuthGate } from './auth-gate';
 
-const { mockedAuth } = vi.hoisted(() => ({
+const { mockedAuth, formProps } = vi.hoisted(() => ({
   mockedAuth: {
     status: { state: 'unauthenticated' },
     isReady: true,
@@ -27,10 +25,22 @@ const { mockedAuth } = vi.hoisted(() => ({
     signIn: ReturnType<typeof vi.fn>;
     signOut: ReturnType<typeof vi.fn>;
   },
+  formProps: {
+    rendered: false,
+    mode: 'signin',
+  } as { rendered: boolean; mode: string },
 }));
 
 vi.mock('./auth-context', () => ({
   useAuth: () => mockedAuth,
+}));
+
+vi.mock('./auth-form', () => ({
+  AuthForm: (props: { mode: string; onModeChange: () => void }) => {
+    formProps.rendered = true;
+    formProps.mode = props.mode;
+    return <div data-testid="mock-auth-form" />;
+  },
 }));
 
 type BootController = {
@@ -52,7 +62,7 @@ declare global {
   var __OPENTU_BOOT__: BootController | undefined;
 }
 
-describe('AuthGate boot-ready signaling', () => {
+describe('AuthGate', () => {
   let boot: BootController;
 
   beforeEach(() => {
@@ -63,46 +73,92 @@ describe('AuthGate boot-ready signaling', () => {
     mockedAuth.status = { state: 'unauthenticated' };
     mockedAuth.isReady = true;
     mockedAuth.user = null;
+    formProps.rendered = false;
+    formProps.mode = 'signin';
   });
 
-  it('REPRO BUG: 未登录(isReady 且 unauthenticated)时，登录页已渲染，应标记 boot ready 以移除 boot 覆盖层', () => {
-    render(
-      <AuthGate>
-        <div>工作区</div>
-      </AuthGate>
-    );
+  describe('boot-ready signaling', () => {
+    it('未登录(isReady 且 unauthenticated)时，应标记 boot ready 以移除 boot 覆盖层', () => {
+      render(
+        <AuthGate>
+          <div>工作区</div>
+        </AuthGate>
+      );
+      expect(boot.markReady).toHaveBeenCalledTimes(1);
+    });
 
-    // 登录门禁已渲染出登录页，boot 覆盖层必须被移除，否则页面卡在 88%
-    expect(boot.markReady).toHaveBeenCalledTimes(1);
+    it('已登录时渲染工作区，也应在会话就绪后标记 boot ready', () => {
+      mockedAuth.status = {
+        state: 'authenticated',
+        session: {},
+        user: { email: 'a@b.com' },
+      };
+      mockedAuth.user = { email: 'a@b.com' };
+
+      render(
+        <AuthGate>
+          <div>工作区</div>
+        </AuthGate>
+      );
+      expect(boot.markReady).toHaveBeenCalledTimes(1);
+    });
+
+    it('会话未就绪（isReady=false）时，不应标记 boot ready', () => {
+      mockedAuth.status = { state: 'unknown' };
+      mockedAuth.isReady = false;
+
+      render(
+        <AuthGate>
+          <div>工作区</div>
+        </AuthGate>
+      );
+      expect(boot.markReady).not.toHaveBeenCalled();
+    });
   });
 
-  it('已登录时渲染工作区，AuthGate 也应在会话就绪后标记 boot ready', () => {
-    mockedAuth.status = {
-      state: 'authenticated',
-      session: {},
-      user: { email: 'a@b.com' },
-    };
-    mockedAuth.user = { email: 'a@b.com' };
+  describe('inline auth form', () => {
+    it('未登录且会话就绪时，直接在门禁内渲染登录表单（非弹窗）', () => {
+      render(
+        <AuthGate>
+          <div>工作区</div>
+        </AuthGate>
+      );
+      // AuthForm 已渲染且为 signin 模式
+      expect(formProps.rendered).toBe(true);
+      expect(formProps.mode).toBe('signin');
+      // 门禁容器存在（表单内联其中，而不是 Dialog 弹窗）
+      expect(screen.getByTestId('auth-gate')).toBeTruthy();
+      // 不渲染工作区
+      expect(screen.queryByText('工作区')).toBeNull();
+    });
 
-    render(
-      <AuthGate>
-        <div>工作区</div>
-      </AuthGate>
-    );
+    it('已登录时不渲染登录表单，直接渲染工作区', () => {
+      mockedAuth.status = {
+        state: 'authenticated',
+        session: {},
+        user: { email: 'a@b.com' },
+      };
+      mockedAuth.user = { email: 'a@b.com' };
 
-    expect(boot.markReady).toHaveBeenCalledTimes(1);
-  });
+      render(
+        <AuthGate>
+          <div>工作区</div>
+        </AuthGate>
+      );
+      expect(formProps.rendered).toBe(false);
+      expect(screen.getByText('工作区')).toBeTruthy();
+    });
 
-  it('会话未就绪（isReady=false）时，尚未渲染出决定性的页面，不应标记 boot ready', () => {
-    mockedAuth.status = { state: 'unknown' };
-    mockedAuth.isReady = false;
+    it('会话未就绪（isReady=false）时不渲染登录表单', () => {
+      mockedAuth.status = { state: 'unknown' };
+      mockedAuth.isReady = false;
 
-    render(
-      <AuthGate>
-        <div>工作区</div>
-      </AuthGate>
-    );
-
-    expect(boot.markReady).not.toHaveBeenCalled();
+      render(
+        <AuthGate>
+          <div>工作区</div>
+        </AuthGate>
+      );
+      expect(formProps.rendered).toBe(false);
+    });
   });
 });

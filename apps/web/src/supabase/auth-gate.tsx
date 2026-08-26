@@ -1,13 +1,13 @@
 /**
  * 认证门禁
  *
- * 在会话就绪前显示加载态；未登录时显示登录/注册界面；已登录后渲染工作区。
- * 另提供右上角的用户入口（显示当前用户并可退出登录）。
+ * 在会话就绪前显示加载态；未登录时在门禁卡片内直接渲染登录/注册表单（非弹窗）；
+ * 已登录后渲染工作区。另提供右上角的用户入口（显示当前用户并可退出登录）。
  */
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Button, Dropdown, MessagePlugin } from 'tdesign-react';
 import { useAuth } from './auth-context';
-import { AuthDialog, type AuthMode } from './auth-dialog';
+import { AuthForm, type AuthMode } from './auth-form';
 import styles from './auth-gate.module.scss';
 
 interface AuthGateProps {
@@ -29,8 +29,9 @@ function getBootController(): BootController | null {
 
 export function AuthGate({ children }: AuthGateProps) {
   const { status, isReady, user, signOut } = useAuth();
-  const [dialogVisible, setDialogVisible] = useState(false);
   const [mode, setMode] = useState<AuthMode>('signin');
+
+  const isAuthenticated = status.state === 'authenticated';
 
   // 会话一旦就绪，页面就会渲染出"决定性的界面"（登录页，或已登录的工作区）。
   // boot 覆盖层 (#app-boot-loading) 只能通过 markReady() 移除，而 markReady 原本
@@ -43,15 +44,9 @@ export function AuthGate({ children }: AuthGateProps) {
     getBootController()?.markReady();
   }, [isReady]);
 
-  const openAuth = useCallback((nextMode: AuthMode) => {
-    setMode(nextMode);
-    setDialogVisible(true);
-  }, []);
-
   const handleLogout = useCallback(async () => {
     await signOut();
     MessagePlugin.success('已退出登录');
-    setDialogVisible(false);
   }, [signOut]);
 
   const handleUserMenuClick = useCallback(
@@ -76,70 +71,36 @@ export function AuthGate({ children }: AuthGateProps) {
     );
   }
 
-  const isAuthenticated = status.state === 'authenticated';
-
-  return (
+  return isAuthenticated ? (
     <>
-      {isAuthenticated ? (
-        <>
-          {children}
-          <div className={styles.userBar}>
-            <Dropdown
-              trigger="click"
-              placement="bottom-right"
-              options={[{ content: '退出登录', value: 'logout' }]}
-              onClick={handleUserMenuClick}
-            >
-              <Button
-                variant="outline"
-                shape="round"
-                className={styles.userButton}
-              >
-                {user?.email ?? '用户'}
-              </Button>
-            </Dropdown>
-          </div>
-        </>
-      ) : (
-        <div
-          className={styles.gate}
-          data-whitescreen-hidden="auth-gate"
-          data-testid="auth-gate"
+      {children}
+      <div className={styles.userBar}>
+        <Dropdown
+          trigger="click"
+          placement="bottom-right"
+          options={[{ content: '退出登录', value: 'logout' }]}
+          onClick={handleUserMenuClick}
         >
-          <div className={styles.gateCard}>
-            <div className={styles.gateLogo}>OpenTu</div>
-            <h1 className={styles.gateTitle}>欢迎使用 OpenTu 开图</h1>
-            <p className={styles.gateDesc}>
-              登录后即可使用画布工作区与 AI 创作功能
-            </p>
-            <div className={styles.gateActions}>
-              <Button
-                theme="primary"
-                size="large"
-                block
-                onClick={() => openAuth('signin')}
-              >
-                登录
-              </Button>
-              <Button
-                variant="outline"
-                size="large"
-                block
-                onClick={() => openAuth('signup')}
-              >
-                注册账号
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <AuthDialog
-        visible={dialogVisible}
-        mode={mode}
-        onModeChange={setMode}
-        onClose={() => setDialogVisible(false)}
-      />
+          <Button
+            variant="outline"
+            shape="round"
+            className={styles.userButton}
+          >
+            {user?.email ?? '用户'}
+          </Button>
+        </Dropdown>
+      </div>
     </>
+  ) : (
+    <div
+      className={styles.gate}
+      data-whitescreen-hidden="auth-gate"
+      data-testid="auth-gate"
+    >
+      <div className={styles.gateCard}>
+        <div className={styles.gateLogo}>OpenTu</div>
+        <AuthForm mode={mode} onModeChange={setMode} />
+      </div>
+    </div>
   );
 }
