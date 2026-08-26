@@ -1,6 +1,6 @@
 # Workspace Shell Refinement V1
 
-Refine the current `opentu` workspace shell so it matches the existing project code structure more closely.
+Refine the current `Yue画布` workspace shell so it matches the existing project code structure more closely.
 
 ## Match The Current Product Shell
 

@@ -8,7 +8,7 @@ Canonical tracked audio design twin:
 
 ## Goal
 
-Design a future `opentu` interaction for audio-capable generation inside the existing whiteboard workflow.
+Design a future `Yue画布` interaction for audio-capable generation inside the existing whiteboard workflow.
 
 The product is still a canvas-first workspace. Audio should behave like a first-class canvas asset, not like a detached music app.
 
@@ -181,7 +181,7 @@ Optional secondary details:
 
 ### Canvas Interaction Rules
 
-The playback overlay must respect the fact that `opentu` is a canvas product:
+The playback overlay must respect the fact that `Yue画布` is a canvas product:
 
 - it must not block the left toolbar
 - it must not overlap the top-right view controls
@@ -219,7 +219,7 @@ The active node should avoid a harsh bright blue outer border. Prefer:
 - It preserves the canvas as the place where outputs are organized and compared
 - It keeps chat as the execution log rather than the main editing environment
 - It allows audio to participate in multimodal workflows with image, video, and text
-- It avoids turning `opentu` into a separate audio application
+- It avoids turning `Yue画布` into a separate audio application
 
 ## Recommended First Release Scope
 

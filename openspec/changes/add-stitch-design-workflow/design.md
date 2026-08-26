@@ -1,6 +1,6 @@
 ## Context
 
-`opentu` 当前的前端结构以编辑器能力为中心，`apps/web/src/app/app.tsx` 负责应用初始化、工作区恢复、URL 状态、崩溃恢复、安全模式等应用级装配；`packages/drawnix/src/drawnix.tsx` 承担核心白板编辑器、工具栏、抽屉、AI 面板、媒体库、项目切换等大量交互能力。
+`Yue画布` 当前的前端结构以编辑器能力为中心，`apps/web/src/app/app.tsx` 负责应用初始化、工作区恢复、URL 状态、崩溃恢复、安全模式等应用级装配；`packages/drawnix/src/drawnix.tsx` 承担核心白板编辑器、工具栏、抽屉、AI 面板、媒体库、项目切换等大量交互能力。
 
 这意味着并不是所有 UI 都适合先进入 Stitch：
 
@@ -12,7 +12,7 @@
 ## Goals / Non-Goals
 
 - Goals:
-  - 为 `opentu` 建立一条可重复使用的 Stitch 设计闭环
+  - 为 `Yue画布` 建立一条可重复使用的 Stitch 设计闭环
   - 让仓库内持久化保存设计系统上下文与 screen 映射
   - 优先提升外围页面、抽屉、弹窗、空状态页的设计探索效率
   - 保持代码实现为交互逻辑与生产行为的唯一真源

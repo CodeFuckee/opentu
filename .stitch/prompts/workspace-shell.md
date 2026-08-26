@@ -1,6 +1,6 @@
 # Workspace Shell
 
-Design a desktop-first workspace shell for `opentu`, a browser-based whiteboard and AI workspace.
+Design a desktop-first workspace shell for `Yue画布`, a browser-based whiteboard and AI workspace.
 
 This is the master shell that future drawers, dialogs, search overlays, and new features should grow from. It should feel like serious desktop productivity software, not a generic SaaS dashboard.
 

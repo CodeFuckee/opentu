@@ -1,6 +1,6 @@
 # Audio Generation Canvas Refine: Top-Center Playback Overlay
 
-Refine the current canonical `opentu` audio workspace screen:
+Refine the current canonical `Yue画布` audio workspace screen:
 
 - Base screen: `11473c95bcfa46dcb82ee2267c2d84cc`
 

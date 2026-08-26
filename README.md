@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>Opentu (opentu.ai)</h1>
+  <h1>Yue画布 (Yue画布.ai)</h1>
   <h3>开图 · 以画布为核心的 AI 应用平台</h3>
   <p>连接多模型生成、工具、素材与知识流，让 AI 任务在同一工作区持续执行。</p>
   <p>
@@ -16,8 +16,8 @@
 
 ## 在线体验
 
-- 正式站点：[opentu.ai](https://opentu.ai)
-- 预览实例：[pr.opentu.ai](https://pr.opentu.ai)
+- 正式站点：[Yue画布.ai](https://opentu.ai)
+- 预览实例：[pr.Yue画布.ai](https://pr.opentu.ai)
 
 ## 产品展示
 
@@ -77,7 +77,7 @@ pnpm manual:build      # 生成用户手册
 ```text
 aitu/
 ├── apps/
-│   ├── web/                 # Opentu Web 应用与 Service Worker
+│   ├── web/                 # Yue画布 Web 应用与 Service Worker
 │   └── web-e2e/             # Playwright E2E 与手册生成脚本
 ├── packages/
 │   ├── drawnix/             # 画布工作区核心库

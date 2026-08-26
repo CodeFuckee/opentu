@@ -72,16 +72,3 @@
     rgba(90, 79, 207, 0.12)
   );
 }
-
-.userBar {
-  position: fixed;
-  top: 16px;
-  right: 16px;
-  z-index: 20000;
-}
-
-.userButton {
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 6px 20px rgba(45, 52, 54, 0.1);
-}

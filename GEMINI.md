@@ -1,10 +1,10 @@
 # GEMINI.md
 
-This file provides a comprehensive overview of the Opentu project, its structure, and development conventions to serve as a guide for AI-assisted development.
+This file provides a comprehensive overview of the Yue画布 project, its structure, and development conventions to serve as a guide for AI-assisted development.
 
 ## Project Overview
 
-Opentu (开图) is a feature-rich, open-source whiteboard application that combines traditional diagramming tools with powerful AI-powered image and video generation. It is built as a modern web application using a monorepo architecture managed by Nx.
+Yue画布 is a feature-rich, open-source whiteboard application that combines traditional diagramming tools with powerful AI-powered image and video generation. It is built as a modern web application using a monorepo architecture managed by Nx.
 
 ### Key Features:
 

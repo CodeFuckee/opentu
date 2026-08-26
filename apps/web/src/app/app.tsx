@@ -28,6 +28,8 @@ import type {
 } from '@plait/core';
 import { ErrorFallbackUI, safeModeReload, goToDebug } from './ErrorBoundary';
 import { collectAndDownloadErrorLog } from '../utils/error-log-exporter';
+import { useAuth } from '../supabase/auth-context';
+import { UserMenu } from '../supabase/user-menu';
 
 const Drawnix = lazy(() =>
   import('@drawnix/drawnix').then((module) => ({
@@ -155,6 +157,7 @@ function clearBoardCloseSnapshot(boardId?: string | null): void {
 }
 
 export function App() {
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isDataReady, setIsDataReady] = useState(false);
   // 使用 ref 跟踪 isDataReady，避免 handleBoardChange 因闭包捕获旧值导致保存被跳过
@@ -953,6 +956,7 @@ export function App() {
               addDebugLog(board, value);
             };
           }}
+          toolbarBottomExtra={user ? <UserMenu /> : null}
         />
       </Suspense>
     </div>

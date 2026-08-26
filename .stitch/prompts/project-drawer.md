@@ -1,6 +1,6 @@
 # Project Drawer
 
-Refine the current `opentu` workspace shell into a realistic project-management state with the left project drawer open.
+Refine the current `Yue画布` workspace shell into a realistic project-management state with the left project drawer open.
 
 Follow the existing project code structure rather than inventing a new sidebar pattern.
 

@@ -265,12 +265,12 @@ describe('ppt prompts style consistency', () => {
 
   it('keeps prompt-only labels out of the visible text whitelist', () => {
     const outline: PPTOutline = {
-      title: 'OpenTu.ai 介绍 PPT 大纲',
+      title: 'Yue画布.ai 介绍 PPT 大纲',
       styleSpec,
       pages: [
         {
           layout: 'cover',
-          title: '封面：OpenTu.ai 开源 AI 创作台',
+          title: '封面：Yue画布.ai 开源 AI 创作台',
           subtitle: '大纲：多模态创作与高效协同',
           bullets: ['封面', '大纲'],
         },
@@ -282,7 +282,7 @@ describe('ppt prompts style consistency', () => {
       .split('## 设计参考信息')[0]
       .replace(/[\s\S]*## 画面可见文字/, '');
 
-    expect(visibleTextBlock).toContain('- "OpenTu.ai 开源 AI 创作台"');
+    expect(visibleTextBlock).toContain('- "Yue画布.ai 开源 AI 创作台"');
     expect(visibleTextBlock).toContain('- "多模态创作与高效协同"');
     expect(visibleTextBlock).not.toContain('封面：');
     expect(visibleTextBlock).not.toContain('大纲：');

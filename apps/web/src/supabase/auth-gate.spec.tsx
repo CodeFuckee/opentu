@@ -149,6 +149,25 @@ describe('AuthGate', () => {
       expect(screen.getByText('工作区')).toBeTruthy();
     });
 
+    it('已登录时不渲染右上角用户入口（用户入口已移到左侧工具栏，由 App 注入）', () => {
+      mockedAuth.status = {
+        state: 'authenticated',
+        session: {},
+        user: { email: 'a@b.com' },
+      };
+      mockedAuth.user = { email: 'a@b.com' };
+
+      render(
+        <AuthGate>
+          <div>工作区</div>
+        </AuthGate>
+      );
+
+      // AuthGate 不再渲染用户入口
+      expect(screen.queryByTestId('user-bar')).toBeNull();
+      expect(screen.queryByTestId('user-menu')).toBeNull();
+    });
+
     it('会话未就绪（isReady=false）时不渲染登录表单', () => {
       mockedAuth.status = { state: 'unknown' };
       mockedAuth.isReady = false;

@@ -1,4 +1,4 @@
-# Opentu (开图) PPT 能力规划与实现方案
+# Yue画布 PPT 能力规划与实现方案
 
 > 基于 AiPPT (docmee.cn) + [ai-to-pptx](https://github.com/SmartSchoolAI/ai-to-pptx) + [banana-slides](https://github.com/snakeying/banana-slides)（蕉幻）+ [LandPPT](https://github.com/sligter/LandPPT) + [NanoBanana-PPT-Skills](https://github.com/op7418/NanoBanana-PPT-Skills) 项目 Review 结合 aitu 现有架构梳理
 

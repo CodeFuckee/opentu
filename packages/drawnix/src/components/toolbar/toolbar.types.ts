@@ -3,6 +3,7 @@
  * @file toolbar.types.ts
  */
 
+import type { ReactNode } from 'react';
 import type { MediaLibraryConfig } from '../../types/asset.types';
 
 /**
@@ -70,6 +71,11 @@ export interface UnifiedToolbarProps {
    * 确保工具窗口运行时已启用
    */
   onEnableToolWindows?: () => void;
+
+  /**
+   * (可选) 渲染在左侧工具栏底部区域（任务队列按钮下方）的额外内容
+   */
+  bottomExtra?: ReactNode;
 }
 
 /**

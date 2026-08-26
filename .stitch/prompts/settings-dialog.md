@@ -1,6 +1,6 @@
 # Settings Dialog
 
-Refine the current `opentu` workspace shell into a realistic settings state that matches the existing project structure.
+Refine the current `Yue画布` workspace shell into a realistic settings state that matches the existing project structure.
 
 This is not a generic form modal. It is a desktop settings workspace inside the whiteboard product.
 

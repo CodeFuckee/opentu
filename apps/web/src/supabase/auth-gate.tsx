@@ -2,10 +2,9 @@
  * 认证门禁
  *
  * 在会话就绪前显示加载态；未登录时在门禁卡片内直接渲染登录/注册表单（非弹窗）；
- * 已登录后渲染工作区。另提供右上角的用户入口（显示当前用户并可退出登录）。
+ * 已登录后渲染工作区（用户入口由 App 注入到左侧工具栏底部，见 UserMenu）。
  */
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { Button, Dropdown, MessagePlugin } from 'tdesign-react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from './auth-context';
 import { AuthForm, type AuthMode } from './auth-form';
 import styles from './auth-gate.module.scss';
@@ -28,7 +27,7 @@ function getBootController(): BootController | null {
 }
 
 export function AuthGate({ children }: AuthGateProps) {
-  const { status, isReady, user, signOut } = useAuth();
+  const { status, isReady } = useAuth();
   const [mode, setMode] = useState<AuthMode>('signin');
 
   const isAuthenticated = status.state === 'authenticated';
@@ -44,20 +43,6 @@ export function AuthGate({ children }: AuthGateProps) {
     getBootController()?.markReady();
   }, [isReady]);
 
-  const handleLogout = useCallback(async () => {
-    await signOut();
-    MessagePlugin.success('已退出登录');
-  }, [signOut]);
-
-  const handleUserMenuClick = useCallback(
-    (data: { value?: unknown }) => {
-      if (data.value === 'logout') {
-        void handleLogout();
-      }
-    },
-    [handleLogout]
-  );
-
   if (!isReady) {
     return (
       <div
@@ -72,25 +57,7 @@ export function AuthGate({ children }: AuthGateProps) {
   }
 
   return isAuthenticated ? (
-    <>
-      {children}
-      <div className={styles.userBar}>
-        <Dropdown
-          trigger="click"
-          placement="bottom-right"
-          options={[{ content: '退出登录', value: 'logout' }]}
-          onClick={handleUserMenuClick}
-        >
-          <Button
-            variant="outline"
-            shape="round"
-            className={styles.userButton}
-          >
-            {user?.email ?? '用户'}
-          </Button>
-        </Dropdown>
-      </div>
-    </>
+    children
   ) : (
     <div
       className={styles.gate}
@@ -98,7 +65,7 @@ export function AuthGate({ children }: AuthGateProps) {
       data-testid="auth-gate"
     >
       <div className={styles.gateCard}>
-        <div className={styles.gateLogo}>OpenTu</div>
+        <div className={styles.gateLogo}>Yue画布</div>
         <AuthForm mode={mode} onModeChange={setMode} />
       </div>
     </div>

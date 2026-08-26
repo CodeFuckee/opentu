@@ -1,6 +1,6 @@
 # Crash Recovery Dialog Refinement V2
 
-Refine the current `opentu` crash recovery screen into a true desktop utility modal.
+Refine the current `Yue画布` crash recovery screen into a true desktop utility modal.
 
 This is not a mobile card and not a full-page composition. It is a recovery dialog inside a desktop whiteboard productivity app.
 

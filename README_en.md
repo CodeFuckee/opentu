@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>Opentu (opentu.ai)</h1>
+  <h1>Yue画布 (Yue画布.ai)</h1>
   <h3>Canvas-first AI Application Platform</h3>
   <p>Connect models, tools, assets, and knowledge flows so AI work keeps running in one workspace.</p>
   <p>
@@ -16,8 +16,8 @@
 
 ## Live Apps
 
-- Production: [opentu.ai](https://opentu.ai)
-- Preview: [pr.opentu.ai](https://pr.opentu.ai)
+- Production: [Yue画布.ai](https://opentu.ai)
+- Preview: [pr.Yue画布.ai](https://pr.opentu.ai)
 
 ## Product Showcase
 
@@ -77,7 +77,7 @@ The repository keeps several supported deployment paths:
 ```text
 aitu/
 ├── apps/
-│   ├── web/                 # Opentu Web app and Service Worker
+│   ├── web/                 # Yue画布 Web app and Service Worker
 │   └── web-e2e/             # Playwright E2E and manual generation
 ├── packages/
 │   ├── drawnix/             # Canvas workspace core

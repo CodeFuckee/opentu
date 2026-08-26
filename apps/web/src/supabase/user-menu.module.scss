@@ -1,0 +1,33 @@
+.userMenu {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 0 2px;
+  margin-top: 4px;
+}
+
+.userButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  background: linear-gradient(
+    135deg,
+    rgba(243, 156, 18, 0.85),
+    rgba(90, 79, 207, 0.85)
+  );
+  backdrop-filter: blur(8px);
+  box-shadow: 0 6px 20px rgba(45, 52, 54, 0.12);
+  border: none;
+}
+
+.avatar {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+}

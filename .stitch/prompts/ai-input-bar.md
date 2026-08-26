@@ -1,6 +1,6 @@
 # AI Input Bar
 
-Refine the current `opentu` workspace shell into a high-fidelity bottom-centered AI input bar state based on the existing project code.
+Refine the current `Yue画布` workspace shell into a high-fidelity bottom-centered AI input bar state based on the existing project code.
 
 This is not a generic search box. It is a floating composition bar inside the editor.
 

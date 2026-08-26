@@ -1,4 +1,4 @@
-// Opentu 项目 ESLint 配置
+// Yue画布 项目 ESLint 配置
 // 基于编码规范 docs/CODING_STANDARDS.md
 module.exports = {
   extends: [

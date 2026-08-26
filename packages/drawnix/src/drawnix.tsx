@@ -27,6 +27,7 @@ import React, {
   useCallback,
   lazy,
   Suspense,
+  type ReactNode,
 } from 'react';
 import { withGroup } from '@plait/common';
 import { withDraw, BasicShapes, DrawTransforms } from '@plait/draw';
@@ -255,6 +256,8 @@ export type DrawnixProps = {
   isDataReady?: boolean;
   /** 当前画板 ID（用于 tab 同步过滤） */
   currentBoardId?: string | null;
+  /** (可选) 渲染在左侧工具栏底部区域（任务队列下方）的额外内容 */
+  toolbarBottomExtra?: ReactNode;
 } & Omit<React.HTMLAttributes<HTMLDivElement>, 'onChange'>;
 
 const DEFAULT_IDLE_PREFETCH_GROUPS: IdlePrefetchGroup[] = [];
@@ -312,6 +315,7 @@ export const Drawnix: React.FC<DrawnixProps> = ({
   onTabSyncNeeded,
   isDataReady = false,
   currentBoardId,
+  toolbarBottomExtra,
 }) => {
   const options: PlaitBoardOptions = {
     readonly: false,
@@ -927,6 +931,7 @@ export const Drawnix: React.FC<DrawnixProps> = ({
                       minimizedToolsBarEnabled={minimizedToolsBarEnabled}
                       enableToolWindows={enableToolWindows}
                       enableGenerationRuntime={enableGenerationRuntime}
+                      toolbarBottomExtra={toolbarBottomExtra}
                     />
                   </DrawnixContext.Provider>
                 </ChatDrawerProvider>
@@ -990,6 +995,7 @@ interface DrawnixContentProps {
   isDataReady: boolean;
   onCreateProjectForMemory: () => Promise<void>;
   currentBoardId?: string | null;
+  toolbarBottomExtra?: ReactNode;
 }
 
 const DrawnixContent: React.FC<DrawnixContentProps> = ({
@@ -1042,6 +1048,7 @@ const DrawnixContent: React.FC<DrawnixContentProps> = ({
   isDataReady,
   onCreateProjectForMemory,
   currentBoardId,
+  toolbarBottomExtra,
 }) => {
   const { setAppState: updateState } = useDrawnix();
   const { chatDrawerRef } = useChatDrawer();
@@ -1636,6 +1643,7 @@ const DrawnixContent: React.FC<DrawnixContentProps> = ({
             deferredFeaturesEnabled={toolWindowManagerEnabled}
             minimizedToolsBarEnabled={minimizedToolsBarEnabled}
             onEnableToolWindows={enableToolWindows}
+            bottomExtra={toolbarBottomExtra}
           />
           {canvasAudioPlayerEnabled && (
             <Suspense fallback={null}>

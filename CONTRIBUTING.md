@@ -1,6 +1,6 @@
 # 贡献指南 Contributing Guide
 
-感谢你关注 Opentu。这个仓库使用 pnpm + Nx 管理 Web 应用、画布核心库和 E2E 测试。
+感谢你关注 Yue画布。这个仓库使用 pnpm + Nx 管理 Web 应用、画布核心库和 E2E 测试。
 
 [English](#english) | [中文](#中文)
 

@@ -1,6 +1,6 @@
 # Audio Generation Canvas Refine V2: Better Scrubbing And Softer Active State
 
-Refine the current `opentu` audio workspace playback state.
+Refine the current `Yue画布` audio workspace playback state.
 
 - Base screen: `33b8482865e3496386a7eba8f9d27489`
 

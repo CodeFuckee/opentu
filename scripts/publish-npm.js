@@ -88,7 +88,7 @@ function generateNpmPackageJson(version) {
   const npmPackage = {
     name: CONFIG.packageName,
     version: version,
-    description: 'Opentu static assets for CDN (HTML not included)',
+    description: 'Yue画布 static assets for CDN (HTML not included)',
     keywords: [
       'aitu',
       'whiteboard',
@@ -128,7 +128,7 @@ function generateNpmPackageJson(version) {
 
 // 生成 README
 function generateReadme(version) {
-  return `# Opentu (开图) - AI 图片视频创作工具
+  return `# Yue画布 - AI 图片视频创作工具
 
 [![npm version](https://img.shields.io/npm/v/${CONFIG.packageName}.svg)](https://www.npmjs.com/package/${CONFIG.packageName})
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -180,7 +180,7 @@ MIT License
 
 // 主流程
 async function main() {
-  log('\n🚀 Opentu npm 发布脚本\n', 'blue');
+  log('\n🚀 Yue画布 npm 发布脚本\n', 'blue');
   
   if (isDryRun) {
     logWarning('DRY RUN 模式 - 不会实际发布');

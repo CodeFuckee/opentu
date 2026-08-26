@@ -13,6 +13,7 @@ import {
   hasAuthErrors,
   validateLoginInput,
   validateSignUpInput,
+  normalizeLoginAccount,
   MIN_PASSWORD_LENGTH,
 } from './auth-validation';
 
@@ -25,12 +26,12 @@ interface AuthFormProps {
 
 export function AuthForm({ mode, onModeChange }: AuthFormProps) {
   const { signIn, signUp, isReady, checkEmailRegistered } = useAuth();
-  const [email, setEmail] = useState('');
+  const [account, setAccount] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{
-    email?: string;
+    account?: string;
     password?: string;
     confirm?: string;
   }>({});
@@ -39,7 +40,7 @@ export function AuthForm({ mode, onModeChange }: AuthFormProps) {
 
   const switchMode = useCallback(
     (next: AuthMode) => {
-      setEmail('');
+      setAccount('');
       setPassword('');
       setConfirm('');
       setFieldErrors({});
@@ -49,10 +50,10 @@ export function AuthForm({ mode, onModeChange }: AuthFormProps) {
   );
 
   const handleSubmit = useCallback(async () => {
-    const trimmedEmail = email.trim();
+    const trimmedAccount = account.trim();
     const errors = isSignUp
-      ? validateSignUpInput(trimmedEmail, password, confirm)
-      : validateLoginInput(trimmedEmail, password);
+      ? validateSignUpInput(trimmedAccount, password, confirm)
+      : validateLoginInput(trimmedAccount, password);
     setFieldErrors(errors);
     if (hasAuthErrors(errors)) {
       return;
@@ -61,17 +62,19 @@ export function AuthForm({ mode, onModeChange }: AuthFormProps) {
     setSubmitting(true);
     try {
       if (isSignUp) {
-        const { error } = await signUp(trimmedEmail, password);
+        const { error } = await signUp(trimmedAccount, password);
         if (error) {
           MessagePlugin.error(getRawAuthErrorMessage(error));
           return;
         }
         MessagePlugin.success('注册成功');
       } else {
-        const { error } = await signIn(trimmedEmail, password);
+        const { error } = await signIn(trimmedAccount, password);
         if (error) {
-          // 区分「邮箱未注册」与「密码错误」：先查后端，查不到则回退通用提示
-          const registered = await checkEmailRegistered(trimmedEmail);
+          // 区分「账号未注册」与「密码错误」：先查后端（用拼接后的邮箱），查不到则回退通用提示
+          const registered = await checkEmailRegistered(
+            normalizeLoginAccount(trimmedAccount)
+          );
           MessagePlugin.error(getLoginErrorMessage(error, registered));
           return;
         }
@@ -80,29 +83,29 @@ export function AuthForm({ mode, onModeChange }: AuthFormProps) {
     } finally {
       setSubmitting(false);
     }
-  }, [email, password, confirm, isSignUp, signIn, signUp, checkEmailRegistered]);
+  }, [account, password, confirm, isSignUp, signIn, signUp, checkEmailRegistered]);
 
   const canSubmit = !submitting && isReady;
 
   return (
     <div className="auth-form">
       <h2 className="auth-form-title">
-        {isSignUp ? '注册账号' : '登录 OpenTu'}
+        {isSignUp ? '注册账号' : '登录 Yue画布'}
       </h2>
       <div className="auth-form-fields">
         <div>
           <Input
-            value={email}
+            value={account}
             type="text"
-            placeholder="邮箱"
-            autocomplete="email"
+            placeholder="oa账号（小写）"
+            autocomplete="username"
             clearable
             disabled={submitting}
-            onChange={(value) => setEmail(String(value))}
+            onChange={(value) => setAccount(String(value))}
             onEnter={canSubmit ? handleSubmit : undefined}
           />
-          {fieldErrors.email && (
-            <div className="auth-field-error">{fieldErrors.email}</div>
+          {fieldErrors.account && (
+            <div className="auth-field-error">{fieldErrors.account}</div>
           )}
         </div>
         <div>

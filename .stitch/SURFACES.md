@@ -1,6 +1,6 @@
-# opentu Stitch Surface Inventory
+# Yue画布 Stitch Surface Inventory
 
-This file defines the first design-twin scope for `opentu`.
+This file defines the first design-twin scope for `Yue画布`.
 
 The goal is not to redraw every interaction in Stitch. The goal is to mirror the desktop product shell and the surrounding UI surfaces that give future feature design enough context to stay visually and structurally consistent.
 

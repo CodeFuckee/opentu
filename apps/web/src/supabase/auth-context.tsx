@@ -15,6 +15,7 @@ import {
 } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { getSupabaseClient } from './supabase-client';
+import { normalizeLoginAccount } from './auth-validation';
 
 export type AuthStatus =
   | { state: 'unknown' }
@@ -33,6 +34,17 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+/** 把 oa账号写入 user_profiles（fire-and-forget，失败仅警告不阻塞） */
+async function persistOaAccount(userId: string, account: string): Promise<void> {
+  try {
+    await getSupabaseClient()
+      .from('user_profiles')
+      .upsert({ user_id: userId, oa_account: account }, { onConflict: 'user_id' });
+  } catch (error) {
+    console.warn('[Auth] persist oa_account failed:', error);
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>({ state: 'unknown' });
@@ -71,18 +83,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = useCallback(
-    async (email: string, password: string) => {
-      const { error } = await getSupabaseClient().auth.signUp({
+    async (account: string, password: string) => {
+      const email = normalizeLoginAccount(account);
+      const { data, error } = await getSupabaseClient().auth.signUp({
         email,
         password,
       });
+      if (!error && data.user) {
+        // 注册成功后把 oa账号写入 user_profiles（RLS 允许用户写自己的行）
+        void persistOaAccount(data.user.id, account.trim());
+      }
       return { error: error ? new Error(error.message) : null };
     },
     []
   );
 
   const signIn = useCallback(
-    async (email: string, password: string) => {
+    async (account: string, password: string) => {
+      const email = normalizeLoginAccount(account);
       const { error } = await getSupabaseClient().auth.signInWithPassword({
         email,
         password,

@@ -1,8 +1,8 @@
-# opentu Stitch Design Context
+# Yue画布 Stitch Design Context
 
 ## Product Context
 
-`opentu` is a browser-based whiteboard and AI workspace. The product combines:
+`Yue画布` is a browser-based whiteboard and AI workspace. The product combines:
 
 - a large interactive canvas
 - project and board management

@@ -303,6 +303,7 @@
         border-top: 1px solid var(--color-border-light, rgba(0, 0, 0, 0.05));
         border-radius: 0 0 20px 20px;
         display: flex;
+        flex-direction: column; // 底部内容（任务队列、用户入口等）垂直排列
         justify-content: center;
         align-items: center;
         background: inherit;

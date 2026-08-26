@@ -1,7 +1,7 @@
 {
-  "name": "Opentu 开图 - AI 应用平台",
-  "short_name": "Opentu",
-  "description": "Opentu（开图）是一个以画布工作区为核心的 AI 应用平台，把模型调用、素材管理、知识沉淀与任务交付串联在同一个浏览器窗口里。",
+  "name": "Yue画布 - AI 应用平台",
+  "short_name": "Yue画布",
+  "description": "Yue画布是一个以画布工作区为核心的 AI 应用平台，把模型调用、素材管理、知识沉淀与任务交付串联在同一个浏览器窗口里。",
   "start_url": "./",
   "display": "standalone",
   "orientation": "any",
@@ -30,7 +30,7 @@
     {
       "name": "新建工作区",
       "short_name": "新建",
-      "description": "创建一个新的 Opentu 工作区",
+      "description": "创建一个新的 Yue画布 工作区",
       "url": "./",
       "icons": [
         {

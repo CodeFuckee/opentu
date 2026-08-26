@@ -13,7 +13,7 @@ test.describe('@smoke 核心功能验证', () => {
     await page.goto('/');
     
     // 1. 验证页面加载（必须通过）
-    await expect(page).toHaveTitle(/Opentu/);
+    await expect(page).toHaveTitle(/Yue画布/);
     const drawnix = page.locator('.drawnix');
     await expect(drawnix).toBeVisible({ timeout: 10000 });
     await page.waitForTimeout(2000);

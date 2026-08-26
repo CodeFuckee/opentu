@@ -10,13 +10,19 @@ create table if not exists public.user_profiles (
   user_id     uuid primary key references auth.users (id) on delete cascade,
   department  text,                          -- 部门
   apikey      text,                          -- API key
+  region      text,                          -- 区域
+  position    text,                          -- 岗位
+  oa_account  text,                          -- OA账号
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
 
-comment on table public.user_profiles is '用户扩展信息（部门、apikey 等）';
+comment on table public.user_profiles is '用户扩展信息（部门、apikey、区域、岗位、OA账号 等）';
 comment on column public.user_profiles.department is '部门';
 comment on column public.user_profiles.apikey is 'API key';
+comment on column public.user_profiles.region is '区域';
+comment on column public.user_profiles.position is '岗位';
+comment on column public.user_profiles.oa_account is 'OA账号';
 
 -- 2. updated_at 自动更新触发器
 create or replace function public.set_updated_at()

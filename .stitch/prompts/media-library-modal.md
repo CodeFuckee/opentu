@@ -1,6 +1,6 @@
 # Media Library Modal
 
-Refine the current `opentu` workspace shell into a realistic media-library state based on the existing project code.
+Refine the current `Yue画布` workspace shell into a realistic media-library state based on the existing project code.
 
 This is not a simple image picker. It is a large desktop media management window inside the editor.
 

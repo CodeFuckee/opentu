@@ -884,7 +884,7 @@ export const DEFAULT_SYNC_CONFIG: SyncConfig = {
 export const SYNC_VERSION = 1;
 
 /** Gist 描述 */
-export const GIST_DESCRIPTION = 'Opentu - 数据同步';
+export const GIST_DESCRIPTION = 'Yue画布 - 数据同步';
 
 /** 文件名常量 */
 export const SYNC_FILES = {

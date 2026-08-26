@@ -23,7 +23,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Opentu (开图) is an open-source whiteboard application built on the Plait framework. It supports mind maps, flowcharts, freehand drawing, image insertion, and AI-powered content generation (images via Gemini, videos via Veo3/Sora-2). The project uses a plugin architecture with React components and is built with Nx as the monorepo management tool.
+Yue画布 is an open-source whiteboard application built on the Plait framework. It supports mind maps, flowcharts, freehand drawing, image insertion, and AI-powered content generation (images via Gemini, videos via Veo3/Sora-2). The project uses a plugin architecture with React components and is built with Nx as the monorepo management tool.
 
 ## Development Commands
 
@@ -47,7 +47,7 @@ Opentu (开图) is an open-source whiteboard application built on the Plait fram
 ## Architecture
 
 ### Monorepo Structure
-- `apps/web/` - Main web application (opentu.ai)
+- `apps/web/` - Main web application (Yue画布.ai)
 - `packages/drawnix/` - Core whiteboard library with UI components and plugins
 - `packages/react-board/` - React wrapper for Plait board functionality
 - `packages/react-text/` - Text rendering and editing components
@@ -926,7 +926,7 @@ import { Z_INDEX } from '@/constants/z-index';
 ### Brand Guidelines
 
 **Brand Identity:**
-- Name: opentu (开图) - AI Image & Video Creation Tool
+- Name: Yue画布 (开图) - AI Image & Video Creation Tool
 - Tagline: 爱上图片，爱上创作 (Love Images, Love Creation)
 
 **Color System:**

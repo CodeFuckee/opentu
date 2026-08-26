@@ -2,7 +2,7 @@
 
 ## Why
 
-当前 `opentu` 的生成链路默认只支持 `text / image / video` 三类模态：
+当前 `Yue画布` 的生成链路默认只支持 `text / image / video` 三类模态：
 
 - AI 输入栏只能切换图片、视频和 Agent
 - 默认模型预设只维护文本、图片、视频三条路由

@@ -785,7 +785,7 @@ function main() {
   // 解析命令行参数
   const args = process.argv.slice(2);
 
-  console.log(`🚀 Opentu 部署包创建工具`);
+  console.log(`🚀 Yue画布 部署包创建工具`);
   console.log(`⏰ 时间: ${new Date().toLocaleString()}`);
   console.log(`───────────────────────────────────`);
 

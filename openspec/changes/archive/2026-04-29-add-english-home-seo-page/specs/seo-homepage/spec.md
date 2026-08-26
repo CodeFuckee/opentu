@@ -7,7 +7,7 @@ The site SHALL provide an English SEO homepage with localized visible content, m
 - **WHEN** a crawler requests `/en/home.html`
 - **THEN** the response contains an English HTML document
 - **AND** the document declares `lang="en"`
-- **AND** the document includes indexable metadata and structured data for OpenTu
+- **AND** the document includes indexable metadata and structured data for Yue画布
 - **AND** the canonical URL points to `https://opentu.ai/en/home.html`
 
 ### Requirement: Localized homepage alternates

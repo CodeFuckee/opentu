@@ -1,6 +1,6 @@
 # Crash Recovery Dialog
 
-Design a desktop-first recovery dialog for `opentu`, an AI whiteboard application.
+Design a desktop-first recovery dialog for `Yue画布`, an AI whiteboard application.
 
 The dialog appears when the app detects repeated abnormal exits during startup. The design should feel trustworthy, calm, and highly actionable. This is not a destructive error dialog. It should help the user recover safely and continue work.
 

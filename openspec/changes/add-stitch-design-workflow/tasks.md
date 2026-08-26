@@ -1,6 +1,6 @@
 ## 1. Workflow Definition
 
-- [ ] 1.1 定义 `opentu` 中哪些 UI 适合走 Stitch，哪些 UI 必须继续以代码驱动为主
+- [ ] 1.1 定义 `Yue画布` 中哪些 UI 适合走 Stitch，哪些 UI 必须继续以代码驱动为主
 - [ ] 1.2 定义从 prompt 到 Stitch screen，再到 MCP 拉取与编码实现的标准闭环
 - [ ] 1.3 明确设计稿、screen 映射、代码实现之间的责任边界
 

@@ -6,11 +6,11 @@
 
 ## 项目概述
 
-**Opentu (开图)** 是一个基于 Plait 框架构建的开源白板应用。支持思维导图、流程图、自由绘画、图片插入，以及 AI 驱动的内容生成（支持 Gemini、Midjourney、Flux、Seedream、Kling 等多种图片/视频生成模型）。
+**Yue画布** 是一个基于 Plait 框架构建的开源白板应用。支持思维导图、流程图、自由绘画、图片插入，以及 AI 驱动的内容生成（支持 Gemini、Midjourney、Flux、Seedream、Kling 等多种图片/视频生成模型）。
 
 | 属性 | 值 |
 |------|-----|
-| 名称 | Opentu (开图) - AI 图片与视频创作工具 |
+| 名称 | Yue画布 - AI 图片与视频创作工具 |
 | 版本 | 0.5.0 |
 | 许可证 | MIT |
 | 官网 | https://opentu.ai |

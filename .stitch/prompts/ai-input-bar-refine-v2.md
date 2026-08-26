@@ -1,6 +1,6 @@
 # AI Input Bar Refine V2
 
-Refine the preferred `workspace-shell` into a high-fidelity `opentu` homepage state where the bottom-centered AI input bar is expanded and code-faithful.
+Refine the preferred `workspace-shell` into a high-fidelity `Yue画布` homepage state where the bottom-centered AI input bar is expanded and code-faithful.
 
 This must remain a full desktop editor screenshot. Do not crop into a component board or isolate the control in the top-left corner.
 

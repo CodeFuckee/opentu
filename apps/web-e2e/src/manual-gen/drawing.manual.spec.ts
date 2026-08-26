@@ -233,7 +233,7 @@ test.describe('绘图功能手册', () => {
       await page.waitForTimeout(300);
       
       // 步骤 3: 输入文字
-      await page.keyboard.type('Hello Opentu!');
+      await page.keyboard.type('Hello Yue画布!');
     }
     
     await page.waitForTimeout(500);

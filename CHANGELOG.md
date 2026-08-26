@@ -631,7 +631,7 @@
 
 ### 🚀 Features
 
-- 新增 OpenTu SEO 首页 ([99fca746](https://github.com/ljquan/aitu/commit/99fca746))
+- 新增 Yue画布 SEO 首页 ([99fca746](https://github.com/ljquan/aitu/commit/99fca746))
 
 ### 🔧 Chores
 
@@ -2474,7 +2474,7 @@
 - docs: 添加 postmessage-duplex 消息大小限制规则 ([597181e](https://github.com/ljquan/aitu/commit/597181e))
 - docs: 添加 postmessage-duplex publish 模式规则 ([cac87cf](https://github.com/ljquan/aitu/commit/cac87cf))
 - docs: 添加 postmessage-duplex 库使用规范 ([cacf6b4](https://github.com/ljquan/aitu/commit/cacf6b4))
-- refactor: rename project from Aitu to Opentu ([a4ca6ca](https://github.com/ljquan/aitu/commit/a4ca6ca))
+- refactor: rename project from Aitu to Yue画布 ([a4ca6ca](https://github.com/ljquan/aitu/commit/a4ca6ca))
 
 ### ❤️  Thank You
 
@@ -2528,7 +2528,7 @@
 - update app version to 0.5.62 and adjust build time in version.json ([147815c](https://github.com/ljquan/aitu/commit/147815c))
 - bump version to 0.5.62 ([15c42c6](https://github.com/ljquan/aitu/commit/15c42c6))
 - update version to 0.5.61 and enhance batch processing logic in image and video generation ([243725e](https://github.com/ljquan/aitu/commit/243725e))
-- refactor: rename project from Aitu to Opentu ([a4ca6ca](https://github.com/ljquan/aitu/commit/a4ca6ca))
+- refactor: rename project from Aitu to Yue画布 ([a4ca6ca](https://github.com/ljquan/aitu/commit/a4ca6ca))
 - refactor: 迁移通用工具函数到 @aitu/utils 并消除二次导出 ([0645497](https://github.com/ljquan/aitu/commit/0645497))
 - docs: 添加工具函数组织规则 ([6abdcad](https://github.com/ljquan/aitu/commit/6abdcad))
 - Remove legacy workspace rename spec ([a7063f4](https://github.com/ljquan/aitu/commit/a7063f4))
@@ -2861,7 +2861,7 @@
 ### 🚀 Features
 
 - 点击画板自动关闭项目抽屉和工具箱抽屉 ([a91ed12](https://github.com/ljquan/aitu/commit/a91ed12))
-- update OpenTu labels and model hints ([8571c79](https://github.com/ljquan/aitu/commit/8571c79))
+- update Yue画布 labels and model hints ([8571c79](https://github.com/ljquan/aitu/commit/8571c79))
 
 ### 🩹 Fixes
 
@@ -2876,14 +2876,14 @@
 - docs: 添加编码规则 - 模式切换状态同步 ([db19940](https://github.com/ljquan/aitu/commit/db19940))
 - Update online experience link in README ([b3a8b4c](https://github.com/ljquan/aitu/commit/b3a8b4c))
 - Update README.md ([339e720](https://github.com/ljquan/aitu/commit/339e720))
-- Rename project to Opentu and update README ([38032e6](https://github.com/ljquan/aitu/commit/38032e6))
+- Rename project to Yue画布 and update README ([38032e6](https://github.com/ljquan/aitu/commit/38032e6))
 - 添加readme 的 git 图素材 ([c0bb49a](https://github.com/ljquan/aitu/commit/c0bb49a))
 
 ### ❤️  Thank You
 
 - liquid <ljquan@qq.com>
 - liquidliang <ljquan@qq.com>
-- Opentu Developer <noreply@aitu.chat>
+- Yue画布 Developer <noreply@aitu.chat>
 - gongchengtu <1817063960@qq.com>
 - ovst <wangjueszu@qq.com>
 
@@ -3309,7 +3309,7 @@
 - update paths for CDN compatibility and add npm publish scripts ([e4cdca4](https://github.com/ljquan/aitu/commit/e4cdca4))
 - bump version to 0.5.16 ([ef30e2e](https://github.com/ljquan/aitu/commit/ef30e2e))
 - bump version to 0.5.15 ([c126ed5](https://github.com/ljquan/aitu/commit/c126ed5))
-- update project references from aitu.chat to opentu.ai ([345b0a9](https://github.com/ljquan/aitu/commit/345b0a9))
+- update project references from aitu.chat to Yue画布.ai ([345b0a9](https://github.com/ljquan/aitu/commit/345b0a9))
 - bump version to 0.5.14 ([305fa7f](https://github.com/ljquan/aitu/commit/305fa7f))
 - docs(claude): 添加 React 事件委托、筛选逻辑、Grid 布局及 UI 高度统一规则 ([dcabd75](https://github.com/ljquan/aitu/commit/dcabd75))
 - docs(claude): 添加部署脚本安全实践规则 ([ad9ef4d](https://github.com/ljquan/aitu/commit/ad9ef4d))
@@ -3332,7 +3332,7 @@
 
 ### 🔧 Chores
 
-- update project references from aitu.chat to opentu.ai ([345b0a9](https://github.com/ljquan/aitu/commit/345b0a9))
+- update project references from aitu.chat to Yue画布.ai ([345b0a9](https://github.com/ljquan/aitu/commit/345b0a9))
 - bump version to 0.5.14 ([305fa7f](https://github.com/ljquan/aitu/commit/305fa7f))
 - docs(claude): 添加部署脚本安全实践规则 ([ad9ef4d](https://github.com/ljquan/aitu/commit/ad9ef4d))
 - docs(claude): 添加新规则 - SSH 远程执行复杂 Shell 命令应使用 base64 编码 ([e37666f](https://github.com/ljquan/aitu/commit/e37666f))

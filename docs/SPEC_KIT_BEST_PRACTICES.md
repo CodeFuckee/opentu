@@ -1,6 +1,6 @@
 # Spec-Kit 最佳实践指南
 
-本文档介绍如何在 Opentu 项目中使用 GitHub Spec-Kit 进行规范驱动开发(Spec-Driven Development, SDD)。
+本文档介绍如何在 Yue画布 项目中使用 GitHub Spec-Kit 进行规范驱动开发(Spec-Driven Development, SDD)。
 
 ## 目录
 
@@ -24,7 +24,7 @@ Spec-Kit 是 GitHub 开源的规范驱动开发工具包,它将传统的"先编�
 
 ### 支持的 AI 工具
 
-- Claude Code (推荐用于 Opentu 项目)
+- Claude Code (推荐用于 Yue画布 项目)
 - GitHub Copilot
 - Gemini CLI
 - Cursor
@@ -265,10 +265,10 @@ Spec-Kit 遵循五阶段工作流,每个阶段都有明确的检查点:
 
 宪章是项目的"根本大法",定义不可妥协的原则和标准。
 
-**Opentu 项目宪章示例:**
+**Yue画布 项目宪章示例:**
 
 ```markdown
-# Opentu 项目宪章
+# Yue画布 项目宪章
 
 ## 代码质量原则
 
@@ -478,7 +478,7 @@ AI 根据规范、计划和任务开始生成代码。
 
 ## Monorepo 项目配置
 
-Opentu 使用 Nx monorepo 结构,需要特殊配置来支持 Spec-Kit。
+Yue画布 使用 Nx monorepo 结构,需要特殊配置来支持 Spec-Kit。
 
 ### 当前限制
 
@@ -652,7 +652,7 @@ Then: 触摸区域足够大(最小 44x44px),操作流畅
 📋 Planned: Custom polygon crop
 ```
 
-### 7. 利用 Opentu 现有规范
+### 7. 利用 Yue画布 现有规范
 
 将项目现有文档整合到 Spec-Kit 工作流:
 
@@ -797,7 +797,7 @@ Then: 触摸区域足够大(最小 44x44px),操作流畅
 - [Spec-Kit GitHub](https://github.com/github/spec-kit)
 - [Spec-Driven Development 博客](https://github.blog/ai-and-ml/generative-ai/spec-driven-development-with-ai-get-started-with-a-new-open-source-toolkit/)
 
-### Opentu 项目文档
+### Yue画布 项目文档
 - [编码规范](./CODING_STANDARDS.md)
 - [品牌指南](./BRAND_GUIDELINES.md)
 - [项目指导](../CLAUDE.md)
@@ -810,6 +810,6 @@ Then: 触摸区域足够大(最小 44x44px),操作流畅
 
 **文档版本:** v1.0
 **最后更新:** 2025-01-22
-**维护者:** Opentu 团队
+**维护者:** Yue画布 团队
 
 *本文档遵循 Spec-Kit 的活文档原则,会随着工具和项目实践持续演进。*

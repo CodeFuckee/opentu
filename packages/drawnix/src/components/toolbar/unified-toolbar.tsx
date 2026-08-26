@@ -162,6 +162,7 @@ export const UnifiedToolbar: React.FC<UnifiedToolbarProps> = React.memo(
     deferredFeaturesEnabled = false,
     minimizedToolsBarEnabled = false,
     onEnableToolWindows,
+    bottomExtra,
   }) => {
     const [isIconMode, setIsIconMode] = useState(false);
     const [isMobileCollapsed, setIsMobileCollapsed] = useState(true); // 移动端默认收起
@@ -571,6 +572,7 @@ export const UnifiedToolbar: React.FC<UnifiedToolbarProps> = React.memo(
               taskPanelExpanded={taskPanelExpanded}
               onTaskPanelToggle={handleTaskPanelToggle}
             />
+            {bottomExtra}
           </div>
         </Island>
       </>

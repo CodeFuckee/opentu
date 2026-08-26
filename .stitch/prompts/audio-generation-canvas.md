@@ -4,13 +4,13 @@ This prompt now tracks the single canonical audio workspace reference in Stitch:
 
 - `11473c95bcfa46dcb82ee2267c2d84cc`
 
-Design a future `opentu` desktop workspace state for audio generation inside the existing whiteboard product.
+Design a future `Yue画布` desktop workspace state for audio generation inside the existing whiteboard product.
 
 This is not a separate music app and not a DAW. It must remain a canvas-first AI workspace.
 
 ## Product Context
 
-`opentu` is a whiteboard and AI creation workspace with:
+`Yue画布` is a whiteboard and AI creation workspace with:
 
 - a large dotted canvas
 - compact floating left toolbar

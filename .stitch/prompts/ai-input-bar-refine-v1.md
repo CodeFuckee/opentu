@@ -1,6 +1,6 @@
 # AI Input Bar Refine V1
 
-Refine the current `opentu` workspace screen into a code-faithful desktop AI input bar state based on the existing product UI.
+Refine the current `Yue画布` workspace screen into a code-faithful desktop AI input bar state based on the existing product UI.
 
 This is a high-fidelity design twin task, not a redesign task.
 

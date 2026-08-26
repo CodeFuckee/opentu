@@ -1,4 +1,4 @@
-# Opentu 编码规则详解
+# Yue画布 编码规则详解
 
 本文档包含项目中积累的具体编码规则和常见错误案例。这是 `CLAUDE.md` 的详细补充，当需要具体的实现指导时参考本文档。
 
@@ -1661,7 +1661,7 @@ return (
 ### 重要规则
 - **UI 框架**: 使用 TDesign React，配置浅色主题
 - **Tooltips**: 始终使用 `theme='light'`
-- **品牌色一致性**: 覆盖第三方组件（如 TDesign Tag）的默认颜色以符合 Opentu 品牌视觉
+- **品牌色一致性**: 覆盖第三方组件（如 TDesign Tag）的默认颜色以符合 Yue画布 品牌视觉
   - **示例**: 处理中状态使用蓝紫色系 (`#5A4FCF`)
   - **CSS**: `.t-tag--theme-primary { background-color: rgba(90, 79, 207, 0.08); color: #5A4FCF; }`
 - **文件大小限制**: 单个文件不超过 500 行
@@ -5297,7 +5297,7 @@ root.render(
 );
 ```
 
-**原因**: 独立的 React 树不会继承父级树的 Context。在 Opentu 中，画布元素是通过 SVG `foreignObject` 独立挂载的，必须通过 `ToolProviderWrapper` 显式重新提供 `I18nProvider`、`AssetProvider`、`WorkflowProvider` 和 `DrawnixContext` 等核心上下文，才能保证内部组件功能正常。
+**原因**: 独立的 React 树不会继承父级树的 Context。在 Yue画布 中，画布元素是通过 SVG `foreignObject` 独立挂载的，必须通过 `ToolProviderWrapper` 显式重新提供 `I18nProvider`、`AssetProvider`、`WorkflowProvider` 和 `DrawnixContext` 等核心上下文，才能保证内部组件功能正常。
 
 ### 错误 11: 获取第三方组件位置使用其内部属性而非 DOM API
 
