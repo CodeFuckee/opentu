@@ -13,6 +13,7 @@
 
 import { sanitizeUrl } from '@aitu/utils';
 import { swChannelClient } from '@drawnix/drawnix/runtime';
+import { shouldReportBoardMissing } from './utils/whitescreen-detector';
 
 // ==================== 类型定义 ====================
 
@@ -1002,6 +1003,11 @@ function checkForWhitescreen(): void {
   const plaitBoard = document.querySelector('.plait-board-container');
   const hasPlaitBoard = !!plaitBoard;
 
+  // 画板是否被有意隐藏（如 AuthGate 登录门禁未登录时只渲染登录页，不挂载画板）
+  const isBoardHidden =
+    !!document.querySelector('[data-whitescreen-hidden="auth-gate"]') ||
+    !!document.querySelector('[data-whitescreen-hidden]');
+
   // 检查是否有可见内容
   const bodyHasContent = document.body.children.length > 1; // 至少有 root 以外的元素
 
@@ -1037,11 +1043,23 @@ function checkForWhitescreen(): void {
   }
 
   // 如果应用已加载但画板不存在（且不是首页等非画板页面）
-  if (hasContent && !hasPlaitBoard && location.pathname === '/') {
+  if (
+    hasContent &&
+    shouldReportBoardMissing({
+      hasContent: !!hasContent,
+      hasPlaitBoard,
+      pathname: location.pathname,
+      isBoardHidden,
+    })
+  ) {
     // 给更多时间，画板可能还在加载
     setTimeout(() => {
+      const stillHidden =
+        !!document.querySelector('[data-whitescreen-hidden="auth-gate"]') ||
+        !!document.querySelector('[data-whitescreen-hidden]');
       if (
         !document.querySelector('.plait-board-container') &&
+        !stillHidden &&
         !whitescreenReported
       ) {
         whitescreenReported = true;

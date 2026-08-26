@@ -90,6 +90,7 @@
     "@plait/layouts": "^0.84.0",
     "@plait/mind": "^0.84.0",
     "@plait/text-plugins": "^0.84.0",
+    "@supabase/supabase-js": "^2.112.4",
     "@tanstack/react-virtual": "^3.13.13",
     "browser-fs-access": "^0.35.0",
     "classnames": "^2.5.1",

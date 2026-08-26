@@ -21,6 +21,8 @@ import {
   registerAnalyticsSuperProperties,
 } from '@drawnix/drawnix';
 import { initSWConsoleCapture } from '../utils/sw-console-capture';
+import { AuthProvider } from '../supabase/auth-context';
+import { AuthGate } from '../supabase/auth-gate';
 
 const isLocalDev =
   typeof window !== 'undefined' &&
@@ -753,7 +755,11 @@ const root = ReactDOM.createRoot(
 root.render(
   <StrictMode>
     <ErrorBoundary>
-      <App />
+      <AuthProvider>
+        <AuthGate>
+          <App />
+        </AuthGate>
+      </AuthProvider>
     </ErrorBoundary>
   </StrictMode>
 );

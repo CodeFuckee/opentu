@@ -77,6 +77,13 @@
         "command": "tsc -p tsconfig.app.json --noEmit",
         "cwd": "apps/web"
       }
+    },
+    "test": {
+      "executor": "@nx/vite:test",
+      "outputs": ["{options.reportsDirectory}"],
+      "options": {
+        "reportsDirectory": "../../coverage/apps/web"
+      }
     }
   }
 }
