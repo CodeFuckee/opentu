@@ -28,6 +28,8 @@ interface AuthContextValue {
   signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  /** 查询邮箱是否已注册；返回 null 表示查询失败（函数未部署/网络错误） */
+  checkEmailRegistered: (email: string) => Promise<boolean | null>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -97,6 +99,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const checkEmailRegistered = useCallback(
+    async (email: string): Promise<boolean | null> => {
+      try {
+        const { data, error } = await getSupabaseClient().functions.invoke(
+          'check-email',
+          { body: { email } }
+        );
+        if (error) {
+          console.warn('[Auth] check-email invoke failed:', error);
+          return null;
+        }
+        return typeof data?.registered === 'boolean'
+          ? data.registered
+          : null;
+      } catch (err) {
+        console.warn('[Auth] check-email unexpected error:', err);
+        return null;
+      }
+    },
+    []
+  );
+
   const value = useMemo<AuthContextValue>(
     () => ({
       status,
@@ -105,8 +129,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUp,
       signIn,
       signOut,
+      checkEmailRegistered,
     }),
-    [status, signUp, signIn, signOut]
+    [status, signUp, signIn, signOut, checkEmailRegistered]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -12,6 +12,8 @@ import {
   validateSignUpInput,
   hasAuthErrors,
   MIN_PASSWORD_LENGTH,
+  getLoginErrorMessage,
+  getRawAuthErrorMessage,
 } from './auth-validation';
 
 describe('auth-validation', () => {
@@ -51,6 +53,45 @@ describe('auth-validation', () => {
     it('合法输入无错误', () => {
       const errors = validateLoginInput(' a@b.com ', '123456');
       expect(hasAuthErrors(errors)).toBe(false);
+    });
+  });
+
+  describe('getLoginErrorMessage / getRawAuthErrorMessage', () => {
+    const invalidCredsError = new Error('Invalid login credentials');
+
+    it('REPRO BUG: 邮箱未注册时仍显示"邮箱或密码错误"（原行为，无法区分）', () => {
+      // 旧的错误映射在不知道注册状态时只能给出通用提示
+      expect(getRawAuthErrorMessage(invalidCredsError)).toBe('邮箱或密码错误');
+    });
+
+    it('FIXED: 查询确认邮箱未注册时，显示"该邮箱尚未注册，请先注册"', () => {
+      const message = getLoginErrorMessage(invalidCredsError, false);
+      expect(message).toBe('该邮箱尚未注册，请先注册');
+    });
+
+    it('邮箱已注册但密码错误时，仍显示"邮箱或密码错误"', () => {
+      const message = getLoginErrorMessage(invalidCredsError, true);
+      expect(message).toBe('邮箱或密码错误');
+    });
+
+    it('查询失败（null，函数未部署/网络错误）时回退通用提示，不阻塞登录', () => {
+      const message = getLoginErrorMessage(invalidCredsError, null);
+      expect(message).toBe('邮箱或密码错误');
+    });
+
+    it('注册场景（already registered）映射为"该邮箱已注册"', () => {
+      expect(getRawAuthErrorMessage(new Error('User already registered'))).toBe(
+        '该邮箱已注册'
+      );
+    });
+
+    it('弱密码（weak password）映射为密码长度提示', () => {
+      const message = getRawAuthErrorMessage(
+        new Error('Password should be at least 6 characters.')
+      );
+      expect(message).toBe(
+        `密码设置不合规，请至少使用 ${MIN_PASSWORD_LENGTH} 位以上`
+      );
     });
   });
 });

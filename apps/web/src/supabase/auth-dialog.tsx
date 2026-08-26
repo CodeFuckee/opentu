@@ -8,6 +8,8 @@ import { useCallback, useState } from 'react';
 import { Button, Dialog, Input, MessagePlugin } from 'tdesign-react';
 import { useAuth } from './auth-context';
 import {
+  getLoginErrorMessage,
+  getRawAuthErrorMessage,
   hasAuthErrors,
   validateLoginInput,
   validateSignUpInput,
@@ -23,37 +25,13 @@ interface AuthDialogProps {
   onClose: () => void;
 }
 
-function getErrorMessage(error: Error | null): string {
-  if (!error) {
-    return '';
-  }
-  const text = error.message;
-  const lower = text.toLowerCase();
-  if (lower.includes('invalid login')) {
-    return '邮箱或密码错误';
-  }
-  if (lower.includes('already registered')) {
-    return '该邮箱已注册';
-  }
-  if (lower.includes('weak password') || lower.includes('at least')) {
-    return `密码设置不合规，请至少使用 ${MIN_PASSWORD_LENGTH} 位以上`;
-  }
-  if (lower.includes('password')) {
-    return `密码设置不合规，请至少使用 ${MIN_PASSWORD_LENGTH} 位以上`;
-  }
-  if (lower.includes('email')) {
-    return '请输入有效的邮箱地址';
-  }
-  return text || '操作失败，请稍后重试';
-}
-
 export function AuthDialog({
   visible,
   mode,
   onModeChange,
   onClose,
 }: AuthDialogProps) {
-  const { signIn, signUp, isReady } = useAuth();
+  const { signIn, signUp, isReady, checkEmailRegistered } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -92,7 +70,7 @@ export function AuthDialog({
       if (isSignUp) {
         const { error } = await signUp(trimmedEmail, password);
         if (error) {
-          MessagePlugin.error(getErrorMessage(error));
+          MessagePlugin.error(getRawAuthErrorMessage(error));
           return;
         }
         MessagePlugin.success('注册成功');
@@ -100,7 +78,9 @@ export function AuthDialog({
       } else {
         const { error } = await signIn(trimmedEmail, password);
         if (error) {
-          MessagePlugin.error(getErrorMessage(error));
+          // 区分「邮箱未注册」与「密码错误」：先查后端，查不到则回退通用提示
+          const registered = await checkEmailRegistered(trimmedEmail);
+          MessagePlugin.error(getLoginErrorMessage(error, registered));
           return;
         }
         MessagePlugin.success('登录成功');
@@ -109,7 +89,7 @@ export function AuthDialog({
     } finally {
       setSubmitting(false);
     }
-  }, [email, password, confirm, isSignUp, signIn, signUp, onClose]);
+  }, [email, password, confirm, isSignUp, signIn, signUp, checkEmailRegistered, onClose]);
 
   const canSubmit = !submitting && isReady;
 
