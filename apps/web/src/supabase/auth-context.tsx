@@ -38,14 +38,14 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-/** 把 oa账号写入 user_profiles（fire-and-forget，失败仅警告不阻塞） */
-async function persistOaAccount(userId: string, account: string): Promise<void> {
+/** 注册成功后，根据 staff_directory 字段填写 user_profiles（fire-and-forget，失败仅警告不阻塞） */
+async function syncStaffProfile(userId: string, account: string): Promise<void> {
   try {
-    await getSupabaseClient()
-      .from('user_profiles')
-      .upsert({ user_id: userId, oa_account: account }, { onConflict: 'user_id' });
+    await getSupabaseClient().functions.invoke('sync-staff-profile', {
+      body: { userId, oaAccount: account },
+    });
   } catch (error) {
-    console.warn('[Auth] persist oa_account failed:', error);
+    console.warn('[Auth] sync staff profile failed:', error);
   }
 }
 
@@ -93,8 +93,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
       });
       if (!error && data.user) {
-        // 注册成功后把 oa账号写入 user_profiles（RLS 允许用户写自己的行）
-        void persistOaAccount(data.user.id, account.trim());
+        // 注册成功后，根据 staff_directory 字段填写 user_profiles（含 oa_account/部门等）
+        void syncStaffProfile(data.user.id, account.trim());
       }
       return { error: error ? new Error(error.message) : null };
     },
