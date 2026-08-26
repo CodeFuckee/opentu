@@ -271,3 +271,11 @@ a {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* 认证表单（登录/注册）字段级错误提示 */
+.auth-field-error {
+  margin-top: 6px;
+  color: #e34d59;
+  font-size: 12px;
+  line-height: 1.4;
+}

@@ -7,6 +7,12 @@
 import { useCallback, useState } from 'react';
 import { Button, Dialog, Input, MessagePlugin } from 'tdesign-react';
 import { useAuth } from './auth-context';
+import {
+  hasAuthErrors,
+  validateLoginInput,
+  validateSignUpInput,
+  MIN_PASSWORD_LENGTH,
+} from './auth-validation';
 
 export type AuthMode = 'signin' | 'signup';
 
@@ -22,16 +28,20 @@ function getErrorMessage(error: Error | null): string {
     return '';
   }
   const text = error.message;
-  if (text.toLowerCase().includes('invalid login')) {
+  const lower = text.toLowerCase();
+  if (lower.includes('invalid login')) {
     return '邮箱或密码错误';
   }
-  if (text.toLowerCase().includes('already registered')) {
+  if (lower.includes('already registered')) {
     return '该邮箱已注册';
   }
-  if (text.toLowerCase().includes('password')) {
-    return '密码设置不合规，请至少使用 6 位以上';
+  if (lower.includes('weak password') || lower.includes('at least')) {
+    return `密码设置不合规，请至少使用 ${MIN_PASSWORD_LENGTH} 位以上`;
   }
-  if (text.toLowerCase().includes('email')) {
+  if (lower.includes('password')) {
+    return `密码设置不合规，请至少使用 ${MIN_PASSWORD_LENGTH} 位以上`;
+  }
+  if (lower.includes('email')) {
     return '请输入有效的邮箱地址';
   }
   return text || '操作失败，请稍后重试';
@@ -48,6 +58,11 @@ export function AuthDialog({
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{
+    email?: string;
+    password?: string;
+    confirm?: string;
+  }>({});
 
   const isSignUp = mode === 'signup';
 
@@ -56,6 +71,7 @@ export function AuthDialog({
       setEmail('');
       setPassword('');
       setConfirm('');
+      setFieldErrors({});
       onModeChange(next);
     },
     [onModeChange]
@@ -63,16 +79,11 @@ export function AuthDialog({
 
   const handleSubmit = useCallback(async () => {
     const trimmedEmail = email.trim();
-    if (!trimmedEmail) {
-      MessagePlugin.warning('请输入邮箱');
-      return;
-    }
-    if (!password) {
-      MessagePlugin.warning('请输入密码');
-      return;
-    }
-    if (isSignUp && password !== confirm) {
-      MessagePlugin.warning('两次输入的密码不一致');
+    const errors = isSignUp
+      ? validateSignUpInput(trimmedEmail, password, confirm)
+      : validateLoginInput(trimmedEmail, password);
+    setFieldErrors(errors);
+    if (hasAuthErrors(errors)) {
       return;
     }
 
@@ -112,35 +123,50 @@ export function AuthDialog({
       closeOnOverlayClick
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <Input
-          value={email}
-          type="text"
-          placeholder="邮箱"
-          autocomplete="email"
-          clearable
-          disabled={submitting}
-          onChange={(value) => setEmail(String(value))}
-          onEnter={canSubmit ? handleSubmit : undefined}
-        />
-        <Input
-          value={password}
-          type="password"
-          placeholder="密码"
-          clearable
-          disabled={submitting}
-          onChange={(value) => setPassword(String(value))}
-          onEnter={canSubmit ? handleSubmit : undefined}
-        />
-        {isSignUp && (
+        <div>
           <Input
-            value={confirm}
-            type="password"
-            placeholder="确认密码"
+            value={email}
+            type="text"
+            placeholder="邮箱"
+            autocomplete="email"
             clearable
             disabled={submitting}
-            onChange={(value) => setConfirm(String(value))}
+            onChange={(value) => setEmail(String(value))}
             onEnter={canSubmit ? handleSubmit : undefined}
           />
+          {fieldErrors.email && (
+            <div className="auth-field-error">{fieldErrors.email}</div>
+          )}
+        </div>
+        <div>
+          <Input
+            value={password}
+            type="password"
+            placeholder={`密码（至少 ${MIN_PASSWORD_LENGTH} 位）`}
+            clearable
+            disabled={submitting}
+            onChange={(value) => setPassword(String(value))}
+            onEnter={canSubmit ? handleSubmit : undefined}
+          />
+          {fieldErrors.password && (
+            <div className="auth-field-error">{fieldErrors.password}</div>
+          )}
+        </div>
+        {isSignUp && (
+          <div>
+            <Input
+              value={confirm}
+              type="password"
+              placeholder="确认密码"
+              clearable
+              disabled={submitting}
+              onChange={(value) => setConfirm(String(value))}
+              onEnter={canSubmit ? handleSubmit : undefined}
+            />
+            {fieldErrors.confirm && (
+              <div className="auth-field-error">{fieldErrors.confirm}</div>
+            )}
+          </div>
         )}
         <Button
           theme="primary"
