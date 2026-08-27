@@ -15,8 +15,10 @@ import {
 } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { getSupabaseClient } from './supabase-client';
+import { SUPABASE_URL } from './supabase-client';
 import { normalizeLoginAccount } from './auth-validation';
 import type { RegisterEligibility } from './auth-validation';
+import { configureManagedRouting } from '@drawnix/drawnix/runtime';
 
 export type AuthStatus =
   | { state: 'unknown' }
@@ -47,6 +49,37 @@ async function syncStaffProfile(userId: string, account: string): Promise<void> 
   } catch (error) {
     console.warn('[Auth] sync staff profile failed:', error);
   }
+}
+
+/** 注册成功后，调用 newapi-key 获取 apikey（fire-and-forget，失败仅警告不阻塞） */
+async function requestNewApiKey(userId: string, account: string): Promise<void> {
+  try {
+    await getSupabaseClient().functions.invoke('newapi-key', {
+      body: { userId, oaAccount: account },
+    });
+  } catch (error) {
+    console.warn('[Auth] newapi-key request failed:', error);
+  }
+}
+
+/**
+ * 取当前会话 access_token（供 ai-proxy 托管路由使用）。
+ * 临期（<30s）时先刷新一次，避免把过期 JWT 发给代理。
+ */
+async function getAccessToken(): Promise<string | null> {
+  const client = getSupabaseClient();
+  const { data } = await client.auth.getSession();
+  const session = data.session;
+  const token = session?.access_token;
+  if (!token) {
+    return null;
+  }
+  const expiresAtMs = (session?.expires_at ?? 0) * 1000;
+  if (expiresAtMs - Date.now() < 30_000) {
+    const { data: refreshed } = await client.auth.refreshSession();
+    return refreshed.session?.access_token ?? token;
+  }
+  return token;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -85,6 +118,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  // 登录态变化时同步托管上游路由：登录 → 流量经 ai-proxy（服务端计量生图额度）；
+  // 未登录/退出 → 回到本地直连模式
+  useEffect(() => {
+    if (status.state === 'authenticated') {
+      configureManagedRouting({
+        supabaseUrl: SUPABASE_URL,
+        getToken: getAccessToken,
+      });
+    } else {
+      configureManagedRouting(null);
+    }
+  }, [status]);
+
   const signUp = useCallback(
     async (account: string, password: string) => {
       const email = normalizeLoginAccount(account);
@@ -93,8 +139,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
       });
       if (!error && data.user) {
-        // 注册成功后，根据 staff_directory 字段填写 user_profiles（含 oa_account/部门等）
-        void syncStaffProfile(data.user.id, account.trim());
+        const userId = data.user.id;
+        const oaAccount = account.trim();
+        // 注册成功后并行：填写 staff_directory 字段 + 获取 new-api apikey
+        // （均为 fire-and-forget，失败不阻塞注册）
+        void syncStaffProfile(userId, oaAccount);
+        void requestNewApiKey(userId, oaAccount);
       }
       return { error: error ? new Error(error.message) : null };
     },

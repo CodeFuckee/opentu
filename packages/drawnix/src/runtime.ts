@@ -31,3 +31,4 @@ export {
   requestServiceWorkerIdlePrefetch,
   type IdlePrefetchGroup,
 } from './utils/startup-prefetch';
+export { configureManagedRouting } from './services/managed-routing/managed-runtime';

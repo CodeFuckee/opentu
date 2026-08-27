@@ -7,6 +7,7 @@
 import { CryptoUtils } from './crypto-utils';
 import { DRAWNIX_SETTINGS_KEY } from '../constants/storage';
 import { configIndexedDBWriter } from './config-indexeddb-writer';
+import { isManagedUpstreamEnabled } from '../services/managed-routing/managed-runtime';
 import type { GeminiConfig } from './gemini-api/types';
 import type { VideoAPIConfig } from './config-indexeddb-writer';
 import type { ProviderPricingCache } from './model-pricing-types';
@@ -1881,6 +1882,11 @@ class SettingsManager {
     routeType: ModelType,
     requestedModelId?: string | ModelRef | null
   ): boolean {
+    // 登录托管态：上游凭据由 ai-proxy 在服务端注入，浏览器不持有 key，
+    // 因此所有路由视为凭据就绪（不再向用户弹出手填 API Key 对话框）
+    if (isManagedUpstreamEnabled()) {
+      return true;
+    }
     const route = this.resolveInvocationRoute(routeType, requestedModelId);
     return Boolean(route.baseUrl && route.apiKey);
   }

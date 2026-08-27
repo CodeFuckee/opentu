@@ -68,6 +68,7 @@ import {
 } from '../../utils/model-selection';
 import type { ModelConfig } from '../../constants/model-config';
 import './batch-image-generation.scss';
+import { ImageQuotaBanner } from './ImageQuotaBanner';
 import { trackMemory } from '../../utils/common';
 import { HoverTip } from '../shared/hover';
 import { KnowledgeNoteContextSelector, RetryImage } from '../shared';
@@ -3145,6 +3146,7 @@ const BatchImageGeneration: React.FC<BatchImageGenerationProps> = ({
   return (
     <div ref={batchRootRef} className="batch-image-generation" tabIndex={-1}>
       <div className="batch-main-content">
+        <ImageQuotaBanner />
         {/* 工具栏 - 按用户动线排列：导入数据 → 选择操作 → 删除 → 下载 */}
         <div className="batch-toolbar">
           {/* 隐藏的文件输入 */}

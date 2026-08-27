@@ -4,6 +4,93 @@ import type {
   ProviderTransportRequest,
   ResolvedProviderContext,
 } from './types';
+import {
+  getManagedProxyBase,
+  getManagedRoutingConfig,
+  ImageQuotaExceededError,
+  isManagedUpstreamEnabled,
+  parseQuotaErrorFromResponse,
+} from '../managed-routing/managed-runtime';
+
+/** 托管模式下从请求头中剔除的本地凭据键（改由代理注入） */
+const MANAGED_STRIPPED_HEADER_KEYS = ['authorization', 'x-api-key', 'x-goog-api-key'];
+
+function stripManagedAuthHeaders(
+  headers: Record<string, string>
+): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    if (!MANAGED_STRIPPED_HEADER_KEYS.includes(key.toLowerCase())) {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+/**
+ * 托管路由改写：将已解析出的上游 URL 隧道至 ai-proxy 边缘函数。
+ * 仅保留 pathname+search（保留 baseUrlStrategy/join 后的真实上游路径语义），
+ * 由服务端注入 API Key 并按路径规则计量生图额度。
+ */
+async function resolveManagedSendContext(
+  context: ResolvedProviderContext
+): Promise<{ context: ResolvedProviderContext; proxyBase: string; token: string } | null> {
+  if (!isManagedUpstreamEnabled()) {
+    return null;
+  }
+  const config = getManagedRoutingConfig();
+  const proxyBase = getManagedProxyBase();
+  if (!config || !proxyBase) {
+    return null;
+  }
+  const token = await config.getToken();
+  if (!token) {
+    throw new Error('登录状态已失效，请重新登录后再使用 AI 功能');
+  }
+
+  // 清空本地凭据与鉴权头，避免把浏览器残留 key 带往任何方向
+  const sanitized: ResolvedProviderContext = {
+    ...context,
+    apiKey: '',
+    extraHeaders: context.extraHeaders
+      ? stripManagedAuthHeaders(context.extraHeaders)
+      : context.extraHeaders,
+  };
+
+  return { context: sanitized, proxyBase, token };
+}
+
+function rewriteUrlToProxy(
+  prepared: PreparedProviderTransportRequest,
+  proxyBase: string,
+  token: string
+): PreparedProviderTransportRequest {
+  let targetPath = '';
+  try {
+    const parsed = new URL(prepared.url);
+    targetPath = `${parsed.pathname}${parsed.search}`;
+  } catch {
+    targetPath = '';
+  }
+  if (!targetPath) {
+    throw new Error('托管路由改写失败：无法解析上游地址');
+  }
+
+  const authedHeaders = {
+    ...prepared.headers,
+    Authorization: `Bearer ${token}`,
+  };
+
+  return {
+    url: `${proxyBase}${targetPath}`,
+    headers: authedHeaders,
+    init: {
+      ...prepared.init,
+      headers: authedHeaders,
+      credentials: 'omit',
+    },
+  };
+}
 
 function trimTrailingSlashes(value: string): string {
   return value.replace(/\/+$/, '');
@@ -192,15 +279,34 @@ export class ProviderTransport {
       request.signal,
       request.timeoutMs
     );
-    const prepared = this.prepareRequest(context, {
+
+    const managed = await resolveManagedSendContext(context);
+    const effectiveContext = managed ? managed.context : context;
+
+    const prepared = this.prepareRequest(effectiveContext, {
       ...request,
       signal: timeoutControl.signal,
     });
+    const finalPrepared = managed
+      ? rewriteUrlToProxy(prepared, managed.proxyBase, managed.token)
+      : prepared;
     const fetcher = request.fetcher || fetch;
 
     try {
-      return await fetcher(prepared.url, prepared.init);
+      const response = await fetcher(finalPrepared.url, finalPrepared.init);
+
+      if (managed) {
+        const quotaError = await parseQuotaErrorFromResponse(response);
+        if (quotaError) {
+          throw quotaError;
+        }
+      }
+
+      return response;
     } catch (error) {
+      if (error instanceof ImageQuotaExceededError) {
+        throw error;
+      }
       if (timeoutControl.didTimeout()) {
         const timeoutMinutes = Math.floor((request.timeoutMs || 0) / 60000);
         const timeoutError = new Error(

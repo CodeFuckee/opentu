@@ -7,6 +7,7 @@ import React, {
 } from 'react';
 import './ttd-dialog.scss';
 import './ai-image-generation.scss';
+import { ImageQuotaBanner } from './ImageQuotaBanner';
 import { useI18n } from '../../i18n';
 import { type Language } from '../../constants/prompts';
 import { useDeviceType } from '../../hooks/useDeviceType';
@@ -986,6 +987,7 @@ const AIImageGeneration = ({
               : ''
           }`}
         >
+          <ImageQuotaBanner />
           <div className="ai-image-generation-form">
             {/* 模型选择器 */}
             {selectedModel !== undefined && onModelChange && (

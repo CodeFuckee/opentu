@@ -1,0 +1,27 @@
+.image-quota-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  background-color: rgba(64, 128, 255, 0.08);
+  color: rgba(38, 88, 255, 0.95);
+
+  &__icon {
+    flex-shrink: 0;
+  }
+
+  &--low {
+    background-color: rgba(255, 153, 0, 0.1);
+    color: #b25e00;
+  }
+
+  &--exhausted {
+    background-color: rgba(255, 77, 79, 0.12);
+    color: #cf1322;
+    font-weight: 500;
+  }
+}

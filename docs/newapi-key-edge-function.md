@@ -112,3 +112,29 @@ user_profiles：apikey 已写入（DJfw***RDGX），newapi_password 已写入（
   若部署到公网，建议改用加密存储。
 - `configs.NEWAPI_TOKEN` 是 new-api 管理员 token（root），仅函数内使用，不暴露给前端。
 - 调用方（前端）只持有最终 apikey（令牌 key），该 key 额度受用户账户额度约束。
+
+## 9. 注册后自动获取 apikey
+
+注册成功后，前端 `auth-context.tsx` 的 `signUp` 会**并行**触发两个 Edge Function
+（均为 fire-and-forget，失败不阻塞注册）：
+
+1. `sync-staff-profile`：按 staff_directory 填写 user_profiles（部门/区域/岗位/姓名）
+2. `newapi-key`：获取/创建 new-api apikey 并写入 `user_profiles.apikey`
+
+```ts
+// apps/web/src/supabase/auth-context.tsx
+void syncStaffProfile(userId, oaAccount);
+void requestNewApiKey(userId, oaAccount);
+```
+
+端到端实测（真实数据，已通过）：
+
+```
+注册 panyong@yjk.com → 并行调用两个函数
+sync-staff-profile → {"synced":true, staff:{department:"方案中心", name:"潘勇", ...}}
+newapi-key         → {"apikey":"8Txe***QELR"}
+
+user_profiles：oa_account=panyong, department=方案中心, region=方案设计所,
+               position=方案专业总监, apikey=8Txe***QELR
+new-api 平台：用户 panyong 已创建，quota=200（首次创建设额度生效）
+```
