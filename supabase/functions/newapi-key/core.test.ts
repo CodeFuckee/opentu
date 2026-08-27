@@ -105,10 +105,25 @@ test('首次创建：建用户 → 设额度 200 → 登录 → 建令牌 → �
     if (url.includes('/api/user/') && method === 'POST') {
       return { status: 200, body: { success: true, message: '' } };
     }
+    if (/\/api\/token\/\d+\/key$/.test(url) && method === 'POST') {
+      return {
+        status: 200,
+        body: { success: true, data: { key: 'b'.repeat(48) } },
+      };
+    }
+    if (url.includes('/api/token/search') && method === 'GET') {
+      const keyword = decodeURIComponent(
+        url.split('keyword=')[1]?.split('&')[0] || ''
+      );
+      return {
+        status: 200,
+        body: { data: { items: [{ id: 55, name: keyword }] }, success: true },
+      };
+    }
     if (url.includes('/api/token/') && method === 'POST') {
       return {
         status: 200,
-        body: { success: true, message: '', data: { items: [{ key: 'sk-new-token' }] } },
+        body: { success: true, message: '' },
       };
     }
     return { status: 200, body: {} };
@@ -121,7 +136,7 @@ test('首次创建：建用户 → 设额度 200 → 登录 → 建令牌 → �
     'zhangsan',
     { fetch: fetchMock, generatePassword: () => 'GenPass123!' }
   );
-  assert.equal(result.apikey, 'sk-new-token');
+  assert.equal(result.apikey, 'sk-' + 'b'.repeat(48));
 
   // 断言调用了建用户、设额度、登录、建令牌
   const userCreate = calls.find((u) => u.endsWith('/api/user/'));
@@ -130,6 +145,10 @@ test('首次创建：建用户 → 设额度 200 → 登录 → 建令牌 → �
   assert.ok(quotaCall, '应调用设额度');
   assert.ok(calls.some((u) => u.includes('/api/user/login')), '应调用登录');
   assert.ok(calls.some((u) => u.includes('/api/token/')), '应调用建令牌');
+  assert.ok(
+    calls.some((u) => /\/api\/token\/\d+\/key$/.test(u)),
+    '应通过专用端点取完整 key'
+  );
 });
 
 test('用户已存在时跳过创建用户与设额度', async () => {
@@ -164,10 +183,25 @@ test('用户已存在时跳过创建用户与设额度', async () => {
         body: { success: true, data: { access_token: 'user-jwt' } },
       };
     }
+    if (/\/api\/token\/\d+\/key$/.test(url) && method === 'POST') {
+      return {
+        status: 200,
+        body: { success: true, data: { key: 'd'.repeat(48) } },
+      };
+    }
+    if (url.includes('/api/token/search') && method === 'GET') {
+      const keyword = decodeURIComponent(
+        url.split('keyword=')[1]?.split('&')[0] || ''
+      );
+      return {
+        status: 200,
+        body: { data: { items: [{ id: 56, name: keyword }] }, success: true },
+      };
+    }
     if (url.includes('/api/token/') && method === 'POST') {
       return {
         status: 200,
-        body: { success: true, message: '', data: { items: [{ key: 'sk-existing-user' }] } },
+        body: { success: true, message: '' },
       };
     }
     return { status: 200, body: {} };
@@ -180,7 +214,7 @@ test('用户已存在时跳过创建用户与设额度', async () => {
     'zhangsan',
     { fetch: fetchMock, generatePassword: () => 'GenPass123!' }
   );
-  assert.equal(result.apikey, 'sk-existing-user');
+  assert.equal(result.apikey, 'sk-' + 'd'.repeat(48));
   // 不应调用创建用户 / 设额度
   assert.ok(!calls.some((u) => u.endsWith('/api/user/')), '不应创建用户');
   assert.ok(!calls.some((u) => u.includes('/api/user/manage')), '不应设额度');
@@ -232,4 +266,177 @@ test('readConfigValue / readProfileValue 基础读取', async () => {
     await readProfileValue(SUPABASE_URL, SRK, 'u1', 'apikey', { fetch: fetchMock }),
     'sk-x'
   );
+});
+
+// ============================================================
+// 复现缺陷：平台已有同名用户时，新生成密码必须同步到平台才能登录；
+// 以及：完整 token key 只能经 POST /api/token/:id/key 获取，
+// 列表/搜索接口一律打码（真实 new-api GetMaskedKey 行为）。
+// ============================================================
+
+function maskKey(key: string): string {
+  if (key.length <= 8) {
+    return '*'.repeat(key.length);
+  }
+  return `${key.slice(0, 4)}${'*'.repeat(key.length - 8)}${key.slice(-4)}`;
+}
+
+function jsonFetchHelper(body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+function createPlatformSimMock(options: {
+  platformPassword: string;
+  storedDbPassword?: string | null;
+}) {
+  let storedDbPassword = options.storedDbPassword ?? null;
+  const platformPasswords: Record<string, string> = {
+    zhangsan: options.platformPassword,
+  };
+  const tokens = new Map<number, { id: number; name: string; key: string }>();
+  let nextTokenId = 1;
+  let savedApiKey: string | null = null;
+  let savedSyncedPassword: string | null = null;
+  const calls: string[] = [];
+
+  const fetchMock = async (
+    input: RequestInfo | URL,
+    init?: RequestInit
+  ): Promise<Response> => {
+    const url = String(input);
+    const method = init?.method || 'GET';
+    calls.push(`${method} ${url}`);
+    const rawBody = typeof init?.body === 'string' ? init.body : '';
+
+    if (url.includes('/rest/v1/user_profiles') && url.includes('select=apikey')) {
+      return jsonFetchHelper(savedApiKey ? [{ apikey: savedApiKey }] : []);
+    }
+    if (url.includes('select=newapi_password')) {
+      return jsonFetchHelper(
+        storedDbPassword ? [{ newapi_password: storedDbPassword }] : []
+      );
+    }
+    if (url.includes('/rest/v1/configs')) {
+      return jsonFetchHelper([{ value: 'http://newapi.local:3000' }]);
+    }
+    if (url.includes('on_conflict=user_id')) {
+      const payload = JSON.parse(rawBody) as {
+        apikey?: string;
+        newapi_password?: string;
+      };
+      if (payload.newapi_password !== undefined) {
+        storedDbPassword = payload.newapi_password;
+        savedSyncedPassword = payload.newapi_password;
+      }
+      if (payload.apikey !== undefined) {
+        savedApiKey = payload.apikey;
+      }
+      return jsonFetchHelper({});
+    }
+    if (/\/api\/token\/\d+\/key$/.test(url) && method === 'POST') {
+      const id = Number(url.match(/\/api\/token\/(\d+)\/key/)![1]);
+      const token = tokens.get(id);
+      return jsonFetchHelper(
+        token
+          ? { success: true, data: { key: token.key } }
+          : { success: false, message: 'no such token' }
+      );
+    }
+    if (url.includes('/api/token/search') && method === 'GET') {
+      const keyword = decodeURIComponent(
+        url.split('keyword=')[1]?.split('&')[0] || ''
+      );
+      const items = [...tokens.values()]
+        .filter((t) => t.name.includes(keyword))
+        .map((t) => ({ id: t.id, name: t.name, key: maskKey(t.key) }));
+      return jsonFetchHelper({ data: { items }, success: true });
+    }
+    if (url.includes('/api/token/') && method === 'POST' && !url.endsWith('/key')) {
+      const payload = JSON.parse(rawBody) as { name: string };
+      const key = Array.from({ length: 48 }, () =>
+        Math.floor(Math.random() * 16).toString(16)
+      ).join('');
+      tokens.set(nextTokenId, { id: nextTokenId, name: payload.name, key });
+      nextTokenId += 1;
+      return jsonFetchHelper({ success: true, message: '' });
+    }
+    if (url.includes('/api/user/search')) {
+      return jsonFetchHelper({
+        data: { items: [{ id: 7, username: 'zhangsan', quota: 123 }] },
+        success: true,
+      });
+    }
+    if (url.includes('/api/user/') && method === 'PUT') {
+      const payload = JSON.parse(rawBody) as {
+        username: string;
+        password: string;
+      };
+      platformPasswords[payload.username] = payload.password;
+      return jsonFetchHelper({ success: true, message: '' });
+    }
+    if (url.includes('/api/user/manage')) {
+      return jsonFetchHelper({ success: true });
+    }
+    if (url.includes('/api/user/login')) {
+      const payload = JSON.parse(rawBody) as { username: string; password: string };
+      if (platformPasswords[payload.username] === payload.password) {
+        return jsonFetchHelper({
+          success: true,
+          data: { access_token: 'user-jwt-7' },
+        });
+      }
+      return jsonFetchHelper({
+        success: false,
+        message: 'Username or password is incorrect, or user has been banned',
+      });
+    }
+    throw new Error(`unrouted: ${url}`);
+  };
+
+  return {
+    fetchMock: fetchMock as unknown as typeof fetch,
+    getSavedApiKey: () => savedApiKey,
+    getSavedSyncedPassword: () => savedSyncedPassword,
+    getPlatformPassword: () => platformPasswords['zhangsan'],
+  };
+}
+
+test('复现：平台用户已存在且本地无存密码 → 必须先同步密码再登录建key', async () => {
+  const sim = createPlatformSimMock({
+    platformPassword: 'PlatformOldPwd1',
+    storedDbPassword: null,
+  });
+
+  const result = await getOrCreateApiKey(
+    SUPABASE_URL,
+    SRK,
+    'user-1',
+    'zhangsan',
+    { fetch: sim.fetchMock, generatePassword: () => 'GenPass456!' }
+  );
+
+  assert.match(result.apikey, /^sk-[0-9a-f]{48}$/);
+  assert.equal(sim.getSavedSyncedPassword(), sim.getPlatformPassword());
+  assert.equal(sim.getSavedApiKey(), result.apikey);
+});
+
+test('复现：库中残留与平台不一致的脏密码 → 应重新生成并同步后自愈', async () => {
+  const sim = createPlatformSimMock({
+    platformPassword: 'PlatformOldPwd1',
+    storedDbPassword: 'StaleWrongPwd99',
+  });
+
+  const result = await getOrCreateApiKey(
+    SUPABASE_URL,
+    SRK,
+    'user-1',
+    'zhangsan',
+    { fetch: sim.fetchMock, generatePassword: () => 'GenPass789!' }
+  );
+
+  assert.match(result.apikey, /^sk-[0-9a-f]{48}$/);
+  assert.equal(sim.getSavedSyncedPassword(), sim.getPlatformPassword());
 });

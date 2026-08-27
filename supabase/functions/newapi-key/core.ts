@@ -197,6 +197,31 @@ export async function createNewApiUser(
   );
 }
 
+/**
+ * 管理员权限同步已有用户的密码到 new-api 平台。
+ * 平台上已存在同名用户时，本地生成的密码必须经此接口写入平台，
+ * 否则用户登录永远报 "Username or password is incorrect"。
+ */
+export async function updateNewApiUserPassword(
+  baseUrl: string,
+  adminToken: string,
+  userId: number,
+  username: string,
+  newPassword: string,
+  deps: NewapiKeyDeps = {}
+): Promise<void> {
+  await newApiRequest(
+    baseUrl,
+    '/api/user/',
+    adminToken,
+    {
+      method: 'PUT',
+      body: { id: userId, username, password: newPassword },
+    },
+    deps
+  );
+}
+
 /** 设置 new-api 用户账户额度（mode=override 直接设为 value） */
 export async function setNewApiUserQuota(
   baseUrl: string,
@@ -238,14 +263,18 @@ export async function loginNewApiUser(
   return token;
 }
 
-/** 以用户身份创建令牌，返回完整 key */
+/** 以用户身份创建令牌，返回完整 key（含 sk- 前缀） */
 export async function createNewApiToken(
   baseUrl: string,
   userToken: string,
   name: string,
   deps: NewapiKeyDeps = {}
 ): Promise<string> {
-  const payload = await newApiRequest(
+  // 创建响应不含 key/id，仅返回 success。
+  // unlimited_quota 必须为 true：平台对 token 自身也做配额校验，
+  // remain_quota:0 且非 unlimited 会产生"出生即耗尽"的无效令牌；
+  // 额度管控由账户级配额（注册时 add_quota）与本代理的月度计量负责。
+  await newApiRequest(
     baseUrl,
     '/api/token/',
     userToken,
@@ -254,25 +283,58 @@ export async function createNewApiToken(
       body: {
         name,
         expired_time: -1,
-        unlimited_quota: false,
+        unlimited_quota: true,
         remain_quota: 0,
       },
     },
     deps
   );
-  // 创建响应不含 key，需通过列表或 /:id/key 获取
-  const items = payload?.data?.items;
-  if (Array.isArray(items) && items.length > 0) {
-    const token = items[items.length - 1];
-    return token.key;
+
+  // 平台对列表/详情接口统一打码 key（GetMaskedKey），
+  // 完整 key 必须用唯一名称搜出 id 后经 POST /api/token/:id/key 获取。
+  const searchPayload = await newApiRequest(
+    baseUrl,
+    `/api/token/search?keyword=${encodeURIComponent(name)}`,
+    userToken,
+    {},
+    deps
+  );
+  const items = searchPayload?.data?.items;
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new Error(`new-api token created but not found by search: ${name}`);
   }
-  // 兜底：列出令牌取最后一个
-  const list = await newApiRequest(baseUrl, '/api/token/?p=1&size=50', userToken, {}, deps);
-  const listItems = list?.data?.items;
-  if (Array.isArray(listItems) && listItems.length > 0) {
-    return listItems[listItems.length - 1].key;
+  const created = items.find((item: any) => item.name === name);
+  if (!created || typeof created.id !== 'number') {
+    throw new Error(`new-api token id not found for: ${name}`);
   }
-  throw new Error('new-api token created but key not found');
+
+  const keyPayload = await newApiRequest(
+    baseUrl,
+    `/api/token/${created.id}/key`,
+    userToken,
+    { method: 'POST' },
+    deps
+  );
+  const fullKey = keyPayload?.data?.key;
+  assertFullTokenKey(fullKey);
+
+  // 与平台前端“复制”行为一致：携带 sk- 前缀存储与使用
+  return `sk-${fullKey}`;
+}
+
+/**
+ * 校验取到的是完整明文 key：平台对部分接口/旧版本会返回中间带 * 的掩码，
+ * 一旦入库将导致上游 Invalid token，必须显式拒绝。
+ */
+export function assertFullTokenKey(key: unknown): asserts key is string {
+  if (typeof key !== 'string' || key.length < 32) {
+    throw new Error('new-api returned invalid/truncated token key');
+  }
+  if (key.includes('*')) {
+    throw new Error(
+      'new-api returned a masked token key; upgrade platform or check token key endpoint'
+    );
+  }
 }
 
 /** 随机密码生成器（默认实现） */
@@ -341,15 +403,26 @@ export async function getOrCreateApiKey(
 
   let password: string;
   if (existingUser) {
-    // 已存在：复用存储的密码（若缺失则生成新密码并更新，同时重置 new-api 密码）
-    password =
-      (await readProfileValue(
-        supabaseUrl,
-        serviceRoleKey,
-        userId,
-        'newapi_password',
+    // 平台已存在：优先复用存储的密码；缺失则生成新密码并同步到平台
+    // （此前缺陷：仅写库不同步平台，导致登录永败，见 core.test.ts 复现用例）
+    const stored = await readProfileValue(
+      supabaseUrl,
+      serviceRoleKey,
+      userId,
+      'newapi_password',
+      deps
+    );
+    password = stored || generatePassword();
+    if (!stored) {
+      await updateNewApiUserPassword(
+        newApiUrl,
+        newApiToken,
+        existingUser.id,
+        oaAccount,
+        password,
         deps
-      )) || generatePassword();
+      );
+    }
     await writeProfileValue(
       supabaseUrl,
       serviceRoleKey,
@@ -358,7 +431,7 @@ export async function getOrCreateApiKey(
       deps
     );
   } else {
-    // 步骤 4：创建用户 + 设额度 200
+    // 步骤 4：创建用户 + 设额度 200（创建时已带密码，无需再同步）
     password = generatePassword();
     await createNewApiUser(newApiUrl, newApiToken, oaAccount, password, deps);
     const created = await findNewApiUser(newApiUrl, newApiToken, oaAccount, deps);
@@ -375,7 +448,34 @@ export async function getOrCreateApiKey(
   }
 
   // 步骤 6：登录 → 建令牌 → 取完整 key
-  const userToken = await loginNewApiUser(newApiUrl, oaAccount, password, deps);
+  let userToken: string;
+  try {
+    userToken = await loginNewApiUser(newApiUrl, oaAccount, password, deps);
+  } catch (error) {
+    // 库中残留与平台不一致的历史脏密码（旧版本遗留）→ 自愈：
+    // 重新生成随机密码 → 管理员接口同步到平台 → 重试一次
+    const message = (error as Error).message || '';
+    if (!existingUser || !/password is incorrect|banned/i.test(message)) {
+      throw error;
+    }
+    password = generatePassword();
+    await updateNewApiUserPassword(
+      newApiUrl,
+      newApiToken,
+      existingUser.id,
+      oaAccount,
+      password,
+      deps
+    );
+    await writeProfileValue(
+      supabaseUrl,
+      serviceRoleKey,
+      userId,
+      { newapi_password: password },
+      deps
+    );
+    userToken = await loginNewApiUser(newApiUrl, oaAccount, password, deps);
+  }
   const tokenName = `${oaAccount}-${Date.now()}`;
   const key = await createNewApiToken(newApiUrl, userToken, tokenName, deps);
 

@@ -2,6 +2,16 @@
 
 ### 🩹 Fixes
 
+- 修复生图提交经 ai-proxy 返回 `503 upstream key unavailable: newapi-key provision failed: 500`：
+  `supabase/functions/newapi-key/core.ts` 三处缺陷叠加——①平台已存在同名用户时新密码只写库不同步平台，
+  导致登录永败（自愈：遇"密码不符"重新生成并经管理员接口 PUT 同步后重试）；②铸造令牌参数
+  `unlimited_quota:false, remain_quota:0` 产生出生即耗尽的无效令牌（改为 unlimited，额度由账户配额+
+  月度计量负责）；③完整 token key 被列表接口打码后入库造成 Invalid token（改为按名称搜索 id 后经
+  `POST /api/token/:id/key` 取完整 key，掩码一律拒收）。另将 `generation_usage.sql` 的部门级限额查询
+  对缺失的 `department_configs` 表做容错回退默认 200。已同步部署生产并通过实测：透传 `/v1/models` 200、
+  quota 返回 `{limit:200,remaining:200}`。
+- 冒烟脚本新增"伪造 JWT 必须 401"守卫检查；新增内网自测辅助脚本 `scripts/make-test-jwt.mjs`
+  与运维工具 `scripts/cleanup-probe-tokens.sh`
 - 修复 AI 图片生成点击"生成"报 `500 InvalidWorkerCreation: could not find an appropriate entrypoint`：根因是新边缘函数 `ai-proxy` 未拷贝到服务器 `volumes/functions/` 且数据库迁移 `generation_usage.sql` 未执行（edge-runtime 将未知路由一律返回该错误）。已在服务器完成两项部署并通过新增冒烟检查脚本 `scripts/edge-function-smoke.mjs` 复验；脚本同时可用于今后自托管边缘函数部署后的快速体检。
 
 ## 1.0.0 (2026-05-26)

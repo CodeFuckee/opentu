@@ -84,6 +84,19 @@ await check('POST /functions/v1/ai-proxy/v1/images/generations → 无JWT应为4
   return { ok: true };
 });
 
+await check('伪造 JWT 调 quota → 必须拒绝(401)，不得放行', async () => {
+  const forged =
+    'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIwMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDAiLCJyb2xlIjoiYXV0aGVudGljYXRlZCJ9.c0GNz9UXr0u5EOCuKCSnRgcBMRUFDOhxbCUZKJoxTAo';
+  const res = await fetch(`${base}/functions/v1/ai-proxy/quota`, {
+    headers: { Authorization: `Bearer ${forged}` },
+  });
+  const text = await res.text();
+  if (res.status !== 401) {
+    return { ok: false, detail: `期望 401，实际 HTTP ${res.status}: ${text.slice(0, 160)}` };
+  }
+  return { ok: true };
+});
+
 await check('数据表 generation_usage 已由迁移创建(rest/v1 可达)', async () => {
   const res = await fetch(`${base}/rest/v1/generation_usage?select=*&limit=1`, {
     headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` },

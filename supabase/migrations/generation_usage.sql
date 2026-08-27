@@ -67,26 +67,43 @@ as $$
 declare
   v_value    text;
   v_limit    integer;
+  v_present  boolean;
 begin
-  if p_department is not null and p_department <> '' then
-    select value into v_value
-      from department_configs
-      where key = 'image_monthly_quota_' || p_department
-      limit 1;
-    if v_value ~ '^[0-9]+$' then
-      return v_value::integer;
-    end if;
+  -- department_configs 表可能尚未部署（可选表），缺失时静默跳过部门级查找
+  select count(*) > 0 into v_present
+    from information_schema.tables
+    where table_schema = 'public' and table_name = 'department_configs';
+
+  if v_present and p_department is not null and p_department <> '' then
+    begin
+      select value into v_value
+        from department_configs
+        where key = 'image_monthly_quota_' || p_department
+        limit 1;
+      if v_value ~ '^[0-9]+$' then
+        return v_value::integer;
+      end if;
+    exception when undefined_table or undefined_object or others then
+      v_value := null;
+    end;
   end if;
 
-  select value into v_value
-    from department_configs
-    where key = 'image_monthly_quota_default'
-    limit 1;
-  begin
-    v_limit := v_value::integer;
-  exception when others then
-    v_limit := null;
-  end;
+  if v_present then
+    begin
+      select value into v_value
+        from department_configs
+        where key = 'image_monthly_quota_default'
+        limit 1;
+      begin
+        v_limit := v_value::integer;
+      exception when others then
+        v_limit := null;
+      end;
+    exception when undefined_table or undefined_object or others then
+      v_limit := null;
+    end;
+  end if;
+
   if coalesce(v_limit, 0) > 0 then
     return v_limit;
   end if;
@@ -95,15 +112,24 @@ begin
 end;
 $$;
 
--- 查询用户所属部门
+-- 查询用户所属部门（user_profiles 表保证存在；异常时返回 null）
 create or replace function public.get_user_department(p_user_id uuid)
 returns text
-language sql
+language plpgsql
 stable
 security definer
 set search_path = public
 as $$
-  select department from user_profiles where user_id = p_user_id limit 1;
+declare
+  v_department text;
+begin
+  begin
+    select department into v_department from user_profiles where user_id = p_user_id limit 1;
+  exception when undefined_table or undefined_object or others then
+    v_department := null;
+  end;
+  return v_department;
+end;
 $$;
 
 -- 额度总览：{ limit, used, remaining, period }
