@@ -1,3 +1,9 @@
+## Unreleased
+
+### 🩹 Fixes
+
+- 修复 AI 图片生成点击"生成"报 `500 InvalidWorkerCreation: could not find an appropriate entrypoint`：根因是新边缘函数 `ai-proxy` 未拷贝到服务器 `volumes/functions/` 且数据库迁移 `generation_usage.sql` 未执行（edge-runtime 将未知路由一律返回该错误）。已在服务器完成两项部署并通过新增冒烟检查脚本 `scripts/edge-function-smoke.mjs` 复验；脚本同时可用于今后自托管边缘函数部署后的快速体检。
+
 ## 1.0.0 (2026-05-26)
 
 ### 🩹 Fixes
