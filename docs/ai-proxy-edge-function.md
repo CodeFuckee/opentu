@@ -17,7 +17,11 @@ POST http://<SUPABASE_URL>/functions/v1/ai-proxy/<原上游路径>?<query>
    ├─ 2. 判定是否为"图像提交"→ RPC consume_image_quota 原子扣减当月张数
    │      （超限返回 403 {error:'quota_exceeded'}，不调用上游）
    ├─ 3. 读取 configs.NEWAPI_KEY 注入 Authorization 后转发到 configs.NEWAPI_URL
-   └─ 4. 上游响应透传；≥400 自动退回额度；异步任务终态失败一次性退回
+   ├─ 4. 上游响应透传；≥400 自动退回额度；异步任务终态失败一次性退回
+   └─ 5. 响应归档（请求携带 `x-task-id` 头时）：同步生图成功 / 异步轮询终态 /
+          ≥400 失败响应 → 原始 JSON 写入 `task_submissions.upstream_response`，
+          JSON 内 base64（b64_json/b64/base64/dataURL）转存 `huabu` bucket 并以
+          存储路径替换（详见下文"响应归档"）
 ```
 
 效果：
@@ -39,6 +43,37 @@ POST http://<SUPABASE_URL>/functions/v1/ai-proxy/<原上游路径>?<query>
 
 异步图像任务的轮询响应若出现终态失败（failed/cancelled/expired 等），按记账行
 一次性退回（防重复）。同步类上游 ≥400 立即全额退回。
+
+## 响应归档（task_submissions.upstream_response）
+
+托管模式下前端在请求上附加 `x-task-id: <前端任务队列 task.id>` 头（
+`ProviderTransportRequest.taskId` → provider-transport 统一附加；直连模式同样携带
+但无服务端消费）。ai-proxy 在以下时机读取响应体并归档（`await` 等待完成，不影响透传内容）：
+
+| 时机 | 条件 | 归档内容 |
+|---|---|---|
+| 同步生图成功 | `mode='sync'` 且 `ok` | 完整响应 JSON |
+| 异步提交即终态 | 提交响应 `status` 为 completed/failed 等 | 该提交 JSON |
+| 异步轮询终态 | GET 轮询响应进入终态（成功或失败） | 终态 JSON |
+| 失败响应 | 上游 ≥400（如"预扣费额度失败"） | 错误 JSON |
+
+仅当 JSON 可解析时归档；非 JSON 响应、无 `x-task-id`（老版本前端）一律跳过，不影响透传。
+
+归档副流程（`supabase/functions/ai-proxy/archive.ts` + `archive-writer.ts`）：
+
+1. 按白名单字段（`b64_json` / `b64` / `base64`，大小写不敏感）或 dataURL 值提取 base64；
+2. 解码 → 图片 magic 嗅探 MIME → 内容 SHA-256 → 上传 `huabu` bucket，
+   路径 `{oa账号}/{YYYY-MM-DD}/output-{sha256}.{ext}`（用户名取 `user_profiles.oa_account`，
+   缺省回退邮箱前缀；相同内容去重只上传一次）；
+3. JSON 内对应值替换为存储路径（上传失败保留原 base64 值入库）；
+4. upsert `task_submissions`（`on_conflict=user_id,task_id`，合并语义：仅更新新增列
+   `upstream_response` / `response_file_paths`，不影响前端回写的 params/status/result/error）。
+
+需要先执行列迁移：
+
+```bash
+docker exec -i supabase-db psql -U supabase_admin -d postgres < supabase/migrations/task_submissions_add_upstream_response.sql
+```
 
 ## 数据库依赖（先执行迁移）
 
@@ -82,7 +117,7 @@ cp -r supabase/functions/ai-proxy /home/mdc/codes/supabase/volumes/functions/
 ## 单测
 
 ```bash
-cd supabase/functions/ai-proxy && node --test core.test.ts
+cd supabase/functions/ai-proxy && node --test core.test.ts archive.test.ts archive-writer.test.ts
 ```
 
 ## 验收清单

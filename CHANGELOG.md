@@ -8,6 +8,14 @@
   任务完成/失败/取消时回写同一行（status+result/error）；全程 fire-and-forget 静默失败不阻塞生成
   （实现见 `packages/drawnix/src/services/task-supabase-archive/`，迁移见
   `supabase/migrations/task_submissions.sql`，部署说明见 `docs/task-submission-archive.md`）
+- 响应归档：任务到达终态（成功/失败）时，ai-proxy 边缘函数把 new-api 原始响应 JSON 写入
+  `task_submissions.upstream_response`，其中 base64（`b64_json`/`b64`/`base64`/dataURL）转存
+  `huabu` bucket（路径 `{oa账号}/{YYYY-MM-DD}/output-{SHA-256}.{扩展名}`，按内容去重）并以存储路径
+  替换，上传失败的 base64 保留原值；`response_file_paths` 记录输出文件列表。前端通过
+  `x-task-id` 头把任务关联传给 ai-proxy（`ProviderTransportRequest.taskId` 全链路透传）；
+  非 JSON 响应或无 `x-task-id` 时静默跳过，不影响透传
+  （实现见 `supabase/functions/ai-proxy/{archive,archive-writer}.ts`，迁移见
+  `supabase/migrations/task_submissions_add_upstream_response.sql`）
 
 ### 🩹 Fixes
 
