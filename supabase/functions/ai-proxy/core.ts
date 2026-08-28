@@ -4,7 +4,7 @@
  * 生图额度管控代理：
  * 1. 校验调用者 Supabase JWT（GET /auth/v1/user），得到可信 user_id
  * 2. 服务端分类请求是否为"图像提交"并原子扣减当月额度（consume_image_quota）
- * 3. 用 user_profiles.apikey 注入上游鉴权头，将请求原样转发到 configs.NEWAPI_URL
+ * 3. 用 configs.NEWAPI_KEY 注入上游鉴权头，将请求原样转发到 configs.NEWAPI_URL
  * 4. 上游 ≥400 立即退回；异步任务轮询到终态失败时一次性退回
  * 5. GET .../quota 返回剩余额度（get_image_quota）
  *
@@ -142,61 +142,18 @@ async function callVoidRpc(
   await callProfileRpc(env, fnName, args, deps);
 }
 
-/** 读取用户 apikey；缺失时内部调用 newapi-key 函数补铸造（幂等） */
+/**
+ * 获取上游 AI 网关的 apikey。
+ *
+ * 直接使用 configs 表中的 NEWAPI_KEY（全局共享的网关密钥），
+ * 不再走 user_profiles.apikey / newapi-key 每用户铸造流程。
+ */
 export async function ensureUserApiKey(
   env: AiProxyEnv,
-  userId: string,
+  _userId: string,
   deps: AiProxyDeps = {}
 ): Promise<string | null> {
-  const doFetch = deps.fetch || fetch;
-  const base = (env.SUPABASE_URL || '').replace(/\/$/, '');
-
-  const selectUrl = `${base}/rest/v1/user_profiles?user_id=eq.${userId}&select=apikey`;
-  let response = await doFetch(selectUrl, {
-    method: 'GET',
-    headers: {
-      apikey: env.SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${env.SERVICE_ROLE_KEY}`,
-      Accept: 'application/json',
-    },
-  });
-  if (!response.ok) {
-    throw new Error(`user_profiles read failed: ${response.status}`);
-  }
-  let rows = (await response.json()) as Array<Record<string, string | null>>;
-  if (Array.isArray(rows) && rows.length > 0 && rows[0].apikey) {
-    return rows[0].apikey;
-  }
-
-  // 无行或 apikey 为空 → 走 newapi-key 补铸造（需要 oa_account）
-  const oaRowsUrl = `${base}/rest/v1/user_profiles?user_id=eq.${userId}&select=oa_account`;
-  response = await doFetch(oaRowsUrl, {
-    method: 'GET',
-    headers: {
-      apikey: env.SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${env.SERVICE_ROLE_KEY}`,
-      Accept: 'application/json',
-    },
-  });
-  if (!response.ok) {
-    throw new Error(`user_profiles read failed: ${response.status}`);
-  }
-  rows = (await response.json()) as Array<Record<string, string | null>>;
-  const oaAccount = Array.isArray(rows) && rows.length > 0 ? rows[0].oa_account : null;
-  if (!oaAccount) {
-    return null;
-  }
-
-  const provisionRes = await doFetch(`${base}/functions/v1/newapi-key`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ userId, oaAccount }),
-  });
-  if (!provisionRes.ok) {
-    throw new Error(`newapi-key provision failed: ${provisionRes.status}`);
-  }
-  const provisioned = (await provisionRes.json()) as { apikey?: string };
-  return typeof provisioned.apikey === 'string' ? provisioned.apikey : null;
+  return readConfigValue(env, 'NEWAPI_KEY', deps);
 }
 
 // ============================================================

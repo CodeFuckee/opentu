@@ -24,6 +24,7 @@ import {
 const SUPABASE_URL = 'http://supabase.local';
 const SRK = 'service-role-key';
 const NEWAPI_URL = 'http://newapi.local:3000';
+const NEWAPI_KEY = 'sk-global-newapi-key';
 
 interface Route {
   match: (url: string, init?: RequestInit) => boolean;
@@ -63,31 +64,37 @@ const baseRoutes = (): Route[] => [
     match: (url) => url.includes('/rest/v1/configs?key=eq.NEWAPI_URL'),
     respond: () => json(200, [{ value: NEWAPI_URL }]),
   },
-  // 其余 configs 键（如 ASYNC_IMAGE_MODEL_PATTERN）一律空，走缺省值
+  // 其余 configs 键（含 NEWAPI_KEY / ASYNC_IMAGE_MODEL_PATTERN）由 standardRoutes 定制或默认空
   {
     match: (url) => url.includes('/rest/v1/configs'),
     respond: () => json(200, []),
   },
 ];
 
-/** 默认全套依赖路由：auth/config/profile/rpc */
+/** 默认全套依赖路由：auth/config/rpc */
 function standardRoutes(options: {
-  profileApiKey?: string | null;
+  configApiKey?: string | null;
   consumeResult?: Record<string, unknown>;
   quotaResult?: Record<string, unknown>;
   upstream?: (url: string, init?: RequestInit) => Response;
   extra?: Route[];
 }): Route[] {
   return [
-    ...baseRoutes(),
-    ...(
-      options.extra || []
-    ),
+    // NEWAPI_KEY 特定路由需先于 baseRoutes 的通用 configs 路由
     {
-      match: (url) => url.includes('/rest/v1/user_profiles') && url.includes('select=apikey'),
+      match: (url) => url.includes('/rest/v1/configs?key=eq.NEWAPI_KEY'),
       respond: () =>
-        json(200, options.profileApiKey === undefined ? [] : [{ apikey: options.profileApiKey ?? null }]),
+        json(
+          200,
+          options.configApiKey === undefined
+            ? [{ value: NEWAPI_KEY }]
+            : options.configApiKey === null
+              ? []
+              : [{ value: options.configApiKey }]
+        ),
     },
+    ...baseRoutes(),
+    ...(options.extra || []),
     {
       match: (url) => url.includes('/rest/v1/rpc/consume_image_quota'),
       respond: () =>
@@ -210,7 +217,6 @@ test('配额不足 → 403 quota_exceeded，不调用上游不转发', async () 
     deps: {
       fetch: routeFetch(
         standardRoutes({
-          profileApiKey: 'sk-user',
           consumeResult: { consumed: false, used: 200, limit: 200, remaining: 0 },
           extra: [
             {
@@ -233,7 +239,7 @@ test('配额不足 → 403 quota_exceeded，不调用上游不转发', async () 
   assert.ok(!calls.some((c) => c.includes(NEWAPI_URL)), '超额时不应有上游调用');
 });
 
-test('同步生图成功：扣减 + 注入用户 apikey 转发 + path/body 原样透传', async () => {
+test('同步生图成功：扣减 + 注入 configs.NEWAPI_KEY 转发 + path/body 原样透传', async () => {
   const calls: string[] = [];
   let consumed = false;
   let upstreamAuthHeader = '';
@@ -247,7 +253,6 @@ test('同步生图成功：扣减 + 注入用户 apikey 转发 + path/body 原�
     deps: {
       fetch: routeFetch(
         standardRoutes({
-          profileApiKey: 'sk-real-user-key',
           extra: [
             {
               match: (url) => url.includes('consume_image_quota'),
@@ -276,7 +281,7 @@ test('同步生图成功：扣减 + 注入用户 apikey 转发 + path/body 原�
 
   assert.equal(response.status, 200);
   assert.equal(consumed, true);
-  assert.equal(upstreamAuthHeader, 'Bearer sk-real-user-key');
+  assert.equal(upstreamAuthHeader, `Bearer ${NEWAPI_KEY}`);
   assert.equal(upstreamBody, JSON.stringify({ model: 'gpt-image-2', prompt: 'hello' }));
   assert.ok(calls.some((c) => c === `${NEWAPI_URL}/v1/images/generations?user=u1`));
   const payload = await response.json();
@@ -292,7 +297,6 @@ test('同步生图上游 500 → 自动退回额度且仍返回上游错误状�
     deps: {
       fetch: routeFetch(
         standardRoutes({
-          profileApiKey: 'sk-x',
           upstream: () => json(500, { error: 'boom' }),
           extra: [
             {
@@ -326,7 +330,6 @@ test('异步图像提交成功 → record_task_bill；随后轮询终态失败 �
     deps: {
       fetch: routeFetch(
         standardRoutes({
-          profileApiKey: 'sk-a',
           upstream: () =>
             json(200, { id: 'video-task-77', status: 'submitted' }),
           extra: [
@@ -359,7 +362,6 @@ test('异步图像提交成功 → record_task_bill；随后轮询终态失败 �
     deps: {
       fetch: routeFetch(
         standardRoutes({
-          profileApiKey: 'sk-a',
           upstream: () => json(200, { id: 'video-task-77', status: 'failed' }),
           extra: [
             {
@@ -392,7 +394,6 @@ test('polling 终态失败仅在检测到时退回；正常完成不退回', asy
     deps: {
       fetch: routeFetch(
         standardRoutes({
-          profileApiKey: 'sk-mj',
           upstream: () => json(200, { code: 1, result: '%50', status: 'SUCCESS' }),
           extra: [
             {
@@ -435,13 +436,9 @@ test('quota 端点：JWT 有效时返回剩余额度', async () => {
   assert.equal(payload.quota.remaining, 163);
 });
 
-test('apikey 缺失且无法补铸 → 503 且不调用上游', async () => {
+test('configs.NEWAPI_KEY 缺失 → 503 且不调用上游', async () => {
   const calls: string[] = [];
-  const routes = standardRoutes({ profileApiKey: null });
-  routes.push({
-    match: (url) => url.includes('select=oa_account'),
-    respond: () => json(200, []),
-  });
+  const routes = standardRoutes({ configApiKey: null });
   const response = await handleAiProxyRequest({
     env: { SUPABASE_URL: SUPABASE_URL, SERVICE_ROLE_KEY: SRK },
     request: makeRequest('/v1/models'),

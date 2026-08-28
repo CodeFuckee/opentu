@@ -16,7 +16,7 @@ POST http://<SUPABASE_URL>/functions/v1/ai-proxy/<原上游路径>?<query>
    ├─ 1. 校验 JWT → GET /auth/v1/user 取得可信 user_id（失败返回 401）
    ├─ 2. 判定是否为"图像提交"→ RPC consume_image_quota 原子扣减当月张数
    │      （超限返回 403 {error:'quota_exceeded'}，不调用上游）
-   ├─ 3. 读取 user_profiles.apikey 注入 Authorization 后转发到 configs.NEWAPI_URL
+   ├─ 3. 读取 configs.NEWAPI_KEY 注入 Authorization 后转发到 configs.NEWAPI_URL
    └─ 4. 上游响应透传；≥400 自动退回额度；异步任务终态失败一次性退回
 ```
 
