@@ -448,3 +448,292 @@ test('configs.NEWAPI_KEY 缺失 → 503 且不调用上游', async () => {
   assert.equal(response.status, 503);
   assert.ok(!calls.some((c) => c.includes(NEWAPI_URL)), '无密钥时不应调用上游');
 });
+
+// ============================================================
+// 响应归档（upstream_response 落库）集成测试
+// ============================================================
+
+const TINY_PNG_B64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+
+/** 归档相关 mock：user_profiles / storage 上传 / task_submissions 写库 */
+function archiveRoutes(options: {
+  uploads?: string[];
+  rows?: Array<Record<string, unknown>>;
+  failUpload?: boolean;
+} = {}): Route[] {
+  return [
+    {
+      match: (url) => url.includes('/rest/v1/user_profiles'),
+      respond: () => json(200, [{ oa_account: 'zhangsan' }]),
+    },
+    {
+      match: (url) => url.includes('/storage/v1/object/huabu/'),
+      respond: (url) => {
+        const path = url.split('/storage/v1/object/huabu/')[1] || '';
+        options.uploads?.push(path);
+        return options.failUpload
+          ? json(500, { message: 'upload failed' })
+          : new Response(null, { status: 200 });
+      },
+    },
+    {
+      match: (url) => url.includes('/rest/v1/task_submissions'),
+      respond: (_url, init) => {
+        options.rows?.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+        return json(201, null);
+      },
+    },
+  ];
+}
+
+function makeRequestWithTaskId(
+  pathSuffix: string,
+  taskId: string,
+  init: RequestInit = {}
+): Request {
+  return new Request(`http://proxy.local/functions/v1/ai-proxy${pathSuffix}`, {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer test-jwt',
+      'Content-Type': 'application/json',
+      'x-task-id': taskId,
+    },
+    ...init,
+  });
+}
+
+test('同步生图成功且带 x-task-id → 响应归档：b64 转存 bucket、JSON 内替换、透传响应不变', async () => {
+  const uploads: string[] = [];
+  const rows: Array<Record<string, unknown>> = [];
+  const response = await handleAiProxyRequest({
+    env: { SUPABASE_URL: SUPABASE_URL, SERVICE_ROLE_KEY: SRK },
+    request: makeRequestWithTaskId('/v1/images/generations', 'task-1', {
+      body: JSON.stringify({ model: 'gpt-image-2', prompt: 'hello' }),
+    }),
+    pathSuffix: '/v1/images/generations',
+    deps: {
+      fetch: routeFetch(
+        standardRoutes({
+          extra: [
+            ...archiveRoutes({ uploads, rows }),
+            {
+              match: (url) => url.includes('consume_image_quota'),
+              respond: () => json(200, { consumed: true }),
+            },
+          ],
+          upstream: () =>
+            json(200, {
+              created: 1,
+              data: [{ b64_json: TINY_PNG_B64, revised_prompt: 'x' }],
+            }),
+        }),
+        []
+      ) as typeof fetch,
+    },
+  });
+
+  // 透传给前端的响应必须保持上游原样（b64 仍在），不能把路径透给前端适配器
+  assert.equal(response.status, 200);
+  const passthrough = (await response.json()) as any;
+  assert.equal(passthrough.data[0].b64_json, TINY_PNG_B64);
+
+  // 归档：上传 1 个文件 + 写库 1 行，JSON 内替换为存储路径
+  assert.equal(uploads.length, 1);
+  assert.match(uploads[0], /^zhangsan\/\d{4}-\d{2}-\d{2}\/output-[0-9a-f]{64}\.png$/);
+  assert.equal(rows.length, 1);
+  const row = rows[0];
+  assert.equal(row['user_id'], 'user-1');
+  assert.equal(row['task_id'], 'task-1');
+  assert.equal((row['upstream_response'] as any).data[0].b64_json, uploads[0]);
+  assert.deepEqual(row['response_file_paths'], [uploads[0]]);
+});
+
+test('同步生图成功但无 x-task-id → 不归档', async () => {
+  const rows: Array<Record<string, unknown>> = [];
+  const response = await handleAiProxyRequest({
+    env: { SUPABASE_URL: SUPABASE_URL, SERVICE_ROLE_KEY: SRK },
+    request: makeRequest('/v1/images/generations', {
+      body: JSON.stringify({ model: 'gpt-image-2' }),
+    }),
+    pathSuffix: '/v1/images/generations',
+    deps: {
+      fetch: routeFetch(
+        standardRoutes({
+          extra: [
+            ...archiveRoutes({ rows }),
+            {
+              match: (url) => url.includes('consume_image_quota'),
+              respond: () => json(200, { consumed: true }),
+            },
+          ],
+          upstream: () => json(200, { data: [{ b64_json: TINY_PNG_B64 }] }),
+        }),
+        []
+      ) as typeof fetch,
+    },
+  });
+  assert.equal(response.status, 200);
+  assert.equal(rows.length, 0);
+});
+
+test('上游 ≥400 且带 x-task-id → 错误 JSON 归档、状态透传、退回额度', async () => {
+  const refunds: string[] = [];
+  const rows: Array<Record<string, unknown>> = [];
+  const response = await handleAiProxyRequest({
+    env: { SUPABASE_URL: SUPABASE_URL, SERVICE_ROLE_KEY: SRK },
+    request: makeRequestWithTaskId('/v1/images/generations', 'task-2', {
+      body: JSON.stringify({ model: 'gpt-image-2' }),
+    }),
+    pathSuffix: '/v1/images/generations',
+    deps: {
+      fetch: routeFetch(
+        standardRoutes({
+          extra: [
+            ...archiveRoutes({ rows }),
+            {
+              match: (url) => url.includes('refund_image_quota'),
+              respond: (_u, init) => {
+                refunds.push(String(init?.body));
+                return json(204, null);
+              },
+            },
+          ],
+          upstream: () =>
+            json(400, {
+              error: {
+                message: '预扣费额度失败, 用户剩余额度: ＄0.008202, 需要预扣费额度: ＄0.156300',
+              },
+            }),
+        }),
+        []
+      ) as typeof fetch,
+    },
+  });
+
+  assert.equal(response.status, 400);
+  const passthrough = (await response.json()) as any;
+  assert.match(passthrough.error.message, /预扣费额度失败/);
+  assert.equal(refunds.length, 1, '失败响应应退回额度');
+  assert.equal(rows.length, 1, '失败响应也应归档');
+  assert.match((rows[0]['upstream_response'] as any).error.message, /预扣费额度失败/);
+});
+
+test('轮询终态成功且带 x-task-id → 归档，不退回', async () => {
+  const refunds: string[] = [];
+  const rows: Array<Record<string, unknown>> = [];
+  const response = await handleAiProxyRequest({
+    env: { SUPABASE_URL: SUPABASE_URL, SERVICE_ROLE_KEY: SRK },
+    request: new Request('http://proxy.local/functions/v1/ai-proxy/mj/task/t9/fetch', {
+      method: 'GET',
+      headers: { Authorization: 'Bearer test-jwt', 'x-task-id': 'task-3' },
+    }),
+    pathSuffix: '/mj/task/t9/fetch',
+    deps: {
+      fetch: routeFetch(
+        standardRoutes({
+          extra: [
+            ...archiveRoutes({ rows }),
+            {
+              match: (url) => url.includes('refund_task_bill'),
+              respond: (_u, init) => {
+                refunds.push(String(init?.body));
+                return json(204, null);
+              },
+            },
+          ],
+          upstream: () => json(200, { status: 'SUCCESS', result: '%50' }),
+        }),
+        []
+      ) as typeof fetch,
+    },
+  });
+  assert.equal(response.status, 200);
+  assert.equal(refunds.length, 0, 'SUCCESS 不应退回');
+  assert.equal(rows.length, 1, '终态成功应归档');
+  assert.equal((rows[0]['upstream_response'] as any).status, 'SUCCESS');
+});
+
+test('轮询非终态（processing）→ 不归档', async () => {
+  const rows: Array<Record<string, unknown>> = [];
+  const response = await handleAiProxyRequest({
+    env: { SUPABASE_URL: SUPABASE_URL, SERVICE_ROLE_KEY: SRK },
+    request: new Request('http://proxy.local/functions/v1/ai-proxy/v1/videos/v-1', {
+      method: 'GET',
+      headers: { Authorization: 'Bearer test-jwt', 'x-task-id': 'task-4' },
+    }),
+    pathSuffix: '/v1/videos/v-1',
+    deps: {
+      fetch: routeFetch(
+        standardRoutes({ extra: archiveRoutes({ rows }), upstream: () => json(200, { status: 'processing', progress: 40 }) }),
+        []
+      ) as typeof fetch,
+    },
+  });
+  assert.equal(response.status, 200);
+  assert.equal(rows.length, 0);
+});
+
+test('异步提交响应（非终态）→ 不归档，仅记账', async () => {
+  const rpcBodies: Array<Record<string, unknown>> = [];
+  const rows: Array<Record<string, unknown>> = [];
+  const response = await handleAiProxyRequest({
+    env: { SUPABASE_URL: SUPABASE_URL, SERVICE_ROLE_KEY: SRK },
+    request: makeRequestWithTaskId('/v1/videos', 'task-5', {
+      body: 'model=gemini-3-pro-image-preview&prompt=cute%20cat',
+      headers: {
+        Authorization: 'Bearer test-jwt',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'x-task-id': 'task-5',
+      },
+    }),
+    pathSuffix: '/v1/videos',
+    deps: {
+      fetch: routeFetch(
+        standardRoutes({
+          extra: [
+            ...archiveRoutes({ rows }),
+            {
+              match: (url) => url.includes('record_task_bill'),
+              respond: (_u, init) => {
+                rpcBodies.push(JSON.parse(String(init?.body)));
+                return json(204, null);
+              },
+            },
+          ],
+          upstream: () => json(200, { id: 'v-submit-9', status: 'submitted' }),
+        }),
+        []
+      ) as typeof fetch,
+    },
+  });
+  assert.equal(response.status, 200);
+  assert.equal(rpcBodies.length, 1, '提交响应仍应记账');
+  assert.equal(rows.length, 0, '非终态提交响应不归档');
+});
+
+test('上游非 JSON 错误 + 带 x-task-id → 不归档、状态透传', async () => {
+  const rows: Array<Record<string, unknown>> = [];
+  const response = await handleAiProxyRequest({
+    env: { SUPABASE_URL: SUPABASE_URL, SERVICE_ROLE_KEY: SRK },
+    request: makeRequestWithTaskId('/v1/images/generations', 'task-6', {
+      body: JSON.stringify({ model: 'gpt-image-2' }),
+    }),
+    pathSuffix: '/v1/images/generations',
+    deps: {
+      fetch: routeFetch(
+        standardRoutes({
+          extra: archiveRoutes({ rows }),
+          upstream: () =>
+            new Response('internal server error', {
+              status: 502,
+              headers: { 'Content-Type': 'text/plain' },
+            }),
+        }),
+        []
+      ) as typeof fetch,
+    },
+  });
+  assert.equal(response.status, 502);
+  assert.equal(rows.length, 0, '非 JSON 响应不归档');
+});

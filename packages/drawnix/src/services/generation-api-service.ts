@@ -456,6 +456,7 @@ class GenerationAPIService {
         requestedModelRef || requestedModel,
         invocationOptions
       );
+      adapterContext.taskId = taskId;
       logImageAdapterSelection(taskId, adapter, requestedModel, adapterContext);
 
       const result = await adapter.generateImage(adapterContext, {
@@ -558,6 +559,7 @@ class GenerationAPIService {
         asyncImageAPIService.resumePolling(remoteId, {
           interval: 5000,
           routeModel,
+          taskId,
           signal: abortController.signal,
           onProgress: (progress) => {
             taskQueueService.updateTaskProgress(taskId, progress);
@@ -624,11 +626,13 @@ class GenerationAPIService {
       const referenceImages = await this.extractReferenceImages(params);
       const durationValue = (params as any).duration ?? (params as any).seconds;
 
+      const adapterContext = getAdapterContextFromSettings(
+        'video',
+        requestedModelRef || requestedModel
+      );
+      adapterContext.taskId = taskId;
       const result = await adapter.generateVideo(
-        getAdapterContextFromSettings(
-          'video',
-          requestedModelRef || requestedModel
-        ),
+        adapterContext,
         {
           prompt: params.prompt,
           model: requestedModel,
@@ -705,11 +709,13 @@ class GenerationAPIService {
         executionPhase: TaskExecutionPhase.SUBMITTING,
       });
 
+      const adapterContext = getAdapterContextFromSettings(
+        'audio',
+        requestedModelRef || requestedModel
+      );
+      adapterContext.taskId = taskId;
       const result = await adapter.generateAudio(
-        getAdapterContextFromSettings(
-          'audio',
-          requestedModelRef || requestedModel
-        ),
+        adapterContext,
         {
           prompt: params.prompt,
           model: requestedModel,
@@ -822,6 +828,7 @@ class GenerationAPIService {
       const pollingPromise = videoAPIService.resumePolling(remoteId, {
         interval: 5000,
         routeModel,
+        taskId,
         params: taskQueueService.getTask(taskId)?.params.params as
           | Record<string, unknown>
           | undefined,
@@ -913,6 +920,7 @@ class GenerationAPIService {
       const pollingPromise = audioAPIService.resumePolling(remoteId, {
         interval: 5000,
         routeModel,
+        frontendTaskId: taskId,
         onProgress: (progress) => {
           taskQueueService.updateTaskProgress(taskId, progress);
         },

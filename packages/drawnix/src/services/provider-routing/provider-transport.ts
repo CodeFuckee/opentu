@@ -249,6 +249,10 @@ export class ProviderTransport {
   ): PreparedProviderTransportRequest {
     const mergedHeaders = mergeHeaders(context.extraHeaders, request.headers);
     const authenticatedHeaders = applyAuthHeaders(context, mergedHeaders);
+    // task_id 契约：携带 taskId 时附加 x-task-id 头（托管/直连均带，直连无副作用）
+    if (request.taskId) {
+      authenticatedHeaders['x-task-id'] = request.taskId;
+    }
     const query = applyAuthQuery(context, request.query || {});
     const resolvedBaseUrl = applyBaseUrlStrategy(
       context.baseUrl,

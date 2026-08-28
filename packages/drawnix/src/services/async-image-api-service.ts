@@ -62,6 +62,8 @@ interface PollingOptions {
   onProgress?: (progress: number, status: string) => void;
   onSubmitted?: (taskId: string) => void;
   routeModel?: string | ModelRef | null;
+  /** 前端任务队列 task.id：透传到请求 x-task-id 头（供 ai-proxy 响应归档） */
+  taskId?: string;
 }
 
 function getDefaultImagePollingMaxAttempts(interval: number): number {
@@ -138,6 +140,7 @@ async function appendReferenceImage(
 class AsyncImageAPIService {
   private async submit(
     params: AsyncImageGenerationParams,
+    taskId: string | undefined,
     signal?: AbortSignal
   ): Promise<AsyncImageSubmitResponse> {
     const providerContext = resolveProviderContext(params.modelRef || params.model);
@@ -172,6 +175,7 @@ class AsyncImageAPIService {
       body: formData,
       signal,
       timeoutMs: IMAGE_GENERATION_TIMEOUT_MS,
+      taskId,
     });
 
     if (!response.ok) {
@@ -189,7 +193,8 @@ class AsyncImageAPIService {
 
   private async query(
     id: string,
-    routeModel?: string | ModelRef | null,
+    routeModel: string | ModelRef | null | undefined,
+    taskId: string | undefined,
     signal?: AbortSignal
   ): Promise<AsyncImageQueryResponse> {
     const providerContext = resolveProviderContext(routeModel);
@@ -203,6 +208,7 @@ class AsyncImageAPIService {
       method: 'GET',
       signal,
       timeoutMs: IMAGE_GENERATION_TIMEOUT_MS,
+      taskId,
     });
 
     if (!response.ok) {
@@ -228,11 +234,12 @@ class AsyncImageAPIService {
       signal,
       onProgress,
       onSubmitted,
+      taskId,
     } = options;
     const maxPollingAttempts =
       maxAttempts ?? getDefaultImagePollingMaxAttempts(interval);
 
-    const submitResp = await this.submit(params, signal);
+    const submitResp = await this.submit(params, taskId, signal);
 
     if (onSubmitted) {
       onSubmitted(submitResp.id);
@@ -256,6 +263,7 @@ class AsyncImageAPIService {
       signal,
       onProgress,
       routeModel: params.modelRef || params.model,
+      taskId,
     });
   }
 
@@ -263,9 +271,9 @@ class AsyncImageAPIService {
     id: string,
     options: PollingOptions = {}
   ): Promise<AsyncImageQueryResponse> {
-    const { onProgress } = options;
+    const { onProgress, taskId } = options;
 
-    const immediate = await this.query(id, options.routeModel, options.signal);
+    const immediate = await this.query(id, options.routeModel, taskId, options.signal);
     const immediateProgress =
       immediate.progress ??
       (immediate.status === 'failed'
@@ -303,6 +311,7 @@ class AsyncImageAPIService {
       signal,
       onProgress,
       routeModel,
+      taskId,
     } = options;
     const maxPollingAttempts =
       maxAttempts ?? getDefaultImagePollingMaxAttempts(interval);
@@ -320,7 +329,7 @@ class AsyncImageAPIService {
       attempts += 1;
 
       try {
-        const status = await this.query(id, routeModel, signal);
+        const status = await this.query(id, routeModel, taskId, signal);
         const progress =
           status.progress ??
           (status.status === 'failed'

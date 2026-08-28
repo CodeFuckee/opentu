@@ -64,7 +64,8 @@ export interface ParsedDataUrl {
  * 非法输入抛错。
  */
 export function parseDataUrl(dataUrl: string): ParsedDataUrl {
-  const match = /^data:([^;,]*)(;base64)?,(.*)$/s.exec(dataUrl);
+  // 等价于 /s 标志（target=es2015 不支持 dotAll）：使 . 匹配换行
+  const match = /^data:([^;,]*)(;base64)?,([\s\S]*)$/.exec(dataUrl);
   if (!match) {
     throw new Error(`Invalid data URL: ${dataUrl.slice(0, 40)}`);
   }

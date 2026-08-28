@@ -87,6 +87,7 @@ export function sendAdapterRequest(
       ...request,
       timeoutMs,
       fetcher: context.fetcher || request.fetcher,
+      taskId: context.taskId ?? request.taskId,
     }
   );
 }

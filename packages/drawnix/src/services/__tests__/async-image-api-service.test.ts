@@ -84,4 +84,34 @@ describe('async-image-api-service', () => {
     expect(formData.get('input_reference')).toBeInstanceOf(Blob);
     expect(formData.get('mask')).toBeInstanceOf(Blob);
   });
+
+  it('options.taskId 透传到每次 transport 请求（提交与轮询）', async () => {
+    const completed = () =>
+      new Response(
+        JSON.stringify({
+          id: 'async-image-task-1',
+          object: 'video',
+          model: 'gpt-image-async',
+          status: 'completed',
+          progress: 100,
+          created_at: 1,
+          url: 'https://cdn.example.com/out.png',
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    mocks.send.mockResolvedValueOnce(completed()).mockResolvedValueOnce(completed());
+
+    const { asyncImageAPIService } = await import('../async-image-api-service');
+    await asyncImageAPIService.generateWithPolling(
+      { model: 'gpt-image-async', prompt: 'x' },
+      { interval: 1, maxAttempts: 1, taskId: 'T9' }
+    );
+
+    expect(mocks.send).toHaveBeenCalledTimes(2);
+    expect(mocks.send.mock.calls[0]?.[1].taskId).toBe('T9');
+    expect(mocks.send.mock.calls[1]?.[1].taskId).toBe('T9');
+  });
 });

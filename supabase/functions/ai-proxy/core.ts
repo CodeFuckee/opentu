@@ -14,7 +14,15 @@
  * - POST …/videos（异步媒体提交）：按模型名判定；命中配置的异步图像模型模式才扣减
  * - Google 协议 :generateContent/:streamGenerateContent 且 responseModalities 含 IMAGE：按 1 扣减
  * - 其余（文本/音频/视频等）：透传不计费
+ *
+ * 响应归档（task_submissions.upstream_response）：
+ * - 携带 x-task-id 的请求，同步生图成功 / 异步轮询终态 / ≥400 失败响应
+ *   交由 archive-writer 归档：base64 转存 huabu bucket、JSON 内以路径替换，
+ *   成功后写库（await 等待完成，不丢数据）
  */
+
+import { archiveUpstreamResponse } from './archive-writer.ts';
+import { isTerminalAsyncState } from './archive.ts';
 
 export interface AiProxyDeps {
   /** 注入 HTTP 客户端便于测试；默认 global fetch */
@@ -63,7 +71,7 @@ export async function verifyUserJwt(
   env: AiProxyEnv,
   jwt: string,
   deps: AiProxyDeps = {}
-): Promise<string | null> {
+): Promise<{ id: string; email: string | null } | null> {
   const doFetch = deps.fetch || fetch;
   const url = `${(env.SUPABASE_URL || '').replace(/\/$/, '')}/auth/v1/user`;
   const response = await doFetch(url, {
@@ -76,8 +84,17 @@ export async function verifyUserJwt(
   if (!response.ok) {
     return null;
   }
-  const payload = (await response.json()) as { id?: unknown };
-  return typeof payload?.id === 'string' ? payload.id : null;
+  const payload = (await response.json()) as {
+    id?: unknown;
+    email?: unknown;
+  };
+  if (typeof payload?.id !== 'string') {
+    return null;
+  }
+  return {
+    id: payload.id,
+    email: typeof payload.email === 'string' ? payload.email : null,
+  };
 }
 
 async function readConfigValue(
@@ -359,15 +376,17 @@ export async function handleAiProxyRequest({
     return jsonResponse(401, { error: 'unauthorized: missing bearer token' });
   }
 
-  let userId: string | null = null;
+  let identity: { id: string; email: string | null } | null = null;
   try {
-    userId = await verifyUserJwt(env, jwt, deps);
+    identity = await verifyUserJwt(env, jwt, deps);
   } catch {
     return jsonResponse(503, { error: 'auth service unavailable' });
   }
-  if (!userId) {
+  if (!identity) {
     return jsonResponse(401, { error: 'unauthorized: invalid token' });
   }
+  const userId = identity.id;
+  const userEmail = identity.email;
 
   const method = request.method.toUpperCase();
   if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
@@ -487,8 +506,49 @@ export async function handleAiProxyRequest({
 
   let respondBuffered = false;
 
-  // 提交成功的异步任务记录记账行，供后续终态失败退回
-  if (classification.mode === 'submit' && upstreamResponse.ok) {
+  // ---------- 响应归档（携带 x-task-id 才生效） ----------
+  // 归档对象：同步生图成功 / 异步轮询终态 / ≥400 失败响应。
+  // 读取响应体 → 归档（base64 转存 bucket + 写 task_submissions）→
+  // 按上游原文字重建响应透传（透传内容永远与上游一致，路径替换只发生在归档副本）。
+  // 说明：归档必须 await——Edge Function 返回后后台任务可能被终止，不等待会丢数据；
+  // 服务端直传 bucket 耗时毫秒级，不影响用户体验。
+  const archiveTaskId = (request.headers.get('x-task-id') || '').trim();
+  const archive = async (json: unknown): Promise<void> => {
+    if (!archiveTaskId || !json) {
+      return;
+    }
+    await archiveUpstreamResponse(
+      {
+        supabaseUrl: env.SUPABASE_URL,
+        serviceRoleKey: env.SERVICE_ROLE_KEY,
+        userId,
+        taskId: archiveTaskId,
+        email: userEmail,
+        upstreamJson: json,
+      },
+      deps
+    );
+  };
+
+  // 1) 同步生图成功：读 body 一次（归档 + 重建透传）
+  if (
+    !respondBuffered &&
+    archiveTaskId &&
+    upstreamResponse.ok &&
+    classification.mode === 'sync'
+  ) {
+    try {
+      const buffer = await consumeResponseText(upstreamResponse);
+      await archive(tryParseJson(buffer.text));
+      upstreamResponse = rebuildResponse(buffer);
+      respondBuffered = true;
+    } catch {
+      // 读取失败不归档，走原透传
+    }
+  }
+
+  // 2) 异步任务提交成功：记账；若提交即终态（如 status=failed/success）也归档
+  if (!respondBuffered && classification.mode === 'submit' && upstreamResponse.ok) {
     try {
       const buffer = await consumeResponseText(upstreamResponse);
       const json = tryParseJson(buffer.text);
@@ -501,6 +561,9 @@ export async function handleAiProxyRequest({
           deps
         );
       }
+      if (json && isTerminalAsyncState(json)) {
+        await archive(json);
+      }
       upstreamResponse = rebuildResponse(buffer);
       respondBuffered = true;
     } catch {
@@ -508,7 +571,7 @@ export async function handleAiProxyRequest({
     }
   }
 
-  // 轮询响应：检测终态失败并一次性退回
+  // 3) 轮询响应：终态（成功或失败）时归档，终态失败时一次性退回
   if (
     !respondBuffered &&
     !classification.billable &&
@@ -519,16 +582,34 @@ export async function handleAiProxyRequest({
     try {
       const buffer = await consumeResponseText(upstreamResponse);
       const json = tryParseJson(buffer.text);
-      if (detectTerminalFailure(json)) {
-        const id = extractUpstreamId(pathOnly, json);
-        if (id) {
-          await callVoidRpc(env, 'refund_task_bill', { p_upstream_id: id }, deps);
+      const terminal = json
+        ? isTerminalAsyncState(json) || detectTerminalFailure(json)
+        : false;
+      if (terminal) {
+        await archive(json);
+        if (detectTerminalFailure(json)) {
+          const id = extractUpstreamId(pathOnly, json);
+          if (id) {
+            await callVoidRpc(env, 'refund_task_bill', { p_upstream_id: id }, deps);
+          }
         }
       }
       upstreamResponse = rebuildResponse(buffer);
       respondBuffered = true;
     } catch {
       // 检测失败不影响透传
+    }
+  }
+
+  // 4) ≥400 失败响应：若带 x-task-id，读 body 归档错误 JSON 后再原样透传
+  if (!respondBuffered && archiveTaskId && upstreamResponse.status >= 400) {
+    try {
+      const buffer = await consumeResponseText(upstreamResponse);
+      await archive(tryParseJson(buffer.text));
+      upstreamResponse = rebuildResponse(buffer);
+      respondBuffered = true;
+    } catch {
+      // 读取失败不归档，走原透传
     }
   }
 
@@ -546,10 +627,11 @@ async function handleQuotaQuery({
   if (!jwt) {
     return jsonResponse(401, { error: 'unauthorized: missing bearer token' });
   }
-  const userId = await verifyUserJwt(env, jwt, deps).catch(() => null);
-  if (!userId) {
+  const identity = await verifyUserJwt(env, jwt, deps).catch(() => null);
+  if (!identity) {
     return jsonResponse(401, { error: 'unauthorized: invalid token' });
   }
+  const userId = identity.id;
   try {
     const quota = await callProfileRpc(
       env,

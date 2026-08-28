@@ -22,6 +22,8 @@ export interface AdapterContext {
   provider?: ResolvedProviderContext | null;
   binding?: ProviderModelBinding | null;
   fetcher?: typeof fetch;
+  /** 前端任务队列 task.id：透传到请求的 x-task-id 头（供 ai-proxy 响应归档） */
+  taskId?: string;
 }
 
 export interface AdapterMetadata {

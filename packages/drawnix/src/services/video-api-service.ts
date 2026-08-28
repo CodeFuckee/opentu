@@ -97,6 +97,8 @@ interface PollingOptions {
   onSubmitted?: (videoId: string) => void; // Callback when video is submitted (for saving remoteId)
   routeModel?: string | ModelRef | null;
   params?: Record<string, unknown>;
+  /** 前端任务队列 task.id：透传到请求 x-task-id 头（供 ai-proxy 响应归档） */
+  taskId?: string;
 }
 
 function inferAuthType(route: ReturnType<typeof resolveInvocationRoute>): ProviderAuthStrategy {
@@ -144,7 +146,8 @@ class VideoAPIService {
    * Submit video generation task
    */
   async submitVideoGeneration(
-    params: VideoGenerationParams
+    params: VideoGenerationParams,
+    taskId?: string
   ): Promise<VideoSubmitResponse> {
     const { providerContext, binding } = resolveVideoPlanContext(
       params.modelRef || params.model
@@ -291,6 +294,7 @@ class VideoAPIService {
       baseUrlStrategy: binding?.baseUrlStrategy,
       method: 'POST',
       body: formData,
+      taskId,
     });
 
     if (!response.ok) {
@@ -351,7 +355,8 @@ class VideoAPIService {
   async queryVideoStatus(
     videoId: string,
     routeModel?: string | ModelRef | null,
-    params?: Record<string, unknown>
+    params?: Record<string, unknown>,
+    taskId?: string
   ): Promise<VideoQueryResponse> {
     const { providerContext, binding } = resolveVideoPlanContext(routeModel);
 
@@ -363,6 +368,7 @@ class VideoAPIService {
       path: resolveVideoPollPath(videoId, binding, params),
       baseUrlStrategy: binding?.baseUrlStrategy,
       method: 'GET',
+      taskId,
     });
 
     if (!response.ok) {
@@ -394,11 +400,12 @@ class VideoAPIService {
       maxAttempts = 1080,
       onProgress,
       onSubmitted,
+      taskId,
     } = options;
 
     // Submit video generation task
     // console.log('[VideoAPI] Submitting video generation task...');
-    const submitResponse = await this.submitVideoGeneration(params);
+    const submitResponse = await this.submitVideoGeneration(params, taskId);
     // console.log('[VideoAPI] Task submitted:', submitResponse.id, 'Status:', submitResponse.status);
 
     // Notify that video has been submitted (for saving remoteId)
@@ -433,6 +440,7 @@ class VideoAPIService {
       onProgress,
       routeModel: params.modelRef || params.model,
       params: params.params,
+      taskId,
     });
   }
 
@@ -453,7 +461,8 @@ class VideoAPIService {
     const immediateStatus = await this.queryVideoStatus(
       videoId,
       options.routeModel,
-      options.params
+      options.params,
+      options.taskId
     );
     const immediateProgress =
       immediateStatus.progress ??
@@ -523,7 +532,8 @@ class VideoAPIService {
         const status = await this.queryVideoStatus(
           videoId,
           options.routeModel,
-          options.params
+          options.params,
+          options.taskId
         );
 
         // 请求成功，重置连续错误计数

@@ -170,6 +170,7 @@ export const geminiImageAdapter: ImageModelAdapter = {
         },
         {
           interval: 5000,
+          taskId: context.taskId,
           onProgress: request.params?.onProgress as
             | ((progress: number, status?: string) => void)
             | undefined,
@@ -235,7 +236,7 @@ export const geminiVideoAdapter: VideoModelAdapter = {
   },
   supportedModels: videoModelIds,
   defaultModel: DEFAULT_VIDEO_MODEL_ID,
-  async generateVideo(_context, request: VideoGenerationRequest) {
+  async generateVideo(context, request: VideoGenerationRequest) {
     const model = (request.model || DEFAULT_VIDEO_MODEL_ID) as any;
     const durationEncoded =
       model && model.startsWith('sora-2-') && /\d+s$/.test(model);
@@ -268,6 +269,7 @@ export const geminiVideoAdapter: VideoModelAdapter = {
       },
       {
         interval: 5000,
+        taskId: context.taskId,
         onProgress: request.params?.onProgress as
           | ((progress: number, status?: string) => void)
           | undefined,
@@ -302,7 +304,7 @@ export const sunoAudioAdapter: AudioModelAdapter = {
   matchTags: ['suno', 'audio', 'music'],
   supportedModels: audioModelIds,
   defaultModel: DEFAULT_AUDIO_MODEL_ID,
-  async generateAudio(_context, request: AudioGenerationRequest) {
+  async generateAudio(context, request: AudioGenerationRequest) {
     const result = await audioAPIService.generateAudioWithPolling(
       {
         model: request.model || DEFAULT_AUDIO_MODEL_ID,
@@ -322,6 +324,7 @@ export const sunoAudioAdapter: AudioModelAdapter = {
       },
       {
         interval: 5000,
+        frontendTaskId: context.taskId,
         onProgress: request.params?.onProgress as
           | ((progress: number, status?: string) => void)
           | undefined,

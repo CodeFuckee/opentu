@@ -97,6 +97,8 @@ interface AudioPollingOptions {
   onProgress?: (progress: number, status?: string) => void;
   onSubmitted?: (taskId: string) => void;
   routeModel?: string | ModelRef | null;
+  /** 前端任务队列 task.id：透传到请求 x-task-id 头（供 ai-proxy 响应归档） */
+  frontendTaskId?: string;
 }
 
 interface ClipIdentifierMemory {
@@ -854,7 +856,8 @@ function hasResolvedTaskResult(response: AudioTaskResponse): boolean {
 
 class AudioAPIService {
   async submitAudioGeneration(
-    params: AudioGenerationParams
+    params: AudioGenerationParams,
+    frontendTaskId?: string
   ): Promise<AudioTaskResponse> {
     const { providerContext, binding } = resolveAudioPlanContext(
       params.modelRef || params.model
@@ -886,6 +889,7 @@ class AudioAPIService {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body,
+        taskId: frontendTaskId,
       });
     } catch (error: any) {
       failLLMApiLog(logId, {
@@ -932,7 +936,8 @@ class AudioAPIService {
 
   async queryAudioTask(
     taskId: string,
-    routeModel?: string | ModelRef | null
+    routeModel?: string | ModelRef | null,
+    frontendTaskId?: string
   ): Promise<AudioTaskResponse> {
     if (!taskId.trim()) {
       throw new Error('Suno 任务 ID 为空，无法查询任务状态');
@@ -953,6 +958,7 @@ class AudioAPIService {
       path,
       baseUrlStrategy,
       method: 'GET',
+      taskId: frontendTaskId,
     });
 
     if (!response.ok) {
@@ -978,9 +984,10 @@ class AudioAPIService {
       maxAttempts = 720,
       onProgress,
       onSubmitted,
+      frontendTaskId,
     } = options;
 
-    const submitResponse = await this.submitAudioGeneration(params);
+    const submitResponse = await this.submitAudioGeneration(params, frontendTaskId);
 
     if (!submitResponse.taskId.trim()) {
       throw new Error(
@@ -1014,6 +1021,7 @@ class AudioAPIService {
       maxAttempts,
       onProgress,
       routeModel: params.modelRef || params.model,
+      frontendTaskId,
     });
   }
 
@@ -1023,7 +1031,7 @@ class AudioAPIService {
   ): Promise<AudioTaskResponse> {
     const clipMemory = createClipIdentifierMemory();
     const immediate = normalizeAudioTaskResponse(
-      (await this.queryAudioTask(taskId, options.routeModel)).raw,
+      (await this.queryAudioTask(taskId, options.routeModel, options.frontendTaskId)).raw,
       taskId,
       clipMemory
     );
@@ -1061,7 +1069,7 @@ class AudioAPIService {
       attempts += 1;
 
       try {
-        const payload = await this.queryAudioTask(taskId, options.routeModel);
+        const payload = await this.queryAudioTask(taskId, options.routeModel, options.frontendTaskId);
         const result = normalizeAudioTaskResponse(payload.raw, taskId, clipMemory);
         consecutiveErrors = 0;
 

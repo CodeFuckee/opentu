@@ -181,6 +181,8 @@ export interface ProviderTransportRequest {
   timeoutMs?: number;
   credentials?: RequestCredentials;
   fetcher?: typeof fetch;
+  /** 前端任务队列 task.id：请求层附加 x-task-id 头，供 ai-proxy 响应归档关联行 */
+  taskId?: string;
 }
 
 export interface PreparedProviderTransportRequest {
