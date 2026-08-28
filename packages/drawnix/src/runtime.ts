@@ -32,3 +32,5 @@ export {
   type IdlePrefetchGroup,
 } from './utils/startup-prefetch';
 export { configureManagedRouting } from './services/managed-routing/managed-runtime';
+export { configureTaskArchive } from './services/task-supabase-archive/runtime';
+export type { TaskArchiveConfig } from './services/task-supabase-archive/runtime';

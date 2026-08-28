@@ -18,7 +18,10 @@ import { getSupabaseClient } from './supabase-client';
 import { SUPABASE_URL } from './supabase-client';
 import { normalizeLoginAccount } from './auth-validation';
 import type { RegisterEligibility } from './auth-validation';
-import { configureManagedRouting } from '@drawnix/drawnix/runtime';
+import {
+  configureManagedRouting,
+  configureTaskArchive,
+} from '@drawnix/drawnix/runtime';
 
 export type AuthStatus =
   | { state: 'unknown' }
@@ -126,8 +129,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supabaseUrl: SUPABASE_URL,
         getToken: getAccessToken,
       });
+      // 登录后注册任务参数归档（上传 huabu bucket + 写入 task_submissions）
+      configureTaskArchive({ client: getSupabaseClient() });
     } else {
       configureManagedRouting(null);
+      configureTaskArchive(null);
     }
   }, [status]);
 

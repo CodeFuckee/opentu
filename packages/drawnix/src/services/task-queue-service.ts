@@ -17,6 +17,10 @@ import {
   GenerationParams,
   TaskExecutionPhase,
 } from '../types/task.types';
+import {
+  archiveTaskToSupabase,
+  updateTaskSubmissionOnTerminal,
+} from './task-supabase-archive/service';
 import { generateTaskId, isTaskActive } from '../utils/task-utils';
 import {
   validateGenerationParams,
@@ -435,6 +439,17 @@ class TaskQueueService {
   private constructor() {
     this.tasks = new Map();
     this.taskUpdates$ = new Subject();
+    // 终态（completed/failed/cancelled）时归档回写（fire-and-forget，静默失败）
+    this.taskUpdates$.subscribe((event) => {
+      const status = event.task.status;
+      if (
+        status === TaskStatus.COMPLETED ||
+        status === TaskStatus.FAILED ||
+        status === TaskStatus.CANCELLED
+      ) {
+        void updateTaskSubmissionOnTerminal(event.task);
+      }
+    });
   }
 
   /**
@@ -1944,6 +1959,10 @@ class TaskQueueService {
     // Emit event
     this.emitEvent('taskCreated', task);
     trackTaskAnalytics('generation_task_created', task);
+
+    // 任务参数异步归档到 Supabase（上传文件 + 入库，静默失败不阻塞）
+    // 必须在 stripLargeParams 之前调用，此时 params 仍保留完整的 base64 参考图
+    void archiveTaskToSupabase(task);
 
     // 归档超出限制的旧任务
     this.enforceRetentionLimit();

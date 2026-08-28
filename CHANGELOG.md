@@ -1,5 +1,14 @@
 ## Unreleased
 
+### 🚀 Features
+
+- 任务参数 Supabase 归档：AI 生成任务（图片/视频/音频/chat）创建时异步把任务参数写入
+  `task_submissions` 表，参数中的文件（base64 参考图等）上传到私有 bucket `huabu`，
+  路径 `{oa账号}/{YYYY-MM-DD}/input-{SHA-256}.{扩展名}`，数据库以存储路径替换原 dataURL；
+  任务完成/失败/取消时回写同一行（status+result/error）；全程 fire-and-forget 静默失败不阻塞生成
+  （实现见 `packages/drawnix/src/services/task-supabase-archive/`，迁移见
+  `supabase/migrations/task_submissions.sql`，部署说明见 `docs/task-submission-archive.md`）
+
 ### 🩹 Fixes
 
 - 修复生图提交经 ai-proxy 返回 `503 upstream key unavailable: newapi-key provision failed: 500`：
