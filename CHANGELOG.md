@@ -20,17 +20,6 @@
 
 ### 🩹 Fixes
 
-- **修复两条生图完成分支漏归档、生成图片不入 `huabu` bucket**：`fallback-executor` 的
-  ①同步直接分支（`/images/generations`，adapter 未命中时）与 ②异步分支
-  （`generateAsyncImageTask`，`openai.async.media` 绑定）生成成功、图片缓存到本地
-  `/__aitu_cache__/` 后直接 `completeTask`，从不调用 `archiveGeneratedMediaToSupabase`
-  → bucket 永远没有这两类生成的图片，`task_submissions.response_file_paths` 不更新
-  （此前仅 adapter 分支 `executeImageViaAdapter` 接了归档）。修复：两分支完成点各补一行
-  fire-and-forget 归档调用（与 adapter 分支一致）；REPRO 测试
-  `fallback-executor.archive.test.ts` 修复前 2 用例均失败（归档调用 0 次），修复后通过
-  （实现见 `packages/drawnix/src/services/media-executor/fallback-executor.ts`）
-- **部署提示**：线上 8088 前端仍为 8/25 旧构建、仓库根 `dist/` 为 8/26 构建，均不含
-  8/29 的输入虚拟URL上传 / 输出归档 / SW 放行等修复 —— 需重新构建部署后归档链路才会生效
 - **修复浏览器端归档上传被 Service Worker 误拦（最终根因）**：`StorageApiError: Not Found`
   且服务器无上传请求记录 —— SW 的「外部图片请求」拦截按 **URL 扩展名**（`.jpg`/`.png`）判断，
   归档上传（POST `/storage/v1/object/.../input-xxx.jpg`）被当作图片请求处理，而
