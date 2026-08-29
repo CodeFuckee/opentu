@@ -27,6 +27,13 @@ interface VirtualImageRetry {
   delay: number;
 }
 
+interface VirtualImageErrorOptions {
+  /** Cache Storage 中存在原始 blob 时回调，供组件用 objectURL 兜底展示（防画布空白） */
+  onCachedBlob?: (blob: Blob) => void;
+  /** 首次失败立即核验缓存（SW 不可用时重试无意义，应尽早走缓存兜底） */
+  verifyCacheImmediately?: boolean;
+}
+
 export function clearVirtualUrlImageError(
   board: PlaitBoard,
   element: PlaitElement,
@@ -44,7 +51,8 @@ function verifyVirtualImageCache(
   key: string,
   board: PlaitBoard,
   element: PlaitElement,
-  imageUrl: string
+  imageUrl: string,
+  options?: VirtualImageErrorOptions
 ): void {
   void import('../services/unified-cache-service')
     .then(({ unifiedCacheService }) =>
@@ -53,6 +61,13 @@ function verifyVirtualImageCache(
     .then((blob) => {
       if (blob) {
         virtualImageErrorAttempts.delete(key);
+        // 缓存中有实际数据：交给组件用 objectURL 兜底展示，否则画布图片永远空白
+        options?.onCachedBlob?.(blob);
+        return;
+      }
+
+      if (options?.verifyCacheImmediately) {
+        // 立即核验模式不负责删除：重试仍可能成功
         return;
       }
 
@@ -60,6 +75,9 @@ function verifyVirtualImageCache(
       removeElementFromBoard(board, element);
     })
     .catch(() => {
+      if (options?.verifyCacheImmediately) {
+        return;
+      }
       virtualImageErrorAttempts.delete(key);
     });
 }
@@ -149,7 +167,8 @@ export function removeElementFromBoard(
 export function handleVirtualUrlImageError(
   board: PlaitBoard,
   element: PlaitElement,
-  imageUrl: string
+  imageUrl: string,
+  options?: VirtualImageErrorOptions
 ): VirtualImageRetry | undefined {
   if (!isVirtualUrl(imageUrl)) {
     return undefined; // 只处理虚拟URL
@@ -162,6 +181,11 @@ export function handleVirtualUrlImageError(
   if (delay !== undefined) {
     virtualImageErrorAttempts.set(key, attempt + 1);
 
+    // 首次失败即核验缓存：若 SW 未接管，重试同样失败，尽早用缓存兜底展示
+    if (options?.verifyCacheImmediately && attempt === 0) {
+      verifyVirtualImageCache(key, board, element, imageUrl, options);
+    }
+
     return {
       retryUrl: `${imageUrl}${
         imageUrl.includes('?') ? '&' : '?'
@@ -170,7 +194,7 @@ export function handleVirtualUrlImageError(
     };
   }
 
-  verifyVirtualImageCache(key, board, element, imageUrl);
+  verifyVirtualImageCache(key, board, element, imageUrl, options);
 
   return undefined;
 }

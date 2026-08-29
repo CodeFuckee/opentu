@@ -2,7 +2,7 @@ import type { ImageProps } from '@plait/common';
 import { RectangleClient } from '@plait/core';
 import { Loading, MessagePlugin } from 'tdesign-react';
 import classNames from 'classnames';
-import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Video } from './video';
 import { generateImage } from '../../mcp/tools/image-generation';
 import { getImageRegion } from '../../services/ppt';
@@ -119,6 +119,72 @@ function setImage3DForeignObjectHidden(
   };
 }
 
+// ==================== 虚拟 URL objectURL 兜底 ====================
+// 当 Service Worker 未接管页面（首次访问 / HTTP 内网 / ?sw=0 降级 / 隐私模式）时，
+// /asset-library 等虚拟 URL 请求落到服务器返回 index.html，<img> 解码失败显示空白。
+// 此时 Cache Storage 中已有原始 blob，用 objectURL 兜底展示，避免画布空白。
+// 使用引用计数 + 延迟释放避免内存泄漏，多实例共享同一 URL 复用同一 objectURL。
+const FALLBACK_OBJECT_URL_RELEASE_DELAY = 60_000;
+
+const virtualImageFallbacks = new Map<
+  string,
+  { src: string; refCount: number; releaseTimer: ReturnType<typeof setTimeout> | null }
+>();
+
+function acquireVirtualImageFallback(imageUrl: string): string | null {
+  const entry = virtualImageFallbacks.get(imageUrl);
+  if (!entry) {
+    return null;
+  }
+
+  entry.refCount++;
+  if (entry.releaseTimer) {
+    clearTimeout(entry.releaseTimer);
+    entry.releaseTimer = null;
+  }
+  return entry.src;
+}
+
+function createOrAcquireVirtualImageFallback(imageUrl: string, blob: Blob): string {
+  const existing = acquireVirtualImageFallback(imageUrl);
+  if (existing) {
+    return existing;
+  }
+
+  const src = URL.createObjectURL(blob);
+  virtualImageFallbacks.set(imageUrl, {
+    src,
+    refCount: 1,
+    releaseTimer: null,
+  });
+  return src;
+}
+
+function releaseVirtualImageFallback(imageUrl: string | null): void {
+  if (!imageUrl) {
+    return;
+  }
+
+  const entry = virtualImageFallbacks.get(imageUrl);
+  if (!entry) {
+    return;
+  }
+
+  entry.refCount = Math.max(0, entry.refCount - 1);
+  if (entry.refCount > 0 || entry.releaseTimer) {
+    return;
+  }
+
+  entry.releaseTimer = setTimeout(() => {
+    const latest = virtualImageFallbacks.get(imageUrl);
+    if (!latest || latest.refCount > 0) {
+      return;
+    }
+    URL.revokeObjectURL(latest.src);
+    virtualImageFallbacks.delete(imageUrl);
+  }, FALLBACK_OBJECT_URL_RELEASE_DELAY);
+}
+
 // 检查是否为视频元素（通过URL标识、扩展名或元数据）
 const isVideoElement = (imageItem: any): boolean => {
   // 检查是否有视频标识属性
@@ -153,15 +219,52 @@ export const Image: React.FC<ImageProps> = (props: ImageProps) => {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const svgOverlayRef = useRef<Image3DOverlayRef | null>(null);
   const pptImageGenerationLockRef = useRef(false);
+  // 虚拟 URL 加载失败时，用 Cache Storage blob 生成的 objectURL 兜底展示
+  const [fallbackSrc, setFallbackSrc] = useState<string | null>(() =>
+    acquireVirtualImageFallback(props.imageItem.url)
+  );
+  const acquiredFallbackUrlRef = useRef<string | null>(
+    fallbackSrc ? props.imageItem.url : null
+  );
+  const isMountedRef = useRef(true);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearSWRecovery = useCallback(() => {
     cleanupSWRecoveryRef.current?.();
     cleanupSWRecoveryRef.current = null;
   }, []);
 
+  // 切换 URL 时释放旧 fallback，尝试复用同 URL 已存在的 objectURL
   useEffect(() => {
+    isMountedRef.current = true;
     currentImageUrlRef.current = props.imageItem.url;
-    return clearSWRecovery;
+
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+    if (acquiredFallbackUrlRef.current) {
+      releaseVirtualImageFallback(acquiredFallbackUrlRef.current);
+      acquiredFallbackUrlRef.current = null;
+    }
+    const existingFallback = acquireVirtualImageFallback(props.imageItem.url);
+    if (existingFallback) {
+      acquiredFallbackUrlRef.current = props.imageItem.url;
+    }
+    setFallbackSrc(existingFallback);
+
+    return () => {
+      isMountedRef.current = false;
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+      if (acquiredFallbackUrlRef.current) {
+        releaseVirtualImageFallback(acquiredFallbackUrlRef.current);
+        acquiredFallbackUrlRef.current = null;
+      }
+      clearSWRecovery();
+    };
   }, [props.imageItem.url, clearSWRecovery]);
 
   const retryImageAfterSWClaim = useCallback(
@@ -188,6 +291,11 @@ export const Image: React.FC<ImageProps> = (props: ImageProps) => {
           !imageElement.isConnected ||
           currentImageUrlRef.current !== props.imageItem.url
         ) {
+          return;
+        }
+
+        // 已在 objectURL 兜底展示：SW 恢复后保留兜底，避免再次回落到空白
+        if (acquiredFallbackUrlRef.current === props.imageItem.url) {
           return;
         }
 
@@ -225,27 +333,83 @@ export const Image: React.FC<ImageProps> = (props: ImageProps) => {
   );
 
   // 处理图片加载失败
+  const releasedAcquiredFallback = useCallback(() => {
+    if (acquiredFallbackUrlRef.current) {
+      releaseVirtualImageFallback(acquiredFallbackUrlRef.current);
+      acquiredFallbackUrlRef.current = null;
+    }
+  }, []);
+
+  const applyCachedBlobFallback = useCallback(
+    (blob: Blob) => {
+      if (
+        !isMountedRef.current ||
+        currentImageUrlRef.current !== props.imageItem.url
+      ) {
+        return;
+      }
+
+      // 已有兜底或正在使用兜底 objectURL 时跳过，避免重复创建
+      if (acquiredFallbackUrlRef.current === props.imageItem.url) {
+        return;
+      }
+
+      releasedAcquiredFallback();
+      acquiredFallbackUrlRef.current = props.imageItem.url;
+      setFallbackSrc(
+        createOrAcquireVirtualImageFallback(props.imageItem.url, blob)
+      );
+    },
+    [props.imageItem.url, releasedAcquiredFallback]
+  );
+
+  // 处理图片加载失败
   const handleImageError = useCallback(
     (event: any) => {
       const imageElement = event.currentTarget as HTMLImageElement;
       imageElement.style.visibility = 'hidden';
       retryImageAfterSWClaim(imageElement);
 
+      // 已在兜底展示中（objectURL 也失败则不重复处理）
+      if (fallbackSrc && event.currentTarget?.src === fallbackSrc) {
+        return;
+      }
+
       const retry = handleVirtualUrlImageError(
         props.board,
         props.element,
-        props.imageItem.url
+        props.imageItem.url,
+        {
+          verifyCacheImmediately: true,
+          onCachedBlob: applyCachedBlobFallback,
+        }
       );
-      if (retry) {
-        window.setTimeout(() => {
+      // 已有兜底时不再排重试，避免把 blob 展示覆盖回失败虚拟 URL
+      if (retry && !fallbackSrc) {
+        if (retryTimerRef.current) {
+          clearTimeout(retryTimerRef.current);
+        }
+        retryTimerRef.current = setTimeout(() => {
+          retryTimerRef.current = null;
           if (!imageElement.isConnected) {
+            return;
+          }
+          // fallback 已生效则放弃重试
+          if (acquiredFallbackUrlRef.current === props.imageItem.url) {
             return;
           }
           imageElement.src = retry.retryUrl;
         }, retry.delay);
       }
     },
-    [props.board, props.element, props.imageItem.url, retryImageAfterSWClaim]
+    [
+      props.board,
+      props.element,
+      props.imageItem.url,
+      retryImageAfterSWClaim,
+      applyCachedBlobFallback,
+      fallbackSrc,
+    ]
   );
   const handleImageLoad = useCallback(
     (event: any) => {
@@ -540,7 +704,7 @@ export const Image: React.FC<ImageProps> = (props: ImageProps) => {
 
   // 否则使用原来的图片渲染
   const imgProps = {
-    src: props.imageItem.url,
+    src: fallbackSrc || props.imageItem.url,
     draggable: false,
     ...(shouldContainFrameImage
       ? {

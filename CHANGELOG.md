@@ -88,6 +88,21 @@
 - 冒烟脚本新增"伪造 JWT 必须 401"守卫检查；新增内网自测辅助脚本 `scripts/make-test-jwt.mjs`
   与运维工具 `scripts/cleanup-probe-tokens.sh`
 - 修复 AI 图片生成点击"生成"报 `500 InvalidWorkerCreation: could not find an appropriate entrypoint`：根因是新边缘函数 `ai-proxy` 未拷贝到服务器 `volumes/functions/` 且数据库迁移 `generation_usage.sql` 未执行（edge-runtime 将未知路由一律返回该错误）。已在服务器完成两项部署并通过新增冒烟检查脚本 `scripts/edge-function-smoke.mjs` 复验；脚本同时可用于今后自托管边缘函数部署后的快速体检。
+- **修复画布添加图片显示空白**：应用「添加图片」按钮或双击画布快速工具栏上传本地图片后，画布图片区域空白
+  （`<img>` 解码失败、`visibility:hidden`）。根因：本地图片以虚拟 URL（`/asset-library/...`）写入
+  Cache Storage 并以该 URL 渲染，图片加载**依赖 Service Worker 拦截并返回缓存数据**；当 SW 未接管页面
+  （首次访问 / HTTP 内网部署 / `?sw=0` 降级 / 隐私模式）时 `/asset-library/` 请求落到服务器，SPA
+  fallback 返回 `index.html`（`text/html`），`<img>` 解码失败触发 `onError` → 隐藏 → 空白；此前
+  26433192 又移除了缓存 blob 的 objectURL 兜底展示链路（fd800afa），导致 Cache 中有数据也无人消费。
+  修复：①`asset-cleanup.handleVirtualUrlImageError` 恢复 `onCachedBlob` 回调与 `verifyCacheImmediately`
+  选项——首次失败即核验缓存、缓存有原始 blob 时交给组件兜底，且立即核验模式不误删元素；
+  ②画布图片组件 `Image` 恢复 objectURL 兜底展示：虚拟 URL 加载失败且 Cache Storage 有 blob 时用
+  `URL.createObjectURL(blob)` 渲染（引用计数 + 60s 延迟释放防内存泄漏，同 URL 多实例复用同一
+  objectURL），并修复兜底生效后重试定时器/SW claim 恢复把 src 覆盖回失败虚拟 URL 的问题。
+  SW 正常接管时仍走稳定虚拟 URL 主链路，行为不变
+  （实现见 `packages/drawnix/src/plugins/components/image.tsx` +
+  `packages/drawnix/src/utils/asset-cleanup.ts`，复现与回归测试见
+  `packages/drawnix/src/utils/__tests__/asset-cleanup.test.ts`）
 
 ## 1.0.0 (2026-05-26)
 
