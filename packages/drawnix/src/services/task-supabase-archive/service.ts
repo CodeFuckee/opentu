@@ -108,6 +108,11 @@ export async function archiveTaskToSupabase(task: Task): Promise<void> {
         const imageData = await unifiedCacheService.getImageForAI(virtualUrl);
         if (imageData.type === 'base64') {
           virtualUrlToDataUrl.set(virtualUrl, imageData.value);
+        } else {
+          // getImageForAI 降级返回原始 URL（如素材库缓存缺失），保持原路径跳过上传
+          console.warn(
+            `[TaskArchive] resolve virtual media url ${virtualUrl} returned non-base64, keeping original`
+          );
         }
       } catch (error) {
         console.warn(
@@ -425,6 +430,9 @@ export async function archiveGeneratedMediaToSupabase(
         // 本地虚拟 URL → base64 dataURL（与 executor 参考图解析一致）
         const imageData = await unifiedCacheService.getImageForAI(url);
         if (imageData.type !== 'base64') {
+          console.warn(
+            `[TaskArchive] generated media ${url} resolved to non-base64, skipping upload`
+          );
           continue;
         }
         const payload = extractBase64Payload(imageData.value);

@@ -20,6 +20,12 @@
 
 ### 🩹 Fixes
 
+- 生产验证与加固：确认线上 8088 前端为 8/25 构建（不含归档修复），`task_submissions` 新行
+  `params.uploadedImages[].url` 仍为 `/asset-library/` 原样路径；用伪造 authenticated JWT（email=邮箱前缀）
+  对真实 Supabase 上传 `huabu/chenkaidi/2026-08-29/input-*.png` 预检返回 200，证明 storage RLS
+  策略放行、服务端链路正常，问题纯为前端未部署新构建；归档代码补充诊断日志 ——
+  `getImageForAI` 对虚拟 URL 降级返回非 base64 或解析抛错时 `console.warn` 明确记录
+  （此前静默跳过，无法定位）
 - 修复生成/上传图片未写入 `huabu` bucket（`storage.objects` 恒为空，`task_submissions` 行
   `file_paths`/`response_file_paths` 恒为空、`upstream_response` 恒为 NULL）：根因是归档管道
   两处缺口叠加 —— ①输入侧 `archiveTaskToSupabase` 只识别 `data:` URL，而 AI 图片弹窗上传的
