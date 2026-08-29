@@ -140,6 +140,7 @@ import {
   getPPTSlidePrompt,
 } from '../../../utils/frame-insertion-utils';
 import { matchFrameAspectRatio } from '../../../utils/frame-size-matcher';
+import { resolveVirtualImageUrlForAI } from '../../../utils/selection-utils';
 import {
   extractElementTextContent,
   isPlainTextElement,
@@ -854,7 +855,7 @@ export const PopupToolbar = () => {
     }
   }, [language, selectedElements]);
 
-  const openAIImageGenerationDialog = useCallback(() => {
+  const openAIImageGenerationDialog = useCallback(async () => {
     const selectedFrame =
       selectedElements.length === 1 && isFrameElement(selectedElements[0])
         ? selectedElements[0]
@@ -906,10 +907,18 @@ export const PopupToolbar = () => {
         });
       }
     );
+    // 画布元素上的虚拟 URL（/asset-library 等）依赖 SW 接管才能访问，
+    // SW 未接管时参考图缩略图破图、生成也拿不到数据，这里先解析为 dataURL
+    const resolvedInitialImages = await Promise.all(
+      initialImages.map(async (image) => ({
+        ...image,
+        url: await resolveVirtualImageUrlForAI(image.url),
+      }))
+    );
 
     openDialog(DialogType.aiImageGeneration, {
       initialPrompt: buildPPTImageGenerationPrompt(commonPrompt, slidePrompt),
-      initialImages,
+      initialImages: resolvedInitialImages,
       initialAspectRatio: matchFrameAspectRatio(rect.width, rect.height),
       initialWidth: rect.width,
       initialHeight: rect.height,

@@ -20,6 +20,18 @@
 
 ### 🩹 Fixes
 
+- **修复画布图片点「AI图片生成」后参考图缩略图破图（缩略图裂开显示 alt `draw-image-…`）**：
+  画布图片元素携带的虚拟 URL（`/asset-library/…`、`/__aitu_cache__/…`）依赖 Service Worker
+  接管请求才能访问，SW 未接管时（首次访问 / HTTP 内网 / `?sw=0` 降级 / 隐私模式）请求落到
+  SPA 服务器返回 HTML → 生图对话框 `<img>` 解码失败显示破图；画布本体因 objectURL 兜底仍
+  正常显示，且生成参数 `uploadedImages` 透传虚拟 URL，同一环境下生成也会失败。现把参考图
+  提取链路上的虚拟 URL 统一解析为 dataURL：新增 `resolveVirtualImageUrlForAI`（经
+  `unifiedCacheService.getImageForAI` 直接读 Cache Storage，不依赖 SW，失败降级返回原 URL），
+  应用到选中内容生图路径（`extractImagesFromElementForAI`）与选中 PPT Frame 生图的参考图
+  路径（popup-toolbar `openAIImageGenerationDialog`）
+  （实现见 `packages/drawnix/src/utils/selection-utils.ts` +
+  `components/toolbar/popup-toolbar/popup-toolbar.tsx`，复现测试见
+  `src/utils/__tests__/selection-utils.test.ts`）
 - **修复生图成功但 huabu bucket 无任何图片（含用户提交图与生成图）、`file_paths` 恒为空**：
   归档管线存在漏挂接调用点 —— ①`FallbackMediaExecutor.generateImage` 的**同步直接分支**
   （`/images/generations`，无 adapter 命中的模型）与**异步分支**（`generateAsyncImageTask`，

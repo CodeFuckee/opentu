@@ -10,12 +10,13 @@ import { FreehandShape } from '../../plugins/freehand/type';
 
 const mocks = vi.hoisted(() => ({
   cacheMediaFromBlob: vi.fn(async (url: string) => url),
+  getImageForAI: vi.fn(),
 }));
 
 vi.mock('../../services/unified-cache-service', () => ({
   unifiedCacheService: {
     cacheMediaFromBlob: mocks.cacheMediaFromBlob,
-    getImageForAI: vi.fn(),
+    getImageForAI: mocks.getImageForAI,
   },
 }));
 
@@ -197,6 +198,134 @@ describe('selection-utils', () => {
       expect(images).toHaveLength(1);
       expect(images[0].url).toBe('https://example.com/source.png');
       expect(images[0].name).toMatch(/^draw-image-/);
+    });
+
+    it('单选虚拟 URL 画布图片时应该把参考图解析为可展示的 dataURL', async () => {
+      // 模拟 Cache Storage 中存在原始 blob：SW 未接管页面时虚拟 URL 无法被 <img> 直接加载
+      mocks.getImageForAI.mockResolvedValueOnce({
+        type: 'base64',
+        value: 'data:image/png;base64,ZmFrZS1pbWFnZQ==',
+      });
+
+      const element = {
+        id: 'image-virtual',
+        type: 'image',
+        url: '/asset-library/virtual-image.png',
+        angle: 0,
+        width: 100,
+        height: 50,
+        points: [
+          [0, 0],
+          [100, 50],
+        ],
+      };
+      const board = {
+        children: [element],
+        getRectangle: () => ({ x: 0, y: 0, width: 100, height: 50 }),
+      };
+
+      const images = await extractImagesFromElementForAI(
+        board as any,
+        element as any
+      );
+
+      expect(images).toHaveLength(1);
+      expect(images[0].url).toBe('data:image/png;base64,ZmFrZS1pbWFnZQ==');
+      expect(images[0].name).toMatch(/^draw-image-/);
+    });
+
+    it('虚拟 URL 图片在缓存中不存在时应保持原 URL 降级', async () => {
+      mocks.getImageForAI.mockResolvedValueOnce({
+        type: 'url',
+        value: '/asset-library/missing.png',
+      });
+
+      const element = {
+        id: 'image-virtual-missing',
+        type: 'image',
+        url: '/asset-library/missing.png',
+        angle: 0,
+        width: 100,
+        height: 50,
+        points: [
+          [0, 0],
+          [100, 50],
+        ],
+      };
+      const board = {
+        children: [element],
+        getRectangle: () => ({ x: 0, y: 0, width: 100, height: 50 }),
+      };
+
+      const images = await extractImagesFromElementForAI(
+        board as any,
+        element as any
+      );
+
+      expect(images).toHaveLength(1);
+      expect(images[0].url).toBe('/asset-library/missing.png');
+    });
+
+    it('生图对话框选中外链图片时不应触发虚拟 URL 解析', async () => {
+      mocks.getImageForAI.mockClear();
+      const element = {
+        id: 'image-remote',
+        type: 'image',
+        url: 'https://example.com/remote.png',
+        angle: 0,
+        width: 100,
+        height: 50,
+        points: [
+          [0, 0],
+          [100, 50],
+        ],
+      };
+      const board = {
+        children: [element],
+        getRectangle: () => ({ x: 0, y: 0, width: 100, height: 50 }),
+      };
+
+      const images = await extractImagesFromElementForAI(
+        board as any,
+        element as any
+      );
+
+      expect(images).toHaveLength(1);
+      expect(images[0].url).toBe('https://example.com/remote.png');
+      expect(mocks.getImageForAI).not.toHaveBeenCalled();
+    });
+
+    it('processSelectedContentForAI 选中虚拟 URL 图片时应输出可展示的参考图', async () => {
+      mocks.getImageForAI.mockResolvedValueOnce({
+        type: 'base64',
+        value: 'data:image/png;base64,ZmFrZS1pbWFnZQ==',
+      });
+
+      const element = {
+        id: 'image-virtual-dialog',
+        type: 'image',
+        url: '/asset-library/dialog-image.png',
+        angle: 0,
+        width: 100,
+        height: 50,
+        points: [
+          [0, 0],
+          [100, 50],
+        ],
+      };
+      const board = {
+        children: [element],
+        getRectangle: () => ({ x: 0, y: 0, width: 100, height: 50 }),
+      };
+
+      const result = await processSelectedContentForAI(board as any, [
+        'image-virtual-dialog',
+      ]);
+
+      expect(result.remainingImages).toHaveLength(1);
+      expect(result.remainingImages[0].url).toBe(
+        'data:image/png;base64,ZmFrZS1pbWFnZQ=='
+      );
     });
 
     it('应该只把 3D 变换转换成自然机位提示词，忽略 2D 平面旋转', () => {

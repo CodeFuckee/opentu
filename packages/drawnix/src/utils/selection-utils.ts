@@ -21,6 +21,7 @@ import {
   type MaskExportInfo,
   isMaskBrushEligibleImage,
 } from './ai-mask-brush';
+import { isVirtualUrl } from './asset-cleanup';
 
 /**
  * 从图片 URL 获取原始尺寸
@@ -1061,11 +1062,44 @@ async function resizeImageUrlForMaskEdit(
   });
 }
 
+/**
+ * 将虚拟 URL（素材库 /__aitu_cache__/ 等）解析为可直接展示和发给大模型的 dataURL。
+ * 虚拟 URL 依赖 Service Worker 接管请求提供数据；SW 未接管时（首次访问 / HTTP 内网 /
+ * ?sw=0 降级 / 隐私模式）请求落到 SPA 服务器返回 HTML，导致生图参考图破图、生成拿不到数据。
+ * 这里绕过 SW 直接从 Cache Storage 读取 blob 转换，失败时降级返回原 URL。
+ */
+export const resolveVirtualImageUrlForAI = async (url: string): Promise<string> => {
+  if (!url || !isVirtualUrl(url)) {
+    return url;
+  }
+
+  try {
+    const { unifiedCacheService } = await import(
+      '../services/unified-cache-service'
+    );
+    const imageData = await unifiedCacheService.getImageForAI(url, {
+      maxSize: Number.MAX_SAFE_INTEGER,
+    });
+    if (imageData.type === 'base64' && imageData.value) {
+      return imageData.value;
+    }
+  } catch {
+    // 缓存读取失败时降级返回原 URL，不阻塞参考图回填
+  }
+  return url;
+};
+
 export const extractImagesFromElementForAI = async (
   board: PlaitBoard,
   element: PlaitElement
 ): Promise<{ url: string; name?: string; width?: number; height?: number }[]> => {
-  return extractImagesFromElement(element, board);
+  const images = extractImagesFromElement(element, board);
+  return Promise.all(
+    images.map(async (image) => ({
+      ...image,
+      url: await resolveVirtualImageUrlForAI(image.url),
+    }))
+  );
 };
 
 /**
