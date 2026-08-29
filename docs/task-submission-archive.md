@@ -77,9 +77,12 @@ public.task_submissions (
   路径 `{oa账号}/{YYYY-MM-DD}/output-{sha256}.{ext}`，JSON 内以存储路径替换；
   上传失败保留原 base64 入库（静默）；
 - **URL 型输出转存**：上游返回 `data[].url`（无字节）时，响应 JSON 本身无内容可上传；
-  由 `fallback-adapter-routes.executeImageViaAdapter` 在本地缓存完成后调用
-  `archiveGeneratedMediaToSupabase(taskId, cachedUrls)`，把本地 blob 上传
-  `output-{sha256}.{ext}` 并写 `response_file_paths`（fire-and-forget 静默失败）；
+  由 executor 完成点在本地缓存完成后调用
+  `archiveGeneratedMediaToSupabase(taskId, cachedUrls)` 把本地 blob 上传
+  `output-{sha256}.{ext}` 并写 `response_file_paths`（fire-and-forget 静默失败）。
+  覆盖三条完成分支：`fallback-adapter-routes.executeImageViaAdapter`（adapter 模型）、
+  `fallback-executor` 同步 `/images/generations` 直接分支与
+  `generateAsyncImageTask` 异步分支（非 adapter 模型）；
 - upsert `task_submissions`（`on_conflict=user_id,task_id` 合并更新，仅写新增列，
   不与 status/result/error 回写冲突）。
 

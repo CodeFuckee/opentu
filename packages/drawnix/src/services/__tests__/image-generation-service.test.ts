@@ -13,6 +13,11 @@ const hasInvocationRouteCredentialsMock = vi.fn(() => true);
 const getFallbackExecutorMock = vi.fn(() => ({
   generateImage: generateImageMock,
 }));
+const archiveTaskToSupabaseMock = vi.fn(async () => undefined);
+
+vi.mock('../task-supabase-archive/service', () => ({
+  archiveTaskToSupabase: archiveTaskToSupabaseMock,
+}));
 
 vi.mock('../media-executor/task-storage-writer', () => ({
   taskStorageWriter: {
@@ -33,6 +38,12 @@ vi.mock('../../utils/settings-manager', () => ({
     waitForInitialization: waitForInitializationMock,
   },
   hasInvocationRouteCredentials: hasInvocationRouteCredentialsMock,
+  // model-pricing-service 模块初始化会读取该配置（非数组时安全跳过），
+  // 缺失此导出会导致该测试文件整体报错（基线既有失败）
+  providerPricingCacheSettings: {
+    get: () => undefined,
+    set: () => undefined,
+  },
 }));
 
 vi.mock('../task-queue-service', () => ({
@@ -44,6 +55,13 @@ vi.mock('../task-queue-service', () => ({
 
 vi.mock('../../utils/task-utils', () => ({
   generateTaskId: () => 'task-image-1',
+}));
+
+vi.mock('../task-invocation-route', () => ({
+  createTaskInvocationRouteSnapshot: () => undefined,
+  assertTaskInvocationRouteAvailable: vi.fn(),
+  resolveLegacyTaskInvocationRouteModel: vi.fn(() => null),
+  shouldUseStrictTaskInvocationRoute: vi.fn(() => false),
 }));
 
 describe('image-generation-service', () => {
@@ -113,7 +131,9 @@ describe('image-generation-service', () => {
           quality: 'high',
           n: 2,
         },
-      })
+      }),
+      // 第 4 参为 invocationRoute（此处 mock 返回 undefined）
+      undefined
     );
 
     expect(trackExternalTaskMock).toHaveBeenCalledWith(
@@ -143,6 +163,36 @@ describe('image-generation-service', () => {
       }),
       expect.objectContaining({
         signal: undefined,
+      })
+    );
+  });
+
+  it('REPRO→FIXED：工作流/Agent 直接生成路径也应归档输入文件（archiveTaskToSupabase）', async () => {
+    const { generateImage } = await import(
+      '../media-generation/image-generation-service'
+    );
+
+    await generateImage('Edit this', {
+      forceMainThread: true,
+      model: 'gpt-image-2',
+      referenceImages: ['https://example.com/reference.png'],
+      uploadedImages: [{ url: 'https://example.com/reference.png' }],
+      maskImage: 'https://example.com/mask.png',
+    });
+
+    // BUG：此路径此前从不调用归档 → 用户提交的参考图不入 huabu bucket、
+    // task_submissions 无行（file_paths 恒为空）
+    expect(archiveTaskToSupabaseMock).toHaveBeenCalledTimes(1);
+    expect(archiveTaskToSupabaseMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'task-image-1',
+        type: TaskType.IMAGE,
+        params: expect.objectContaining({
+          prompt: 'Edit this',
+          referenceImages: ['https://example.com/reference.png'],
+          uploadedImages: [{ url: 'https://example.com/reference.png' }],
+          maskImage: 'https://example.com/mask.png',
+        }),
       })
     );
   });

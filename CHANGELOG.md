@@ -20,6 +20,20 @@
 
 ### 🩹 Fixes
 
+- **修复生图成功但 huabu bucket 无任何图片（含用户提交图与生成图）、`file_paths` 恒为空**：
+  归档管线存在漏挂接调用点 —— ①`FallbackMediaExecutor.generateImage` 的**同步直接分支**
+  （`/images/generations`，无 adapter 命中的模型）与**异步分支**（`generateAsyncImageTask`，
+  `openai.async.media` 绑定）生图成功、把图片缓存到 `/__aitu_cache__/` 后直接
+  `completeTask`，从不调用 `archiveGeneratedMediaToSupabase` → 生成的图片永远不转存
+  `output-{SHA-256}.{ext}`、`response_file_paths` 不更新（此前 70677fbc 回滚了
+  d1840583 的归档调用，本次按同样语义恢复并加回 REPRO 测试）；②工作流/Agent 直接生成
+  图片入口 `media-generation/image-generation-service.generateImage` 只写 IndexedDB，
+  从不调用 `archiveTaskToSupabase` → 用户提交的参考图不入桶、`task_submissions` 无行
+  （现补上与 `taskQueueService.createTask` 一致的输入归档，终态回写由
+  `taskUpdates$` 订阅负责）。全程 fire-and-forget 静默失败
+  （实现见 `packages/drawnix/src/services/media-executor/fallback-executor.ts` +
+  `media-generation/image-generation-service.ts`，复现测试见
+  `media-executor/fallback-executor.archive.test.ts` + `__tests__/image-generation-service.test.ts`）
 - **修复浏览器端归档上传被 Service Worker 误拦（最终根因）**：`StorageApiError: Not Found`
   且服务器无上传请求记录 —— SW 的「外部图片请求」拦截按 **URL 扩展名**（`.jpg`/`.png`）判断，
   归档上传（POST `/storage/v1/object/.../input-xxx.jpg`）被当作图片请求处理，而

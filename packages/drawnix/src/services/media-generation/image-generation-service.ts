@@ -27,6 +27,8 @@ import {
   TaskExecutionPhase,
 } from '../../types/task.types';
 import { createTaskInvocationRouteSnapshot } from '../task-invocation-route';
+import { archiveTaskToSupabase } from '../task-supabase-archive/service';
+import type { Task } from '../../types/shared/core.types';
 
 function buildStoredImageAdapterParams(
   options: ImageGenerationOptions
@@ -133,6 +135,23 @@ export async function generateImage(
     persistedTaskParams,
     invocationRoute
   );
+
+  // 任务参数异步归档到 Supabase（上传文件 + 写入 task_submissions，静默失败不阻塞）：
+  // 本路径（工作流/Agent 直接生成图片）此前只写了 IndexedDB，从不调用
+  // archiveTaskToSupabase → 用户提交的参考图不入 huabu bucket、task_submissions 无行。
+  // 与 taskQueueService.createTask 路径保持同一归档语义（建行 status=submitted，
+  // 终态由 taskUpdates$ 订阅回写 completed/failed）。
+  void archiveTaskToSupabase({
+    id: taskId,
+    type: TaskType.IMAGE,
+    status: QueueTaskStatus.PROCESSING,
+    params: persistedTaskParams,
+    createdAt: now,
+    updatedAt: now,
+    startedAt: now,
+    invocationRoute,
+    executionPhase: TaskExecutionPhase.SUBMITTING,
+  } satisfies Task);
 
   // 注册到 TaskQueueService 内存 Map，确保任务队列 UI 和重试功能可用
   taskQueueService.trackExternalTask({
