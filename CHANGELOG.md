@@ -20,6 +20,20 @@
 
 ### 🩹 Fixes
 
+- 修复生成/上传图片未写入 `huabu` bucket（`storage.objects` 恒为空，`task_submissions` 行
+  `file_paths`/`response_file_paths` 恒为空、`upstream_response` 恒为 NULL）：根因是归档管道
+  两处缺口叠加 —— ①输入侧 `archiveTaskToSupabase` 只识别 `data:` URL，而 AI 图片弹窗上传的
+  参考图在参数中是 `/asset-library/` 素材库虚拟 URL，导致 `collectDataUrls` 收集不到任何文件；
+  ②输出侧 `executeImageViaAdapter` 调用 `adapter.generateImage` 时不透传 `taskId`，`x-task-id`
+  头缺失使 `providerTransport.send()` 的响应归档钩子（`managed && request.taskId`）永不触发，
+  且 new-api 同步生图返回 OpenAI 格式 `{created, data:[{url}]}`（无 base64、无 status 键）会被
+  `isTerminalResponseState` 判为中间态直接跳过。方案：输入侧把 `/asset-library/`、`/__aitu_cache__/`
+  虚拟 URL 经 `unifiedCacheService.getImageForAI()` 解析为 base64 后与 dataURL 一并去重上传
+  （解析失败的原样保留）；输出侧 `AdapterContext.taskId` 透传恢复 x-task-id 契约，响应归档新增
+  OpenAI 图片响应形状判定（`hasOpenAIImageMedia`），并新增 `archiveGeneratedMediaToSupabase`
+  在 executor 完成点把本地缓存的生成图片转存 `output-{SHA-256}.{ext}` + 写 `response_file_paths`
+  （实现见 `packages/drawnix/src/services/task-supabase-archive/{core,service}.ts` +
+  `media-executor/{fallback-adapter-routes,fallback-executor}.ts`，全链路仍 fire-and-forget 静默失败）
 - 修复生成图片返回 `500 {"msg":"WorkerRequestCancelled: request has been cancelled by supervisor"}`
   且任务图片未写入 `huabu` bucket：根因是 ai-proxy 在请求生命周期内 `await` 响应归档
   （读取多 MB base64 响应 → 解码 → SHA-256 → 上传 bucket → 写 `task_submissions`），

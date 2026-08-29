@@ -12,12 +12,13 @@ import type { SupabaseClient, User } from '@supabase/supabase-js';
 import type { Task } from '../../types/task.types';
 import { TaskStatus } from '../../types/task.types';
 import { getTaskArchiveConfig } from './runtime';
+import { unifiedCacheService } from '../unified-cache-service';
 import {
   buildFileEntries,
-  toParamsWithFilePaths,
   sanitizeUsername,
   getLocalDateString,
   collectBase64Values,
+  collectVirtualMediaUrls,
   extractBase64Payload,
   extractMimeFromDataUrl,
   sniffMimeFromBytes,
@@ -26,7 +27,9 @@ import {
   sha256Hex,
   buildOutputStoragePath,
   replaceBase64WithPaths,
+  replaceStringsWithPaths,
   isTerminalResponseState,
+  hasOpenAIImageMedia,
 } from './core';
 
 const DEFAULT_BUCKET = 'huabu';
@@ -71,7 +74,11 @@ async function resolveUsername(
 /**
  * 任务创建时归档：上传文件 + 写入 task_submissions（status=submitted）。
  *
- * 文件上传失败的 dataURL 保留原样（不入 file_paths）；任务参数仍整体入库。
+ * 覆盖两类待上传文件：
+ * - data URL（页面内联 / 剪贴板粘贴等）→ 直接解码上传
+ * - 虚拟媒体路径（/asset-library/、/__aitu_cache__/，即用户上传/素材库缓存的图片）
+ *   → 经 unifiedCacheService 解析为 base64 data URL 后与上者一并去重上传
+ * 文件上传失败的 dataURL / 虚拟路径保留原样（不入 file_paths）；任务参数仍整体入库。
  */
 export async function archiveTaskToSupabase(task: Task): Promise<void> {
   try {
@@ -91,14 +98,40 @@ export async function archiveTaskToSupabase(task: Task): Promise<void> {
     const bucketName = config.bucketName?.trim() || DEFAULT_BUCKET;
     const dateStr = getLocalDateString();
 
-    // 1. 提取文件条目（dataURL → 哈希 → 存储路径）
+    // 1. 解析虚拟媒体路径为 base64 data URL（失败静默跳过，原路径保留）
+    //    virtualUrl → 解析出的 dataURL（供 buildFileEntries 收集与二次替换）
+    const virtualUrlToDataUrl = new Map<string, string>();
+    const virtualUrls = new Set<string>();
+    collectVirtualMediaUrls(task.params, virtualUrls);
+    for (const virtualUrl of virtualUrls) {
+      try {
+        const imageData = await unifiedCacheService.getImageForAI(virtualUrl);
+        if (imageData.type === 'base64') {
+          virtualUrlToDataUrl.set(virtualUrl, imageData.value);
+        }
+      } catch (error) {
+        console.warn(
+          '[TaskArchive] resolve virtual media url failed, keeping original:',
+          error
+        );
+      }
+    }
+
+    // 2. 合成"虚拟 URL 已被替换为 dataURL"的参数快照，供提取文件条目
+    const paramsWithResolved = virtualUrlToDataUrl.size
+      ? (replaceStringsWithPaths(
+          task.params as Record<string, unknown>,
+          virtualUrlToDataUrl
+        ) as Record<string, unknown>)
+      : (task.params as Record<string, unknown>);
+
     const { entries } = await buildFileEntries(
-      task.params as Record<string, unknown>,
+      paramsWithResolved,
       username,
       dateStr
     );
 
-    // 2. 上传到 bucket（失败静默，该 dataURL 不进入映射）
+    // 3. 上传到 bucket（失败静默，该条目不进入映射）
     const uploadedPaths: string[] = [];
     const succeededPaths = new Map<string, string>();
     for (const entry of entries) {
@@ -117,15 +150,21 @@ export async function archiveTaskToSupabase(task: Task): Promise<void> {
       }
       uploadedPaths.push(entry.storagePath);
       succeededPaths.set(entry.dataUrl, entry.storagePath);
+      // 若该条目由虚拟 URL 解析而来，虚拟 URL 也映射到同一存储路径
+      for (const [virtualUrl, dataUrl] of virtualUrlToDataUrl) {
+        if (dataUrl === entry.dataUrl) {
+          succeededPaths.set(virtualUrl, entry.storagePath);
+        }
+      }
     }
 
-    // 3. 用存储路径替换参数中的 dataURL（只替换成功上传的）
-    const paramsForDb = toParamsWithFilePaths(
+    // 4. 用存储路径替换参数中的 dataURL / 虚拟路径（只替换成功上传的）
+    const paramsForDb = replaceStringsWithPaths(
       task.params as Record<string, unknown>,
       succeededPaths
     );
 
-    // 4. 写入数据库（按 user_id+task_id 幂等）
+    // 5. 写入数据库（按 user_id+task_id 幂等）
     const { error: insertError } = await config.client
       .from('task_submissions')
       .upsert(
@@ -225,13 +264,15 @@ export async function archiveUpstreamResponseToSupabase(
       return;
     }
 
-    // 中间态轮询（queued/processing）不归档；终态或含 base64 值（图片已出）才归档；
+    // 中间态轮询（queued/processing）不归档；终态、含 base64 值（图片已出）、
+    // 或 OpenAI 图片响应（{data:[{url}]}，无 status 但已产生媒体输出）才归档；
     // force=true（上游 ≥400 失败响应）无论内容都归档错误 JSON
     const values = collectBase64Values(upstreamJson);
     if (
       !options.force &&
       values.length === 0 &&
-      !isTerminalResponseState(upstreamJson)
+      !isTerminalResponseState(upstreamJson) &&
+      !hasOpenAIImageMedia(upstreamJson)
     ) {
       return;
     }
@@ -337,5 +378,106 @@ export async function archiveUpstreamResponseFromFetch(
     });
   } catch (error) {
     console.warn('[TaskArchive] response archive from fetch failed (silent):', error);
+  }
+}
+
+/**
+ * 生成结果媒体归档（fire-and-forget）：
+ *
+ * 场景：适配器生图完成后，新生成的图片已由 executor 缓存到本地
+ * （/__aitu_cache__/... 虚拟 URL）。本函数把本地 blob 上传 huabu bucket
+ * （output-{sha256}.{ext}），并写 task_submissions.response_file_paths。
+ *
+ * - 上游返回 b64_json 时由 archiveUpstreamResponseToSupabase 负责；
+ * - 上游返回 URL（OpenAI data[].url 格式）时，响应 JSON 里没有字节，
+ *   转存必须发生在 executor 拿到可下载结果之后 —— 即本函数（补足 URL 型输出入桶）。
+ * 全程 fire-and-forget、静默失败：任何异常只 console.warn，绝不抛出、不阻塞生成。
+ */
+export async function archiveGeneratedMediaToSupabase(
+  taskId: string,
+  urls: string[]
+): Promise<void> {
+  try {
+    const config = getTaskArchiveConfig();
+    if (!config || !taskId || !urls || urls.length === 0) {
+      return;
+    }
+    const user = await getCurrentUser(config.client);
+    if (!user) {
+      return;
+    }
+    const username = await resolveUsername(config.client, user);
+    if (!username) {
+      return;
+    }
+
+    const bucketName = config.bucketName?.trim() || DEFAULT_BUCKET;
+    const dateStr = getLocalDateString();
+
+    const uploadedPaths: string[] = [];
+    const resolved = new Set<string>();
+    for (const url of urls) {
+      if (resolved.has(url)) {
+        continue;
+      }
+      resolved.add(url);
+      try {
+        // 本地虚拟 URL → base64 dataURL（与 executor 参考图解析一致）
+        const imageData = await unifiedCacheService.getImageForAI(url);
+        if (imageData.type !== 'base64') {
+          continue;
+        }
+        const payload = extractBase64Payload(imageData.value);
+        if (payload === null) {
+          continue;
+        }
+        const bytes = decodeResponseBase64(payload);
+        const mime =
+          extractMimeFromDataUrl(imageData.value) ?? sniffMimeFromBytes(bytes);
+        const ext = mimeToExtension(mime);
+        const hash = await sha256Hex(bytes);
+        const storagePath = buildOutputStoragePath(username, dateStr, hash, ext);
+
+        const { error } = await config.client.storage
+          .from(bucketName)
+          .upload(storagePath, new Blob([bytes], { type: mime }), {
+            contentType: mime,
+            upsert: true,
+          });
+        if (error) {
+          console.warn(
+            '[TaskArchive] generated media upload failed (silent):',
+            error
+          );
+          continue;
+        }
+        uploadedPaths.push(storagePath);
+      } catch (error) {
+        console.warn('[TaskArchive] generated media processing failed:', error);
+      }
+    }
+
+    if (uploadedPaths.length === 0) {
+      return;
+    }
+
+    const { error } = await config.client
+      .from('task_submissions')
+      .upsert(
+        {
+          user_id: user.id,
+          task_id: taskId,
+          response_file_paths: uploadedPaths,
+        },
+        { onConflict: 'user_id,task_id' }
+      );
+    if (error) {
+      console.warn(
+        '[TaskArchive] generated media upsert failed (silent):',
+        error
+      );
+    }
+  } catch (error) {
+    console.warn('[TaskArchive] generated media archive failed (silent):', error);
   }
 }

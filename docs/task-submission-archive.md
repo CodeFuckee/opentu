@@ -6,14 +6,17 @@
 任务参数会异步归档到 Supabase：
 
 - **参数** → 写入 `public.task_submissions` 表（JSONB）
-- **文件**（base64 dataURL / File）→ 上传到 Storage bucket `huabu`，
-  路径 `{oa账号}/{YYYY-MM-DD}/input-{SHA-256}.{扩展名}`
-- **数据库**中保存文件路径：参数里的 dataURL 被替换为存储路径，同时 `file_paths` 记录路径列表
-- **URL 引用**（http(s) / `/__aitu_cache__/`）原样保留，不重复上传
+- **文件**（base64 dataURL / 素材库虚拟 URL `/asset-library/`、缓存 URL `/__aitu_cache__/`）
+  → 上传到 Storage bucket `huabu`，路径 `{oa账号}/{YYYY-MM-DD}/input-{SHA-256}.{扩展名}`
+  （虚拟 URL 经 `unifiedCacheService.getImageForAI()` 解析为 base64 后与 dataURL 一并去重上传；
+  解析失败的虚拟 URL 与 http(s) 远程 URL 引用**原样保留**，不重复上传）
+- **数据库**中保存文件路径：参数里的 dataURL / 虚拟 URL 被替换为存储路径，同时 `file_paths` 记录路径列表
 - **终态回写**：任务 completed / failed / cancelled 时更新同一行
 - **响应归档**（前端 providerTransport）：任务到达终态（成功/失败）时，new-api 返回的
   原始响应 JSON 由前端请求层写入 `upstream_response` 列，其中 base64 数据转存
-  `huabu` bucket（`output-` 前缀）并以存储路径替换（详见"响应归档"一节）
+  `huabu` bucket（`output-` 前缀）并以存储路径替换（详见"响应归档"一节）；
+  上游返回 URL 型图片（OpenAI `data[].url` 格式）时，由 executor 完成点
+  `archiveGeneratedMediaToSupabase` 把本地缓存 blob 转存 `output-` 路径并写 `response_file_paths`
 
 归档是 fire-and-forget 后台操作：Supabase 不可用、未登录、未注册配置时一律**静默跳过**，
 不阻塞任务创建与执行，不向用户报错（仅 console 警告）。
@@ -61,15 +64,22 @@ public.task_submissions (
 写库），拖爆 edge-runtime 硬限制 → supervisor 取消 worker → 生成请求返回
 `500 WorkerRequestCancelled` 且图片未写入 bucket；现改为前端，浏览器无 worker 被杀限制：
 
-- 前端请求层在托管请求上附加 `x-task-id: <task.id>` 头（保留契约；服务端不再消费）；
+- 前端请求层在托管请求上附加 `x-task-id: <task.id>` 头（保留契约；服务端不再消费；
+  **适配器生图路径（gpt-image-2 等）需经 `AdapterContext.taskId` 透传**，否则钩子不触发）；
 - `providerTransport.send()` 拿到响应后 clone，`archiveUpstreamResponseFromFetch()` 判断：
   - 响应含 base64 白名单字段（`b64_json`/`b64`/`base64`/dataURL）→ 视为图片/媒体输出，归档；
   - 响应到终态（`status`/`state` 为 completed/failed 等）→ 归档终态 JSON；
+  - OpenAI 图片响应形状（`data[]` 含 `url`/`b64_json`）→ 视为已产生媒体输出，归档 JSON
+    （URL 型输出由 executor 完成点转存字节，见下）；
   - 上游 ≥400 失败响应 → 强制归档错误 JSON；
   - 中间态轮询（queued/processing）、非 JSON、未登录/未注册配置 → 跳过，不影响主流程；
 - base64 解码 → magic 嗅探 MIME → SHA-256 → 上传 `huabu` bucket，
   路径 `{oa账号}/{YYYY-MM-DD}/output-{sha256}.{ext}`，JSON 内以存储路径替换；
   上传失败保留原 base64 入库（静默）；
+- **URL 型输出转存**：上游返回 `data[].url`（无字节）时，响应 JSON 本身无内容可上传；
+  由 `fallback-adapter-routes.executeImageViaAdapter` 在本地缓存完成后调用
+  `archiveGeneratedMediaToSupabase(taskId, cachedUrls)`，把本地 blob 上传
+  `output-{sha256}.{ext}` 并写 `response_file_paths`（fire-and-forget 静默失败）；
 - upsert `task_submissions`（`on_conflict=user_id,task_id` 合并更新，仅写新增列，
   不与 status/result/error 回写冲突）。
 

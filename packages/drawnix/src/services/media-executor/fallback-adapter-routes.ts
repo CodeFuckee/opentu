@@ -32,6 +32,7 @@ import {
   cacheRemoteUrl,
   cacheRemoteUrls,
 } from './fallback-utils';
+import { archiveGeneratedMediaToSupabase } from '../task-supabase-archive/service';
 
 type ImageGenerationMode = 'text_to_image' | 'image_to_image' | 'image_edit';
 type ImageInputFidelity = 'high' | 'low';
@@ -138,11 +139,18 @@ export async function executeImageViaAdapter(
 
     options?.onProgress?.({ progress: 10, phase: 'submitting' });
 
-    const result = await adapter.generateImage(
-      getAdapterContextFromSettings('image', params.modelRef || params.model, {
-        preferredRequestSchema,
-      }),
-      {
+    // 携带前端任务 id（x-task-id 契约）：providerTransport 托管模式下据此触发
+    // 上游响应归档（archiveUpstreamResponseFromFetch → response_file_paths / upstream_response）
+    const adapterContext = getAdapterContextFromSettings(
+      'image',
+      params.modelRef || params.model,
+      { preferredRequestSchema }
+    );
+    const contextWithTaskId = taskId
+      ? { ...adapterContext, taskId }
+      : adapterContext;
+
+    const result = await adapter.generateImage(contextWithTaskId, {
         prompt: params.prompt,
         model: params.model,
         modelRef: params.modelRef || null,
@@ -188,6 +196,10 @@ export async function executeImageViaAdapter(
         : undefined,
     });
     const cachedPrimary = cachedUrls[0];
+
+    // 生成结果转存 huabu bucket（output- 前缀，fire-and-forget 静默失败）：
+    // 上游返回 URL 型图片时响应 JSON 无字节，此处拿到本地缓存的 blob 后上传
+    void archiveGeneratedMediaToSupabase(taskId, cachedUrls);
 
     await taskStorageWriter.completeTask(taskId, {
       url: cachedPrimary,

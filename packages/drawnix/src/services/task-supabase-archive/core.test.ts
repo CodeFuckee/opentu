@@ -26,13 +26,16 @@ import {
   buildFileEntries,
   toParamsWithFilePaths,
   collectBase64Values,
+  collectVirtualMediaUrls,
   extractBase64Payload,
   extractMimeFromDataUrl,
   sniffMimeFromBytes,
   decodeResponseBase64,
   buildOutputStoragePath,
   replaceBase64WithPaths,
+  replaceStringsWithPaths,
   isTerminalResponseState,
+  hasOpenAIImageMedia,
 } from './core';
 
 // jsdom 环境不提供 crypto.subtle，测试内用 Node webcrypto 补齐
@@ -456,5 +459,86 @@ describe('isTerminalResponseState', () => {
     expect(isTerminalResponseState({ progress: 40 })).toBe(false);
     expect(isTerminalResponseState(null)).toBe(false);
     expect(isTerminalResponseState('whatever')).toBe(false);
+  });
+});
+
+describe('collectVirtualMediaUrls（输入归档虚拟媒体路径收集）', () => {
+  it('收集 /asset-library/ 与 /__aitu_cache__/ 路径（去重）', () => {
+    const seen = new Set<string>();
+    collectVirtualMediaUrls(
+      {
+        prompt: 'plain',
+        uploadedImages: [
+          { url: '/asset-library/content-abc.png' },
+          { url: '/asset-library/content-abc.png' },
+        ],
+        referenceImages: ['/__aitu_cache__/image/content-def.png'],
+        nested: { list: ['/asset-library/content-ghi.png'] },
+      },
+      seen
+    );
+    expect(Array.from(seen).sort()).toEqual([
+      '/__aitu_cache__/image/content-def.png',
+      '/asset-library/content-abc.png',
+      '/asset-library/content-ghi.png',
+    ]);
+  });
+
+  it('data URL 与 http URL 不收集', () => {
+    const seen = new Set<string>();
+    collectVirtualMediaUrls(
+      {
+        uploadedImages: [{ url: 'data:image/png;base64,YWJj' }],
+        referenceImages: ['https://example.com/x.png'],
+      },
+      seen
+    );
+    expect(seen.size).toBe(0);
+  });
+});
+
+describe('replaceStringsWithPaths（通用字符串替换，输入归档用）', () => {
+  it('替换任意出现在映射中的字符串（含虚拟 URL，顶层字符串也替换）', () => {
+    const params = {
+      uploadedImages: [{ url: '/asset-library/content-abc.png' }],
+      prompt: 'a cat',
+    };
+    const pathByValue = new Map([
+      ['/asset-library/content-abc.png', 'chenkaidi/2026-08-30/input-h.png'],
+    ]);
+    const next = replaceStringsWithPaths(params, pathByValue) as any;
+    expect(next.uploadedImages[0].url).toBe(
+      'chenkaidi/2026-08-30/input-h.png'
+    );
+    expect(next.prompt).toBe('a cat');
+    // 顶层字符串替换
+    expect(
+      replaceStringsWithPaths('/asset-library/content-abc.png', pathByValue)
+    ).toBe('chenkaidi/2026-08-30/input-h.png');
+  });
+
+  it('不修改原对象（深拷贝）', () => {
+    const params = { uploadedImages: [{ url: '/asset-library/abc.png' }] };
+    const pathByValue = new Map([['/asset-library/abc.png', 'chenkaidi/x.png']]);
+    const next = replaceStringsWithPaths(params, pathByValue);
+    expect((params.uploadedImages as any)[0].url).toBe('/asset-library/abc.png');
+    expect(next).not.toBe(params);
+  });
+});
+
+describe('hasOpenAIImageMedia（OpenAI 图片响应形状判定）', () => {
+  it('data[] 含 url 或 b64_json 的响应判定为已产生媒体', () => {
+    expect(hasOpenAIImageMedia({ created: 1, data: [{ url: 'https://x/a.png' }] })).toBe(true);
+    expect(hasOpenAIImageMedia({ data: [{ b64_json: 'AAA' }] })).toBe(true);
+    expect(hasOpenAIImageMedia({ data: [{ url: 'https://x/a.png' }, { url: 'https://x/b.png' }] })).toBe(true);
+  });
+
+  it('中间态 / 非图片 / 空返回 false', () => {
+    expect(hasOpenAIImageMedia({ status: 'processing', progress: 40 })).toBe(false);
+    expect(hasOpenAIImageMedia({ data: [{ url: 123 }] })).toBe(false);
+    expect(hasOpenAIImageMedia({ data: [] })).toBe(false);
+    expect(hasOpenAIImageMedia({ data: 'plain' })).toBe(false);
+    expect(hasOpenAIImageMedia(null)).toBe(false);
+    expect(hasOpenAIImageMedia({ status: 'completed', url: 'https://x/a.png' })).toBe(false);
   });
 });

@@ -210,6 +210,43 @@ export interface ArchiveFileEntry {
 }
 
 /**
+ * 判断字符串是否为本地虚拟媒体路径（素材库 / 缓存），
+ * 与 isVirtualMediaUrl 的前缀规则保持一致（仅同源相对路径形态）。
+ */
+export function isVirtualMediaPath(url: string): boolean {
+  return (
+    url.startsWith('/asset-library/') || url.startsWith('/__aitu_cache__/')
+  );
+}
+
+/**
+ * 深度遍历未知结构，收集所有虚拟媒体路径字符串（/asset-library/、/__aitu_cache__/）。
+ * 与 collectDataUrls 互补：data URL 与虚拟路径都会进入待上传集合。
+ */
+export function collectVirtualMediaUrls(
+  value: unknown,
+  seen: Set<string>
+): void {
+  if (typeof value === 'string') {
+    if (isVirtualMediaPath(value)) {
+      seen.add(value);
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectVirtualMediaUrls(item, seen);
+    }
+    return;
+  }
+  if (value && typeof value === 'object') {
+    for (const key of Object.keys(value as Record<string, unknown>)) {
+      collectVirtualMediaUrls((value as Record<string, unknown>)[key], seen);
+    }
+  }
+}
+
+/**
  * 深度遍历未知结构，收集所有 data URL 字符串。
  * 返回去重后的 data URL 列表（保持首次出现顺序）。
  */
@@ -429,10 +466,11 @@ export function buildOutputStoragePath(
 }
 
 /**
- * 用存储路径替换 JSON 中的 base64 值（深拷贝，不修改原对象）。
+ * 用存储路径替换 JSON 中的字符串值（深拷贝，不修改原对象）。
  * 只替换出现在 pathByValue 中的值；其余保留。
+ * 与 replaceBase64WithPaths 的区别：顶层字符串也会被替换（通用替换，输入归档用）。
  */
-export function replaceBase64WithPaths(
+export function replaceStringsWithPaths(
   value: unknown,
   pathByValue: ReadonlyMap<string, string>
 ): unknown {
@@ -453,10 +491,21 @@ export function replaceBase64WithPaths(
     return current;
   }
 
+  return replaceValue(value);
+}
+
+/**
+ * 用存储路径替换 JSON 中的 base64 值（深拷贝，不修改原对象）。
+ * 只替换出现在 pathByValue 中的值；其余保留。
+ */
+export function replaceBase64WithPaths(
+  value: unknown,
+  pathByValue: ReadonlyMap<string, string>
+): unknown {
   if (typeof value !== 'object' || value === null) {
     return value;
   }
-  return replaceValue(value);
+  return replaceStringsWithPaths(value, pathByValue);
 }
 
 /** 响应中的终态状态值（大小写不敏感；与 ai-proxy 归档语义一致） */
@@ -475,6 +524,29 @@ const TERMINAL_RESPONSE_STATUSES = new Set([
   'expired',
   'error',
 ]);
+
+/**
+ * OpenAI 图片响应形状判定：body.data 为非空数组，且数组元素含 url 或 b64_json 字符串。
+ * 用于补充 isTerminalResponseState：同步生图成功响应（{created, data:[{url}]}）没有
+ * status/state 字段，但已产生媒体输出，同样应归档（写出 upstream_response）。
+ */
+export function hasOpenAIImageMedia(body: unknown): boolean {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return false;
+  }
+  const data = (body as Record<string, unknown>).data;
+  if (!Array.isArray(data) || data.length === 0) {
+    return false;
+  }
+  return data.some(
+    (item) =>
+      !!item &&
+      typeof item === 'object' &&
+      !Array.isArray(item) &&
+      (typeof (item as Record<string, unknown>).url === 'string' ||
+        typeof (item as Record<string, unknown>).b64_json === 'string')
+  );
+}
 
 /**
  * 上游响应是否到达终态（成功或失败均算终态）。

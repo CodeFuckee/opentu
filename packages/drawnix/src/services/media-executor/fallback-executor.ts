@@ -387,6 +387,7 @@ export class FallbackMediaExecutor implements IMediaExecutor {
           body: JSON.stringify(requestBody),
           signal: options?.signal,
           timeoutMs: IMAGE_GENERATION_TIMEOUT_MS,
+          taskId, // x-task-id 契约（托管模式下触发响应归档）
         }
       );
 
