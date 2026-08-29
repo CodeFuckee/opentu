@@ -4335,6 +4335,30 @@ sw.addEventListener('fetch', (event: FetchEvent) => {
   // 而是在 handleImageRequest 中跳过缓存检查直接 fetch，但仍会缓存响应
   // 这样可以确保绕过请求的响应也能被缓存，供后续正常请求使用
 
+  // 放行自托管 Supabase 后端（REST / Auth / Storage / Functions）：
+  // 归档上传（POST /storage/v1/object/...，URL 以图片扩展名结尾）、对象下载、
+  // 任务归档读写全部直连浏览器 → Supabase，不经过图片缓存/失败 URL 缓存逻辑，
+  // 避免上传被 handleImageRequest 转成 GET 或下载被"最近失败 URL"误拦为 404。
+  const SUPABASE_PATH_PREFIXES = [
+    '/storage/v1/',
+    '/rest/v1/',
+    '/auth/v1/',
+    '/functions/v1/',
+  ];
+  if (
+    url.origin !== location.origin &&
+    SUPABASE_PATH_PREFIXES.some((prefix) => url.pathname.startsWith(prefix))
+  ) {
+    addDebugLog({
+      type: 'fetch',
+      url: event.request.url,
+      method: event.request.method,
+      requestType: 'supabase',
+      details: 'Passthrough: self-hosted Supabase backend',
+    });
+    return; // 静默放行，浏览器直连
+  }
+
   // 放行监控服务域名（PostHog），让浏览器直接处理
   // 这些服务的请求失败不应该影响应用，也不需要记录到调试日志
   if (url.hostname.endsWith('.posthog.com')) {
@@ -4530,8 +4554,16 @@ sw.addEventListener('fetch', (event: FetchEvent) => {
     return;
   }
 
-  // 拦截外部图片请求（非同源且为图片格式）
-  if (url.origin !== location.origin && isImageRequest(url, event.request)) {
+  // 拦截外部图片请求（非同源、GET 且为图片格式）
+  // 注意必须是 GET：归档上传等 POST 请求（如 Supabase Storage 上传，URL 以
+  // .jpg/.png 结尾会命中 isImageRequest）不能被当作图片处理——handleImageRequest
+  // 会强制以 GET fetch 该 URL，导致上传请求变成对象读取（Bucket not found / 404，
+  // storage-js 报 StorageApiError: Not Found，请求从未按 POST 发出）。
+  if (
+    url.origin !== location.origin &&
+    event.request.method === 'GET' &&
+    isImageRequest(url, event.request)
+  ) {
     // 检查是否是最近失败的 URL，避免重复请求
     if (isUrlRecentlyFailed(event.request.url)) {
       addDebugLog({

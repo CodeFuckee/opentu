@@ -78,9 +78,11 @@ function makeMockClient(
   const mock: {
     uploadCalls: MockUploadCall[];
     inserts: Array<{ row: Record<string, unknown>; opts: unknown }>;
+    updates: Array<{ patch: Record<string, unknown>; taskId?: string }>;
   } = {
     uploadCalls: [],
     inserts: [],
+    updates: [],
   };
   const {
     username = 'chenkaidi',
@@ -128,6 +130,14 @@ function makeMockClient(
             mock.inserts.push({ row, opts });
             return { error: null };
           },
+          update: (patch: Record<string, unknown>) => ({
+            eq: (_field: string, _value: unknown) => ({
+              eq: (_f2: string, taskId: unknown) => {
+                mock.updates.push({ patch, taskId: taskId as string });
+                return Promise.resolve({ error: null });
+              },
+            }),
+          }),
         };
       }
       return {};
@@ -182,11 +192,11 @@ describe('REPRO: 输出侧 —— OpenAI 格式 URL 图片响应应归档', () =
     });
 
     // bug 现象：当前既不上传也不写库（upstream_response 保持 NULL）—— 期望至少写库
-    expect(mock.uploadCalls.length + mock.inserts.length).toBeGreaterThan(0);
-    expect(mock.inserts).toHaveLength(1);
-    const { row } = mock.inserts[0]!;
-    expect(row.task_id).toBe('task-img-1');
-    expect((row.upstream_response as any).data[0].url).toBe(
+    expect(mock.uploadCalls.length + mock.updates.length).toBeGreaterThan(0);
+    expect(mock.updates).toHaveLength(1);
+    const { patch, taskId } = mock.updates[0]!;
+    expect(taskId).toBe('task-img-1');
+    expect((patch.upstream_response as any).data[0].url).toBe(
       'https://upstream.example/generated.png'
     );
   });
@@ -205,10 +215,10 @@ describe('REPRO: 输出侧 —— 生成结果媒体转存 huabu bucket', () => 
     expect(mock.uploadCalls[0]!.path).toMatch(
       /^chenkaidi\/\d{4}-\d{2}-\d{2}\/output-[0-9a-f]{64}\.png$/
     );
-    expect(mock.inserts).toHaveLength(1);
-    const { row } = mock.inserts[0]!;
-    expect(row.task_id).toBe('task-result-1');
-    expect(row.response_file_paths).toEqual([mock.uploadCalls[0]!.path]);
+    expect(mock.updates).toHaveLength(1);
+    const { patch, taskId } = mock.updates[0]!;
+    expect(taskId).toBe('task-result-1');
+    expect(patch.response_file_paths).toEqual([mock.uploadCalls[0]!.path]);
   });
 
   it('未注册配置 / 空 URL 列表时静默跳过', async () => {

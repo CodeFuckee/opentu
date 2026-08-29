@@ -290,7 +290,7 @@ describe('archiveUpstreamResponseToSupabase（响应归档，方案 B）', () =>
     expect(mock.inserts).toHaveLength(0);
   });
 
-  it('同步生图成功（含 b64_json）→ 上传 output 文件 + upsert upstream_response', async () => {
+  it('同步生图成功（含 b64_json）→ 上传 output 文件 + 更新 upstream_response', async () => {
     const { client, mock } = makeMockClient();
     configureTaskArchive({ client: client as never, bucketName: 'huabu' });
     await archiveUpstreamResponseToSupabase('task-img-1', {
@@ -305,13 +305,13 @@ describe('archiveUpstreamResponseToSupabase（响应归档，方案 B）', () =>
     );
     expect(upload.contentType).toBe('image/png');
 
-    expect(mock.inserts).toHaveLength(1);
-    const { row, opts } = mock.inserts[0]!;
-    expect(row.task_id).toBe('task-img-1');
-    expect(row.user_id).toBe('u-1');
-    expect((row.upstream_response as any).data[0].b64_json).toBe(upload.path);
-    expect(row.response_file_paths).toEqual([upload.path]);
-    expect(opts).toEqual({ onConflict: 'user_id,task_id' });
+    // 响应归档仅更新已有行（update），不做 INSERT（避免缺 type 的 23502）
+    expect(mock.inserts).toHaveLength(0);
+    expect(mock.updates).toHaveLength(1);
+    const { patch, taskId } = mock.updates[0]!;
+    expect(taskId).toBe('task-img-1');
+    expect((patch.upstream_response as any).data[0].b64_json).toBe(upload.path);
+    expect(patch.response_file_paths).toEqual([upload.path]);
   });
 
   it('终态响应（无 base64）也归档 upstream_response', async () => {
@@ -323,11 +323,10 @@ describe('archiveUpstreamResponseToSupabase（响应归档，方案 B）', () =>
       url: 'https://x/out.png',
     });
     expect(mock.uploadCalls).toHaveLength(0);
-    expect(mock.inserts).toHaveLength(1);
-    const { row } = mock.inserts[0]!;
-    expect(row.task_id).toBe('task-poll-1');
-    expect((row.upstream_response as any).status).toBe('completed');
-    expect(row.response_file_paths).toEqual([]);
+    expect(mock.updates).toHaveLength(1);
+    const { patch } = mock.updates[0]!;
+    expect((patch.upstream_response as any).status).toBe('completed');
+    expect(patch.response_file_paths).toEqual([]);
   });
 
   it('上传失败时静默、base64 保留原值入库', async () => {
@@ -339,12 +338,12 @@ describe('archiveUpstreamResponseToSupabase（响应归档，方案 B）', () =>
         data: [{ b64_json: BASE64_OF_ABC }],
       });
       expect(mock.uploadCalls).toHaveLength(1);
-      expect(mock.inserts).toHaveLength(1);
-      const { row } = mock.inserts[0]!;
-      expect((row.upstream_response as any).data[0].b64_json).toBe(
+      expect(mock.updates).toHaveLength(1);
+      const { patch } = mock.updates[0]!;
+      expect((patch.upstream_response as any).data[0].b64_json).toBe(
         BASE64_OF_ABC
       );
-      expect(row.response_file_paths).toEqual([]);
+      expect(patch.response_file_paths).toEqual([]);
     } finally {
       warnSpy.mockRestore();
     }
@@ -388,7 +387,7 @@ describe('archiveUpstreamResponseFromFetch（providerTransport 挂点）', () =>
     await archiveUpstreamResponseFromFetch('task-fetch-1', response);
 
     expect(mock.uploadCalls).toHaveLength(1);
-    expect(mock.inserts).toHaveLength(1);
+    expect(mock.updates).toHaveLength(1);
     const body = await response.json();
     expect((body as any).data[0].b64_json).toBe('YWJj');
   });
@@ -402,8 +401,10 @@ describe('archiveUpstreamResponseFromFetch（providerTransport 挂点）', () =>
       { status: 400, headers: { 'Content-Type': 'application/json' } }
     );
     await archiveUpstreamResponseFromFetch('task-err-1', response);
-    expect(mock.inserts).toHaveLength(1);
-    const { row } = mock.inserts[0]!;
-    expect((row.upstream_response as any).error.message).toMatch(/预扣费额度失败/);
+    expect(mock.updates).toHaveLength(1);
+    const { patch } = mock.updates[0]!;
+    expect(
+      (patch.upstream_response as any).error.message
+    ).toMatch(/预扣费额度失败/);
   });
 });

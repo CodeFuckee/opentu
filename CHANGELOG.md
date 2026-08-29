@@ -20,6 +20,18 @@
 
 ### 🩹 Fixes
 
+- **修复浏览器端归档上传被 Service Worker 误拦（最终根因）**：`StorageApiError: Not Found`
+  且服务器无上传请求记录 —— SW 的「外部图片请求」拦截按 **URL 扩展名**（`.jpg`/`.png`）判断，
+  归档上传（POST `/storage/v1/object/.../input-xxx.jpg`）被当作图片请求处理，而
+  `handleImageRequestInternal` 的 fetchOptions 全部**硬编码 method:'GET'**，导致上传被转成
+  对象 GET（storage 返回 Bucket not found 400），storage-js 得到 404 → 上传永不发出、
+  图片永不入桶。修复：①SW 外部图片拦截仅对 **GET** 生效（POST/PUT 上传直连）；②SW 放行
+  自托管 Supabase 后端（`/storage/v1/`、`/rest/v1/`、`/auth/v1/`、`/functions/v1/` 路径）全部
+  请求直连，不经过图片缓存/「最近失败 URL」404 缓存逻辑；
+  另修复响应归档 `23502 null value in column "type"`：`archiveUpstreamResponseToSupabase` /
+  `archiveGeneratedMediaToSupabase` 由 `upsert` 改为**仅更新已有行**（`update`），不再在行缺失时
+  INSERT 缺 `type` 的行
+  （实现见 `apps/web/src/sw/index.ts` + `packages/drawnix/src/services/task-supabase-archive/service.ts`）
 - 生产验证与加固：确认线上 8088 前端为 8/25 构建（不含归档修复），`task_submissions` 新行
   `params.uploadedImages[].url` 仍为 `/asset-library/` 原样路径；用伪造 authenticated JWT（email=邮箱前缀）
   对真实 Supabase 上传 `huabu/chenkaidi/2026-08-29/input-*.png` 预检返回 200，证明 storage RLS

@@ -333,20 +333,19 @@ export async function archiveUpstreamResponseToSupabase(
     // 2. 用存储路径替换 JSON 中的 base64（只替换成功上传的）
     const archivedJson = replaceBase64WithPaths(upstreamJson, pathByValue);
 
-    // 3. upsert task_submissions（on_conflict=user_id,task_id，仅更新新增列）
+    // 3. 仅更新已有行（响应归档依附于任务创建时的 submitted 行）：
+    //    不能用 upsert——若该行恰好缺失会触发 INSERT，而本方法不带 type 列，
+    //    违反 task_submissions.type NOT NULL（错误码 23502）。
     const { error } = await config.client
       .from('task_submissions')
-      .upsert(
-        {
-          user_id: user.id,
-          task_id: taskId,
-          upstream_response: archivedJson,
-          response_file_paths: uploadedPaths,
-        },
-        { onConflict: 'user_id,task_id' }
-      );
+      .update({
+        upstream_response: archivedJson,
+        response_file_paths: uploadedPaths,
+      })
+      .eq('user_id', user.id)
+      .eq('task_id', taskId);
     if (error) {
-      console.warn('[TaskArchive] response upsert failed (silent):', error);
+      console.warn('[TaskArchive] response update failed (silent):', error);
     }
   } catch (error) {
     console.warn('[TaskArchive] response archive failed (silent):', error);
@@ -471,17 +470,14 @@ export async function archiveGeneratedMediaToSupabase(
 
     const { error } = await config.client
       .from('task_submissions')
-      .upsert(
-        {
-          user_id: user.id,
-          task_id: taskId,
-          response_file_paths: uploadedPaths,
-        },
-        { onConflict: 'user_id,task_id' }
-      );
+      .update({
+        response_file_paths: uploadedPaths,
+      })
+      .eq('user_id', user.id)
+      .eq('task_id', taskId);
     if (error) {
       console.warn(
-        '[TaskArchive] generated media upsert failed (silent):',
+        '[TaskArchive] generated media update failed (silent):',
         error
       );
     }
