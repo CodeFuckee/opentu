@@ -8,17 +8,29 @@
   任务完成/失败/取消时回写同一行（status+result/error）；全程 fire-and-forget 静默失败不阻塞生成
   （实现见 `packages/drawnix/src/services/task-supabase-archive/`，迁移见
   `supabase/migrations/task_submissions.sql`，部署说明见 `docs/task-submission-archive.md`）
-- 响应归档：任务到达终态（成功/失败）时，ai-proxy 边缘函数把 new-api 原始响应 JSON 写入
+- 响应归档：任务到达终态（成功/失败）时，前端请求层把 new-api 原始响应 JSON 写入
   `task_submissions.upstream_response`，其中 base64（`b64_json`/`b64`/`base64`/dataURL）转存
   `huabu` bucket（路径 `{oa账号}/{YYYY-MM-DD}/output-{SHA-256}.{扩展名}`，按内容去重）并以存储路径
   替换，上传失败的 base64 保留原值；`response_file_paths` 记录输出文件列表。前端通过
-  `x-task-id` 头把任务关联传给 ai-proxy（`ProviderTransportRequest.taskId` 全链路透传）；
+  `x-task-id` 头把任务关联传给托管代理（`ProviderTransportRequest.taskId` 全链路透传）；
   非 JSON 响应或无 `x-task-id` 时静默跳过，不影响透传
-  （实现见 `supabase/functions/ai-proxy/{archive,archive-writer}.ts`，迁移见
+  （实现见 `packages/drawnix/src/services/task-supabase-archive/{core,service}.ts` +
+  `provider-routing/provider-transport.ts`，迁移见
   `supabase/migrations/task_submissions_add_upstream_response.sql`）
 
 ### 🩹 Fixes
 
+- 修复生成图片返回 `500 {"msg":"WorkerRequestCancelled: request has been cancelled by supervisor"}`
+  且任务图片未写入 `huabu` bucket：根因是 ai-proxy 在请求生命周期内 `await` 响应归档
+  （读取多 MB base64 响应 → 解码 → SHA-256 → 上传 bucket → 写 `task_submissions`），
+  与耗时数分钟的上游同步生图叠加后突破 edge-runtime CPU/墙钟硬限制，supervisor 取消 worker →
+  500 且被杀的归档写不进 bucket。方案：**响应归档移至前端** —— ai-proxy 只做纯透传+配额
+  （删除服务端 `archive.ts`/`archive-writer.ts`；保留配额/记账/一次性退款与 x-task-id 契约），
+  前端 `providerTransport.send()` 托管模式且携带 taskId 时 clone 上游响应后 fire-and-forget
+  转存 bucket + 写 `upstream_response`（`archiveUpstreamResponseFromFetch`，未登录/非终态/非 JSON
+  静默跳过，不阻塞主流程）。前端实现：
+  `packages/drawnix/src/services/task-supabase-archive/{core,service}.ts` + 
+  `provider-routing/provider-transport.ts`
 - 修复生图提交经 ai-proxy 返回 `503 upstream key unavailable: newapi-key provision failed: 500`：
   `supabase/functions/newapi-key/core.ts` 三处缺陷叠加——①平台已存在同名用户时新密码只写库不同步平台，
   导致登录永败（自愈：遇"密码不符"重新生成并经管理员接口 PUT 同步后重试）；②铸造令牌参数

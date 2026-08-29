@@ -503,7 +503,7 @@ function makeRequestWithTaskId(
   });
 }
 
-test('同步生图成功且带 x-task-id → 响应归档：b64 转存 bucket、JSON 内替换、透传响应不变', async () => {
+test('同步生图成功且带 x-task-id → 服务端不再归档，纯透传响应', async () => {
   const uploads: string[] = [];
   const rows: Array<Record<string, unknown>> = [];
   const response = await handleAiProxyRequest({
@@ -533,20 +533,14 @@ test('同步生图成功且带 x-task-id → 响应归档：b64 转存 bucket、
     },
   });
 
-  // 透传给前端的响应必须保持上游原样（b64 仍在），不能把路径透给前端适配器
+  // 透传给前端的响应保持上游原样（b64 仍在）
   assert.equal(response.status, 200);
   const passthrough = (await response.json()) as any;
   assert.equal(passthrough.data[0].b64_json, TINY_PNG_B64);
 
-  // 归档：上传 1 个文件 + 写库 1 行，JSON 内替换为存储路径
-  assert.equal(uploads.length, 1);
-  assert.match(uploads[0], /^zhangsan\/\d{4}-\d{2}-\d{2}\/output-[0-9a-f]{64}\.png$/);
-  assert.equal(rows.length, 1);
-  const row = rows[0];
-  assert.equal(row['user_id'], 'user-1');
-  assert.equal(row['task_id'], 'task-1');
-  assert.equal((row['upstream_response'] as any).data[0].b64_json, uploads[0]);
-  assert.deepEqual(row['response_file_paths'], [uploads[0]]);
+  // 响应归档已移至前端：服务端不再上传 huabu、不再写 task_submissions
+  assert.equal(uploads.length, 0, '服务端不应再上传 huabu bucket');
+  assert.equal(rows.length, 0, '服务端不应再写 task_submissions');
 });
 
 test('同步生图成功但无 x-task-id → 不归档', async () => {
@@ -577,7 +571,7 @@ test('同步生图成功但无 x-task-id → 不归档', async () => {
   assert.equal(rows.length, 0);
 });
 
-test('上游 ≥400 且带 x-task-id → 错误 JSON 归档、状态透传、退回额度', async () => {
+test('上游 ≥400 且带 x-task-id → 状态透传、退回额度，不再归档', async () => {
   const refunds: string[] = [];
   const rows: Array<Record<string, unknown>> = [];
   const response = await handleAiProxyRequest({
@@ -615,11 +609,10 @@ test('上游 ≥400 且带 x-task-id → 错误 JSON 归档、状态透传、退
   const passthrough = (await response.json()) as any;
   assert.match(passthrough.error.message, /预扣费额度失败/);
   assert.equal(refunds.length, 1, '失败响应应退回额度');
-  assert.equal(rows.length, 1, '失败响应也应归档');
-  assert.match((rows[0]['upstream_response'] as any).error.message, /预扣费额度失败/);
+  assert.equal(rows.length, 0, '失败响应不再服务端归档');
 });
 
-test('轮询终态成功且带 x-task-id → 归档，不退回', async () => {
+test('轮询终态成功且带 x-task-id → 不归档、不退回', async () => {
   const refunds: string[] = [];
   const rows: Array<Record<string, unknown>> = [];
   const response = await handleAiProxyRequest({
@@ -650,8 +643,7 @@ test('轮询终态成功且带 x-task-id → 归档，不退回', async () => {
   });
   assert.equal(response.status, 200);
   assert.equal(refunds.length, 0, 'SUCCESS 不应退回');
-  assert.equal(rows.length, 1, '终态成功应归档');
-  assert.equal((rows[0]['upstream_response'] as any).status, 'SUCCESS');
+  assert.equal(rows.length, 0, '终态成功不再服务端归档');
 });
 
 test('轮询非终态（processing）→ 不归档', async () => {
@@ -710,6 +702,80 @@ test('异步提交响应（非终态）→ 不归档，仅记账', async () => {
   assert.equal(response.status, 200);
   assert.equal(rpcBodies.length, 1, '提交响应仍应记账');
   assert.equal(rows.length, 0, '非终态提交响应不归档');
+});
+
+/**
+ * 回归守卫（复现 WorkerRequestCancelled 的修复验证）：
+ * 原 bug：服务端把响应归档 await 在请求生命周期内，慢速存储上传阻塞客户端响应、
+ * 拖爆 edge-runtime 硬限制 → supervisor 取消 worker → 500 WorkerRequestCancelled，
+ * 且被杀的归档写不进 bucket。
+ * 修复后：响应归档已移至前端，服务端不再在请求内执行任何归档上传/写库，
+ * 即使配置了"会慢的 storage 上传"，客户端响应也即时返回、透传内容不变。
+ */
+test('同步生图成功且带 x-task-id：服务端不再执行慢速归档（回归守卫）', async () => {
+  const uploads: string[] = [];
+  const rows: Array<Record<string, unknown>> = [];
+  const UPLOAD_DELAY_MS = 2000;
+  let uploadStartedAt = 0;
+
+  const routes = standardRoutes({
+    extra: [
+      {
+        match: (url) => url.includes('/rest/v1/user_profiles'),
+        respond: () => json(200, [{ oa_account: 'zhangsan' }]),
+      },
+      {
+        match: (url) => url.includes('/storage/v1/object/huabu/'),
+        respond: async (url) => {
+          const path = url.split('/storage/v1/object/huabu/')[1] || '';
+          uploads.push(path);
+          uploadStartedAt = Date.now();
+          await new Promise((resolve) => setTimeout(resolve, UPLOAD_DELAY_MS));
+          return new Response(null, { status: 200 });
+        },
+      },
+      {
+        match: (url) => url.includes('/rest/v1/task_submissions'),
+        respond: (_url, init) => {
+          rows.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+          return json(201, null);
+        },
+      },
+      {
+        match: (url) => url.includes('consume_image_quota'),
+        respond: () => json(200, { consumed: true }),
+      },
+    ],
+    upstream: () =>
+      json(200, {
+        created: 1,
+        data: [{ b64_json: TINY_PNG_B64, revised_prompt: 'x' }],
+      }),
+  });
+
+  const startedAt = Date.now();
+  const response = await handleAiProxyRequest({
+    env: { SUPABASE_URL: SUPABASE_URL, SERVICE_ROLE_KEY: SRK },
+    request: makeRequestWithTaskId('/v1/images/generations', 'task-blocking-archive', {
+      body: JSON.stringify({ model: 'gpt-image-2' }),
+    }),
+    pathSuffix: '/v1/images/generations',
+    deps: {
+      fetch: routeFetch(routes, []) as typeof fetch,
+    },
+  });
+  const elapsed = Date.now() - startedAt;
+
+  // 透传内容不受影响
+  assert.equal(response.status, 200);
+  const passthrough = (await response.json()) as any;
+  assert.equal(passthrough.data[0].b64_json, TINY_PNG_B64);
+
+  // 修复后：服务端零归档（不触发任何 storage 上传 / task_submissions 写库），
+  // 响应即时返回，绝不被慢速上传阻塞（否则又是 WorkerRequestCancelled）。
+  assert.equal(uploads.length, 0, '服务端不应再执行归档上传');
+  assert.equal(rows.length, 0, '服务端不应再写 task_submissions');
+  assert.ok(elapsed < UPLOAD_DELAY_MS, `响应被慢速归档阻塞: elapsed=${elapsed}ms`);
 });
 
 test('上游非 JSON 错误 + 带 x-task-id → 不归档、状态透传', async () => {

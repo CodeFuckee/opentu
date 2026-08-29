@@ -82,4 +82,30 @@ describe('providerTransport taskId → x-task-id 头', () => {
     expect(seen[0].headers[HEADER_KEY]).toBe('task-managed-1');
     expect(seen[0].headers.Authorization).toBe('Bearer jwt-token');
   });
+
+  it('托管 + taskId：响应不影响主流程（未注册归档配置时静默跳过）', async () => {
+    configureManagedRouting({
+      supabaseUrl: 'http://sb.local',
+      getToken: async () => 'jwt-token',
+    });
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
+      return new Response(JSON.stringify({ data: [{ b64_json: 'YWJj' }] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+
+    await expect(
+      providerTransport.send(
+        makeContext(),
+        {
+          taskId: 'task-managed-2',
+          path: '/images/generations',
+          method: 'POST',
+          body: '{}',
+          fetcher: fetchMock,
+        }
+      )
+    ).resolves.toBeInstanceOf(Response);
+  });
 });

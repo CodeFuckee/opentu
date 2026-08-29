@@ -25,6 +25,14 @@ import {
   hashBlob,
   buildFileEntries,
   toParamsWithFilePaths,
+  collectBase64Values,
+  extractBase64Payload,
+  extractMimeFromDataUrl,
+  sniffMimeFromBytes,
+  decodeResponseBase64,
+  buildOutputStoragePath,
+  replaceBase64WithPaths,
+  isTerminalResponseState,
 } from './core';
 
 // jsdom 环境不提供 crypto.subtle，测试内用 Node webcrypto 补齐
@@ -301,5 +309,152 @@ describe('toParamsWithFilePaths', () => {
     expect(params.uploadedImages?.[0]?.url).toBe(dataUrl);
     expect(next).not.toBe(params);
     expect(next.uploadedImages?.[0]).not.toBe(params.uploadedImages?.[0]);
+  });
+});
+
+describe('collectBase64Values（响应归档 b64 值收集）', () => {
+  it('收集 b64_json / b64 / base64 字段值（大小写不敏感）与 dataURL', () => {
+    const json = {
+      created: 1,
+      data: [
+        { b64_json: 'AAA', revised_prompt: 'x' },
+        { B64_JSON: 'BBB' },
+        { inner: { b64: 'CCC' } },
+        { vec: ['DDD', 'EEE'] },
+      ],
+      extra: { base64: 'FFF' },
+      url: 'https://example.com/a.png',
+      dataUrl: 'data:image/png;base64,GGG',
+    };
+    const values = collectBase64Values(json);
+    expect(values).toEqual([
+      'AAA',
+      'BBB',
+      'CCC',
+      'FFF',
+      'data:image/png;base64,GGG',
+    ]);
+  });
+
+  it('去除重复值（保持首次出现顺序）', () => {
+    const json = { data: [{ b64_json: 'AAA' }, { b64_json: 'AAA' }] };
+    expect(collectBase64Values(json)).toEqual(['AAA']);
+  });
+
+  it('无 base64 值时返回空数组', () => {
+    expect(collectBase64Values({ data: [{ url: 'https://x/a.png' }] })).toEqual(
+      []
+    );
+    expect(collectBase64Values(null)).toEqual([]);
+    expect(collectBase64Values('plain')).toEqual([]);
+  });
+});
+
+describe('extractBase64Payload / extractMimeFromDataUrl', () => {
+  it('普通字符串（b64_json 值）原样返回', () => {
+    expect(extractBase64Payload('YWJj')).toBe('YWJj');
+  });
+
+  it('dataURL 剥离 data 头返回 base64 载荷', () => {
+    expect(extractBase64Payload('data:image/png;base64,YWJj')).toBe('YWJj');
+  });
+
+  it('非 base64 编码的 dataURL 返回 null（跳过）', () => {
+    expect(extractBase64Payload('data:image/svg+xml,<svg/>')).toBeNull();
+  });
+
+  it('提取 dataURL 的 MIME', () => {
+    expect(extractMimeFromDataUrl('data:image/jpeg;base64,AAA')).toBe(
+      'image/jpeg'
+    );
+    expect(extractMimeFromDataUrl('data:image/png;base64,AAA')).toBe(
+      'image/png'
+    );
+    expect(extractMimeFromDataUrl('not-a-data-url')).toBeNull();
+  });
+});
+
+describe('sniffMimeFromBytes / decodeResponseBase64', () => {
+  it('PNG 魔数识别为 image/png', () => {
+    // 1x1 透明 PNG
+    const bytes = decodeResponseBase64(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+    );
+    expect(sniffMimeFromBytes(bytes)).toBe('image/png');
+  });
+
+  it('JPEG 魔数识别为 image/jpeg', () => {
+    const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+    expect(sniffMimeFromBytes(bytes)).toBe('image/jpeg');
+  });
+
+  it('未知二进制回退 image/png', () => {
+    expect(sniffMimeFromBytes(new Uint8Array([1, 2, 3]))).toBe('image/png');
+  });
+
+  it('decodeResponseBase64 解码正确', () => {
+    const bytes = decodeResponseBase64('YWJj');
+    expect(Array.from(bytes)).toEqual([97, 98, 99]);
+  });
+});
+
+describe('buildOutputStoragePath', () => {
+  it('拼接 用户名/日期/output-哈希.扩展名', () => {
+    expect(buildOutputStoragePath('zhangsan', '2025-01-02', 'abc123', 'png')).toBe(
+      'zhangsan/2025-01-02/output-abc123.png'
+    );
+  });
+
+  it('空用户名时只保留日期路径', () => {
+    expect(buildOutputStoragePath('', '2025-01-02', 'abc', 'jpg')).toBe(
+      '2025-01-02/output-abc.jpg'
+    );
+  });
+});
+
+describe('replaceBase64WithPaths', () => {
+  it('把命中的 base64 值替换为存储路径，其余保留', () => {
+    const pathByValue = new Map([
+      ['AAA', 'zhangsan/2025-01-02/output-a.png'],
+      ['data:image/png;base64,BBB', 'zhangsan/2025-01-02/output-b.png'],
+    ]);
+    const json = {
+      data: [{ b64_json: 'AAA', revised_prompt: 'x' }],
+      extra: 'data:image/png;base64,BBB',
+      url: 'https://x/a.png',
+    };
+    const next = replaceBase64WithPaths(json, pathByValue) as any;
+    expect(next.data[0].b64_json).toBe('zhangsan/2025-01-02/output-a.png');
+    expect(next.extra).toBe('zhangsan/2025-01-02/output-b.png');
+    expect(next.url).toBe('https://x/a.png');
+  });
+
+  it('不修改原对象（深拷贝）', () => {
+    const json = { data: [{ b64_json: 'AAA' }] };
+    const pathByValue = new Map([['AAA', 'zhangsan/x.png']]);
+    const next = replaceBase64WithPaths(json, pathByValue) as any;
+    expect(json.data[0].b64_json).toBe('AAA');
+    expect(next).not.toBe(json);
+    expect(next.data[0]).not.toBe(json.data[0]);
+  });
+});
+
+describe('isTerminalResponseState', () => {
+  it('终态成功/失败返回 true（含 data 层）', () => {
+    expect(isTerminalResponseState({ status: 'completed' })).toBe(true);
+    expect(isTerminalResponseState({ status: 'success' })).toBe(true);
+    expect(isTerminalResponseState({ status: 'failed' })).toBe(true);
+    expect(isTerminalResponseState({ status: 'cancelled' })).toBe(true);
+    expect(isTerminalResponseState({ data: { task_status: 'completed' } })).toBe(
+      true
+    );
+  });
+
+  it('中间态 / 空 / 非对象返回 false', () => {
+    expect(isTerminalResponseState({ status: 'processing' })).toBe(false);
+    expect(isTerminalResponseState({ status: 'queued' })).toBe(false);
+    expect(isTerminalResponseState({ progress: 40 })).toBe(false);
+    expect(isTerminalResponseState(null)).toBe(false);
+    expect(isTerminalResponseState('whatever')).toBe(false);
   });
 });

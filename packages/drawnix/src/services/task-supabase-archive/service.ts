@@ -17,6 +17,16 @@ import {
   toParamsWithFilePaths,
   sanitizeUsername,
   getLocalDateString,
+  collectBase64Values,
+  extractBase64Payload,
+  extractMimeFromDataUrl,
+  sniffMimeFromBytes,
+  decodeResponseBase64,
+  mimeToExtension,
+  sha256Hex,
+  buildOutputStoragePath,
+  replaceBase64WithPaths,
+  isTerminalResponseState,
 } from './core';
 
 const DEFAULT_BUCKET = 'huabu';
@@ -182,5 +192,150 @@ export async function updateTaskSubmissionOnTerminal(task: Task): Promise<void> 
     }
   } catch (error) {
     console.warn('[TaskArchive] terminal update failed (silent):', error);
+  }
+}
+
+/**
+ * 响应归档（前端版，替代原 ai-proxy 服务端归档）：
+ *
+ * 背景：ai-proxy 以前在请求生命周期内 await 大型归档（base64 转存 bucket + 写库），
+ * 拖爆 edge-runtime CPU/墙钟硬限制 → supervisor 取消 worker → 500 WorkerRequestCancelled，
+ * 且被杀的归档写不进 bucket。现改为前端拿到上游响应时 fire-and-forget 归档：
+ * - 条件：URL 路径 → x-task-id（taskId）关联；仅当 JSON 含 base64 值或已到终态才归档
+ * - base64（b64_json/b64/base64/dataURL）→ 上传 huabu bucket（output- 前缀）+ 路径替换
+ * - 写 task_submissions.upstream_response / response_file_paths（upsert，不覆盖前端终态回写列）
+ *
+ * 全程 fire-and-forget、静默失败：任何异常只 console.warn，绝不抛出、不阻塞请求。
+ */
+export async function archiveUpstreamResponseToSupabase(
+  taskId: string,
+  upstreamJson: unknown,
+  options: { force?: boolean } = {}
+): Promise<void> {
+  try {
+    const config = getTaskArchiveConfig();
+    if (!config || !taskId) {
+      return;
+    }
+    if (
+      typeof upstreamJson !== 'object' ||
+      upstreamJson === null ||
+      Array.isArray(upstreamJson)
+    ) {
+      return;
+    }
+
+    // 中间态轮询（queued/processing）不归档；终态或含 base64 值（图片已出）才归档；
+    // force=true（上游 ≥400 失败响应）无论内容都归档错误 JSON
+    const values = collectBase64Values(upstreamJson);
+    if (
+      !options.force &&
+      values.length === 0 &&
+      !isTerminalResponseState(upstreamJson)
+    ) {
+      return;
+    }
+
+    const user = await getCurrentUser(config.client);
+    if (!user) {
+      return;
+    }
+    const username = await resolveUsername(config.client, user);
+    if (!username) {
+      return;
+    }
+
+    const bucketName = config.bucketName?.trim() || DEFAULT_BUCKET;
+    const dateStr = getLocalDateString();
+
+    // 1. 上传 base64 → bucket（output- 路径，按内容去重；失败保留原值）
+    const uploadedPaths: string[] = [];
+    const pathByValue = new Map<string, string>();
+    for (const value of values) {
+      try {
+        const payload = extractBase64Payload(value);
+        if (payload === null) {
+          continue;
+        }
+        const bytes = decodeResponseBase64(payload);
+        const mime =
+          extractMimeFromDataUrl(value) ?? sniffMimeFromBytes(bytes);
+        const ext = mimeToExtension(mime);
+        const hash = await sha256Hex(bytes);
+        const storagePath = buildOutputStoragePath(username, dateStr, hash, ext);
+
+        const { error } = await config.client.storage
+          .from(bucketName)
+          .upload(storagePath, new Blob([bytes], { type: mime }), {
+            contentType: mime,
+            upsert: true,
+          });
+        if (error) {
+          console.warn(
+            '[TaskArchive] response file upload failed, keeping original base64:',
+            error
+          );
+          continue;
+        }
+        uploadedPaths.push(storagePath);
+        pathByValue.set(value, storagePath);
+      } catch (error) {
+        console.warn('[TaskArchive] response base64 processing failed:', error);
+      }
+    }
+
+    // 2. 用存储路径替换 JSON 中的 base64（只替换成功上传的）
+    const archivedJson = replaceBase64WithPaths(upstreamJson, pathByValue);
+
+    // 3. upsert task_submissions（on_conflict=user_id,task_id，仅更新新增列）
+    const { error } = await config.client
+      .from('task_submissions')
+      .upsert(
+        {
+          user_id: user.id,
+          task_id: taskId,
+          upstream_response: archivedJson,
+          response_file_paths: uploadedPaths,
+        },
+        { onConflict: 'user_id,task_id' }
+      );
+    if (error) {
+      console.warn('[TaskArchive] response upsert failed (silent):', error);
+    }
+  } catch (error) {
+    console.warn('[TaskArchive] response archive failed (silent):', error);
+  }
+}
+
+/**
+ * 从已 fetch 的响应触发响应归档（fire-and-forget）：
+ * - clone 响应后读取 body（不消费原响应，不影响主流程）
+ * - 非 JSON / 无 x-task-id 时静默跳过
+ * 调用方直接 `void archiveUpstreamResponseFromFetch(taskId, response)`。
+ */
+export async function archiveUpstreamResponseFromFetch(
+  taskId: string | undefined,
+  response: Response
+): Promise<void> {
+  try {
+    if (!taskId || !response) {
+      return;
+    }
+    const cloned = response.clone();
+    const text = await cloned.text();
+    if (!text || !text.trim().startsWith('{')) {
+      return;
+    }
+    let json: unknown = null;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      return; // 非 JSON 响应不归档
+    }
+    await archiveUpstreamResponseToSupabase(taskId, json, {
+      force: !cloned.ok, // ≥400 失败响应强制归档错误 JSON
+    });
+  } catch (error) {
+    console.warn('[TaskArchive] response archive from fetch failed (silent):', error);
   }
 }

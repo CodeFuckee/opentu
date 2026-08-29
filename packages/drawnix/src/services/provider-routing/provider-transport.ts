@@ -11,6 +11,7 @@ import {
   isManagedUpstreamEnabled,
   parseQuotaErrorFromResponse,
 } from '../managed-routing/managed-runtime';
+import { archiveUpstreamResponseFromFetch } from '../task-supabase-archive/service';
 
 /** 托管模式下从请求头中剔除的本地凭据键（改由代理注入） */
 const MANAGED_STRIPPED_HEADER_KEYS = ['authorization', 'x-api-key', 'x-goog-api-key'];
@@ -304,6 +305,15 @@ export class ProviderTransport {
         if (quotaError) {
           throw quotaError;
         }
+      }
+
+      // 响应归档（方案 B，替代原 ai-proxy 服务端归档）：
+      // 托管模式下携带 taskId 的请求（x-task-id 关联任务）拿到上游响应后，
+      // fire-and-forget 将响应 JSON（含 base64 输出）转存 huabu bucket 并写
+      // task_submissions.upstream_response。clone 读取，不消费原响应、不阻塞主流程；
+      // 全程静默失败（未登录/未注册配置/非终态/非 JSON 均跳过）。
+      if (managed && request.taskId) {
+        void archiveUpstreamResponseFromFetch(request.taskId, response);
       }
 
       return response;

@@ -15,14 +15,10 @@
  * - Google 协议 :generateContent/:streamGenerateContent 且 responseModalities 含 IMAGE：按 1 扣减
  * - 其余（文本/音频/视频等）：透传不计费
  *
- * 响应归档（task_submissions.upstream_response）：
- * - 携带 x-task-id 的请求，同步生图成功 / 异步轮询终态 / ≥400 失败响应
- *   交由 archive-writer 归档：base64 转存 huabu bucket、JSON 内以路径替换，
- *   成功后写库（await 等待完成，不丢数据）
+ * 响应归档已移至前端（providerTransport 在拿到上游响应时 fire-and-forget 转存
+ * huabu bucket + 写 task_submissions.upstream_response）：edge 函数内不再 await
+ * 大型归档，避免长时间占用 worker 触发 supervisor 取消（500 WorkerRequestCancelled）。
  */
-
-import { archiveUpstreamResponse } from './archive-writer.ts';
-import { isTerminalAsyncState } from './archive.ts';
 
 export interface AiProxyDeps {
   /** 注入 HTTP 客户端便于测试；默认 global fetch */
@@ -386,7 +382,6 @@ export async function handleAiProxyRequest({
     return jsonResponse(401, { error: 'unauthorized: invalid token' });
   }
   const userId = identity.id;
-  const userEmail = identity.email;
 
   const method = request.method.toUpperCase();
   if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
@@ -506,48 +501,10 @@ export async function handleAiProxyRequest({
 
   let respondBuffered = false;
 
-  // ---------- 响应归档（携带 x-task-id 才生效） ----------
-  // 归档对象：同步生图成功 / 异步轮询终态 / ≥400 失败响应。
-  // 读取响应体 → 归档（base64 转存 bucket + 写 task_submissions）→
-  // 按上游原文字重建响应透传（透传内容永远与上游一致，路径替换只发生在归档副本）。
-  // 说明：归档必须 await——Edge Function 返回后后台任务可能被终止，不等待会丢数据；
-  // 服务端直传 bucket 耗时毫秒级，不影响用户体验。
-  const archiveTaskId = (request.headers.get('x-task-id') || '').trim();
-  const archive = async (json: unknown): Promise<void> => {
-    if (!archiveTaskId || !json) {
-      return;
-    }
-    await archiveUpstreamResponse(
-      {
-        supabaseUrl: env.SUPABASE_URL,
-        serviceRoleKey: env.SERVICE_ROLE_KEY,
-        userId,
-        taskId: archiveTaskId,
-        email: userEmail,
-        upstreamJson: json,
-      },
-      deps
-    );
-  };
-
-  // 1) 同步生图成功：读 body 一次（归档 + 重建透传）
-  if (
-    !respondBuffered &&
-    archiveTaskId &&
-    upstreamResponse.ok &&
-    classification.mode === 'sync'
-  ) {
-    try {
-      const buffer = await consumeResponseText(upstreamResponse);
-      await archive(tryParseJson(buffer.text));
-      upstreamResponse = rebuildResponse(buffer);
-      respondBuffered = true;
-    } catch {
-      // 读取失败不归档，走原透传
-    }
-  }
-
-  // 2) 异步任务提交成功：记账；若提交即终态（如 status=failed/success）也归档
+  // ---------- 异步任务提交成功：记账；提交即终态失败也标记（前端终态轮询负责归档） ----------
+  // 说明：响应归档（base64 转存 huabu bucket + 写 task_submissions.upstream_response）
+  // 已移到前端 providerTransport（拿响应 clone 后 fire-and-forget），edge 函数不参与，
+  // 避免在请求生命周期内 await 大型上传拖爆 worker（500 WorkerRequestCancelled）。
   if (!respondBuffered && classification.mode === 'submit' && upstreamResponse.ok) {
     try {
       const buffer = await consumeResponseText(upstreamResponse);
@@ -561,9 +518,6 @@ export async function handleAiProxyRequest({
           deps
         );
       }
-      if (json && isTerminalAsyncState(json)) {
-        await archive(json);
-      }
       upstreamResponse = rebuildResponse(buffer);
       respondBuffered = true;
     } catch {
@@ -571,7 +525,7 @@ export async function handleAiProxyRequest({
     }
   }
 
-  // 3) 轮询响应：终态（成功或失败）时归档，终态失败时一次性退回
+  // ---------- 轮询响应：终态失败时一次性退回（成功后端不再归档，由前端终态轮询归档） ----------
   if (
     !respondBuffered &&
     !classification.billable &&
@@ -582,34 +536,16 @@ export async function handleAiProxyRequest({
     try {
       const buffer = await consumeResponseText(upstreamResponse);
       const json = tryParseJson(buffer.text);
-      const terminal = json
-        ? isTerminalAsyncState(json) || detectTerminalFailure(json)
-        : false;
-      if (terminal) {
-        await archive(json);
-        if (detectTerminalFailure(json)) {
-          const id = extractUpstreamId(pathOnly, json);
-          if (id) {
-            await callVoidRpc(env, 'refund_task_bill', { p_upstream_id: id }, deps);
-          }
+      if (json && detectTerminalFailure(json)) {
+        const id = extractUpstreamId(pathOnly, json);
+        if (id) {
+          await callVoidRpc(env, 'refund_task_bill', { p_upstream_id: id }, deps);
         }
       }
       upstreamResponse = rebuildResponse(buffer);
       respondBuffered = true;
     } catch {
       // 检测失败不影响透传
-    }
-  }
-
-  // 4) ≥400 失败响应：若带 x-task-id，读 body 归档错误 JSON 后再原样透传
-  if (!respondBuffered && archiveTaskId && upstreamResponse.status >= 400) {
-    try {
-      const buffer = await consumeResponseText(upstreamResponse);
-      await archive(tryParseJson(buffer.text));
-      upstreamResponse = rebuildResponse(buffer);
-      respondBuffered = true;
-    } catch {
-      // 读取失败不归档，走原透传
     }
   }
 

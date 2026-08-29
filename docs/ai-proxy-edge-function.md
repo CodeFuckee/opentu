@@ -44,36 +44,30 @@ POST http://<SUPABASE_URL>/functions/v1/ai-proxy/<原上游路径>?<query>
 异步图像任务的轮询响应若出现终态失败（failed/cancelled/expired 等），按记账行
 一次性退回（防重复）。同步类上游 ≥400 立即全额退回。
 
-## 响应归档（task_submissions.upstream_response）
+## 响应归档（task_submissions.upstream_response，前端执行）
 
-托管模式下前端在请求上附加 `x-task-id: <前端任务队列 task.id>` 头（
-`ProviderTransportRequest.taskId` → provider-transport 统一附加；直连模式同样携带
-但无服务端消费）。ai-proxy 在以下时机读取响应体并归档（`await` 等待完成，不影响透传内容）：
+**提醒**：响应归档已从前端改为在**前端 `providerTransport`** 完成（方案调整，原因见下）。
+ai-proxy 只做纯透传 + 配额/记账/退款，**不再在请求生命周期内 await 归档**。
 
-| 时机 | 条件 | 归档内容 |
-|---|---|---|
-| 同步生图成功 | `mode='sync'` 且 `ok` | 完整响应 JSON |
-| 异步提交即终态 | 提交响应 `status` 为 completed/failed 等 | 该提交 JSON |
-| 异步轮询终态 | GET 轮询响应进入终态（成功或失败） | 终态 JSON |
-| 失败响应 | 上游 ≥400（如"预扣费额度失败"） | 错误 JSON |
+背景：早期版本 ai-proxy 在同步生图成功 / 异步轮询终态 / ≥400 失败时，于请求内 `await` 读取
+响应体、解码多 MB base64、上传 `huabu` bucket、写 `task_submissions`，把请求总时长拖爆
+edge-runtime CPU/墙钟硬限制 → supervisor 取消 worker → 客户端收到
+`500 {"msg":"WorkerRequestCancelled: request has been cancelled by supervisor"}`，
+且被杀的归档写不进 bucket（任务图片丢失）。修复后：
 
-仅当 JSON 可解析时归档；非 JSON 响应、无 `x-task-id`（老版本前端）一律跳过，不影响透传。
+- 前端 `providerTransport.send()`（托管模式 + 携带 taskId）在拿到上游响应时，
+  clone 响应后 **fire-and-forget** 归档（`archiveUpstreamResponseFromFetch`）：
+  - 同步生图成功（响应含 `b64_json`/`b64`/`base64`/dataURL）→ base64 转存 `huabu`
+    bucket（`output-` 前缀）+ 写 `upstream_response`/`response_file_paths`；
+  - 异步轮询终态（`status`/`state` 为 completed/failed 等）→ 归档终态 JSON；
+  - 上游 ≥400 失败响应 → 强制归档错误 JSON；
+  - 中间态轮询（queued/processing）与非 JSON 响应跳过；
+- 传输层不阻塞：clone 读取不消费原响应，归档全异步、静默失败；
+- `x-task-id` 头仍按契约随请求附加（兼容老前端/排查用），但服务端不再消费。
 
-归档副流程（`supabase/functions/ai-proxy/archive.ts` + `archive-writer.ts`）：
-
-1. 按白名单字段（`b64_json` / `b64` / `base64`，大小写不敏感）或 dataURL 值提取 base64；
-2. 解码 → 图片 magic 嗅探 MIME → 内容 SHA-256 → 上传 `huabu` bucket，
-   路径 `{oa账号}/{YYYY-MM-DD}/output-{sha256}.{ext}`（用户名取 `user_profiles.oa_account`，
-   缺省回退邮箱前缀；相同内容去重只上传一次）；
-3. JSON 内对应值替换为存储路径（上传失败保留原 base64 值入库）；
-4. upsert `task_submissions`（`on_conflict=user_id,task_id`，合并语义：仅更新新增列
-   `upstream_response` / `response_file_paths`，不影响前端回写的 params/status/result/error）。
-
-需要先执行列迁移：
-
-```bash
-docker exec -i supabase-db psql -U supabase_admin -d postgres < supabase/migrations/task_submissions_add_upstream_response.sql
-```
+实现见 `packages/drawnix/src/services/task-supabase-archive/{core,service}.ts`
+（`archiveUpstreamResponseToSupabase` / `archiveUpstreamResponseFromFetch`），
+迁移 `supabase/migrations/task_submissions_add_upstream_response.sql` 不变。
 
 ## 数据库依赖（先执行迁移）
 
@@ -117,7 +111,7 @@ cp -r supabase/functions/ai-proxy /home/mdc/codes/supabase/volumes/functions/
 ## 单测
 
 ```bash
-cd supabase/functions/ai-proxy && node --test core.test.ts archive.test.ts archive-writer.test.ts
+cd supabase/functions/ai-proxy && node --test core.test.ts
 ```
 
 ## 验收清单

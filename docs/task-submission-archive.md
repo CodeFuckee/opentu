@@ -11,8 +11,8 @@
 - **数据库**中保存文件路径：参数里的 dataURL 被替换为存储路径，同时 `file_paths` 记录路径列表
 - **URL 引用**（http(s) / `/__aitu_cache__/`）原样保留，不重复上传
 - **终态回写**：任务 completed / failed / cancelled 时更新同一行
-- **响应归档**（ai-proxy 服务端）：任务到达终态（成功/失败）时，new-api 返回的
-  原始响应 JSON 由边缘函数写入 `upstream_response` 列，其中 base64 数据转存
+- **响应归档**（前端 providerTransport）：任务到达终态（成功/失败）时，new-api 返回的
+  原始响应 JSON 由前端请求层写入 `upstream_response` 列，其中 base64 数据转存
   `huabu` bucket（`output-` 前缀）并以存储路径替换（详见"响应归档"一节）
 
 归档是 fire-and-forget 后台操作：Supabase 不可用、未登录、未注册配置时一律**静默跳过**，
@@ -31,7 +31,7 @@ public.task_submissions (
   status       text default 'submitted',  -- submitted | completed | failed | cancelled
   result       jsonb,                -- 完成时补充
   error        jsonb,                -- 失败时补充
-  upstream_response jsonb,           -- new-api 原始响应 JSON（ai-proxy 服务端归档，base64 已替换）
+  upstream_response jsonb,           -- new-api 原始响应 JSON（前端 providerTransport 归档，base64 已替换）
   response_file_paths jsonb default '[]', -- 响应归档上传的 output 文件路径列表
   created_at   timestamptz default now(),
   completed_at timestamptz,
@@ -53,20 +53,25 @@ public.task_submissions (
   - 扩展名 = 由 MIME 推导（如 image/png → png、image/jpeg → jpg、video/mp4 → mp4、application/pdf → pdf）
 - Storage 对象级策略：仅允许用户操作自己 `{oa账号}/` 目录下的对象（校验文件名首段 == 清洗后的邮箱前缀）
 
-## 响应归档（ai-proxy 服务端写入）
+## 响应归档（task_submissions.upstream_response，前端执行）
 
-任务创建时的**输入**归档在前端（上文），任务**输出/响应**归档在 ai-proxy 边缘函数
-（因为它一手拿到 new-api 原始响应，且服务端转存大 base64 不占用户上行带宽）：
+任务创建时的**输入**归档在前端；任务**输出/响应**归档也在前端完成（`providerTransport`
+托管模式 + 携带 taskId 时，clone 上游响应后 fire-and-forget 归档）。**不做在 ai-proxy
+服务端**：早期服务端版本在同步生图等请求生命周期内 await 大型归档（base64 转存 +
+写库），拖爆 edge-runtime 硬限制 → supervisor 取消 worker → 生成请求返回
+`500 WorkerRequestCancelled` 且图片未写入 bucket；现改为前端，浏览器无 worker 被杀限制：
 
-- 前端请求层在托管请求上附加 `x-task-id: <task.id>` 头（`ProviderTransportRequest.taskId`
-  → provider-transport 统一附加，涉及 async-image / video / audio 全链路透传）；
-- ai-proxy 在同步生图成功、异步轮询终态（成功或失败）、上游 ≥400 失败响应时读取响应体，
-  归档到同一行（`on_conflict=user_id,task_id` 合并更新，仅写新增列，不与前端
-  status/result/error 回写冲突）；
-- base64 白名单字段（`b64_json`/`b64`/`base64`/dataURL）解码 → magic 嗅探 MIME →
-  SHA-256 → 上传 `huabu` bucket，路径 `{oa账号}/{YYYY-MM-DD}/output-{sha256}.{ext}`，
-  JSON 内以存储路径替换；上传失败保留原 base64 入库；
-- 非 JSON 响应、无 `x-task-id`（老版本前端）跳过归档，不影响透传。
+- 前端请求层在托管请求上附加 `x-task-id: <task.id>` 头（保留契约；服务端不再消费）；
+- `providerTransport.send()` 拿到响应后 clone，`archiveUpstreamResponseFromFetch()` 判断：
+  - 响应含 base64 白名单字段（`b64_json`/`b64`/`base64`/dataURL）→ 视为图片/媒体输出，归档；
+  - 响应到终态（`status`/`state` 为 completed/failed 等）→ 归档终态 JSON；
+  - 上游 ≥400 失败响应 → 强制归档错误 JSON；
+  - 中间态轮询（queued/processing）、非 JSON、未登录/未注册配置 → 跳过，不影响主流程；
+- base64 解码 → magic 嗅探 MIME → SHA-256 → 上传 `huabu` bucket，
+  路径 `{oa账号}/{YYYY-MM-DD}/output-{sha256}.{ext}`，JSON 内以存储路径替换；
+  上传失败保留原 base64 入库（静默）；
+- upsert `task_submissions`（`on_conflict=user_id,task_id` 合并更新，仅写新增列，
+  不与 status/result/error 回写冲突）。
 
 需执行列迁移：`supabase/migrations/task_submissions_add_upstream_response.sql`。
 

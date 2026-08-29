@@ -8,10 +8,19 @@
  * - SHA-256 哈希（crypto.subtle）
  * - 从任务参数中提取文件条目（去重）并生成 dataURL → 存储路径 映射
  * - 用存储路径替换参数中的 dataURL（深拷贝，不污染原对象）
+ * - （响应归档）从上游响应 JSON 中收集 base64 值（b64_json/b64/base64/dataURL）、
+ *   输出 output- 存储路径、深拷贝替换 base64 → 路径
  */
 
 /** data URL 前缀 */
 const DATA_URL_PREFIX = 'data:';
+
+/** base64 白名单字段名（响应归档用，大小写不敏感，匹配时统一转小写） */
+const BASE64_RESPONSE_KEYS: ReadonlySet<string> = new Set([
+  'b64_json',
+  'b64',
+  'base64',
+]);
 
 /** MIME → 扩展名映射表 */
 const MIME_TO_EXTENSION: Record<string, string> = {
@@ -277,4 +286,219 @@ export function toParamsWithFilePaths(
   }
 
   return replaceValue(params) as Record<string, unknown>;
+}
+
+// ============================================================================
+// 响应归档（output- 前缀）：上游响应 JSON 中的 base64 → huabu bucket
+// ============================================================================
+
+/**
+ * 深度遍历未知结构，收集"需要转存的 base64 值"：
+ * - 字段名命中 BASE64_RESPONSE_KEYS（b64_json/b64/base64，大小写不敏感）且值为字符串
+ * - 任意位置的 dataURL 值
+ * 返回去重后的值列表（保持首次出现顺序）。
+ */
+export function collectBase64Values(value: unknown): string[] {
+  const seen = new Set<string>();
+  walkResponseBase64(value, seen);
+  return Array.from(seen);
+}
+
+function walkResponseBase64(value: unknown, out: Set<string>): void {
+  if (typeof value === 'string') {
+    if (isDataUrl(value)) {
+      out.add(value);
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      walkResponseBase64(item, out);
+    }
+    return;
+  }
+  if (value && typeof value === 'object') {
+    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+      if (
+        typeof item === 'string' &&
+        BASE64_RESPONSE_KEYS.has(key.toLowerCase())
+      ) {
+        out.add(item);
+        continue;
+      }
+      walkResponseBase64(item, out);
+    }
+  }
+}
+
+/**
+ * 从待转存值中提取可解码的 base64 载荷：
+ * - dataURL：仅接受 ;base64 编码，剥离 data 头返回载荷；否则返回 null（跳过）
+ * - 普通字符串（b64_json 等字段）：原样返回
+ */
+export function extractBase64Payload(value: string): string | null {
+  if (!isDataUrl(value)) {
+    return value;
+  }
+  const comma = value.indexOf(',');
+  if (comma < 0) {
+    return null;
+  }
+  const header = value.slice(0, comma);
+  if (!/;base64$/i.test(header)) {
+    return null;
+  }
+  return value.slice(comma + 1);
+}
+
+/** 从 data URL 提取 MIME 类型（缺失时返回 null） */
+export function extractMimeFromDataUrl(dataUrl: string): string | null {
+  const match = /^data:([^;,]*)(;base64)?,/.exec(dataUrl);
+  if (!match || !match[1]) {
+    return null;
+  }
+  return match[1].trim() || null;
+}
+
+/**
+ * 图片二进制 MIME 魔数嗅探。
+ * 无法识别时回退 image/png（new-api 图片类响应以位图为主）。
+ */
+export function sniffMimeFromBytes(bytes: Uint8Array): string {
+  const len = bytes.length;
+  const ascii = (offset: number, text: string): boolean => {
+    if (len < offset + text.length) {
+      return false;
+    }
+    for (let i = 0; i < text.length; i += 1) {
+      if (bytes[offset + i] !== text.charCodeAt(i)) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  if (
+    len >= 8 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47 &&
+    bytes[4] === 0x0d &&
+    bytes[5] === 0x0a &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0x0a
+  ) {
+    return 'image/png';
+  }
+  if (len >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return 'image/jpeg';
+  }
+  if (ascii(0, 'GIF87a') || ascii(0, 'GIF89a')) {
+    return 'image/gif';
+  }
+  if (ascii(0, 'RIFF') && ascii(8, 'WEBP')) {
+    return 'image/webp';
+  }
+  if (ascii(4, 'ftyp') && ascii(8, 'avif')) {
+    return 'image/avif';
+  }
+  return 'image/png';
+}
+
+/** base64 字符串解码为字节 */
+export function decodeResponseBase64(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+/** 拼接 output 存储路径：{username}/{YYYY-MM-DD}/output-{hash}.{ext} */
+export function buildOutputStoragePath(
+  username: string,
+  dateStr: string,
+  hash: string,
+  extension: string
+): string {
+  const file = `output-${hash}.${extension}`;
+  const usernamePart = username.trim() ? `${username.trim()}/` : '';
+  return `${usernamePart}${dateStr}/${file}`;
+}
+
+/**
+ * 用存储路径替换 JSON 中的 base64 值（深拷贝，不修改原对象）。
+ * 只替换出现在 pathByValue 中的值；其余保留。
+ */
+export function replaceBase64WithPaths(
+  value: unknown,
+  pathByValue: ReadonlyMap<string, string>
+): unknown {
+  function replaceValue(current: unknown): unknown {
+    if (typeof current === 'string' && pathByValue.has(current)) {
+      return pathByValue.get(current);
+    }
+    if (Array.isArray(current)) {
+      return current.map((item) => replaceValue(item));
+    }
+    if (current && typeof current === 'object') {
+      const next: Record<string, unknown> = {};
+      for (const key of Object.keys(current as Record<string, unknown>)) {
+        next[key] = replaceValue((current as Record<string, unknown>)[key]);
+      }
+      return next;
+    }
+    return current;
+  }
+
+  if (typeof value !== 'object' || value === null) {
+    return value;
+  }
+  return replaceValue(value);
+}
+
+/** 响应中的终态状态值（大小写不敏感；与 ai-proxy 归档语义一致） */
+const TERMINAL_RESPONSE_STATUSES = new Set([
+  'completed',
+  'complete',
+  'success',
+  'succeeded',
+  'successful',
+  'done',
+  'failed',
+  'failure',
+  'fail',
+  'cancelled',
+  'canceled',
+  'expired',
+  'error',
+]);
+
+/**
+ * 上游响应是否到达终态（成功或失败均算终态）。
+ * 检查 body 顶层与 data 层的 status / state / task_status 字段。
+ * （说明：响应归档只应在终态进行；中间态轮询（queued/processing）跳过）
+ */
+export function isTerminalResponseState(body: unknown): boolean {
+  if (!body || typeof body !== 'object') {
+    return false;
+  }
+  const sources = [body as Record<string, unknown>, (body as any)?.data];
+  for (const source of sources) {
+    if (!source || typeof source !== 'object') {
+      continue;
+    }
+    for (const key of ['status', 'state', 'task_status', 'code']) {
+      const value = (source as Record<string, unknown>)[key];
+      if (
+        typeof value === 'string' &&
+        TERMINAL_RESPONSE_STATUSES.has(value.toLowerCase())
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
