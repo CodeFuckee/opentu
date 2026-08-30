@@ -55,11 +55,28 @@ $$;
 comment on function public.huabu_folder_name_for_current_user() is
   'huabu bucket 归档文件夹名：优先 user_profiles.oa_account，回退 JWT 邮箱前缀；清洗规则与前端 sanitizeUsername 一致（trim→lower→[^a-z0-9._-]→_→64）';
 
--- 2. 重建策略：drop 旧版（含 delete），新版不含 delete → delete 默认拒绝
-drop policy if exists "task_submissions_huabu_insert" on storage.objects;
-drop policy if exists "task_submissions_huabu_select" on storage.objects;
-drop policy if exists "task_submissions_huabu_update" on storage.objects;
-drop policy if exists "task_submissions_huabu_delete" on storage.objects;
+-- 2. 重建策略：动态清理 huabu 上所有旧策略（含历史邮件前缀版、Studio 模板生成的
+--    "Give users access to own folder ..."（按 auth.uid() 文件夹）版本——前端路径首段是
+--    OA 账号名而非 uid，uid 模板策略会导致上传仍被 RLS 拒绝），再建 v2 三条；
+--    不建 delete 策略 → delete 默认拒绝
+do $cleanup$
+declare
+  r record;
+begin
+  for r in
+    select policyname
+    from pg_policies
+    where schemaname = 'storage'
+      and tablename = 'objects'
+      and (
+        policyname like 'task_submissions_huabu%'
+        or policyname like 'Give users access to own folder%'
+      )
+  loop
+    execute format('drop policy if exists %I on storage.objects', r.policyname);
+  end loop;
+end
+$cleanup$;
 
 -- 2.1 允许：上传到自己 OA 文件夹（input-*/output-* 均在其下）
 drop policy if exists "task_submissions_huabu_insert_v2" on storage.objects;
