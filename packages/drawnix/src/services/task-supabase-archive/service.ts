@@ -88,19 +88,39 @@ export async function archiveTaskToSupabase(task: Task): Promise<void> {
   try {
     const config = getTaskArchiveConfig();
     if (!config) {
+      console.warn('[TaskArchive] skip: no archive config registered (not logged in?)');
       return;
     }
     const user = await getCurrentUser(config.client);
     if (!user) {
+      console.warn('[TaskArchive] skip: no session user');
       return;
     }
     const username = await resolveUsername(config.client, user);
     if (!username) {
+      console.warn('[TaskArchive] skip: username unresolved for user', user.id);
       return;
     }
 
     const bucketName = config.bucketName?.trim() || DEFAULT_BUCKET;
     const dateStr = getLocalDateString();
+
+    // 诊断：打印 task.params 中参考图相关字段的真实形态（URL 前缀/是否有 file），
+    // 定位 file_paths 为空是"没收集到文件"还是"上传失败"
+    const diagImages = (task.params as any)?.uploadedImages ?? (task.params as any)?.referenceImages;
+    if (Array.isArray(diagImages)) {
+      console.warn(
+        `[TaskArchive] task ${task.id} reference images: count=${diagImages.length}, shapes=`,
+        diagImages.map((img: any) => ({
+          urlPrefix: typeof img?.url === 'string' ? img.url.slice(0, 40) : typeof img?.url,
+          hasFile: !!img?.file,
+          type: img?.type,
+          name: img?.name,
+        }))
+      );
+    } else {
+      console.warn(`[TaskArchive] task ${task.id} no uploadedImages/referenceImages in params, keys=`, Object.keys(task.params as any));
+    }
 
     // 1. 解析虚拟媒体路径为 base64 data URL（失败静默跳过，原路径保留）
     //    virtualUrl → 解析出的 dataURL（供 buildFileEntries 收集与二次替换）
@@ -175,6 +195,9 @@ export async function archiveTaskToSupabase(task: Task): Promise<void> {
       }
     }
     const allEntries = [...entries, ...fetchedEntries];
+    console.warn(
+      `[TaskArchive] task ${task.id} file entries: dataUrl=${entries.length} fetchFallback=${fetchedEntries.length} virtualResolved=${virtualUrlToDataUrl.size} httpOrDegraded=${fetchFallbackUrls.size}`
+    );
 
     // 3. 上传到 bucket（失败静默，该条目不进入映射）
     const uploadedPaths: string[] = [];
@@ -188,7 +211,7 @@ export async function archiveTaskToSupabase(task: Task): Promise<void> {
         });
       if (error) {
         console.warn(
-          '[TaskArchive] file upload failed, keeping original dataURL:',
+          `[TaskArchive] file upload failed for ${entry.storagePath}:`,
           error
         );
         continue;
@@ -210,6 +233,9 @@ export async function archiveTaskToSupabase(task: Task): Promise<void> {
     );
 
     // 5. 写入数据库（按 user_id+task_id 幂等）
+    console.warn(
+      `[TaskArchive] task ${task.id} upserting: file_paths=${uploadedPaths.length} bucket=${bucketName} username=${username}`
+    );
     const { error: insertError } = await config.client
       .from('task_submissions')
       .upsert(
@@ -444,16 +470,26 @@ export async function archiveGeneratedMediaToSupabase(
   try {
     const config = getTaskArchiveConfig();
     if (!config || !taskId || !urls || urls.length === 0) {
+      console.warn(
+        `[TaskArchive] generated media skip: config=${!!config} taskId=${taskId} urls=${urls?.length}`
+      );
       return;
     }
     const user = await getCurrentUser(config.client);
     if (!user) {
+      console.warn('[TaskArchive] generated media skip: no session user');
       return;
     }
     const username = await resolveUsername(config.client, user);
     if (!username) {
+      console.warn('[TaskArchive] generated media skip: username unresolved');
       return;
     }
+
+    console.warn(
+      `[TaskArchive] generated media task ${taskId} urls=`,
+      urls.map((u) => (typeof u === 'string' ? u.slice(0, 50) : typeof u))
+    );
 
     const bucketName = config.bucketName?.trim() || DEFAULT_BUCKET;
     const dateStr = getLocalDateString();
