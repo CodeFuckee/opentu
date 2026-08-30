@@ -172,6 +172,14 @@ export async function sha256Hex(data: BufferSource): Promise<string> {
  * 读取 Blob 二进制内容（兼容不支持 arrayBuffer() 的环境，如部分 jsdom）。
  */
 function readBlobAsArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
+  return readBlobAsArrayBufferSafe(blob);
+}
+
+/**
+ * 读取 Blob 二进制内容（兼容不支持 arrayBuffer() 的环境，如部分 jsdom）。
+ * 公开导出版本，供 service.ts fetch 回退分支复用。
+ */
+export function readBlobAsArrayBufferSafe(blob: Blob): Promise<ArrayBuffer> {
   if (typeof blob.arrayBuffer === 'function') {
     return blob.arrayBuffer();
   }
@@ -210,6 +218,31 @@ export interface ArchiveFileEntry {
 }
 
 /**
+ * 从一个 Blob 构建文件条目（hash + 扩展名 + input 存储路径）。
+ * 供「fetch 远程/降级 URL 取 blob 后上传」的回退路径复用，
+ * 与 buildFileEntries 中 dataURL 分支保持同一存储路径规则。
+ */
+export async function buildFileEntryFromBlob(
+  sourceKey: string,
+  blob: Blob,
+  username: string,
+  dateStr: string
+): Promise<ArchiveFileEntry> {
+  const hash = await hashBlob(blob);
+  const mimeType = blob.type || 'application/octet-stream';
+  const extension = mimeToExtension(mimeType);
+  const storagePath = buildStoragePath(username, dateStr, hash, extension);
+  return {
+    dataUrl: sourceKey,
+    blob,
+    mimeType,
+    extension,
+    hash,
+    storagePath,
+  };
+}
+
+/**
  * 判断字符串是否为本地虚拟媒体路径（素材库 / 缓存），
  * 与 isVirtualMediaUrl 的前缀规则保持一致（仅同源相对路径形态）。
  */
@@ -242,6 +275,35 @@ export function collectVirtualMediaUrls(
   if (value && typeof value === 'object') {
     for (const key of Object.keys(value as Record<string, unknown>)) {
       collectVirtualMediaUrls((value as Record<string, unknown>)[key], seen);
+    }
+  }
+}
+
+/**
+ * 深度遍历未知结构，收集所有 http/https URL 字符串（去重，保持首次出现顺序）。
+ * 与 collectDataUrls / collectVirtualMediaUrls 互补：
+ * 归档函数原本只识别 data URL 与可解析为 base64 的虚拟 URL，遗漏远程 http URL
+ * （粘贴远程参考图、素材库远程引用等），导致 file_paths 恒为空。
+ */
+export function collectHttpUrls(
+  value: unknown,
+  seen: Set<string>
+): void {
+  if (typeof value === 'string') {
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      seen.add(value);
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectHttpUrls(item, seen);
+    }
+    return;
+  }
+  if (value && typeof value === 'object') {
+    for (const key of Object.keys(value as Record<string, unknown>)) {
+      collectHttpUrls((value as Record<string, unknown>)[key], seen);
     }
   }
 }

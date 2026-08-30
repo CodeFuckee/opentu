@@ -15,10 +15,13 @@ import { getTaskArchiveConfig } from './runtime';
 import { unifiedCacheService } from '../unified-cache-service';
 import {
   buildFileEntries,
+  buildFileEntryFromBlob,
+  type ArchiveFileEntry,
   sanitizeUsername,
   getLocalDateString,
   collectBase64Values,
   collectVirtualMediaUrls,
+  collectHttpUrls,
   extractBase64Payload,
   extractMimeFromDataUrl,
   sniffMimeFromBytes,
@@ -26,6 +29,7 @@ import {
   mimeToExtension,
   sha256Hex,
   buildOutputStoragePath,
+  readBlobAsArrayBufferSafe,
   replaceBase64WithPaths,
   replaceStringsWithPaths,
   isTerminalResponseState,
@@ -100,8 +104,11 @@ export async function archiveTaskToSupabase(task: Task): Promise<void> {
 
     // 1. 解析虚拟媒体路径为 base64 data URL（失败静默跳过，原路径保留）
     //    virtualUrl → 解析出的 dataURL（供 buildFileEntries 收集与二次替换）
+    //    解析降级（getImageForAI 返回 url 型，如素材库缓存缺失）时记录原 URL，
+    //    后续回退 fetch 原路径取 blob 上传，避免参考图丢失
     const virtualUrlToDataUrl = new Map<string, string>();
     const virtualUrls = new Set<string>();
+    const fetchFallbackUrls = new Set<string>();
     collectVirtualMediaUrls(task.params, virtualUrls);
     for (const virtualUrl of virtualUrls) {
       try {
@@ -109,18 +116,24 @@ export async function archiveTaskToSupabase(task: Task): Promise<void> {
         if (imageData.type === 'base64') {
           virtualUrlToDataUrl.set(virtualUrl, imageData.value);
         } else {
-          // getImageForAI 降级返回原始 URL（如素材库缓存缺失），保持原路径跳过上传
+          // getImageForAI 降级返回原始 URL（如素材库缓存缺失），回退 fetch 原路径上传
           console.warn(
-            `[TaskArchive] resolve virtual media url ${virtualUrl} returned non-base64, keeping original`
+            `[TaskArchive] resolve virtual media url ${virtualUrl} returned non-base64, will fetch as fallback`
           );
+          fetchFallbackUrls.add(virtualUrl);
         }
       } catch (error) {
         console.warn(
-          '[TaskArchive] resolve virtual media url failed, keeping original:',
+          '[TaskArchive] resolve virtual media url failed, will fetch as fallback:',
           error
         );
+        fetchFallbackUrls.add(virtualUrl);
       }
     }
+
+    // 1b. 收集参数中的 http/https URL（粘贴远程参考图、素材库远程引用等），
+    //     归档函数原本只识别 data URL 与虚拟 URL，遗漏远程 URL 导致 file_paths 恒为空
+    collectHttpUrls(task.params, fetchFallbackUrls);
 
     // 2. 合成"虚拟 URL 已被替换为 dataURL"的参数快照，供提取文件条目
     const paramsWithResolved = virtualUrlToDataUrl.size
@@ -136,10 +149,37 @@ export async function archiveTaskToSupabase(task: Task): Promise<void> {
       dateStr
     );
 
+    // 2b. 回退路径：fetch 远程/降级 URL 取 blob，构建文件条目并入上传集合
+    const fetchedEntries: Array<ArchiveFileEntry> = [];
+    for (const remoteUrl of fetchFallbackUrls) {
+      try {
+        const response = await fetch(remoteUrl, { referrerPolicy: 'no-referrer' });
+        if (!response.ok) {
+          console.warn(
+            `[TaskArchive] fetch fallback ${remoteUrl} failed: ${response.status}, skipping`
+          );
+          continue;
+        }
+        const blob = await response.blob();
+        if (blob.size === 0) {
+          continue;
+        }
+        fetchedEntries.push(
+          await buildFileEntryFromBlob(remoteUrl, blob, username, dateStr)
+        );
+      } catch (error) {
+        console.warn(
+          `[TaskArchive] fetch fallback ${remoteUrl} failed, skipping:`,
+          error
+        );
+      }
+    }
+    const allEntries = [...entries, ...fetchedEntries];
+
     // 3. 上传到 bucket（失败静默，该条目不进入映射）
     const uploadedPaths: string[] = [];
     const succeededPaths = new Map<string, string>();
-    for (const entry of entries) {
+    for (const entry of allEntries) {
       const { error } = await config.client.storage
         .from(bucketName)
         .upload(entry.storagePath, entry.blob, {
@@ -426,21 +466,38 @@ export async function archiveGeneratedMediaToSupabase(
       }
       resolved.add(url);
       try {
-        // 本地虚拟 URL → base64 dataURL（与 executor 参考图解析一致）
+        // 优先用 unifiedCacheService 解析：本地虚拟 URL → base64 dataURL
+        // 上游返回 http URL（OpenAI {data:[{url}]} 格式）时 cacheRemoteUrl 对图片
+        // 原样返回不缓存，getImageForAI 对未缓存 http URL 返回 url 型 → 回退直接 fetch
         const imageData = await unifiedCacheService.getImageForAI(url);
-        if (imageData.type !== 'base64') {
-          console.warn(
-            `[TaskArchive] generated media ${url} resolved to non-base64, skipping upload`
-          );
-          continue;
+        let bytes: Uint8Array;
+        let mime: string;
+        if (imageData.type === 'base64') {
+          const payload = extractBase64Payload(imageData.value);
+          if (payload === null) {
+            continue;
+          }
+          bytes = decodeResponseBase64(payload);
+          mime =
+            extractMimeFromDataUrl(imageData.value) ?? sniffMimeFromBytes(bytes);
+        } else {
+          // url 型（http URL 或虚拟 URL 缓存缺失降级）：直接 fetch 取 blob
+          const response = await fetch(url, { referrerPolicy: 'no-referrer' });
+          if (!response.ok) {
+            console.warn(
+              `[TaskArchive] generated media fetch ${url} failed: ${response.status}, skipping upload`
+            );
+            continue;
+          }
+          const blob = await response.blob();
+          if (blob.size === 0) {
+            continue;
+          }
+          // 兼容不支持 blob.arrayBuffer() 的环境（部分 jsdom），复用 FileReader 回退
+          const arrayBuffer = await readBlobAsArrayBufferSafe(blob);
+          bytes = new Uint8Array(arrayBuffer);
+          mime = blob.type || sniffMimeFromBytes(bytes);
         }
-        const payload = extractBase64Payload(imageData.value);
-        if (payload === null) {
-          continue;
-        }
-        const bytes = decodeResponseBase64(payload);
-        const mime =
-          extractMimeFromDataUrl(imageData.value) ?? sniffMimeFromBytes(bytes);
         const ext = mimeToExtension(mime);
         const hash = await sha256Hex(bytes);
         const storagePath = buildOutputStoragePath(username, dateStr, hash, ext);

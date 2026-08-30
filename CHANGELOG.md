@@ -20,6 +20,19 @@
 
 ### 🩹 Fixes
 
+- **修复任务提交后 `task_submissions.file_paths` 为空列表、参考图与生成结果图均未保存到
+  Supabase `huabu` bucket**：归档函数只处理 data URL 与「能解析为 base64 的虚拟 URL」，
+  遗漏两类常见输入 —— ①输出侧：上游返回 OpenAI 格式 `{data:[{url}]}`（http URL）时，
+  executor 的 `cacheRemoteUrl` 对图片类型 http URL 原样返回不缓存，`archiveGeneratedMediaToSupabase`
+  调用 `getImageForAI` 对未缓存 http URL 返回 `{type:'url'}` → 直接 skip →
+  `response_file_paths` 恒为空、生成图不入桶；②输入侧：参考图在参数中是 http URL（粘贴远程图、
+  素材库远程引用）或虚拟 URL 但 `getImageForAI` 解析降级（缓存缺失返回 url 型）时，
+  `collectDataUrls`/`collectVirtualMediaUrls` 均不识别 http URL、降级时静默跳过 →
+  `file_paths` 恒为空、参考图不入桶。现新增 fetch 回退路径：输出侧 `getImageForAI` 返回 url 型时
+  直接 fetch 该 URL 取 blob 上传；输入侧新增 `collectHttpUrls` 收集 http URL + 虚拟 URL 解析降级时
+  回退 fetch 原路径，统一经 `buildFileEntryFromBlob` 转 blob 后并入上传集合
+  （实现见 `packages/drawnix/src/services/task-supabase-archive/{core,service}.ts`，
+  复现测试见 `src/services/task-supabase-archive/url-archive-repro.test.ts`）
 - **修复画布图片点「AI图片生成」后参考图缩略图破图（缩略图裂开显示 alt `draw-image-…`）**：
   画布图片元素携带的虚拟 URL（`/asset-library/…`、`/__aitu_cache__/…`）依赖 Service Worker
   接管请求才能访问，SW 未接管时（首次访问 / HTTP 内网 / `?sw=0` 降级 / 隐私模式）请求落到
