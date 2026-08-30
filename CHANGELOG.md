@@ -20,6 +20,17 @@
 
 ### 🩹 Fixes
 
+- **修复 huabu bucket RLS 策略与前端路径规则不一致导致上传被拒（HTTP 400）、`file_paths` 恒为空**：
+  旧存储策略用 **JWT 邮箱 @ 前缀**比对对象路径首段，而前端上传路径首段**优先取
+  `user_profiles.oa_account`**（`resolveUsername`），两者不一致的用户上传被 RLS 拒绝
+  → storage 返回 400 → 输入/输出文件全部上传失败、`file_paths`/`response_file_paths` 恒为空。
+  新策略（`task_submissions_huabu_rls_v2_oa_folder.sql`，需在自托管实例上执行）：按 **OA 账号
+  文件夹**隔离——用户对自己文件夹下文件允许 select/insert/update（清洗规则与前端
+  `sanitizeUsername` 完全一致：trim→lower→`[^a-z0-9._-]`→`_`→截断 64，oa_account 缺失回退
+  邮箱前缀，经 `security definer` 函数 `huabu_folder_name_for_current_user()` 复用）；
+  **不创建 delete 策略**（RLS 默认拒绝）并显式 drop 旧 delete 策略 → 任何用户（含本人）
+  均无法删除 huabu 中文件。另幂等确保 bucket 存在
+  （迁移见 `supabase/migrations/task_submissions_huabu_rls_v2_oa_folder.sql`）
 - **修复任务提交后 `task_submissions.file_paths` 为空列表、参考图与生成结果图均未保存到
   Supabase `huabu` bucket**：归档函数只处理 data URL 与「能解析为 base64 的虚拟 URL」，
   遗漏两类常见输入 —— ①输出侧：上游返回 OpenAI 格式 `{data:[{url}]}`（http URL）时，
