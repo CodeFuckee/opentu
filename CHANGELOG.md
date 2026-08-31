@@ -26,6 +26,11 @@
 
 ### 🩹 Fixes
 
+- **修复云同步下载画板后界面画板列表看不到新画板**：设备 B 同步下载了新画板到 IndexedDB，
+  但工作区内存映射未刷新，画板列表/侧边栏不显示（迁移自 github-sync 时遗漏的 `reloadWorkspace()`）。
+  `applyRemoteEntities` 在应用 `board`/`folder`/`workspace_state` 实体后调用
+  `workspaceService.reload()`（重新加载 boardMetadata 并触发 `treeChanged` 刷新 UI）。
+  见 `packages/drawnix/src/services/supabase-sync/apply-remote.ts` + `apply-remote.test.ts`。
 - **修复 huabu bucket RLS 策略与前端路径规则不一致导致上传被拒（HTTP 400）、`file_paths` 恒为空**：
   旧存储策略用 **JWT 邮箱 @ 前缀**比对对象路径首段，而前端上传路径首段**优先取
   `user_profiles.oa_account`**（`resolveUsername`），两者不一致的用户上传被 RLS 拒绝
