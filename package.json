@@ -41,6 +41,7 @@
     "e2e:visual:update": "nx e2e web-e2e -- --project=visual --update-snapshots",
     "e2e:visual:report": "npx playwright show-report apps/web-e2e/playwright-report",
     "e2e:features": "nx e2e web-e2e -- --project=chromium",
+    "e2e:functional": "nx e2e web-e2e -- --project=functional",
     "e2e:manual": "nx e2e web-e2e -- --project=manual",
     "manual:screenshots": "cd apps/web-e2e && CI= npx playwright test --project=manual",
     "manual:build": "npx ts-node --compiler-options '{\"module\":\"commonjs\",\"esModuleInterop\":true}' scripts/generate-manual.ts",

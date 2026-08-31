@@ -131,8 +131,8 @@ test.describe('@feature 功能测试', () => {
     const newBoardBtn = page.getByRole('button', { name: '新建画板' });
     await expect(newBoardBtn).toBeVisible();
 
-    // 新建文件夹按钮（必须通过）
-    const newFolderBtn = page.getByRole('button', { name: '新建文件夹' });
+    // 新建文件夹/新建目录按钮（必须通过）
+    const newFolderBtn = page.getByRole('button', { name: '新建目录' });
     await expect(newFolderBtn).toBeVisible();
 
     // 导入导出按钮（必须通过）

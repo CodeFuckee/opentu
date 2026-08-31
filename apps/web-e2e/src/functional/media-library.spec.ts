@@ -1,0 +1,61 @@
+/**
+ * 素材库测试（@functional）
+ *
+ * 覆盖：素材库打开（WinBox 窗口）、筛选分类（全部/图片/视频/音频/主体/本地/AI）、
+ * 视图切换（网格/紧凑/列表）、空态提示、关闭。
+ */
+import { test, expect } from '../fixtures/test-base';
+
+test.describe('素材库', () => {
+  async function openMediaLibrary(page: import('@playwright/test').Page) {
+    await page.goto('/');
+    await expect(page.getByTestId('unified-toolbar')).toBeVisible({
+      timeout: 15000,
+    });
+
+    const mediaLabel = page
+      .locator('label')
+      .filter({ has: page.getByRole('radio', { name: /素材库/ }) })
+      .first();
+    await expect(mediaLabel).toBeVisible();
+    await mediaLabel.click({ force: true });
+    await page.waitForTimeout(700);
+  }
+
+  test('打开素材库并展示筛选与空态', async ({ page }) => {
+    await openMediaLibrary(page);
+
+    // WinBox 窗口类名（data-testid 不会透传到原生 WinBox DOM）
+    const modal = page.locator('.winbox-media-library');
+    await expect(modal).toBeVisible({ timeout: 8000 });
+
+    // 筛选分类
+    const bodyText = await page.evaluate(() =>
+      (document.body.innerText || '').replace(/\n+/g, '|')
+    );
+    expect(bodyText).toMatch(/图片|视频|音频/);
+    expect(bodyText).toMatch(/本地|AI/);
+
+    // 空态（新账号无素材）
+    expect(bodyText).toContain('暂无素材');
+
+    // 视图切换按钮
+    await expect(page.locator('[data-track="view_mode_grid"]')).toBeVisible();
+    await expect(
+      page.locator('[data-track="view_mode_compact"]')
+    ).toBeVisible();
+    await expect(page.locator('[data-track="view_mode_list"]')).toBeVisible();
+  });
+
+  test('关闭素材库（WinBox 关闭按钮）', async ({ page }) => {
+    await openMediaLibrary(page);
+
+    const modal = page.locator('.winbox-media-library');
+    await expect(modal).toBeVisible({ timeout: 8000 });
+
+    const closeBtn = page.locator('.winbox-media-library .wb-close');
+    await expect(closeBtn).toBeVisible({ timeout: 5000 });
+    await closeBtn.click();
+    await expect(modal).toBeHidden({ timeout: 5000 });
+  });
+});

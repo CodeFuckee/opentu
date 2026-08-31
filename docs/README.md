@@ -1,4 +1,4 @@
-# Yue画布 开发文档
+﻿# Yue画布 开发文档
 
 本目录只保留当前仍有维护价值的开发文档。产品介绍、安装和常用命令见 [项目 README](../README.md)。
 
@@ -10,6 +10,10 @@
 - [概念说明](./CONCEPTS.md)：领域概念与画布工作区说明。
 - [Service Worker 架构](./SW_ARCHITECTURE.md)：SW、缓存、后台任务与调试入口。
 
+## 测试
+
+- [E2E 测试说明与设计](./E2E_TESTS.md)：每个 E2E 测试在测什么、为什么这样设计、如何运行。
+
 ## 部署与发布
 
 - [版本控制](./VERSION_CONTROL.md)：版本号、发布流程和缓存策略。
@@ -17,6 +21,14 @@
 - [NPM CDN 部署](./NPM_CDN_DEPLOY.md)：npm 包与 CDN 发布链路。
 - [CDN 部署](./CDN_DEPLOYMENT.md)：混合部署、CDN 回退与线上排查。
 - [Cloudflare Pages 部署](./CFPAGE-DEPLOY.md)：静态托管配置。
+
+## 认证与用户
+
+- [Supabase 注册 / 登录接入指南（可跨平台复用）](./supabase-auth-implementation.md)：整体架构、核心模式、Edge Functions、数据库 RLS 与平台移植清单。
+- [oa账号登录说明](./oa-account-login.md)：账号自动拼接 `@yjk.com` 的映射规则。
+- [登录区分「未注册」与「密码错误」](./check-email-registered-login-hint.md)：GoTrue 防枚举与 Edge Function 方案。
+- [Supabase Key 配置与轮换](./supabase-keys.md)：ANON / SERVICE_ROLE 密钥管理。
+- [AuthGate 登录门禁启动卡 88% 修复](./auth-gate-boot-88-freeze.md)：会话未就绪时 boot 覆盖层的关闭时机。
 
 ## UI 与品牌
 
