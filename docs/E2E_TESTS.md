@@ -284,6 +284,37 @@ pnpm e2e:visual:report  # 打开 HTML 报告
 
 ---
 
+## 3.2 有头（headed）模式运行
+
+Playwright 默认无头运行，需要可视化调试（观察真实窗口、排查布局/交互）时：
+
+```bash
+# 在 apps/web-e2e 目录直接运行（最常见）
+npx playwright test --project=functional --headed
+
+# 经 pnpm / Nx 脚本运行（--headed 会透传给 playwright）
+pnpm e2e:smoke --headed
+pnpm e2e:functional --headed
+
+# 单个用例 + 有头
+npx playwright test src/functional/drawing.spec.ts --project=functional --headed
+
+# 调试模式：有头 + Playwright Inspector（逐步查看/暂停）
+PWDEBUG=1 npx playwright test src/functional/canvas-basics.spec.ts --project=functional
+```
+
+注意事项：
+
+- **需要完整浏览器可执行文件**：有头模式不使用 headless-shell，必须安装完整 Chromium
+  （本机已装到 `%LOCALAPPDATA%\ms-playwright\chromium-1200\chrome-win64\chrome.exe`；
+  其他机器执行 `npx playwright install chromium`）。缺浏览器会报
+  `Executable doesn't exist ... chrome.exe`。
+- **CI/无显示器环境**：headed 需要桌面会话，CI 上不要加 `--headed`。
+- 与 `--ua` 无关：Playwright 有头/无头共用一套测试代码；`--headed` 只是启动方式差别。
+- 失败产物（截图/视频/trace）在 `apps/web-e2e/test-results/`，与有头/无头无关。
+
+---
+
 ## 4. 设计原则（为什么这样写）
 
 1. **先分后合**：冒烟只负责“快”，深交互归 `functional`，多浏览器归 `features`，
