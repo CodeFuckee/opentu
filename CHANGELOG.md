@@ -7,7 +7,8 @@
   媒体表 + 私有 bucket `yue-sync`），换浏览器/设备登录同一账号即可看到之前的记录；
   支持手动/自动增量同步、画板元素级冲突合并、删除墓碑同步；
   GitHub Gist 同步已废弃移除（实现见 `packages/drawnix/src/services/supabase-sync/`，
-  表结构与部署见 `docs/cloud-sync.md`）
+  表结构与部署见 `docs/cloud-sync.md`；E2E 跨设备验证见
+  `apps/web-e2e/src/functional/cloud-sync.spec.ts`）
 - 任务参数 Supabase 归档：AI 生成任务（图片/视频/音频/chat）创建时异步把任务参数写入
   `task_submissions` 表，参数中的文件（base64 参考图等）上传到私有 bucket `huabu`，
   路径 `{oa账号}/{YYYY-MM-DD}/input-{SHA-256}.{扩展名}`，数据库以存储路径替换原 dataURL；
