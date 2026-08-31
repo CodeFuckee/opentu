@@ -18,6 +18,7 @@
  */
 
 import { workspaceStorageService } from '../workspace-storage-service';
+import { workspaceService } from '../workspace-service';
 import {
   mergePromptHistory,
   mergeVideoPromptHistory,
@@ -37,12 +38,21 @@ export async function applyRemoteEntities(
 ): Promise<{ applied: number; failed: string[] }> {
   let applied = 0;
   const failed: string[] = [];
+  let workspaceChanged = false;
 
   for (const entity of entities) {
     try {
       const ok = await applyOne(entity);
       if (ok) {
         applied++;
+        // 画板/文件夹/工作区状态变更后需要刷新工作区内存映射，否则 UI 看不到新画板
+        if (
+          entity.entity_type === 'board' ||
+          entity.entity_type === 'folder' ||
+          entity.entity_type === 'workspace_state'
+        ) {
+          workspaceChanged = true;
+        }
       }
     } catch {
       failed.push(`${entity.entity_type}:${entity.entity_id}`);
@@ -50,6 +60,15 @@ export async function applyRemoteEntities(
     // 每处理 5 个让出主线程
     if (applied % 5 === 0) {
       await yieldToMain();
+    }
+  }
+
+  // 画板/文件夹下载后刷新工作区，让新画板出现在画板列表/侧边栏中
+  if (workspaceChanged) {
+    try {
+      await workspaceService.reload();
+    } catch {
+      // 刷新失败不影响已写入的存储数据（下次进入/刷新页面仍可见）
     }
   }
 
