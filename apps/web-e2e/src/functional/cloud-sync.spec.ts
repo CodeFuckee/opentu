@@ -41,6 +41,7 @@ async function forceFileInputFallback(
     // 彻底删除原生 File System Access API，使 browser-fs-access 回退到 hidden input
     // （仅设为 undefined 不够：'showOpenFilePicker' in window 仍为 true，会走 FSA）
     try {
+      // @ts-expect-error - File System Access API 非标准类型，删除走 browser-fs-access 回退
       delete window.showOpenFilePicker;
     } catch {
       // 某些浏览器该属性不可删除，改为覆盖为 undefined
@@ -170,17 +171,51 @@ async function openCloudSyncSettings(
   await expect(dialog).toBeVisible({ timeout: 8000 });
 }
 
+/** 点击指定同步操作按钮（立即同步 / 下载远程 / 上传本地）并等待完成 */
+async function clickSyncAction(
+  page: import('@playwright/test').Page,
+  buttonName: string
+): Promise<void> {
+  const dialog = page.locator('.sync-settings-dialog');
+  const actionBtn = dialog.getByRole('button', { name: new RegExp(buttonName) });
+  await expect(actionBtn).toBeVisible({ timeout: 8000 });
+  await actionBtn.click();
+
+  // 「上传本地」「下载远程」会弹出确认对话框（「确认上传覆盖」/「确认下载覆盖」），
+  // 需要点「继续上传」/「继续下载」确认；「立即同步」无确认框
+  const confirmBtn = page.getByRole('button', {
+    name: buttonName === '上传本地' ? /继续上传/ : /继续下载/,
+  });
+  if (await confirmBtn.isVisible().catch(() => false)) {
+    await confirmBtn.click();
+  }
+
+  // 等待同步中状态结束：动作按钮重新可用（文本恢复，非「同步中...」）
+  await expect(actionBtn).toBeEnabled({ timeout: 30000 });
+  await page.waitForTimeout(1500);
+}
+
 /** 点击「立即同步」并等待完成 */
 async function clickSyncNow(
   page: import('@playwright/test').Page
 ): Promise<void> {
-  const dialog = page.locator('.sync-settings-dialog');
-  const syncBtn = dialog.getByRole('button', { name: /立即同步/ });
-  await expect(syncBtn).toBeVisible({ timeout: 8000 });
-  await syncBtn.click();
-  // 等待同步中状态结束：按钮重新可用（文本恢复为「立即同步」，非「同步中...」）
-  await expect(syncBtn).toBeEnabled({ timeout: 30000 });
-  await page.waitForTimeout(1500);
+  await clickSyncAction(page, '立即同步');
+}
+
+/** 统计项目抽屉画布管理列表中的画板数量 */
+async function countBoardsInDrawer(
+  page: import('@playwright/test').Page
+): Promise<number> {
+  const drawer = page.getByTestId('project-drawer');
+  await expect(drawer).toBeVisible({ timeout: 8000 });
+  const rows = drawer.locator('.project-drawer-node__row');
+  // 等待画板行渲染（下载后可能异步更新）
+  await expect.poll(() => rows.count(), { timeout: 15000 }).toBeGreaterThan(0);
+  const totalRows = await rows.count();
+  const folderRows = await drawer
+    .locator('.project-drawer-node__row--folder')
+    .count();
+  return totalRows - folderRows;
 }
 
 /** 通过 Supabase REST 验证云端 user_sync_data 中存在画板记录 */
@@ -320,6 +355,99 @@ test.describe('云端同步（跨设备）', () => {
       elementCount,
       `设备 B 打开画板「${boardName}」后画布应包含图片元素，实际 ${elementCount} 个`
     ).toBeGreaterThan(0);
+
+    await contextB.close();
+  });
+
+  test('立即同步 / 下载远程 / 上传本地三操作画板数量一致（回归）', async ({
+    browser,
+  }) => {
+    test.setTimeout(300000);
+
+    const boardNameX = randomBoardName();
+    const boardNameY = randomBoardName();
+
+    const { account, password } = createE2EAccount();
+    await ensureE2EAccountRegistered(account, password);
+
+    // ============ 设备 A：建 2 个画板 → 上传本地 ============
+    const contextA = await browser.newContext({
+      storageState: { cookies: [], origins: [] },
+    });
+    const pageA = await contextA.newPage();
+    await forceFileInputFallback(pageA);
+    await loginViaUi(pageA, account, password);
+
+    await openProjectDrawer(pageA);
+    await createNamedBoard(pageA, boardNameX);
+    await createNamedBoard(pageA, boardNameY);
+    // 关闭抽屉，避免遮挡菜单
+    await pageA.keyboard.press('Escape');
+    await pageA.waitForTimeout(300);
+
+    // 上传本地（以本地为准）
+    await openCloudSyncSettings(pageA);
+    await clickSyncAction(pageA, '上传本地');
+    await pageA.keyboard.press('Escape');
+    await contextA.close();
+
+    // ============ 设备 B：下载远程 → 应与云端一致（2 个画板） ============
+    const contextB = await browser.newContext({
+      storageState: { cookies: [], origins: [] },
+    });
+    const pageB = await contextB.newPage();
+    await forceFileInputFallback(pageB);
+    await loginViaUi(pageB, account, password);
+
+    // 先「下载远程」
+    await openCloudSyncSettings(pageB);
+    await clickSyncAction(pageB, '下载远程');
+    await pageB.keyboard.press('Escape');
+    await pageB.waitForTimeout(300);
+
+    await openProjectDrawer(pageB);
+    // X 与 Y 都应出现（下载远程拉取完整云端数据）
+    const drawerB = pageB.getByTestId('project-drawer');
+    await expect(drawerB.getByText(boardNameX, { exact: true }).first()).toBeVisible({
+      timeout: 15000,
+    });
+    await expect(drawerB.getByText(boardNameY, { exact: true }).first()).toBeVisible({
+      timeout: 15000,
+    });
+    const countAfterPull = await countBoardsInDrawer(pageB);
+    // 注意：设备 A 的默认画板「我的画板1」也会上传，故云端数量 = 默认板 + X + Y
+    // 断言「下载远程」后 X/Y 出现，且数量 ≥ 2（不硬编码总数，避免默认画板命名差异）
+    expect(
+      countAfterPull >= 2,
+      `下载远程后至少应含 X、Y 两个画板，实际 ${countAfterPull}`
+    ).toBe(true);
+
+    // 再「立即同步」→ 画板数量应与下载远程一致（回归：墓碑不复活 / 不丢画板）
+    await pageB.keyboard.press('Escape');
+    await pageB.waitForTimeout(300);
+    await openCloudSyncSettings(pageB);
+    await clickSyncAction(pageB, '立即同步');
+    await pageB.keyboard.press('Escape');
+    await pageB.waitForTimeout(300);
+
+    await openProjectDrawer(pageB);
+    const countAfterSync = await countBoardsInDrawer(pageB);
+    expect(
+      countAfterSync,
+      `立即同步后的画板数量应与下载远程一致（下载=${countAfterPull}，同步=${countAfterSync}）`
+    ).toBe(countAfterPull);
+
+    // 最后「上传本地」不影响画板数量
+    await pageB.keyboard.press('Escape');
+    await pageB.waitForTimeout(300);
+    await openCloudSyncSettings(pageB);
+    await clickSyncAction(pageB, '上传本地');
+    await pageB.keyboard.press('Escape');
+    await pageB.waitForTimeout(300);
+
+    await openProjectDrawer(pageB);
+    const countAfterPush = await countBoardsInDrawer(pageB);
+    expect(countAfterPush, `上传本地后画板数量不变，实际 ${countAfterPush}`).toBe(countAfterPull);
 
     await contextB.close();
   });

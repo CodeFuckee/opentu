@@ -107,4 +107,30 @@ describe('applyRemoteEntities', () => {
     expect(result.failed).toContain('board:b1');
     expect(mocks.reload).toHaveBeenCalledTimes(1);
   });
+
+  it('墓碑实体（deleted_at 非空）不写回本地（不复活已删除画板）', async () => {
+    const result = await applyRemoteEntities([
+      makeEntity({
+        entity_type: 'board',
+        entity_id: 'b-tomb',
+        deleted_at: 3000,
+      }),
+      makeEntity({ entity_type: 'board', entity_id: 'b1' }),
+    ]);
+    // 墓碑跳过：applied 只有存活画板；saveBoard 只被调用一次（默认 b1）
+    expect(result.applied).toBe(1);
+    expect(mocks.saveBoard).toHaveBeenCalledTimes(1);
+    const savedIds = mocks.saveBoard.mock.calls.map((c) => (c[0] as { id: string }).id);
+    expect(savedIds).toEqual(['b1']);
+    expect(savedIds).not.toContain('b-tomb');
+  });
+
+  it('全部为墓碑实体时不触发工作区刷新', async () => {
+    const result = await applyRemoteEntities([
+      makeEntity({ entity_type: 'board', entity_id: 'b1', deleted_at: 3000 }),
+      makeEntity({ entity_type: 'folder', entity_id: 'f1', deleted_at: 3000 }),
+    ]);
+    expect(result.applied).toBe(0);
+    expect(mocks.reload).not.toHaveBeenCalled();
+  });
 });

@@ -367,7 +367,18 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
       return { ...emptyResult, error: '未能获取登录用户' };
     }
     const remote = await fetchRemoteEntities(config, user.id);
-    const { applied } = await applyRemoteEntities(remote.entities);
+    // 拆分：有效实体 → 应用下载；墓碑实体（deleted_at 非空）→ 本地删除，
+    // 保证「下载远程」与「立即同步」的画板数量语义一致（墓碑不复活、生效删除）
+    const activeEntities = remote.entities.filter((e) => !e.deleted_at);
+    const tombstoneKeys = remote.entities
+      .filter((e) => !!e.deleted_at)
+      .map((e) => entityKey(e.entity_type, e.entity_id));
+    const { applied } = await applyRemoteEntities(activeEntities);
+    let deleted = 0;
+    if (tombstoneKeys.length > 0) {
+      const { deleted: tombstoneDeleted } = await deleteLocalEntities(tombstoneKeys);
+      deleted = tombstoneDeleted;
+    }
     setLastSyncTime(Date.now());
     setSyncStatus('synced');
     setError(null);
@@ -375,7 +386,7 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
       success: true,
       uploaded: 0,
       downloaded: applied,
-      deleted: 0,
+      deleted,
       conflicts: 0,
       duration: 0,
     };

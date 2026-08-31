@@ -42,6 +42,11 @@ export async function applyRemoteEntities(
 
   for (const entity of entities) {
     try {
+      // 墓碑实体（deleted_at 非空）不应被写回本地——否则会把已删除的画板「复活」，
+      // 导致「下载远程」与「立即同步」的画板数量不一致
+      if (entity.deleted_at) {
+        continue;
+      }
       const ok = await applyOne(entity);
       if (ok) {
         applied++;

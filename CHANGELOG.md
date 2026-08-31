@@ -27,6 +27,12 @@
 
 ### 🩹 Fixes
 
+- **修复「下载远程」复活已删除画板，导致与「立即同步」画板数量不一致**：
+  `pullFromRemote` 此前把云端墓碑（`deleted_at` 非空）实体一并 `applyRemoteEntities` 写回本地，
+  使已删除画板「复活」；立即同步走 `compareEntityDiff` 会删除墓碑 → 两操作画板数量不一致。
+  现在：`applyRemoteEntities` 跳过墓碑实体；`pullFromRemote` 将墓碑实体交给
+  `deleteLocalEntities` 执行本地删除（见 `apply-remote.ts`、`SupabaseSyncContext.tsx`）。
+  E2E 回归：`cloud-sync.spec.ts`「立即同步 / 下载远程 / 上传本地三操作画板数量一致」。
 - **修复云同步下载画板后界面画板列表看不到新画板**：设备 B 同步下载了新画板到 IndexedDB，
   但工作区内存映射未刷新，画板列表/侧边栏不显示（迁移自 github-sync 时遗漏的 `reloadWorkspace()`）。
   `applyRemoteEntities` 在应用 `board`/`folder`/`workspace_state` 实体后调用
