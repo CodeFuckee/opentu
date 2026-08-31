@@ -4,6 +4,26 @@
   "projectType": "application",
   "sourceRoot": "apps/web-e2e/src",
   "implicitDependencies": ["web"],
-  "// targets": "to see all targets run: nx show project web-e2e --web",
-  "targets": {}
+  "targets": {
+    "e2e": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "playwright test",
+        "cwd": "apps/web-e2e"
+      },
+      "cache": true,
+      "inputs": [
+        "default",
+        "^production",
+        {
+          "externalDependencies": ["@playwright/test"]
+        }
+      ],
+      "outputs": [
+        "{projectRoot}/playwright-report",
+        "{projectRoot}/test-results/results.json",
+        "{projectRoot}/test-results"
+      ]
+    }
+  }
 }

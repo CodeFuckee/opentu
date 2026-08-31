@@ -1,4 +1,4 @@
-# E2E 测试说明与设计文档（Yue画布）
+﻿# E2E 测试说明与设计文档（Yue画布）
 
 本文档说明仓库内 **Playwright E2E 测试**的完整覆盖范围与设计思路：每个测试测什么、
 为什么要这样测、以及如何运行。
@@ -272,6 +272,15 @@ pnpm e2e:visual:report  # 打开 HTML 报告
 - 可用 `BASE_URL` 指向已部署环境（如 CI 对线上回归）。
 - 认证：首次运行先注册一次性账号并登录；如需固定账号，设置
   `E2E_SUPABASE_URL` / `E2E_SUPABASE_ANON_KEY` / `E2E_TEST_PASSWORD`。
+
+---
+
+### 3.1 Nx 目标说明
+
+- `web-e2e:e2e` 目标在 `apps/web-e2e/project.json` 显式声明（`nx:run-commands` 执行 `playwright test`），
+  不依赖 `@nx/playwright/plugin` 推断缓存；`nx show project web-e2e` 应能看到 `e2e` 与 `e2e-ci*` 目标。
+- 若出现 `Cannot find configuration for task web-e2e:e2e`，多为 Nx daemon 工程图缓存过期，
+  执行 `npx nx reset` 后重试。
 
 ---
 

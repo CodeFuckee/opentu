@@ -51,22 +51,50 @@ export async function dismissInspirationBoard(page: Page): Promise<void> {
 
 /**
  * 点击画布空白处，把键盘焦点还给画布宿主（快捷键依赖 board 焦点）。
- * 位置取视口中心右下方，避开常见的中心元素。
+ * 位置取视口中心偏上，避开心灵板/底部 AI 输入栏/中心元素。
  */
 export async function focusCanvasEmptyArea(page: Page): Promise<void> {
   const vp = page.viewportSize() || { width: 1280, height: 720 };
-  const x = vp.width / 2 + 320;
-  const y = vp.height / 2 + 220;
+  const x = vp.width / 2;
+  const y = vp.height / 2 - 260;
   await page.mouse.click(x, y);
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(200);
+}
+
+/** 等待画布宿主进入指定 pointer 工具状态（避免快捷键竞态） */
+async function waitForPointer(
+  page: Page,
+  pointerClass: string
+): Promise<void> {
+  const board = page.locator('.plait-board-container');
+  await expect(board).toHaveClass(new RegExp(`pointer-${pointerClass}`), {
+    timeout: 5000,
+  });
+}
+
+/** 用快捷键切换工具并等待生效（失败自动重按） */
+export async function pressToolKey(
+  page: Page,
+  key: string,
+  pointerClass: string
+): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.keyboard.press(key);
+    try {
+      await waitForPointer(page, pointerClass);
+      return;
+    } catch {
+      // 焦点未就绪导致快捷键未生效，重试
+      await focusCanvasEmptyArea(page);
+    }
+  }
+  await waitForPointer(page, pointerClass);
 }
 
 /** 在画布中部绘制一个默认矩形（R 快捷键切换形状工具 -> 拖拽） */
 export async function drawRectangle(page: Page): Promise<void> {
   await focusCanvasEmptyArea(page);
-  // 键盘 R 直接切换到矩形工具（比点开形状子菜单稳定，避免 popup 时序抖动）
-  await page.keyboard.press('r');
-  await page.waitForTimeout(400);
+  await pressToolKey(page, 'r', 'rectangle');
 
   const { x: x1, y: y1 } = screenAt(page, -80, -40);
   const { x: x2, y: y2 } = screenAt(page, 80, 40);

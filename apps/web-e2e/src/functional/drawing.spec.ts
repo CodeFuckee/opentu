@@ -12,6 +12,7 @@ import {
   elementCount,
   expectElementsCreated,
   focusCanvasEmptyArea,
+  pressToolKey,
   selectCenterElement,
   deleteSelectedElement,
 } from '../fixtures/canvas-helpers';
@@ -26,8 +27,8 @@ test.describe('绘制与编辑', () => {
 
     // 键盘 P 激活毡尖画笔（点击按钮只打开子面板，需再选笔型；键盘更稳定）
     await focusCanvasEmptyArea(page);
-    await page.keyboard.press('p');
-    await page.waitForTimeout(500);
+    await pressToolKey(page, 'p', 'feltTipPen');
+    await page.waitForTimeout(300);
 
     // 画布上画一条线（视口中心偏移坐标）
     const vp = page.viewportSize() || { width: 1280, height: 720 };
