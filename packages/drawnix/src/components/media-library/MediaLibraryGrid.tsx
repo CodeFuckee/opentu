@@ -84,9 +84,9 @@ import {
 import { insertImageFromUrl } from '../../data/image';
 import { insertVideoFromUrl } from '../../data/video';
 import { insertAudioFromUrl } from '../../data/audio';
-import { useGitHubSync } from '../../contexts/GitHubSyncContext';
+import { useSupabaseSyncOptional } from '../../contexts/SupabaseSyncContext';
 import { useAudioPlaylists } from '../../contexts/AudioPlaylistContext';
-import { mediaSyncService } from '../../services/github-sync/media-sync-service';
+import { mediaSyncAdapter } from '../../services/supabase-sync/media-sync-adapter';
 import { openMusicPlayerToolAndPlay } from '../../services/tool-launch-service';
 import {
   AUDIO_PLAYLIST_ALL_ID,
@@ -334,7 +334,7 @@ export function MediaLibraryGrid({
   const [downloadProgress, setDownloadProgress] = useState(0); // 0-100
 
   // 同步状态
-  const { isConfigured } = useGitHubSync();
+  const { isConfigured } = useSupabaseSyncOptional() ?? { isConfigured: false };
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0); // 0-100
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(
@@ -392,18 +392,18 @@ export function MediaLibraryGrid({
     };
 
     // 动态导入并注册监听器
-    import('../../services/github-sync/media-sync-service').then(
-      ({ mediaSyncService }) => {
-        mediaSyncService.addSyncCompletedListener(handleSyncCompleted);
+    import('../../services/supabase-sync/media-sync-adapter').then(
+      ({ mediaSyncAdapter }) => {
+        mediaSyncAdapter.addSyncCompletedListener(handleSyncCompleted);
       }
     );
 
     return () => {
       mounted = false;
       // 清理监听器
-      import('../../services/github-sync/media-sync-service').then(
-        ({ mediaSyncService }) => {
-          mediaSyncService.removeSyncCompletedListener(handleSyncCompleted);
+      import('../../services/supabase-sync/media-sync-adapter').then(
+        ({ mediaSyncAdapter }) => {
+          mediaSyncAdapter.removeSyncCompletedListener(handleSyncCompleted);
         }
       );
     };
@@ -1069,7 +1069,7 @@ export function MediaLibraryGrid({
     filteredSelectedAssets
       .filter((a) => a.source === AssetSource.AI_GENERATED)
       .forEach((a) => {
-        const syncStatus = mediaSyncService.getUrlSyncStatus(a.url);
+        const syncStatus = mediaSyncAdapter.getUrlSyncStatus(a.url);
         if (syncStatus !== 'synced') {
           syncableUrls.push(a.url);
         }
@@ -1082,7 +1082,7 @@ export function MediaLibraryGrid({
           a.source === AssetSource.LOCAL && a.url.startsWith('/__aitu_cache__/')
       )
       .forEach((a) => {
-        const syncStatus = mediaSyncService.getUrlSyncStatus(a.url);
+        const syncStatus = mediaSyncAdapter.getUrlSyncStatus(a.url);
         if (syncStatus !== 'synced') {
           syncableUrls.push(a.url);
         }
@@ -1096,7 +1096,7 @@ export function MediaLibraryGrid({
     setSyncProgress(0);
 
     try {
-      const result = await mediaSyncService.syncSelectedMedia(
+      const result = await mediaSyncAdapter.syncSelectedMedia(
         syncableUrls,
         (current, total, url, status) => {
           setSyncProgress(Math.round((current / total) * 100));
@@ -1121,7 +1121,7 @@ export function MediaLibraryGrid({
     // AI 生成素材：直接按资产 URL 判断是否可同步
     const aiSyncable = filteredSelectedAssets.filter((a) => {
       if (a.source !== AssetSource.AI_GENERATED) return false;
-      const syncStatus = mediaSyncService.getUrlSyncStatus(a.url);
+      const syncStatus = mediaSyncAdapter.getUrlSyncStatus(a.url);
       return syncStatus !== 'synced';
     }).length;
 
@@ -1131,7 +1131,7 @@ export function MediaLibraryGrid({
       // 只有在统一缓存中的本地素材才能同步
       if (!a.url.startsWith('/__aitu_cache__/')) return false;
       // 检查是否已同步
-      const syncStatus = mediaSyncService.getUrlSyncStatus(a.url);
+      const syncStatus = mediaSyncAdapter.getUrlSyncStatus(a.url);
       return syncStatus !== 'synced';
     }).length;
 

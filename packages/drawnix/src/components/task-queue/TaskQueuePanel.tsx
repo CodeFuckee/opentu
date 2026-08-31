@@ -50,8 +50,8 @@ import {
   type MediaItem as UnifiedMediaItem,
 } from '../shared/media-preview';
 import { ImageEditor } from '../image-editor';
-import { useGitHubSync } from '../../contexts/GitHubSyncContext';
-import { mediaSyncService } from '../../services/github-sync/media-sync-service';
+import { useSupabaseSyncOptional } from '../../contexts/SupabaseSyncContext';
+import { mediaSyncAdapter } from '../../services/supabase-sync/media-sync-adapter';
 import { CloudUploadIcon } from 'tdesign-icons-react';
 import {
   formatLyricsForCanvas,
@@ -178,7 +178,7 @@ export const TaskQueuePanel: React.FC<TaskQueuePanelProps> = ({
   const [archivedCount, setArchivedCount] = useState<number | null>(null);
 
   // Sync state
-  const { isConfigured } = useGitHubSync();
+  const { isConfigured } = useSupabaseSyncOptional() ?? { isConfigured: false };
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
 
@@ -473,7 +473,7 @@ export const TaskQueuePanel: React.FC<TaskQueuePanelProps> = ({
     setSyncProgress(0);
 
     try {
-      const result = await (mediaSyncService as any).syncMultipleTasks(
+      const result = await (mediaSyncAdapter as any).syncMultipleTasks(
         syncableSelectedIds,
         (current: any, total: any) => {
           setSyncProgress(Math.round((current / total) * 100));

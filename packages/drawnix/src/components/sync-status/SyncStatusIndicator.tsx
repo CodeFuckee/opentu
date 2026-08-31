@@ -1,6 +1,6 @@
 /**
  * 同步状态指示器组件
- * 显示在工具栏上，点击可打开同步设置
+ * 显示在工具栏上，点击可打开同步设置（基于 Supabase 云同步）
  */
 
 import React, { useState } from 'react';
@@ -12,7 +12,7 @@ import {
   CloseCircleFilledIcon,
   HelpCircleIcon,
 } from 'tdesign-icons-react';
-import { useGitHubSyncOptional } from '../../contexts/GitHubSyncContext';
+import { useSupabaseSyncOptional } from '../../contexts/SupabaseSyncContext';
 import { SyncSettings } from '../sync-settings';
 import './sync-status.scss';
 import { HoverTip } from '../shared';
@@ -21,7 +21,7 @@ import { HoverTip } from '../shared';
  * 同步状态指示器
  */
 export function SyncStatusIndicator() {
-  const syncContext = useGitHubSyncOptional();
+  const syncContext = useSupabaseSyncOptional();
   const [showSettings, setShowSettings] = useState(false);
 
   // 如果没有同步上下文，不显示
@@ -29,8 +29,7 @@ export function SyncStatusIndicator() {
     return null;
   }
 
-  const { isConnected, isConfigured, syncStatus, isSyncing, lastSyncTime } =
-    syncContext;
+  const { isConfigured, syncStatus, isSyncing, lastSyncTime } = syncContext;
 
   // 获取状态信息
   const getStatusInfo = (): {
@@ -43,14 +42,6 @@ export function SyncStatusIndicator() {
         icon: <HelpCircleIcon />,
         tooltip: '点击配置云端同步',
         className: 'sync-status--not-configured',
-      };
-    }
-
-    if (!isConnected) {
-      return {
-        icon: <CloseCircleFilledIcon />,
-        tooltip: 'Token 无效，点击重新配置',
-        className: 'sync-status--error',
       };
     }
 
@@ -128,6 +119,5 @@ function formatRelativeTime(timestamp: number): string {
   if (diffMinutes < 60) return `${diffMinutes}分钟前`;
   if (diffHours < 24) return `${diffHours}小时前`;
   if (diffDays < 7) return `${diffDays}天前`;
-
-  return new Date(timestamp).toLocaleDateString('zh-CN');
+  return new Date(timestamp).toLocaleDateString();
 }

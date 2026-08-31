@@ -21,6 +21,7 @@ import type { RegisterEligibility } from './auth-validation';
 import {
   configureManagedRouting,
   configureTaskArchive,
+  configureSupabaseSync,
 } from '@drawnix/drawnix/runtime';
 
 export type AuthStatus =
@@ -131,9 +132,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       // 登录后注册任务参数归档（上传 huabu bucket + 写入 task_submissions）
       configureTaskArchive({ client: getSupabaseClient() });
+      // 登录后注册云同步（本地数据 → user_sync_data / yue-sync bucket）
+      configureSupabaseSync({ client: getSupabaseClient() });
     } else {
       configureManagedRouting(null);
       configureTaskArchive(null);
+      configureSupabaseSync(null);
     }
   }, [status]);
 

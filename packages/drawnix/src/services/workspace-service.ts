@@ -22,7 +22,7 @@ import {
   ValidationError,
 } from '../types/workspace.types';
 import { workspaceStorageService } from './workspace-storage-service';
-import { logDebug, logWarning, logError } from './github-sync/sync-log-service';
+import { logDebug, logWarning, logError } from './supabase-sync/log';
 import { registerWorkspaceRuntime } from './workspace-runtime-bridge';
 
 /**
@@ -522,18 +522,8 @@ class WorkspaceService {
     const board = this.boards.get(id);
     if (!board) throw new Error(`Board ${id} not found`);
 
-    // 异步同步删除到远程回收站（不阻塞本地删除）
-    import('./github-sync/sync-engine').then(({ syncEngine }) => {
-      syncEngine.syncBoardDeletion(id).then((result) => {
-        if (!result.success) {
-          logWarning('Failed to sync deletion to remote', { error: result.error });
-        }
-      }).catch((err) => {
-        logWarning('Could not sync deletion to remote', { error: String(err) });
-      });
-    }).catch((err) => {
-      logWarning('Could not load syncEngine', { error: String(err) });
-    });
+    // 云同步删除会在 SupabaseSyncContext 的 boardDeleted 事件处理中作为墓碑同步，
+    // 这里不直接调用（避免依赖同步引擎细节）
 
     // Clear current if this board is active
     if (this.state.currentBoardId === id) {
@@ -1201,37 +1191,20 @@ class WorkspaceService {
   }
 
   /**
-   * 触发同步引擎标记脏数据（防抖处理）
-   * 使用动态 import 避免循环依赖
+   * 触发云同步标记（防抖处理）
+   * SupabaseSyncContext 已订阅 observeEvents 执行自动同步，这里仅确认登录态并记录日志。
    */
-  private triggerSyncMarkDirty(eventType: WorkspaceEvent['type'], payload?: unknown): void {
-    // 使用动态 import 避免循环依赖
-    import('./github-sync/sync-engine').then(({ syncEngine }) => {
-      import('./github-sync/token-service').then(({ tokenService }) => {
-        // 只在已配置 token 时才触发
-        if (!tokenService.hasToken()) {
+  private triggerSyncMarkDirty(eventType: WorkspaceEvent['type'], _payload?: unknown): void {
+    import('./supabase-sync/runtime')
+      .then(({ getSupabaseSyncConfig }) => {
+        if (!getSupabaseSyncConfig()) {
           return;
         }
-        
-        logDebug('Triggering syncEngine.markDirty()', { eventType });
-        syncEngine.markDirty();
-        
-        // 如果是画板删除，还需要记录本地删除
-        if (eventType === 'boardDeleted') {
-          const boardId = (payload as { id?: string })?.id;
-          if (boardId && typeof boardId === 'string') {
-            logDebug('Recording local deletion for board', { boardId });
-            syncEngine.recordLocalDeletion(boardId).then(() => {
-              return syncEngine.syncBoardDeletion(boardId);
-            }).catch(err => {
-              logError('Failed to sync board deletion', err instanceof Error ? err : new Error(String(err)));
-            });
-          }
-        }
+        logDebug('云同步待同步标记', { eventType });
+      })
+      .catch((err) => {
+        logError('Failed to check sync config', err instanceof Error ? err : new Error(String(err)));
       });
-    }).catch(err => {
-      logError('Failed to import sync modules', err instanceof Error ? err : new Error(String(err)));
-    });
   }
 
   // ========== Initialization ==========

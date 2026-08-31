@@ -7,8 +7,6 @@ import {
 import { APP_DB_NAME, APP_DB_STORES } from '../app-database';
 import { kvStorageService } from '../kv-storage-service';
 import { settingsManager, type AppSettings } from '../../utils/settings-manager';
-import { tokenService } from '../github-sync/token-service';
-import { syncPasswordService } from '../github-sync/sync-password-service';
 import { audioPlaylistService } from '../audio-playlist-service';
 import { characterStorageService } from '../character-storage-service';
 import { characterAvatarCacheService } from '../character-avatar-cache-service';
@@ -243,8 +241,8 @@ async function collectEnvironmentSecrets(
   settings: AppSettings
 ): Promise<EnvironmentSecretsData> {
   const [githubToken, syncPassword, appConfigRecords] = await Promise.all([
-    tokenService.getToken().catch(() => null),
-    syncPasswordService.getPassword().catch(() => null),
+    Promise.resolve(null as string | null), // GitHub Token 同步已废弃（见 cloud-sync change）
+    Promise.resolve(null as string | null), // Gist 加密密码已废弃（见 cloud-sync change）
     collectSecretAppConfig(),
   ]);
 
@@ -504,19 +502,12 @@ async function restoreEnvironmentSecrets(
   }
 
   let imported = 0;
-  if (secrets.githubToken) {
-    try {
-      await tokenService.saveToken(secrets.githubToken);
-      imported++;
-    } catch (error) {
-      warnings.push(
-        `GitHub Token 未恢复：${error instanceof Error ? error.message : String(error)}`
-      );
-    }
+  // GitHub Token / Gist 密码已随 GitHub 同步功能废弃；保留备份字段兼容但不再恢复
+  if (typeof secrets.syncPassword === 'string' && secrets.syncPassword) {
+    warnings.push('GitHub 同步已废弃，加密密码不再恢复');
   }
-  if (typeof secrets.syncPassword === 'string') {
-    await syncPasswordService.savePassword(secrets.syncPassword);
-    imported++;
+  if (secrets.githubToken) {
+    warnings.push('GitHub 同步已废弃，Token 不再恢复');
   }
   return imported;
 }

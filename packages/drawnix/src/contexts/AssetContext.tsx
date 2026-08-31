@@ -1534,10 +1534,10 @@ export function AssetProvider({ children }: AssetProviderProps) {
    */
   const loadSyncedUrls = useCallback(async () => {
     try {
-      const { mediaSyncService } = await import(
-        '../services/github-sync/media-sync-service'
+      const { mediaSyncAdapter } = await import(
+        '../services/supabase-sync/media-sync-adapter'
       );
-      const urls = await mediaSyncService.getRemoteSyncedUrls();
+      const urls = await mediaSyncAdapter.getRemoteSyncedUrls();
       setSyncedUrls(urls);
     } catch (error) {
       console.warn('[AssetContext] Failed to load synced URLs:', error);

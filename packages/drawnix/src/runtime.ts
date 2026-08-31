@@ -34,3 +34,5 @@ export {
 export { configureManagedRouting } from './services/managed-routing/managed-runtime';
 export { configureTaskArchive } from './services/task-supabase-archive/runtime';
 export type { TaskArchiveConfig } from './services/task-supabase-archive/runtime';
+export { configureSupabaseSync } from './services/supabase-sync/runtime';
+export type { SupabaseSyncConfig } from './services/supabase-sync/types';
