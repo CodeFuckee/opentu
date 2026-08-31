@@ -31,6 +31,9 @@
 - **AI generation and routing**: images, video, audio, text, and Agent flows from one workspace.
 - **Canvas workspace**: AI tasks, assets, frames, tool windows, and knowledge-base content share the same surface.
 - **Task and asset management**: queues, media library, unified cache, and history make outputs reusable.
+- **Cloud sync (Supabase)**: after login, boards, tasks, prompts, workflows, knowledge base, chats,
+  audio, characters, assets, and settings sync automatically to a private cloud — sign in with the
+  same account on any browser/device to see your previous work.
 - **Toolbox and extensions**: internal React tools, iframe tools, Skill/Agent modules, and plugin runtime support.
 - **PPT and content workflows**: frame slideshows, PPT export, Markdown/Mermaid conversion, and media editing.
 
