@@ -13,7 +13,7 @@ const SUPABASE_URL =
 
 const SUPABASE_ANON_KEY =
   (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE';
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg4MDY3NDU2LCJleHAiOjE3ODgwNzEwNTZ9.3Es1RvH8Xe_4wNCeI2vD8oCdKroHObwNodcm0d4cdes';
 
 let client: SupabaseClient | null = null;
 

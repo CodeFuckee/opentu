@@ -7,16 +7,18 @@
 
 - **参数** → 写入 `public.task_submissions` 表（JSONB）
 - **文件**（base64 dataURL / 素材库虚拟 URL `/asset-library/`、缓存 URL `/__aitu_cache__/`）
-  → 上传到 Storage bucket `huabu`，路径 `{oa账号}/{YYYY-MM-DD}/input-{SHA-256}.{扩展名}`
+  → 上传到 Storage bucket `huabu`，路径 `{oa账号}/{YYYY-MM-DD}/{SHA-256}.{扩展名}`
   （虚拟 URL 经 `unifiedCacheService.getImageForAI()` 解析为 base64 后与 dataURL 一并去重上传；
   解析失败的虚拟 URL 与 http(s) 远程 URL 引用**原样保留**，不重复上传）
 - **数据库**中保存文件路径：参数里的 dataURL / 虚拟 URL 被替换为存储路径，同时 `file_paths` 记录路径列表
 - **终态回写**：任务 completed / failed / cancelled 时更新同一行
 - **响应归档**（前端 providerTransport）：任务到达终态（成功/失败）时，new-api 返回的
   原始响应 JSON 由前端请求层写入 `upstream_response` 列，其中 base64 数据转存
-  `huabu` bucket（`output-` 前缀）并以存储路径替换（详见"响应归档"一节）；
+  `huabu` bucket 并以存储路径替换（详见"响应归档"一节）；
   上游返回 URL 型图片（OpenAI `data[].url` 格式）时，由 executor 完成点
-  `archiveGeneratedMediaToSupabase` 把本地缓存 blob 转存 `output-` 路径并写 `response_file_paths`
+  `archiveGeneratedMediaToSupabase` 把本地缓存 blob 转存到相同规则路径并写 `response_file_paths`
+- **路径无 input-/output- 前缀**：输入图与输出图按同一规则（`{用户名}/{日期}/{sha256}.{ext}`）
+  命名，按内容哈希去重——输出图可直接作为下一任务的输入引用，无需区分前缀
 
 归档是 fire-and-forget 后台操作：Supabase 不可用、未登录、未注册配置时一律**静默跳过**，
 不阻塞任务创建与执行，不向用户报错（仅 console 警告）。
@@ -48,12 +50,13 @@ public.task_submissions (
 
 ## Storage bucket `huabu`
 
-- 私有 bucket（`public = false`），用于存放任务输入文件
-- 对象路径：`{用户名}/{YYYY-MM-DD}/input-{sha256}.{ext}`
+- 私有 bucket（`public = false`），用于存放任务输入/输出文件
+- 对象路径：`{用户名}/{YYYY-MM-DD}/{sha256}.{ext}`
   - 用户名 = `user_profiles.oa_account`（缺省回退登录邮箱 @ 前缀），经清洗（小写 + `[^a-z0-9._-]` 替换为 `_`）
   - 日期 = 任务创建当天本地日期（浏览器时区）
   - 哈希 = 文件二进制 SHA-256（十六进制）
   - 扩展名 = 由 MIME 推导（如 image/png → png、image/jpeg → jpg、video/mp4 → mp4、application/pdf → pdf）
+  - 输入与输出共用同一命名规则（无 `input-`/`output-` 前缀）：相同内容的文件（含"上一任务的输出作为本任务输入"）按哈希去重复用，且输出路径可直接作为后续任务的输入引用
 - Storage 对象级策略：仅允许用户操作自己 `{oa账号}/` 目录下的对象（校验文件名首段 == 清洗后的邮箱前缀）
 
 ## 响应归档（task_submissions.upstream_response，前端执行）
@@ -74,12 +77,12 @@ public.task_submissions (
   - 上游 ≥400 失败响应 → 强制归档错误 JSON；
   - 中间态轮询（queued/processing）、非 JSON、未登录/未注册配置 → 跳过，不影响主流程；
 - base64 解码 → magic 嗅探 MIME → SHA-256 → 上传 `huabu` bucket，
-  路径 `{oa账号}/{YYYY-MM-DD}/output-{sha256}.{ext}`，JSON 内以存储路径替换；
+  路径 `{oa账号}/{YYYY-MM-DD}/{sha256}.{ext}`（与输入同一规则），JSON 内以存储路径替换；
   上传失败保留原 base64 入库（静默）；
 - **URL 型输出转存**：上游返回 `data[].url`（无字节）时，响应 JSON 本身无内容可上传；
   由 executor 完成点在本地缓存完成后调用
   `archiveGeneratedMediaToSupabase(taskId, cachedUrls)` 把本地 blob 上传
-  `output-{sha256}.{ext}` 并写 `response_file_paths`（fire-and-forget 静默失败）。
+  `{sha256}.{ext}` 并写 `response_file_paths`（fire-and-forget 静默失败）。
   覆盖三条完成分支：`fallback-adapter-routes.executeImageViaAdapter`（adapter 模型）、
   `fallback-executor` 同步 `/images/generations` 直接分支与
   `generateAsyncImageTask` 异步分支（非 adapter 模型）；
@@ -129,7 +132,7 @@ public.task_submissions (
      "select user_id, task_id, type, status, file_paths from task_submissions order by created_at desc limit 3;"
    ```
 
-   应能看到 `file_paths` 形如 `["zhangsan/2026-08-28/input-<64位sha256>.png"]`，
+   应能看到 `file_paths` 形如 `["zhangsan/2026-08-28/<64位sha256>.png"]`，
    `params` 中对应字段为该路径而非 base64
 3. 任务生成完成后，同一行的 `status` 变为 `completed` 且 `result` 非空
 4. 刷新页面重开任务队列，任务仍正常（归档不影响 IndexedDB 任务队列）

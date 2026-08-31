@@ -28,7 +28,7 @@ import {
   decodeResponseBase64,
   mimeToExtension,
   sha256Hex,
-  buildOutputStoragePath,
+  buildStoragePath,
   readBlobAsArrayBufferSafe,
   replaceBase64WithPaths,
   replaceStringsWithPaths,
@@ -312,7 +312,7 @@ export async function updateTaskSubmissionOnTerminal(task: Task): Promise<void> 
  * 拖爆 edge-runtime CPU/墙钟硬限制 → supervisor 取消 worker → 500 WorkerRequestCancelled，
  * 且被杀的归档写不进 bucket。现改为前端拿到上游响应时 fire-and-forget 归档：
  * - 条件：URL 路径 → x-task-id（taskId）关联；仅当 JSON 含 base64 值或已到终态才归档
- * - base64（b64_json/b64/base64/dataURL）→ 上传 huabu bucket（output- 前缀）+ 路径替换
+ * - base64（b64_json/b64/base64/dataURL）→ 上传 huabu bucket + 路径替换
  * - 写 task_submissions.upstream_response / response_file_paths（upsert，不覆盖前端终态回写列）
  *
  * 全程 fire-and-forget、静默失败：任何异常只 console.warn，绝不抛出、不阻塞请求。
@@ -360,7 +360,7 @@ export async function archiveUpstreamResponseToSupabase(
     const bucketName = config.bucketName?.trim() || DEFAULT_BUCKET;
     const dateStr = getLocalDateString();
 
-    // 1. 上传 base64 → bucket（output- 路径，按内容去重；失败保留原值）
+    // 1. 上传 base64 → bucket（与输入同一路径规则，按内容去重；失败保留原值）
     const uploadedPaths: string[] = [];
     const pathByValue = new Map<string, string>();
     for (const value of values) {
@@ -374,7 +374,7 @@ export async function archiveUpstreamResponseToSupabase(
           extractMimeFromDataUrl(value) ?? sniffMimeFromBytes(bytes);
         const ext = mimeToExtension(mime);
         const hash = await sha256Hex(bytes);
-        const storagePath = buildOutputStoragePath(username, dateStr, hash, ext);
+        const storagePath = buildStoragePath(username, dateStr, hash, ext);
 
         const { error } = await config.client.storage
           .from(bucketName)
@@ -456,7 +456,7 @@ export async function archiveUpstreamResponseFromFetch(
  *
  * 场景：适配器生图完成后，新生成的图片已由 executor 缓存到本地
  * （/__aitu_cache__/... 虚拟 URL）。本函数把本地 blob 上传 huabu bucket
- * （output-{sha256}.{ext}），并写 task_submissions.response_file_paths。
+ * （{sha256}.{ext}），并写 task_submissions.response_file_paths。
  *
  * - 上游返回 b64_json 时由 archiveUpstreamResponseToSupabase 负责；
  * - 上游返回 URL（OpenAI data[].url 格式）时，响应 JSON 里没有字节，
@@ -536,7 +536,7 @@ export async function archiveGeneratedMediaToSupabase(
         }
         const ext = mimeToExtension(mime);
         const hash = await sha256Hex(bytes);
-        const storagePath = buildOutputStoragePath(username, dateStr, hash, ext);
+        const storagePath = buildStoragePath(username, dateStr, hash, ext);
 
         const { error } = await config.client.storage
           .from(bucketName)

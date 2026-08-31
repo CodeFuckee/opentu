@@ -177,7 +177,7 @@ describe('archiveTaskToSupabase', () => {
 
     expect(mock.uploadCalls).toHaveLength(1);
     const upload = mock.uploadCalls[0]!;
-    expect(upload.path).toMatch(/^zhangsan\/\d{4}-\d{2}-\d{2}\/input-[0-9a-f]{64}\.png$/);
+    expect(upload.path).toMatch(/^zhangsan\/\d{4}-\d{2}-\d{2}\/[0-9a-f]{64}\.png$/);
     expect(upload.contentType).toBe('image/png');
 
     expect(mock.inserts).toHaveLength(1);
@@ -301,7 +301,7 @@ describe('archiveUpstreamResponseToSupabase（响应归档，方案 B）', () =>
     expect(mock.uploadCalls).toHaveLength(1);
     const upload = mock.uploadCalls[0]!;
     expect(upload.path).toMatch(
-      /^zhangsan\/\d{4}-\d{2}-\d{2}\/output-[0-9a-f]{64}\.png$/
+      /^zhangsan\/\d{4}-\d{2}-\d{2}\/[0-9a-f]{64}\.png$/
     );
     expect(upload.contentType).toBe('image/png');
 

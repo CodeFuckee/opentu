@@ -9,7 +9,8 @@
  * - 从任务参数中提取文件条目（去重）并生成 dataURL → 存储路径 映射
  * - 用存储路径替换参数中的 dataURL（深拷贝，不污染原对象）
  * - （响应归档）从上游响应 JSON 中收集 base64 值（b64_json/b64/base64/dataURL）、
- *   输出 output- 存储路径、深拷贝替换 base64 → 路径
+ *   输出存储路径（与输入同一规则，无 input-/output- 前缀：输出图可直接作为下一任务输入）、
+ *   深拷贝替换 base64 → 路径
  */
 
 /** data URL 前缀 */
@@ -139,7 +140,9 @@ export function sanitizeUsername(username: string): string {
 }
 
 /**
- * 拼接存储路径：{username}/{YYYY-MM-DD}/input-{hash}.{ext}。
+ * 拼接存储路径：{username}/{YYYY-MM-DD}/{hash}.{ext}。
+ * 不带 input-/output- 前缀：输入图与输出图同规则命名，
+ * 输出图可直接作为下一任务的输入（按内容哈希去重，天然复用）。
  * 用户名为空时省略用户名目录。
  */
 export function buildStoragePath(
@@ -148,7 +151,7 @@ export function buildStoragePath(
   hash: string,
   extension: string
 ): string {
-  const file = `input-${hash}.${extension}`;
+  const file = `${hash}.${extension}`;
   const usernamePart = username.trim() ? `${username.trim()}/` : '';
   return `${usernamePart}${dateStr}/${file}`;
 }
@@ -213,12 +216,12 @@ export interface ArchiveFileEntry {
   extension: string;
   /** 内容 SHA-256 */
   hash: string;
-  /** 存储路径：{username}/{date}/input-{hash}.{ext} */
+  /** 存储路径：{username}/{date}/{hash}.{ext} */
   storagePath: string;
 }
 
 /**
- * 从一个 Blob 构建文件条目（hash + 扩展名 + input 存储路径）。
+ * 从一个 Blob 构建文件条目（hash + 扩展名 + 存储路径）。
  * 供「fetch 远程/降级 URL 取 blob 后上传」的回退路径复用，
  * 与 buildFileEntries 中 dataURL 分支保持同一存储路径规则。
  */
@@ -388,7 +391,7 @@ export function toParamsWithFilePaths(
 }
 
 // ============================================================================
-// 响应归档（output- 前缀）：上游响应 JSON 中的 base64 → huabu bucket
+// 响应归档：上游响应 JSON 中的 base64 → huabu bucket
 // ============================================================================
 
 /**
@@ -513,18 +516,6 @@ export function decodeResponseBase64(base64: string): Uint8Array {
     bytes[i] = binary.charCodeAt(i);
   }
   return bytes;
-}
-
-/** 拼接 output 存储路径：{username}/{YYYY-MM-DD}/output-{hash}.{ext} */
-export function buildOutputStoragePath(
-  username: string,
-  dateStr: string,
-  hash: string,
-  extension: string
-): string {
-  const file = `output-${hash}.${extension}`;
-  const usernamePart = username.trim() ? `${username.trim()}/` : '';
-  return `${usernamePart}${dateStr}/${file}`;
 }
 
 /**

@@ -173,7 +173,7 @@ describe('REPRO: 输出侧 —— 生成结果为 http URL 应转存 huabu bucke
     // 期望：fetch http URL 取 blob 后上传，response_file_paths 非空
     expect(mock.uploadCalls).toHaveLength(1);
     expect(mock.uploadCalls[0]!.path).toMatch(
-      /^chenkaidi\/\d{4}-\d{2}-\d{2}\/output-[0-9a-f]{64}\.png$/
+      /^chenkaidi\/\d{4}-\d{2}-\d{2}\/[0-9a-f]{64}\.png$/
     );
     expect(mock.updates).toHaveLength(1);
     expect(mock.updates[0]!.taskId).toBe('task-img-1');
@@ -203,7 +203,7 @@ describe('REPRO: 输入侧 —— 参考图为 http URL 应转存 huabu bucket',
     // 期望：fetch http URL 取 blob 后上传，file_paths 非空
     expect(mock.uploadCalls).toHaveLength(1);
     expect(mock.uploadCalls[0]!.path).toMatch(
-      /^chenkaidi\/\d{4}-\d{2}-\d{2}\/input-[0-9a-f]{64}\.png$/
+      /^chenkaidi\/\d{4}-\d{2}-\d{2}\/[0-9a-f]{64}\.png$/
     );
     expect(mock.inserts).toHaveLength(1);
     expect(mock.inserts[0]!.row.file_paths).toHaveLength(1);

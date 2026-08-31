@@ -169,14 +169,14 @@ describe('REPRO: 输入侧 —— 素材库虚拟 URL 参考图应上传 huabu b
     // bug 现象：当前 0 次上传，file_paths 为空 —— 期望 1 次上传
     expect(mock.uploadCalls).toHaveLength(1);
     expect(mock.uploadCalls[0]!.path).toMatch(
-      /^chenkaidi\/\d{4}-\d{2}-\d{2}\/input-[0-9a-f]{64}\.png$/
+      /^chenkaidi\/\d{4}-\d{2}-\d{2}\/[0-9a-f]{64}\.png$/
     );
     expect(mock.inserts).toHaveLength(1);
     const { row } = mock.inserts[0]!;
     expect(row.file_paths).toHaveLength(1);
     // 参数中以 bucket 存储路径替换虚拟 URL
     expect((row.params as any).uploadedImages[0].url).toMatch(
-      /^chenkaidi\/\d{4}-\d{2}-\d{2}\/input-/
+      /^chenkaidi\/\d{4}-\d{2}-\d{2}\/[0-9a-f]{64}\.png$/
     );
   });
 });
@@ -213,7 +213,7 @@ describe('REPRO: 输出侧 —— 生成结果媒体转存 huabu bucket', () => 
 
     expect(mock.uploadCalls).toHaveLength(1);
     expect(mock.uploadCalls[0]!.path).toMatch(
-      /^chenkaidi\/\d{4}-\d{2}-\d{2}\/output-[0-9a-f]{64}\.png$/
+      /^chenkaidi\/\d{4}-\d{2}-\d{2}\/[0-9a-f]{64}\.png$/
     );
     expect(mock.updates).toHaveLength(1);
     const { patch, taskId } = mock.updates[0]!;
@@ -237,7 +237,7 @@ describe('回归：data URL 参考图仍按原逻辑归档', () => {
     );
     expect(entries).toHaveLength(1);
     expect(entries[0]!.storagePath).toMatch(
-      /^chenkaidi\/2026-08-30\/input-[0-9a-f]{64}\.png$/
+      /^chenkaidi\/2026-08-30\/[0-9a-f]{64}\.png$/
     );
   });
 

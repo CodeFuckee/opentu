@@ -437,7 +437,7 @@ export class FallbackMediaExecutor implements IMediaExecutor {
         'png'
       );
 
-      // 生成结果转存 huabu bucket（output- 前缀，fire-and-forget 静默失败）：
+      // 生成结果转存 huabu bucket（输入/输出同规则命名，fire-and-forget 静默失败）：
       // 上游返回 URL 型图片时响应 JSON 无字节，此处拿到本地缓存的 blob 后上传
       void archiveGeneratedMediaToSupabase(taskId, cachedImgUrls);
 
@@ -599,7 +599,7 @@ export class FallbackMediaExecutor implements IMediaExecutor {
         }
       );
 
-      // 生成结果转存 huabu bucket（output- 前缀，fire-and-forget 静默失败）：
+      // 生成结果转存 huabu bucket（输入/输出同规则命名，fire-and-forget 静默失败）：
       // 异步任务轮询拿到结果 URL，本地缓存后由前端上传（与同步分支一致）
       void archiveGeneratedMediaToSupabase(taskId, [cachedAsyncUrl]);
 

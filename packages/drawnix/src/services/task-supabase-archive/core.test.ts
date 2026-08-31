@@ -31,7 +31,6 @@ import {
   extractMimeFromDataUrl,
   sniffMimeFromBytes,
   decodeResponseBase64,
-  buildOutputStoragePath,
   replaceBase64WithPaths,
   replaceStringsWithPaths,
   isTerminalResponseState,
@@ -175,15 +174,15 @@ describe('sanitizeUsername', () => {
 });
 
 describe('buildStoragePath', () => {
-  it('拼接 用户名/日期/input-哈希.扩展名', () => {
+  it('拼接 用户名/日期/哈希.扩展名（无 input-/output- 前缀）', () => {
     expect(buildStoragePath('zhangsan', '2025-01-02', 'abc123', 'png')).toBe(
-      'zhangsan/2025-01-02/input-abc123.png'
+      'zhangsan/2025-01-02/abc123.png'
     );
   });
 
   it('空用户名时只保留日期路径', () => {
     expect(buildStoragePath('', '2025-01-02', 'abc', 'png')).toBe(
-      '2025-01-02/input-abc.png'
+      '2025-01-02/abc.png'
     );
   });
 });
@@ -235,7 +234,7 @@ describe('buildFileEntries', () => {
     const entry = entries[0]!;
     expect(entry.mimeType).toBe('image/png');
     expect(entry.extension).toBe('png');
-    expect(entry.storagePath).toMatch(/^zhangsan\/2025-01-02\/input-[0-9a-f]{64}\.png$/);
+    expect(entry.storagePath).toMatch(/^zhangsan\/2025-01-02\/[0-9a-f]{64}\.png$/);
     expect(pathByDataUrl.get(`data:image/png;base64,${BASE64_OF_ABC}`)).toBe(
       entry.storagePath
     );
@@ -291,13 +290,13 @@ describe('toParamsWithFilePaths', () => {
       referenceImages: [dataUrl, 'https://example.com/x.png'],
       size: '1:1',
     };
-    const pathByDataUrl = new Map([[dataUrl, 'zhangsan/2025-01-02/input-h.png']]);
+    const pathByDataUrl = new Map([[dataUrl, 'zhangsan/2025-01-02/h.png']]);
     const next = toParamsWithFilePaths(params, pathByDataUrl);
 
     expect(next.uploadedImages?.[0]?.url).toBe(
-      'zhangsan/2025-01-02/input-h.png'
+      'zhangsan/2025-01-02/h.png'
     );
-    expect(next.referenceImages?.[0]).toBe('zhangsan/2025-01-02/input-h.png');
+    expect(next.referenceImages?.[0]).toBe('zhangsan/2025-01-02/h.png');
     expect(next.referenceImages?.[1]).toBe('https://example.com/x.png');
     expect(next.prompt).toBe('a cat');
     expect(next.size).toBe('1:1');
@@ -401,25 +400,11 @@ describe('sniffMimeFromBytes / decodeResponseBase64', () => {
   });
 });
 
-describe('buildOutputStoragePath', () => {
-  it('拼接 用户名/日期/output-哈希.扩展名', () => {
-    expect(buildOutputStoragePath('zhangsan', '2025-01-02', 'abc123', 'png')).toBe(
-      'zhangsan/2025-01-02/output-abc123.png'
-    );
-  });
-
-  it('空用户名时只保留日期路径', () => {
-    expect(buildOutputStoragePath('', '2025-01-02', 'abc', 'jpg')).toBe(
-      '2025-01-02/output-abc.jpg'
-    );
-  });
-});
-
 describe('replaceBase64WithPaths', () => {
   it('把命中的 base64 值替换为存储路径，其余保留', () => {
     const pathByValue = new Map([
-      ['AAA', 'zhangsan/2025-01-02/output-a.png'],
-      ['data:image/png;base64,BBB', 'zhangsan/2025-01-02/output-b.png'],
+      ['AAA', 'zhangsan/2025-01-02/a.png'],
+      ['data:image/png;base64,BBB', 'zhangsan/2025-01-02/b.png'],
     ]);
     const json = {
       data: [{ b64_json: 'AAA', revised_prompt: 'x' }],
@@ -427,8 +412,8 @@ describe('replaceBase64WithPaths', () => {
       url: 'https://x/a.png',
     };
     const next = replaceBase64WithPaths(json, pathByValue) as any;
-    expect(next.data[0].b64_json).toBe('zhangsan/2025-01-02/output-a.png');
-    expect(next.extra).toBe('zhangsan/2025-01-02/output-b.png');
+    expect(next.data[0].b64_json).toBe('zhangsan/2025-01-02/a.png');
+    expect(next.extra).toBe('zhangsan/2025-01-02/b.png');
     expect(next.url).toBe('https://x/a.png');
   });
 
@@ -504,17 +489,17 @@ describe('replaceStringsWithPaths（通用字符串替换，输入归档用）',
       prompt: 'a cat',
     };
     const pathByValue = new Map([
-      ['/asset-library/content-abc.png', 'chenkaidi/2026-08-30/input-h.png'],
+      ['/asset-library/content-abc.png', 'chenkaidi/2026-08-30/h.png'],
     ]);
     const next = replaceStringsWithPaths(params, pathByValue) as any;
     expect(next.uploadedImages[0].url).toBe(
-      'chenkaidi/2026-08-30/input-h.png'
+      'chenkaidi/2026-08-30/h.png'
     );
     expect(next.prompt).toBe('a cat');
     // 顶层字符串替换
     expect(
       replaceStringsWithPaths('/asset-library/content-abc.png', pathByValue)
-    ).toBe('chenkaidi/2026-08-30/input-h.png');
+    ).toBe('chenkaidi/2026-08-30/h.png');
   });
 
   it('不修改原对象（深拷贝）', () => {
