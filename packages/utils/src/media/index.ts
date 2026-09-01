@@ -9,6 +9,9 @@
 // Types
 export * from './types';
 
+// Blob utilities
+export { isLikelyMediaBlob } from './blob';
+
 // Video utilities
 export {
   calculateThumbnailSize,

@@ -27,6 +27,25 @@
 
 ### 🩹 Fixes
 
+- **跨设备云同步图片不显示（自定义账号），控制台/页面被非媒体毒化数据污染**：
+  dev server / 网关对虚拟路径 `/asset-library/...` 返回 **200 + `text/html` index.html**，
+  历史版本 `applyRemote→cacheImage` 与 `media-sync` 上传/下载均未校验内容，把 HTML
+  兜底页当作图片缓存并上传到 `yue-sync`（`user_sync_media` 行/对象永久毒化）；
+  新版设备 B 下载 HTML → `<img>` 解码失败 → objectURL 兜底同样失败 → 图片
+  `visibility:hidden` 且无任何恢复路径（`loading` 死锁）。修复：
+  - `@aitu/utils` 新增 `isLikelyMediaBlob()`（MIME + 魔数双重校验，拒绝 HTML 文档）；
+  - `media-sync.ts` 上传侧跳过非媒体本地 blob、下载侧拒绝并**不缓存**非媒体字节、
+    本地毒化 blob 不阻止真实下载覆盖；`content-` 内容寻址 URL 远端行 `storage_path`
+    哈希与本地不符时**自愈重传**（修复存量毒化行）；
+  - `repository.ts` `fetchRemoteMedia` 分页取全量（大账号不再截断）；
+  - `unified-cache-service.ts` `cacheImage()` 拒绝非媒体响应（杜绝再毒化）；
+  - `asset-cleanup.ts` + `plugins/components/image.tsx` 兜底前校验媒体特征，
+    快速重试耗尽后进入**慢速缓存轮询**（只读 Cache、无网络噪音）自愈，失败兜底不再永久停止；
+  - E2E：`probeRemoteMediaObject` 增对象内容核验，设备 A 关闭前等自愈上传完成、
+    设备 B 打开画板前先等媒体落地（避免 404 噪音）。
+  单元测试：`media-sync.test.ts`（6 用例）、`blob.test.ts`（10 用例）；
+  E2E：`cloud-sync-image-display.spec.ts` 预设账号 + 自定义账号双链路全通过。
+  详见 `docs/cloud-sync.md`「已知问题与修复：非媒体毒化数据入侵媒体同步」。
 - **修复「下载远程」复活已删除画板，导致与「立即同步」画板数量不一致**：
   `pullFromRemote` 此前把云端墓碑（`deleted_at` 非空）实体一并 `applyRemoteEntities` 写回本地，
   使已删除画板「复活」；立即同步走 `compareEntityDiff` 会删除墓碑 → 两操作画板数量不一致。

@@ -368,12 +368,27 @@ export const Image: React.FC<ImageProps> = (props: ImageProps) => {
     (event: any) => {
       const imageElement = event.currentTarget as HTMLImageElement;
       imageElement.style.visibility = 'hidden';
-      retryImageAfterSWClaim(imageElement);
 
-      // 已在兜底展示中（objectURL 也失败则不重复处理）
+      // 兜底 objectURL 本身解码失败（如误缓存的 HTML 被当作图片、blob 内容损坏）：
+      // 不能永久停在失败兜底上——释放兜底并回到「核验缓存 → 慢速轮询」链路，
+      // 等真实媒体二进制写入 Cache 后自动恢复展示（getCachedBlob 校验媒体特征）
       if (fallbackSrc && event.currentTarget?.src === fallbackSrc) {
+        setFallbackSrc(null);
+        releasedAcquiredFallback();
+        retryImageAfterSWClaim(imageElement);
+        handleVirtualUrlImageError(
+          props.board,
+          props.element,
+          props.imageItem.url,
+          {
+            verifyCacheImmediately: true,
+            onCachedBlob: applyCachedBlobFallback,
+          }
+        );
         return;
       }
+
+      retryImageAfterSWClaim(imageElement);
 
       const retry = handleVirtualUrlImageError(
         props.board,
@@ -408,6 +423,7 @@ export const Image: React.FC<ImageProps> = (props: ImageProps) => {
       props.imageItem.url,
       retryImageAfterSWClaim,
       applyCachedBlobFallback,
+      releasedAcquiredFallback,
       fallbackSrc,
     ]
   );

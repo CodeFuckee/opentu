@@ -606,14 +606,28 @@ describe('media-sync：画布图片素材的媒体同步', () => {
     expect(items[0].mimeType).toBe('image/png');
   });
 
-  it('远端已有图片元数据 → 不重复上传', async () => {
+  it('远端已有图片元数据且内容一致 → 不重复上传', async () => {
     const { syncMediaToSupabase } = await import('./media-sync');
     const imageUrl = '/asset-library/content-abc123.png';
     cacheMocks.getAllCacheMetadata.mockResolvedValue([
       { id: 'm1', url: imageUrl, cachedAt: Date.now() },
     ]);
+    // 本地 blob 为 PNG 魔数 + sha256 固定 07*32（beforeEach stub）：
+    // storage_path 哈希与本地一致 = 云端对象与本地内容对应，无需重传
+    const blob = new Blob(['fake-png-bytes'], { type: 'image/png' }) as Blob & {
+      arrayBuffer?: () => Promise<ArrayBuffer>;
+    };
+    blob.arrayBuffer = async () => new TextEncoder().encode('fake-png-bytes').buffer;
+    cacheMocks.getCachedBlob.mockResolvedValue(blob);
     repoMocks.fetchRemoteMedia.mockResolvedValue({
-      media: [{ url: imageUrl, type: 'image', storagePath: 'e2e_user/image/x.png' }],
+      media: [
+        {
+          url: imageUrl,
+          type: 'image',
+          storagePath:
+            'e2e_user/image/0707070707070707070707070707070707070707070707070707070707070707.png',
+        },
+      ],
       error: null,
     });
     const { client, uploaded } = makeClient();
@@ -763,11 +777,24 @@ describe('media-sync：画布图片素材的媒体同步', () => {
         metadata: {},
       },
     ]);
-    cacheMocks.getCachedBlob.mockResolvedValue(
-      new Blob(['real-bytes'], { type: 'image/png' })
-    );
+    // 本地已有真实媒体 blob（PNG 魔数 + arrayBuffer 补齐），且远端行哈希一致：
+    // 上传与下载都应跳过
+    const blob = new Blob(
+      Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 1, 2, 3]),
+      { type: 'image/png' }
+    ) as Blob & { arrayBuffer?: () => Promise<ArrayBuffer> };
+    blob.arrayBuffer = async () =>
+      Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 1, 2, 3]).buffer;
+    cacheMocks.getCachedBlob.mockResolvedValue(blob);
     repoMocks.fetchRemoteMedia.mockResolvedValue({
-      media: [{ url: imageUrl, type: 'image', storagePath: 'e2e_user/image/x.png' }],
+      media: [
+        {
+          url: imageUrl,
+          type: 'image',
+          storagePath:
+            'e2e_user/image/0707070707070707070707070707070707070707070707070707070707070707.png',
+        },
+      ],
       error: null,
     });
     const client = {

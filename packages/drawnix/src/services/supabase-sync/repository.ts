@@ -190,7 +190,7 @@ export async function softDeleteRemoteEntities(
   }
 }
 
-/** 拉取用户媒体元数据 */
+/** 拉取用户媒体元数据（分页取全量，防止大账号超过 PostgREST 单次行数上限被截断） */
 export async function fetchRemoteMedia(
   config: SupabaseSyncConfig,
   userId: string
@@ -199,21 +199,41 @@ export async function fetchRemoteMedia(
     const client = config.client as {
       from: (table: string) => {
         select: (cols: string) => {
-          eq: (col: string, val: string) => Promise<{
-            data: Array<Record<string, unknown>> | null;
-            error: unknown;
-          }>;
+          eq: (col: string, val: string) => {
+            order: (col: string, opts?: { ascending?: boolean }) => {
+              range: (from: number, to: number) => {
+                limit: (n: number) => Promise<{
+                  data: Array<Record<string, unknown>> | null;
+                  error: unknown;
+                }>;
+              };
+            };
+          };
         };
       };
     };
-    const { data, error } = await client
-      .from(SYNC_MEDIA_TABLE)
-      .select('*')
-      .eq('user_id', userId);
-    if (error) {
-      return { media: [], error };
+    const PAGE = 1000;
+    const rowsAll: Array<Record<string, unknown>> = [];
+    let offset = 0;
+    for (;;) {
+      const { data, error } = await client
+        .from(SYNC_MEDIA_TABLE)
+        .select('*')
+        .eq('user_id', userId)
+        .order('url', { ascending: true })
+        .range(offset, offset + PAGE - 1)
+        .limit(PAGE);
+      if (error) {
+        return { media: [], error };
+      }
+      const rows = data ?? [];
+      rowsAll.push(...rows);
+      if (rows.length < PAGE) {
+        break;
+      }
+      offset += PAGE;
     }
-    const media = (data ?? []).map((row) => ({
+    const media = rowsAll.map((row) => ({
       url: row.url as string,
       type: (row.type ?? 'image') as SyncMediaItem['type'],
       mimeType: (row.mime_type as string) ?? undefined,

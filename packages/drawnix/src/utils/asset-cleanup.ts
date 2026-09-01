@@ -15,6 +15,52 @@ import {
 const VIRTUAL_IMAGE_ERROR_RETRY_DELAYS = [250, 750, 1500];
 const virtualImageErrorAttempts = new Map<string, number>();
 
+// 慢速缓存轮询：快速重试耗尽后每 3s 只读 Cache，等真实媒体 blob 落地后向组件
+// 兜底渲染（不发网络请求，避免 SW 404 刷控制台报错）
+const SLOW_CACHE_POLL_DELAY = 3000;
+const SLOW_CACHE_POLL_MAX_TICKS = 40; // ≈ 2 分钟，覆盖媒体下载落地窗口
+const slowCachePolls = new Map<string, { timer: ReturnType<typeof setTimeout>; ticks: number }>();
+
+function clearSlowCachePoll(key: string): void {
+  const poll = slowCachePolls.get(key);
+  if (poll) {
+    clearTimeout(poll.timer);
+    slowCachePolls.delete(key);
+  }
+}
+
+function scheduleSlowCachePoll(
+  key: string,
+  board: PlaitBoard,
+  element: PlaitElement,
+  imageUrl: string,
+  options?: VirtualImageErrorOptions
+): void {
+  const existing = slowCachePolls.get(key);
+  if (existing) {
+    existing.ticks = 0; // 重新触发时重置计数
+    return;
+  }
+  const entry: { timer: ReturnType<typeof setTimeout>; ticks: number } = {
+    timer: 0 as unknown as ReturnType<typeof setTimeout>,
+    ticks: 0,
+  };
+  const tick = () => {
+    entry.ticks += 1;
+    if (entry.ticks > SLOW_CACHE_POLL_MAX_TICKS) {
+      slowCachePolls.delete(key);
+      return;
+    }
+    verifyVirtualImageCache(key, board, element, imageUrl, {
+      ...options,
+      verifyCacheImmediately: true,
+    });
+    entry.timer = setTimeout(tick, SLOW_CACHE_POLL_DELAY);
+  };
+  slowCachePolls.set(key, entry);
+  entry.timer = setTimeout(tick, SLOW_CACHE_POLL_DELAY);
+}
+
 const getVirtualImageErrorKey = (
   board: PlaitBoard,
   element: PlaitElement,
@@ -42,9 +88,9 @@ export function clearVirtualUrlImageError(
   if (!isVirtualUrl(imageUrl)) {
     return;
   }
-  virtualImageErrorAttempts.delete(
-    getVirtualImageErrorKey(board, element, imageUrl)
-  );
+  const key = getVirtualImageErrorKey(board, element, imageUrl);
+  virtualImageErrorAttempts.delete(key);
+  clearSlowCachePoll(key);
 }
 
 function verifyVirtualImageCache(
@@ -54,32 +100,33 @@ function verifyVirtualImageCache(
   imageUrl: string,
   options?: VirtualImageErrorOptions
 ): void {
-  void import('../services/unified-cache-service')
-    .then(({ unifiedCacheService }) =>
-      unifiedCacheService.getCachedBlob(imageUrl)
-    )
-    .then((blob) => {
-      if (blob) {
+  void (async () => {
+    try {
+      const [{ unifiedCacheService }, { isLikelyMediaBlob }] = await Promise.all([
+        import('../services/unified-cache-service'),
+        import('@aitu/utils'), // utils 为懒加载（lint 禁静态 import），按需动态加载
+      ]);
+      const blob = await unifiedCacheService.getCachedBlob(imageUrl);
+      // 必须是真实媒体才兜底：HTML 兜底页会生成解码失败的 objectURL 且不再重试（自愈死锁）
+      if (blob && (await isLikelyMediaBlob(blob))) {
         virtualImageErrorAttempts.delete(key);
-        // 缓存中有实际数据：交给组件用 objectURL 兜底展示，否则画布图片永远空白
         options?.onCachedBlob?.(blob);
         return;
       }
 
       if (options?.verifyCacheImmediately) {
-        // 立即核验模式不负责删除：重试仍可能成功
-        return;
+        return; // 立即核验模式不删除元素：由慢速缓存轮询在真实二进制落地后兜底渲染
       }
 
       virtualImageErrorAttempts.delete(key);
       removeElementFromBoard(board, element);
-    })
-    .catch(() => {
+    } catch {
       if (options?.verifyCacheImmediately) {
         return;
       }
       virtualImageErrorAttempts.delete(key);
-    });
+    }
+  })();
 }
 
 /**
@@ -194,7 +241,9 @@ export function handleVirtualUrlImageError(
     };
   }
 
+  // 快速重试耗尽后核验一次缓存并进入慢速轮询（media-sync 异步下载落地后自动兜底渲染）
   verifyVirtualImageCache(key, board, element, imageUrl, options);
+  scheduleSlowCachePoll(key, board, element, imageUrl, options);
 
   return undefined;
 }

@@ -228,12 +228,17 @@
     - 步骤 8：图片**真实解码渲染**（`img.image-origin` 可见、`naturalWidth > 0`、
       非 hidden、画布内非零尺寸），而非只验证元素存在；
     - 诊断留档：无论成败都 attach 控制台日志、`/asset-library` 网络响应状态、
-      媒体行与 storage 对象的云端探测（`probeRemoteMediaObject`）、设备 B 的 Cache
-      与 img 最终状态，便于区分「应用缺陷」与「测试环境干扰」。
-    - 图片元素按 `plait-data-id`（元素 id）追踪，跨同步稳定；等待媒体 blob 落地
-      Cache 后再断言，避免 img 首帧 404 的时序噪音。
+      媒体行与 storage 对象的云端探测（`probeRemoteMediaObject`，含对象内容
+      `isMediaContent` 核验）、设备 B 的 Cache 与 img 最终状态，便于区分
+      「应用缺陷」与「测试环境干扰」；
+    - 图片元素按 `plait-data-id`（元素 id）追踪，跨同步稳定；
+      设备 A 关闭前轮询**对象内容**为真实媒体（自愈重传完成）；
+      设备 B **打开画板前**先等媒体 blob 落地本机 Cache，避免 img 首帧 404 噪音；
+      打开后仍给 90s 兜底（失败重试/缓存兜底）。
     对应 2026-09 修复的「`cache_media` 元数据误判『本地已有』导致媒体二进制
-    永不下载」问题（详见 `docs/cloud-sync.md`）。
+    永不下载」问题（详见 `docs/cloud-sync.md`），以及 2026-09 第二起「非媒体
+    毒化数据入侵媒体同步」（HTML 被当图片上传/下载，导致跨设备图片空白，
+    见 `docs/cloud-sync.md`）。
 
 > 说明：AI 生成链路（发送提示词→任务队列→生成图片）需要真实模型 APIKey，E2E 不触发真实
 > 计费请求，只验证 _界面闭环_（输入、模型选择、参数面板、任务面板空态）。真实生成由

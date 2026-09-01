@@ -25,6 +25,7 @@ export {
   E2E_TEST_PASSWORD,
   getTestAccount,
   getDefaultTestAccount,
+  getCustomTestAccount,
   SUPABASE,
   TEST_ACCOUNTS,
   type E2ETestAccount,
@@ -33,21 +34,26 @@ export { E2E_STATE_PATH } from '../config/e2e.config';
 
 /**
  * 确保测试账号已注册（幂等）。
- * 只允许注册统一配置中的固定账号（TEST_ACCOUNTS），禁止动态生成新账号。
- * 密码统一使用 E2E_TEST_PASSWORD。
+ * 只允许注册统一配置中的固定账号（TEST_ACCOUNTS）或自定义账号
+ * （.env.e2e.local / 环境变量配置），禁止动态生成新账号。
+ * 密码优先使用账号自带的 password（自定义账号），否则回退 E2E_TEST_PASSWORD。
  */
 export async function ensureE2EAccountRegistered(
   account: E2ETestAccount | string
 ): Promise<boolean> {
   const accountId = typeof account === 'string' ? account : account.id;
   const email = accountEmail(accountId);
+  const password =
+    typeof account === 'string'
+      ? E2E_TEST_PASSWORD
+      : (account.password ?? E2E_TEST_PASSWORD);
   const res = await fetch(`${SUPABASE.url}/auth/v1/signup`, {
     method: 'POST',
     headers: {
       apikey: SUPABASE.anonKey,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ email, password: E2E_TEST_PASSWORD }),
+    body: JSON.stringify({ email, password }),
   });
   // 200 = 新注册；4xx（如已注册）视为已存在，不阻断
   return res.ok;

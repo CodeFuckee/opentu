@@ -4,15 +4,29 @@
  * 所有测试相关的配置集中在此文件，测试代码与 fixture 禁止再自行定义：
  * - Supabase 环境（URL / anon key）
  * - 测试账号池（固定账号，禁止测试代码随机新建用户）
+ * - 自定义测试账号（可选：apps/web-e2e/.env.e2e.local 或环境变量）
  * - 统一测试密码 / storageState 路径
  * - 公共等待参数
  *
- * 环境变量（均可选，覆盖顺序：环境变量 > apps/web/.env > 内置默认值）：
+ * 环境变量（均可选，覆盖顺序：环境变量 > 本地配置文件 > 内置默认值）：
  * - E2E_SUPABASE_URL / E2E_SUPABASE_ANON_KEY
  * - E2E_TEST_PASSWORD（所有测试账号统一密码）
+ * - E2E_CUSTOM_ACCOUNT / E2E_CUSTOM_PASSWORD（自定义测试账号，见 .env.e2e.example）
  */
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
+
+/** 解析 .env 文件内容（仅读取 A-Z0-9_ 键） */
+function parseEnvFileContent(content: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const line of content.split('\n')) {
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.+?)\s*$/);
+    if (m) {
+      out[m[1]] = m[2].replace(/\r$/, '');
+    }
+  }
+  return out;
+}
 
 /** 读取 apps/web/.env 中的 VITE_* 配置（Playwright 运行时 cwd 可能是仓库根或 apps/web-e2e） */
 function readEnvFile(): Record<string, string> {
@@ -24,19 +38,34 @@ function readEnvFile(): Record<string, string> {
     if (!existsSync(file)) {
       continue;
     }
-    const out: Record<string, string> = {};
-    for (const line of readFileSync(file, 'utf8').split('\n')) {
-      const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.+?)\s*$/);
-      if (m) {
-        out[m[1]] = m[2].replace(/\r$/, '');
-      }
+    return parseEnvFileContent(readFileSync(file, 'utf8'));
+  }
+  return {};
+}
+
+/**
+ * 读取 apps/web-e2e/.env.e2e.local 的自定义测试账号配置（gitignored，不入库）。
+ * 与 readEnvFile 相同的 cwd 容错策略。
+ */
+function readLocalE2eEnv(): Record<string, string> {
+  const candidates = [
+    resolve(process.cwd(), 'apps/web-e2e/.env.e2e.local'),
+    resolve(process.cwd(), '.env.e2e.local'),
+    resolve(process.cwd(), '../../apps/web-e2e/.env.e2e.local'),
+  ];
+  for (const file of candidates) {
+    if (!existsSync(file)) {
+      continue;
     }
-    return out;
+    return parseEnvFileContent(readFileSync(file, 'utf8'));
   }
   return {};
 }
 
 const envFile = readEnvFile();
+
+/** 本地 .env.e2e.local 配置（E2E_CUSTOM_ACCOUNT / E2E_CUSTOM_PASSWORD） */
+const localE2eEnv = readLocalE2eEnv();
 
 // ---------------------------------------------------------------- Supabase 环境
 
@@ -59,6 +88,8 @@ export interface E2ETestAccount {
   id: string;
   /** 用途说明（便于排查账号归属） */
   description: string;
+  /** 自定义密码（仅自定义账号使用；缺省时回退 E2E_TEST_PASSWORD） */
+  password?: string;
 }
 
 /**
@@ -96,6 +127,35 @@ export function getTestAccount(workerIndex: number): E2ETestAccount {
 /** 默认测试账号（auth-setup 等无 worker 上下文场景使用） */
 export function getDefaultTestAccount(): E2ETestAccount {
   return TEST_ACCOUNTS[0];
+}
+
+/**
+ * 自定义测试账号（可选，在预设账号池之外额外测试指定账号）。
+ * 配置来源（覆盖顺序：环境变量 > apps/web-e2e/.env.e2e.local）：
+ * - E2E_CUSTOM_ACCOUNT：oa 账号（小写）
+ * - E2E_CUSTOM_PASSWORD：该账号密码（缺省回退 E2E_TEST_PASSWORD）
+ * 未配置（账号为空）时返回 null，对应用例应跳过而非失败。
+ */
+export function getCustomTestAccount(): E2ETestAccount | null {
+  const accountId = (
+    process.env.E2E_CUSTOM_ACCOUNT ||
+    localE2eEnv.E2E_CUSTOM_ACCOUNT ||
+    ''
+  )
+    .trim()
+    .toLowerCase();
+  if (!accountId) {
+    return null;
+  }
+  const password =
+    process.env.E2E_CUSTOM_PASSWORD ||
+    localE2eEnv.E2E_CUSTOM_PASSWORD ||
+    E2E_TEST_PASSWORD;
+  return {
+    id: accountId,
+    description: '自定义账号（apps/web-e2e/.env.e2e.local 或 E2E_CUSTOM_ACCOUNT 环境变量）',
+    password: password.trim(),
+  };
 }
 
 // ---------------------------------------------------------------- storageState

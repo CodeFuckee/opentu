@@ -150,6 +150,29 @@ async function collectLocalMediaUrls(): Promise<string[]> {
 }
 
 /**
+ * 判断远端媒体行是否需要用本地 blob 重新上传（云端对象自愈）。
+ *
+ * 仅对内容寻址 URL（basename 以 content- 开头，如 /asset-library/content-<hash>.png）
+ * 生效：这类 URL 的二进制与其内容哈希一一对应。media-sync 上传的 storage_path 恒为
+ * {username}/{type}/{sha256(blob)}.{ext}，若行内哈希与本地 blob 的 sha256 不一致，
+ * 说明云端对象是过期/毒化数据（如历史版本把 HTML 兜底页当图片上传），需重传覆盖，
+ * 否则另一台设备永远下载到错误字节（图片空白）。
+ */
+async function shouldHealRemoteMedia(
+  url: string,
+  remoteStoragePath: string,
+  localHash: string
+): Promise<boolean> {
+  const urlName = url.split('/').pop() ?? '';
+  if (!urlName.startsWith('content-')) {
+    return false;
+  }
+  const remoteBasename = (remoteStoragePath || '').split('/').pop() ?? '';
+  const remoteHash = remoteBasename.split('.')[0] ?? '';
+  return remoteHash !== localHash;
+}
+
+/**
  * 执行一次媒体同步：上传本地缺失媒体 + 下载远端缺失媒体到本地。
  * 返回统计；全程不抛出（失败记 failed）。
  */
@@ -160,6 +183,8 @@ export async function syncMediaToSupabase(
   const bucketName = config.bucketName?.trim() || DEFAULT_BUCKET;
   const username = await resolveUsername(config);
   const stats = { uploaded: 0, downloaded: 0, failed: 0 };
+  // utils 库按 Nx 规则为懒加载（lint 禁止静态 import），此处按需动态加载媒体特征校验
+  const { isLikelyMediaBlob } = await import('@aitu/utils');
 
   if (!username) {
     return stats;
@@ -179,16 +204,23 @@ export async function syncMediaToSupabase(
   const localUrls = await collectLocalMediaUrls();
   const localByUrl = new Set(localUrls);
 
-  // --- 上传：本地有、远端无 → 上传 blob + 元数据 ---
+  // --- 上传：本地有、远端无（或云端对象已毒化）→ 上传 blob + 元数据 ---
   const toUpsert: SyncMediaItem[] = [];
   for (const url of localUrls) {
-    if (remoteByUrl.has(url)) {
-      continue; // 远端已有
-    }
     try {
       const blob = await unifiedCacheService.getCachedBlob(url);
       if (!blob || blob.size === 0) {
         continue;
+      }
+      // 非媒体本地 blob（如 dev server 的 200 HTML 兜底页被误缓存）不上传，
+      // 避免把毒化数据传播到云端
+      if (!(await isLikelyMediaBlob(blob))) {
+        continue;
+      }
+      const hash = await sha256Hex(await blob.arrayBuffer());
+      const remote = remoteByUrl.get(url);
+      if (remote && !(await shouldHealRemoteMedia(url, remote.storagePath, hash))) {
+        continue; // 远端已有且内容与本地一致
       }
       const client = config.client as {
         storage: {
@@ -204,7 +236,6 @@ export async function syncMediaToSupabase(
       const type = guessType(url);
       const mimeType = blob.type || 'application/octet-stream';
       const extension = mimeToExtension(mimeType);
-      const hash = await sha256Hex(await blob.arrayBuffer());
       const storagePath = `${username}/${type}/${hash}.${extension}`;
 
       const { error } = await client.storage
@@ -237,7 +268,13 @@ export async function syncMediaToSupabase(
       const existingBlob = await unifiedCacheService
         .getCachedBlob(item.url)
         .catch(() => null);
-      if (existingBlob && existingBlob.size > 0) {
+      // 本地 blob 必须既是真实媒体（排除被误缓存的 HTML 兜底页等毒化数据）
+      // 才会跳过下载——毒化 blob 存在时仍要下载真实二进制覆盖它
+      if (
+        existingBlob &&
+        existingBlob.size > 0 &&
+        (await isLikelyMediaBlob(existingBlob))
+      ) {
         continue;
       }
     }
@@ -255,7 +292,15 @@ export async function syncMediaToSupabase(
       const { data, error } = await client.storage
         .from(bucketName)
         .download(item.storagePath);
-      if (error || !data || data.size === 0) {
+      // 下载到的字节必须是真实媒体：云端的 media 行可能指向被毒化的对象
+      // （历史版本曾把 HTML 错误页当图片上传），直接缓存会污染本机 Cache，
+      // 使 <img> 解码失败且永远无法自愈
+      if (
+        error ||
+        !data ||
+        data.size === 0 ||
+        !(await isLikelyMediaBlob(data))
+      ) {
         stats.failed++;
         continue;
       }

@@ -9,6 +9,7 @@ import {
   calculateBlobChecksum,
   getFileExtension,
   isDataURL,
+  isLikelyMediaBlob,
   normalizeImageDataUrl,
 } from '@aitu/utils';
 import { swChannelClient } from './sw-channel/client';
@@ -889,6 +890,14 @@ class UnifiedCacheService {
       }
 
       const blob = await response.blob();
+      // 响应字节必须是真实媒体：dev server / 网关对虚拟路径可能返回 200 HTML
+      // 兜底页，若按「图片」缓存会把毒化数据写进 Cache 与元数据
+      // （media-sync 会误判本地已有而跳过下载，<img> 解码失败且无法自愈）
+      if (!(await isLikelyMediaBlob(blob))) {
+        throw new Error(
+          `Failed to cache image: response is not media (${blob.type || 'unknown type'})`
+        );
+      }
 
       // 注册元数据
       const existing = await this.getItem(normalizedUrl);

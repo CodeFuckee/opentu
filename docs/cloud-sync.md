@@ -152,3 +152,68 @@ docker exec -i supabase-db psql -U supabase_admin -d postgres < supabase/migrati
 - E2E：`apps/web-e2e/src/functional/cloud-sync-image-display.spec.ts` 双设备全链路
   复现，断言控制台无报错 + 图片真实解码显示；失败时留档控制台/网络/云端对象/
   本地 Cache 多维度诊断（详见 `docs/E2E_TESTS.md` 用例 39）。
+
+---
+
+## 已知问题与修复：非媒体毒化数据入侵媒体同步（2026-09 第二起）
+
+### 症状（自定义账号跨设备图片不显示，预设账号正常）
+
+`cloud-sync-image-display.spec.ts` 的「自定义账号」用例稳定失败：设备 B 同步并
+打开画板后，三张图片 `img.image-origin` 的 `currentSrc` 变成 `blob:` 且
+`naturalWidth = 0`、`visibility: hidden`，永不恢复；而「预设账号池」用例通过。
+诊断留档显示设备 B 的 Cache Storage 与 SW 响应均为 **`text/plain` 的 55524 字节
+HTML 文档**（dev server 的 index.html），并非图片字节。
+
+### 根因链
+
+1. **毒化来源（历史版本）**：早期版本 `applyRemote` 对 `cache_media` 实体调用
+   `cacheImage()` 直接 `fetch` 虚拟 URL；在 SW 未接管的瞬间，dev server / 网关对
+   `/asset-library/...` 任意路径返回 **200 + `text/html` index.html**（非 404）。
+   该 HTML 被当作「图片」缓存（`size>0`、无 `cacheWarning`）；
+2. **毒化传播到云端**：同一逻辑的 `media-sync` 上传侧把该 HTML blob 上传到
+   `yue-sync`（`storage_path` = `{user}/image/{sha256(HTML)}.png`），并写入
+   `user_sync_media` 行 → **云端媒体行/对象被永久毒化**（同一内容 URL 每次同步
+   都命中已存在的行，不再重传）；
+3. **新版本无法自愈**：修复 1（只回填元数据）后，设备 A 见行存在 → 跳过上传；
+   设备 B 下载循环 `error || !data || data.size === 0` 才拒绝 —— HTML 满足
+   `size>0` → 直接缓存为资产 blob；
+4. **显示层死锁**：`<img>` 收到 SW 返回的 200 HTML → 解码失败 → 错误处理把缓存的
+   HTML blob 生成 objectURL 兜底 → 兜底同样无法解码 → `handleImageError` 命中
+   「src === fallbackSrc」提前返回 → **永久 hidden，无任何恢复路径**。
+
+### 修复内容
+
+- `@aitu/utils` 新增 `isLikelyMediaBlob()`：MIME（image/video/audio）+
+  魔数（前 512 字节非 HTML 文档）双重校验，任何可读异常保守拒绝。
+  （`packages/utils/src/media/blob.ts`）
+- `media-sync.ts`：
+  - **上传侧**：本地 blob 非媒体（HTML 兜底页等）直接跳过，不把毒化传播到云端；
+  - **自愈**：`content-` 内容寻址 URL 的远端行 `storage_path` 哈希与本地 blob
+    `sha256` 不一致（云端对象毒化/过期）时，重传覆盖对象并更新行；
+  - **下载侧**：下载字节必须是真实媒体，否则记失败、**不缓存**（不再把 HTML
+    写进本机 Cache）；本地已有 blob 时也要通过 `isLikelyMediaBlob` 才算「已有」，
+    毒化 blob 存在时仍下载真实二进制覆盖。
+- `repository.ts`：`fetchRemoteMedia` 分页取全量（大账号超过 PostgREST 单次
+  1000 行上限时，后面的媒体行不再被截断）。
+- `unified-cache-service.ts`：`cacheImage()` 对非媒体响应抛错（不再缓存 HTML）——
+  从源头杜绝再次毒化。
+- `asset-cleanup.ts` + `plugins/components/image.tsx`：
+  - 缓存兜底前校验媒体特征（HTML 不再被用来生成 objectURL）；
+  - 快速重试（250/750/1500ms）耗尽后进入**慢速缓存轮询**（每 3s 一次、上限约
+    2 分钟，只读 Cache Storage、不发网络请求）——媒体二进制由 media-sync
+    异步下载落地后自动兜底渲染，且不产生 SW 404 的控制台报错；
+  - 兜底 objectURL 解码失败不再永久停止：释放兜底并回到「核验缓存 → 轮询」链。
+- E2E（`cloud-sync-image-display.spec.ts` + `cloud-sync-helpers.ts`）：
+  - `probeRemoteMediaObject` 增加对象**内容**核验（头部非 HTML）与新的
+    `isCloudMediaObjectReady()`；
+  - 设备 A 关闭前等待的从「行存在」升级为「**对象内容为真实媒体**」——毒化行的
+    自愈重传完成后才关闭设备 A，避免中断 fire-and-forget 的自愈上传。
+
+### 回归保障
+
+- 单元测试：`media-sync.test.ts`（6 个用例）覆盖 HTML 拒绝下载/不跳过毒化 blob/
+  非媒体不传播/哈希不一致自愈/哈希一致不重传/uuid URL 不改写；
+  `blob.test.ts`（10 个用例）覆盖媒体魔数与 HTML 兜底页识别。
+- E2E：同用例双设备全链路，预设账号 + 自定义账号均通过；失败时留档对象内容
+  探测（`isMediaContent`）辅助定位毒化行。

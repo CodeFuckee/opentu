@@ -38,6 +38,7 @@ testem.log
 .env
 .env.*
 !.env.example
+!.env.e2e.example
 
 # logs
 *.log

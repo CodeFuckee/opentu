@@ -22,6 +22,7 @@ import {
   TIMEOUTS,
   POLL_INTERVALS,
 } from '../config/e2e.config';
+import type { E2ETestAccount } from '../config/e2e.config';
 import { clickToolRadio } from './canvas-helpers';
 
 /** 生成 16 位随机数（画板名称） */
@@ -60,10 +61,19 @@ export async function forceFileInputFallback(page: Page): Promise<void> {
 }
 
 /**
- * 通过真实 UI 登录统一配置的固定测试账号（密码统一 E2E_TEST_PASSWORD）。
+ * 通过真实 UI 登录测试账号（可传账号 id 字符串或完整 E2ETestAccount）。
+ * 密码优先使用账号自带的 password（自定义账号），否则回退 E2E_TEST_PASSWORD。
  * 与 auth.setup 一致；若已持有会话（storageState）则跳过。
  */
-export async function loginViaUi(page: Page, account: string): Promise<void> {
+export async function loginViaUi(
+  page: Page,
+  account: string | E2ETestAccount
+): Promise<void> {
+  const accountId = typeof account === 'string' ? account : account.id;
+  const password =
+    typeof account === 'string'
+      ? E2E_TEST_PASSWORD
+      : (account.password ?? E2E_TEST_PASSWORD);
   await page.goto('/');
   // 可能已带 storageState 登录会话：等待「登录门禁」或「工作区」任一出现
   const gate = page.locator('[data-testid="auth-gate"]');
@@ -72,8 +82,8 @@ export async function loginViaUi(page: Page, account: string): Promise<void> {
     timeout: TIMEOUTS.authGate,
   });
   if (await gate.isVisible().catch(() => false)) {
-    await page.getByPlaceholder('oa账号（小写）').fill(account);
-    await page.getByPlaceholder('密码（至少 6 位）').fill(E2E_TEST_PASSWORD);
+    await page.getByPlaceholder('oa账号（小写）').fill(accountId);
+    await page.getByPlaceholder('密码（至少 6 位）').fill(password);
     await page.getByRole('button', { name: '登录', exact: true }).click();
     await expect(workspace).toBeVisible({ timeout: TIMEOUTS.authGate });
   }
@@ -252,6 +262,23 @@ export async function syncAndOpenBoard(
     }
   }
   throw new Error(`设备同步后画板「${boardName}」未出现在项目抽屉（重试后仍不可见）`);
+}
+
+/**
+ * 仅打开项目抽屉中的画板（不触达同步）。
+ * 供「先等媒体字节落地、再打开画板」的流程使用：打开画板前若图片二进制尚未
+ * 就绪，<img> 请求虚拟 URL 会产生 SW 404 控制台噪音且显示竞态。
+ */
+export async function openBoardFromDrawer(
+  page: Page,
+  boardName: string
+): Promise<void> {
+  await openProjectDrawer(page);
+  const drawer = page.getByTestId('project-drawer');
+  const boardItem = drawer.getByText(boardName, { exact: true }).first();
+  await expect(boardItem).toBeVisible({ timeout: TIMEOUTS.boardInDrawer });
+  await boardItem.click();
+  await page.waitForTimeout(TIMEOUTS.boardOpenPause);
 }
 
 /** 点击「立即同步」并等待完成 */
@@ -452,16 +479,17 @@ export async function isMediaSyncedToCloud(
 
 /**
  * 探测云端 media 行与其 storage 对象是否真实可下载（模拟 media-sync 下载路径）。
- * 返回 rowFound（元数据行是否存在）与对象下载 HTTP 状态（200 = 可下载）。
- * 用于区分「行存在但对象被外部删除/缺失」与「本机下载逻辑失败」。
+ * 返回 rowFound（元数据行是否存在）、下载 HTTP 状态（200 = 可下载）与
+ * isMediaContent（对象内容是否为真实媒体，非 HTML 兜底页等毒化字节）。
+ * 用于区分「行存在但对象被外部删除/缺失/毒化」与「本机下载逻辑失败」。
  */
 export async function probeRemoteMediaObject(
   page: Page,
   mediaUrl: string
-): Promise<{ rowFound: boolean; status: number | null }> {
+): Promise<{ rowFound: boolean; status: number | null; isMediaContent: boolean | null }> {
   const accessToken = await getAccessToken(page);
   if (!accessToken) {
-    return { rowFound: false, status: null };
+    return { rowFound: false, status: null, isMediaContent: null };
   }
   const res = await fetch(
     `${SUPABASE.url}/rest/v1/user_sync_media?select=storage_path&url=eq.${encodeURIComponent(mediaUrl)}`,
@@ -473,15 +501,15 @@ export async function probeRemoteMediaObject(
     }
   );
   if (!res.ok) {
-    return { rowFound: false, status: null };
+    return { rowFound: false, status: null, isMediaContent: null };
   }
   const rows = (await res.json()) as Array<Record<string, unknown>>;
   if (rows.length === 0) {
-    return { rowFound: true, status: null };
+    return { rowFound: true, status: null, isMediaContent: null };
   }
   const storagePath = String(rows[0].storage_path ?? '');
   if (!storagePath) {
-    return { rowFound: true, status: null };
+    return { rowFound: true, status: null, isMediaContent: null };
   }
   const encoded = storagePath.split('/').map(encodeURIComponent).join('/');
   const dl = await fetch(
@@ -493,7 +521,33 @@ export async function probeRemoteMediaObject(
       },
     }
   );
-  return { rowFound: true, status: dl.status };
+  // 内容核验：头部字节不能是 HTML 文档（与 isLikelyMediaBlob 同一判断口径，
+  // 防止历史版本上传的 200 HTML 兜底页被误认为「图片已上传成功」）
+  let isMediaContent: boolean | null = null;
+  if (dl.ok) {
+    try {
+      const head = new Uint8Array(await dl.clone().arrayBuffer()).slice(0, 512);
+      const text = new TextDecoder().decode(head).trimStart();
+      isMediaContent = !/^<!doctype html|<html[\s>]|<head[\s>]|<body[\s>]/i.test(text);
+    } catch {
+      isMediaContent = null;
+    }
+  }
+  return { rowFound: true, status: dl.status, isMediaContent };
+}
+
+/**
+ * 上传侧字节就绪核验：目标 URL 的云端对象是否已是真实媒体（非 HTML 兜底页）。
+ * 行的存在 ≠ 字节正确：历史版本可能把 HTML 当图片上传（毒化行），设备 A 需要
+ * 在本次同步中自愈重传（media-sync 按 storage_path 哈希不匹配触发），只有对象
+ * 内容为媒体才算「上传完成」，否则提前关闭设备 A 会中断 fire-and-forget 的自愈。
+ */
+export async function isCloudMediaObjectReady(
+  page: Page,
+  mediaUrl: string
+): Promise<boolean> {
+  const probe = await probeRemoteMediaObject(page, mediaUrl);
+  return probe.rowFound && probe.status === 200 && probe.isMediaContent === true;
 }
 
 /** 从 Slate 段落结构中提取纯文本 */
