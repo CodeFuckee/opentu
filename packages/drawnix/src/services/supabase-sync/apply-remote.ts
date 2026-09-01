@@ -177,9 +177,15 @@ async function applyOne(entity: SyncEntity): Promise<boolean> {
       return true;
     }
     case 'cache_media': {
-      // 缓存元数据：二进制由 media-sync 负责，这里只更新元数据
+      // 缓存元数据回填：真实二进制由 media-sync 下载，这里只更新元数据。
+      // 禁用 cacheImage：虚拟 URL（/asset-library 等）在本机无 blob 时 fetch 必然
+      // 404，既打 console.error，又会写入 size=0+cacheWarning 的失败元数据，
+      // 导致 media-sync 误判「本地已有」而跳过下载（跨设备图片永久空白）
       const { unifiedCacheService } = await import('../unified-cache-service');
-      await unifiedCacheService.cacheImage(entity.entity_id, content as never);
+      await unifiedCacheService.updateCacheMetadata(
+        entity.entity_id,
+        content
+      );
       return true;
     }
     case 'settings': {

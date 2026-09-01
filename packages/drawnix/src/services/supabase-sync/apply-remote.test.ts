@@ -8,6 +8,8 @@
  * 3. 单个实体失败不中断整体
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { applyRemoteEntities } from './apply-remote';
+import type { SyncEntity } from './types';
 
 const mocks = vi.hoisted(() => ({
   reload: vi.fn().mockResolvedValue(undefined),
@@ -17,6 +19,10 @@ const mocks = vi.hoisted(() => ({
   mergePrompt: vi.fn().mockReturnValue(0),
   mergeVideoPrompt: vi.fn().mockReturnValue(0),
   mergeImagePrompt: vi.fn().mockReturnValue(0),
+}));
+
+const cacheMocks = vi.hoisted(() => ({
+  updateCacheMetadata: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock('../workspace-service', () => ({
@@ -40,8 +46,11 @@ vi.mock('../prompt-storage-service', () => ({
   mergeImagePromptHistory: mocks.mergeImagePrompt,
 }));
 
-import { applyRemoteEntities } from './apply-remote';
-import type { SyncEntity } from './types';
+// applyRemote 对 cache_media 实体只允许回填元数据（updateCacheMetadata），
+// 禁止调用 cacheImage（会 fetch 虚拟 URL，本机无 blob 时 404 刷屏 + 污染缓存判断）
+vi.mock('../unified-cache-service', () => ({
+  unifiedCacheService: cacheMocks,
+}));
 
 function makeEntity(overrides: Partial<SyncEntity>): SyncEntity {
   return {
@@ -132,5 +141,33 @@ describe('applyRemoteEntities', () => {
     ]);
     expect(result.applied).toBe(0);
     expect(mocks.reload).not.toHaveBeenCalled();
+  });
+
+  it('cache_media 实体仅回填元数据（updateCacheMetadata），不 fetch 虚拟 URL（回归）', async () => {
+    cacheMocks.updateCacheMetadata.mockClear();
+    const result = await applyRemoteEntities([
+      makeEntity({
+        entity_type: 'cache_media',
+        entity_id: '/asset-library/content-abc123.png',
+        content: {
+          url: '/asset-library/content-abc123.png',
+          type: 'image',
+          mimeType: 'image/png',
+          size: 12345,
+          cachedAt: 1000,
+          lastUsed: 2000,
+          metadata: { taskId: 't1' },
+        },
+      }),
+    ]);
+    expect(result.applied).toBe(1);
+    expect(cacheMocks.updateCacheMetadata).toHaveBeenCalledTimes(1);
+    expect(cacheMocks.updateCacheMetadata).toHaveBeenCalledWith(
+      '/asset-library/content-abc123.png',
+      expect.objectContaining({ size: 12345, metadata: { taskId: 't1' } })
+    );
+    // mock 未实现 cacheImage：若实现回退到 cacheImage 会因 undefined 调用抛错，
+    // 用例直接失败，防止回归
+    expect((cacheMocks as Record<string, unknown>).cacheImage).toBeUndefined();
   });
 });

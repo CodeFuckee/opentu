@@ -97,3 +97,58 @@ docker exec -i supabase-db psql -U supabase_admin -d postgres < supabase/migrati
   下载后写回 Cache Storage；素材库、任务队列中的「同步到云端」按钮走同一通道
 - **GitHub Gist 同步已废弃**：`github-sync/` 模块与 Gist UI 入口已移除，
   同步设置现基于 Supabase 登录账号
+
+## 已知问题与修复：媒体下载被「缓存元数据」误判跳过（2026-09）
+
+### 症状（跨设备图片不显示 + 控制台报错）
+
+设备 A 的画板插入本地图片并同步后，设备 B（另一台全新浏览器）同账号登录、
+同步并打开该画板：
+
+1. 画板/元素正常到达，但**图片一直不显示**：`img` 请求 `/asset-library/...` 持续 404、
+   `naturalWidth=0`、被加载失败逻辑置为 `visibility:hidden` 并无限 `?_retry=`；
+2. 控制台持续报错：`Failed to load resource: 404` 与
+   `[UnifiedCache] Failed to cache image: Failed to fetch image: 404`
+   （修复前 applyRemote 直接 fetch 虚拟 URL 所致）；
+3. 设备 B 的 Cache Storage 中**始终没有图片 blob**，而云端 `user_sync_media` 行
+   （含 storage_path）与 `yue-sync` 桶对象全程存在且可下载（E2E 已探测验证）。
+
+### 根因链（两层递进）
+
+1. **失败元数据污染（第一形态）**：`apply-remote.ts` 应用 `cache_media` 实体时调用
+   `unifiedCacheService.cacheImage()`，会对虚拟 URL `/asset-library/...` 直接 `fetch`；
+   本机尚无 blob 时必然 404，既产生 console.error，又在其 catch 分支写入
+   `size=0 + cacheWarning` 的**失败缓存元数据**；
+2. **元数据被当作「本地已有」**：同一同步流程的 `media-sync.ts` 用
+   `collectLocalMediaUrls()`（读取缓存元数据）判断「本地已有媒体」，失败元数据导致
+   下载循环 `continue` 跳过 → 二进制永不落地；
+3. **第二形态（修复 1 后暴露）**：`applyRemote` 改为只回填元数据后，出现新的误判源——
+   **正常回填的元数据**（`size>0`、无 `cacheWarning`）同样会被 `collectLocalMediaUrls()`
+   计入「本地已有」，下载循环仍会跳过。教训：**「有元数据」≠「有二进制」**，
+   远端媒体是否下载必须校验本机真实 blob。
+
+### 修复内容
+
+- `media-sync.ts`：
+  - `collectLocalMediaUrls()` 过滤失败缓存条目（`size=0` 或带 `cacheWarning`），
+    失败元数据不再冒充本地媒体；
+  - **下载循环**：本地已有该 URL 的元数据时，须再用 `getCachedBlob()` 校验真实
+    二进制，无 blob 仍执行下载（幂等覆盖）。
+- `apply-remote.ts`：`cache_media` 实体**只回填元数据**（改为
+  `unifiedCacheService.updateCacheMetadata()`），不再 fetch 虚拟 URL（消除 404
+  console.error 与失败元数据污染）。
+- `unified-cache-service.ts`：新增 `updateCacheMetadata()`——仅合并元数据写回
+  IndexedDB，不发起网络请求；远端元数据无 `cacheWarning` 时清除本地残留失败标记。
+- `local-collector.ts`：`collectCacheMedia()` 不再把无二进制的失败元数据上传云端
+  （避免把一台设备的失败状态传播给另一台设备）。
+
+### 回归保障
+
+- 单元测试（`packages/drawnix/src/services/supabase-sync/`）：
+  - `canvas-materials-sync.test.ts`：失败元数据/仅有元数据（size>0）均**不阻塞下载**；
+    本地有真实 blob 时才跳过下载；
+  - `apply-remote.test.ts`：`cache_media` 实体只调用 `updateCacheMetadata`，
+    禁止回退到会 fetch 的 `cacheImage`。
+- E2E：`apps/web-e2e/src/functional/cloud-sync-image-display.spec.ts` 双设备全链路
+  复现，断言控制台无报错 + 图片真实解码显示；失败时留档控制台/网络/云端对象/
+  本地 Cache 多维度诊断（详见 `docs/E2E_TESTS.md` 用例 39）。

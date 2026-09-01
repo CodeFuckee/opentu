@@ -2,17 +2,13 @@ import { defineConfig, devices } from '@playwright/test';
 import { nxE2EPreset } from '@nx/playwright/preset';
 
 import { workspaceRoot } from '@nx/devkit';
-import { join } from 'path';
+import { E2E_STATE_PATH } from './src/config/e2e.config';
 
 // For CI, you may want to set BASE_URL to the deployed application.
 const baseURL = process.env['BASE_URL'] || 'http://localhost:7200';
 
-// 认证 setup 保存的会话文件（供各测试项目以已登录状态运行）
-const storageStatePath = join(
-  __dirname,
-  'test-results',
-  'e2e-auth-state.json'
-);
+// 认证 setup 保存的会话文件（路径统一在 src/config/e2e.config.ts）
+const storageStatePath = E2E_STATE_PATH;
 
 /**
  * Read environment variables from file.

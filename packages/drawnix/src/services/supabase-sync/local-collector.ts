@@ -279,12 +279,16 @@ export function createLocalCollector(): LocalDataCollector {
 
     async collectCacheMedia() {
       const cached = await unifiedCacheService.getAllCacheMetadata();
-      const entities: RawEntity[] = cached.map((c) => ({
-        entityType: 'cache_media',
-        entityId: c.url,
-        content: c,
-        updatedAt: c.cachedAt ?? Date.now(),
-      }));
+      // 只同步真正有内容的缓存：失败元数据（size=0 / cacheWarning，无二进制）
+      // 上传到云端只会让另一台设备重复 404，且会污染本地的「本地已有」判断
+      const entities: RawEntity[] = cached
+        .filter((c) => c.size > 0 && !c.metadata?.cacheWarning)
+        .map((c) => ({
+          entityType: 'cache_media',
+          entityId: c.url,
+          content: c,
+          updatedAt: c.cachedAt ?? Date.now(),
+        }));
       return { entities, stats: { total: entities.length } };
     },
 

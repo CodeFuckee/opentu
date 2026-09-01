@@ -964,6 +964,58 @@ class UnifiedCacheService {
   }
 
   /**
+   * 仅更新缓存条目元数据（不发起网络 fetch）。
+   *
+   * 用于云端同步应用 cache_media 实体：真实二进制由 media-sync 负责下载，
+   * 这里只回填元数据。不能改用 cacheImage —— 虚拟 URL（/asset-library 等）在
+   * 本机无 blob 时 fetch 必然 404：既打 console.error，又写入 size=0+cacheWarning
+   * 的失败元数据，会让 media-sync 误判「本地已有」而跳过下载（跨设备图片空白）。
+   */
+  async updateCacheMetadata(
+    url: string,
+    metadata?: Record<string, unknown>
+  ): Promise<boolean> {
+    const normalizedUrl = this.normalizeRemoteCacheUrl(url);
+    if (!normalizedUrl) {
+      return false;
+    }
+    try {
+      const existing = await this.getItem(normalizedUrl);
+      const now = Date.now();
+      const extraType = metadata?.type as CacheMediaType | undefined;
+      const extraMime = metadata?.mimeType as string | undefined;
+      const extraSize = metadata?.size as number | undefined;
+      const extraMeta = metadata?.metadata as
+        | Record<string, unknown>
+        | undefined;
+      // 合并元数据；远端元数据若表明缓存正常（无 cacheWarning），
+      // 清除本地残留的失败标记，避免 media-sync 把已恢复的媒体仍当失败项
+      const mergedMetadata: CachedMedia['metadata'] = {
+        ...existing?.metadata,
+        ...extraMeta,
+      };
+      if (extraMeta && !extraMeta.cacheWarning) {
+        delete mergedMetadata.cacheWarning;
+      }
+      await this.putItem({
+        url: normalizedUrl,
+        type: existing?.type || extraType || 'image',
+        mimeType: existing?.mimeType || extraMime || 'image/png',
+        size: existing?.size ?? extraSize ?? 0,
+        contentHash: existing?.contentHash,
+        cachedAt: existing?.cachedAt || now,
+        lastUsed: now,
+        metadata: mergedMetadata,
+      });
+      this.notifyListeners();
+      return true;
+    } catch (error) {
+      console.warn('[UnifiedCache] Failed to update cache metadata:', error);
+      return false;
+    }
+  }
+
+  /**
    * 删除缓存
    */
   async deleteCache(url: string): Promise<void> {

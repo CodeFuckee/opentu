@@ -130,13 +130,17 @@ async function collectLocalMediaUrls(): Promise<string[]> {
     // 素材库不可用（未初始化等）忽略
   }
 
-  // 2. 统一缓存媒体（AI 生成图片/视频/音频 + 画布缓存）
+  // 2. 统一缓存媒体（AI 生成图片/视频/音频 + 画布缓存）——只统计真正有内容的缓存
   try {
     const cached = await unifiedCacheService.getAllCacheMetadata();
     for (const item of cached) {
-      if (item.url) {
-        urls.add(item.url);
+      // 失败缓存（fetch 404 等，cacheImage 失败时写入 size=0 + cacheWarning）不算
+      // 本地媒体：计入会让 media-sync 误判「本地已有」而跳过远端下载，
+      // 另一台设备上的图片将永远拿不到二进制（画布空白 + 控制台 404 刷屏）
+      if (!item.url || item.size === 0 || item.metadata?.cacheWarning) {
+        continue;
       }
+      urls.add(item.url);
     }
   } catch {
     // 缓存不可用忽略
@@ -224,10 +228,18 @@ export async function syncMediaToSupabase(
     }
   }
 
-  // --- 下载：远端有、本地无 → 写回 Cache ---
+  // --- 下载：远端有、本地无真实二进制 → 写回 Cache ---
   for (const item of remoteMedia) {
     if (localByUrl.has(item.url)) {
-      continue;
+      // 有本地标记（素材/缓存元数据）≠ 有真实二进制：跨设备同步会先回填
+      // 缓存元数据（applyRemote 的 cache_media 实体，size>0 且无 cacheWarning），
+      // 若仅凭元数据跳过下载，本机将永远拿不到 blob（图片空白 + 404 刷屏）
+      const existingBlob = await unifiedCacheService
+        .getCachedBlob(item.url)
+        .catch(() => null);
+      if (existingBlob && existingBlob.size > 0) {
+        continue;
+      }
     }
     try {
       const client = config.client as {
