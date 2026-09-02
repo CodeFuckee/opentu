@@ -62,3 +62,25 @@ function installStorageFallback(name: 'localStorage' | 'sessionStorage'): void {
 
 installStorageFallback('localStorage');
 installStorageFallback('sessionStorage');
+
+// Node 20（CI 镜像）下全局 Blob 与 jsdom 的 Blob 是不同实现，
+// FileReader.readAsDataURL/readAsArrayBuffer 校验参数 instanceof 时拒绝
+// Node 全局 Blob（"parameter 1 is not of type 'Blob'"）。统一为 jsdom 的实现。
+const g = globalThis as unknown as Record<string, unknown>;
+const jsdomWinForBlob =
+  typeof window !== 'undefined'
+    ? (window as unknown as Record<string, unknown>)
+    : undefined;
+if (jsdomWinForBlob) {
+  for (const name of ['Blob', 'FileReader'] as const) {
+    const jsdomValue = jsdomWinForBlob[name] as unknown;
+    const globalValue = g[name];
+    if (jsdomValue && globalValue !== jsdomValue) {
+      Object.defineProperty(g, name, {
+        value: jsdomValue,
+        configurable: true,
+        writable: true,
+      });
+    }
+  }
+}
