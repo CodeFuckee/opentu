@@ -23,7 +23,7 @@ function preprocessMermaidCode(code: string): string {
   // Fix bracket content with special characters
   // Match patterns like [text with : or , or = or other special chars]
   processed = processed.replace(
-    /\[([^\]]*[:\,\=\(\)\|\/\\][^\]]*)\]/g,
+    /\[([^\]]*[:,=()|/\\][^\]]*)\]/g,
     (match, content) => {
       // If content is already quoted, skip
       if (content.startsWith('"') && content.endsWith('"')) {
@@ -40,7 +40,7 @@ function preprocessMermaidCode(code: string): string {
   // Fix parenthesis content with special characters
   // Match patterns like (text with : or , or = or other special chars)
   processed = processed.replace(
-    /\(([^\)]*[:\,\=\[\]\|\/\\][^\)]*)\)/g,
+    /\(([^)]*[:,=\][|/\\][^)]*)\)/g,
     (match, content) => {
       // If content is already quoted, skip
       if (content.startsWith('"') && content.endsWith('"')) {
@@ -57,7 +57,7 @@ function preprocessMermaidCode(code: string): string {
   // Fix curly braces content with special characters
   // Match patterns like {text with : or , or = or other special chars}
   processed = processed.replace(
-    /\{([^\}]*[:\,\=\[\]\(\)\|\/\\][^\}]*)\}/g,
+    /\{([^}]*[:,=\][()|/\\][^}]*)\}/g,
     (match, content) => {
       // If content is already quoted, skip
       if (content.startsWith('"') && content.endsWith('"')) {

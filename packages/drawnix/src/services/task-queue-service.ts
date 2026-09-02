@@ -2499,7 +2499,7 @@ class TaskQueueService {
 
     // 异步批量归档到 IndexedDB（fire-and-forget）
     if (archiveIds.length > 0) {
-      taskStorageWriter.archiveTasks(archiveIds).catch((err) => {});
+      taskStorageWriter.archiveTasks(archiveIds).catch((err) => { /* 归档失败不影响主流程 */ });
       taskStorageReader.invalidateCache();
     }
   }

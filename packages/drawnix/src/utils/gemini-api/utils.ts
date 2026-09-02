@@ -43,7 +43,7 @@ export async function prepareImageData(image: ImageInput): Promise<string> {
 /**
  * 将 base64 数据转换为 Blob URL
  */
-export function base64ToBlobUrl(base64Data: string, mimeType: string = 'image/png'): string {
+export function base64ToBlobUrl(base64Data: string, mimeType = 'image/png'): string {
   const byteCharacters = atob(base64Data);
   const byteNumbers = new Array(byteCharacters.length);
   for (let i = 0; i < byteCharacters.length; i++) {

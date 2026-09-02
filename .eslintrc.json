@@ -10,7 +10,11 @@
           "error",
           {
             "enforceBuildableLibDependency": true,
-            "allow": ["tdesign-react", "tdesign-react/*"],
+            "allow": [
+              "tdesign-react",
+              "tdesign-react/*"
+            ],
+            "checkDynamicDependenciesExceptions": ["@aitu/utils", "@drawnix/drawnix", "@drawnix/drawnix/*"],
             "depConstraints": [
               {
                 "sourceTag": "*",
@@ -35,6 +39,12 @@
       "files": ["*.spec.ts", "*.spec.tsx", "*.spec.js", "*.spec.jsx"],
       "env": {},
       "rules": {}
+    },
+    {
+      "files": ["*.test.ts", "*.test.tsx", "*.test.js", "*.test.jsx", "*.spec.ts", "*.spec.tsx", "*.spec.js", "*.spec.jsx"],
+      "rules": {
+        "@typescript-eslint/no-empty-function": "off"
+      }
     }
   ]
 }

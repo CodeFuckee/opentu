@@ -541,8 +541,8 @@ function updateImageSizeAfterLoad(
         naturalHeight
       );
       
-      let newWidth = displayDimensions.width;
-      let newHeight = displayDimensions.height;
+      const newWidth = displayDimensions.width;
+      const newHeight = displayDimensions.height;
 
       // 通过 ID 查找元素（比索引更可靠，不受插入/删除影响）
       const elementIndex = board.children.findIndex(

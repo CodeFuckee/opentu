@@ -408,7 +408,7 @@ async function importFromZip(
  */
 async function importFromPastedContent(
   skillMdContent: string,
-  packageName: string = 'custom'
+  packageName = 'custom'
 ): Promise<ExternalSkill | null> {
   const parsed = parseSkillMarkdown(skillMdContent);
   if (!parsed) {

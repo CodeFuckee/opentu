@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { safeToImage } from '../common';
+
 const { getElementGMock, hasMountedMock, toImageMock } = vi.hoisted(() => ({
   getElementGMock: vi.fn(),
   hasMountedMock: vi.fn(),
@@ -15,8 +17,6 @@ vi.mock('@plait/core', () => ({
   },
   toImage: toImageMock,
 }));
-
-import { safeToImage } from '../common';
 
 function createMountedElementG(imageUrl: string): SVGGElement {
   const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');

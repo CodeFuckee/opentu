@@ -7,7 +7,7 @@ interface MousePosition {
 
 // 全局鼠标位置状态
 let globalMousePosition: MousePosition = { x: 0, y: 0 };
-let listeners: Set<(position: MousePosition) => void> = new Set();
+const listeners: Set<(position: MousePosition) => void> = new Set();
 let isListening = false;
 
 // 全局鼠标事件处理器

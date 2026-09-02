@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlaitBoard } from '@plait/core';
 
+import { buildPencilPlugin } from './with-pencil';
+
 vi.mock('@plait/core', () => ({
   isPencilEvent: (event: PointerEvent) => event.pointerType === 'pen',
   isWheelPointer: (event: PointerEvent) => event.button === 1,
@@ -8,8 +10,6 @@ vi.mock('@plait/core', () => ({
     getBoardContainer: (board: TestBoard) => board.container,
   },
 }));
-
-import { buildPencilPlugin } from './with-pencil';
 
 type TestBoard = PlaitBoard & {
   container: HTMLDivElement;

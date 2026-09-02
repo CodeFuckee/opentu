@@ -26,9 +26,20 @@ export default defineConfig(({ mode }) => {
     root: __dirname,
     publicDir: false, // 禁用 publicDir，避免将 public 目录下的文件复制到 outDir (也是 public)
     resolve: {
-      alias: {
-        '@aitu/utils': path.resolve(__dirname, '../../packages/utils/src/index.ts'),
-      },
+      alias: [
+        {
+          find: '@aitu/utils',
+          replacement: path.resolve(__dirname, '../../packages/utils/src/index.ts'),
+        },
+        {
+          find: /^@drawnix\/drawnix$/,
+          replacement: path.resolve(__dirname, '../../packages/drawnix/src/index.ts'),
+        },
+        {
+          find: /^@drawnix\/drawnix\/(.+)$/,
+          replacement: path.resolve(__dirname, '../../packages/drawnix/src/$1'),
+        },
+      ],
     },
     define: {
       __APP_VERSION__: JSON.stringify(appVersion),

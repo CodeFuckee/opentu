@@ -132,10 +132,7 @@ declare module 'winbox' {
     constructor(options?: WinBoxOptions);
     constructor(title: string, options?: WinBoxOptions);
 
-    /** 创建新窗口 */
-    static new(options?: WinBoxOptions): WinBox;
-    static new(title: string, options?: WinBoxOptions): WinBox;
-
+    /** 创建新窗口（winbox.new() 工厂未在代码中使用，不做声明） */
     /** 获取所有窗口栈（按焦点顺序） */
     static stack(): WinBox[];
 

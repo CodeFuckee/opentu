@@ -501,7 +501,7 @@ async function restoreEnvironmentSecrets(
     return 0;
   }
 
-  let imported = 0;
+  const imported = 0;
   // GitHub Token / Gist 密码已随 GitHub 同步功能废弃；保留备份字段兼容但不再恢复
   if (typeof secrets.syncPassword === 'string' && secrets.syncPassword) {
     warnings.push('GitHub 同步已废弃，加密密码不再恢复');

@@ -24,7 +24,7 @@ import { INDEXEDDB_CONFIG, STORAGE_LIMITS } from '../constants/TASK_CONSTANTS';
  */
 class StorageService {
   private store: LocalForage;
-  private initialized: boolean = false;
+  private initialized = false;
 
   constructor() {
     // Initialize localforage with IndexedDB configuration

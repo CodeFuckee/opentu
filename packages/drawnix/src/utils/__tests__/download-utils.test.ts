@@ -3,6 +3,12 @@ import { AssetSource, AssetType, type Asset } from '../../types/asset.types';
 import { TaskStatus, TaskType, type Task } from '../../types/task.types';
 import type { AudioDownloadMetadata } from '../audio-id3';
 
+import {
+  buildAssetDownloadItem,
+  buildTaskDownloadItems,
+  smartDownload,
+} from '../download-utils';
+
 const {
   downloadFileMock,
   openInNewTabMock,
@@ -34,12 +40,6 @@ vi.mock('@aitu/utils', async () => {
 vi.mock('../audio-id3', () => ({
   applyAudioMetadataToBlob: applyAudioMetadataToBlobMock,
 }));
-
-import {
-  buildAssetDownloadItem,
-  buildTaskDownloadItems,
-  smartDownload,
-} from '../download-utils';
 
 function createAsset(overrides: Partial<Asset> = {}): Asset {
   return {

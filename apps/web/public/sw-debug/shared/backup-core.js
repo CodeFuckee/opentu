@@ -1,3 +1,6 @@
+// SYNCED RUNTIME COPY for sw-debug pages
+// Canonical source: packages/drawnix/src/services/backup-restore/shared/backup-core.js
+// Keep in sync when editing the canonical copy.
 /**
  * Shared backup/restore core for both main app and sw-debug.
  * This module must stay browser-native and framework-agnostic.

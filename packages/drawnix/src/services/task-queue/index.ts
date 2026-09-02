@@ -6,10 +6,10 @@
  */
 
 // Re-export types
-export type { Task, TaskStatus, TaskType, TaskEvent, GenerationParams } from '../../types/task.types';
-
 // Export the main-thread task queue service
 import { taskQueueService as _service } from '../task-queue-service';
+
+export type { Task, TaskStatus, TaskType, TaskEvent, GenerationParams } from '../../types/task.types';
 export { taskQueueService } from '../task-queue-service';
 export { taskQueueService as legacyTaskQueueService } from '../task-queue-service';
 

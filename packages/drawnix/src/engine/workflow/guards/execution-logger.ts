@@ -13,7 +13,7 @@ export interface ExecutionLogEntry {
 
 export class ExecutionLogger {
   private logs: ExecutionLogEntry[] = [];
-  private enabled: boolean = true;
+  private enabled = true;
   private minLevel: 'debug' | 'info' | 'warn' | 'error' = 'info';
 
   private levelPriority = {

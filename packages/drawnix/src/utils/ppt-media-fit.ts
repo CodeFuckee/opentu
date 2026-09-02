@@ -159,7 +159,7 @@ function loadImageAspectRatio(url: string): Promise<number | null> {
 
   return new Promise((resolve) => {
     const image = new Image();
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined = undefined;
 
     const cleanup = () => {
       if (timeoutId) {

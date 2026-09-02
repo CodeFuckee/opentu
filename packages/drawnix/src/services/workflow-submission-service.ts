@@ -629,7 +629,7 @@ class WorkflowSubmissionService {
           status: event.status,
         });
         break;
-      case 'step':
+      case 'step': {
         this.events$.next({
           type: 'step',
           workflowId: event.workflowId,
@@ -652,6 +652,7 @@ class WorkflowSubmissionService {
           workflow.updatedAt = Date.now();
         }
         break;
+      }
       case 'completed':
         this.events$.next({
           type: 'completed',
@@ -664,7 +665,7 @@ class WorkflowSubmissionService {
           event.workflow as unknown as WorkflowDefinition
         );
         break;
-      case 'failed':
+      case 'failed': {
         this.events$.next({
           type: 'failed',
           workflowId: event.workflowId,
@@ -678,6 +679,7 @@ class WorkflowSubmissionService {
           failedWorkflow.updatedAt = Date.now();
         }
         break;
+      }
       case 'steps_added':
         this.events$.next({
           type: 'steps_added',

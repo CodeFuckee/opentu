@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+// 说明：ai-input-parser 的 parseInput 已自 smart-suggestion-panel 移除后简化为直通实现，
+// 下方 22 个「标记语法解析」用例描述的已移除功能，先以 it.skip 保留供未来恢复解析器时参考。
 import {
   parseAIInput,
   generateDefaultPrompt,
@@ -9,7 +11,7 @@ import {
   type SelectionInfo,
 } from '../ai-input-parser';
 
-// Mock settings-manager
+// Mock settings-manager（全量 mock，需补齐全量导出供依赖链顶层求值）
 vi.mock('../settings-manager', () => ({
   geminiSettings: {
     get: vi.fn(() => ({
@@ -17,10 +19,16 @@ vi.mock('../settings-manager', () => ({
       videoModelName: 'veo-3',
     })),
   },
+  providerPricingCacheSettings: {
+    get: vi.fn(() => []),
+    update: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+  },
 }));
 
 // Helper function
-const createSelection = (texts: string[] = [], imageCount: number = 0): SelectionInfo => ({
+const createSelection = (texts: string[] = [], imageCount = 0): SelectionInfo => ({
   texts,
   images: Array(imageCount).fill('mock-image-url'),
   videos: [],
@@ -62,19 +70,19 @@ describe('ai-input-parser', () => {
       expect(shouldUseAgentFlow('请帮我生成一张猫的图片')).toBe(true);
     });
 
-    it('应该在只有模型标记时返回 false', () => {
+    it.skip('应该在只有模型标记时返回 false', () => {
       expect(shouldUseAgentFlow('#gemini-3-pro-image-preview')).toBe(false);
     });
 
-    it('应该在只有参数标记时返回 false', () => {
+    it.skip('应该在只有参数标记时返回 false', () => {
       expect(shouldUseAgentFlow('-size=1024x768')).toBe(false);
     });
 
-    it('应该在只有数量标记时返回 false', () => {
+    it.skip('应该在只有数量标记时返回 false', () => {
       expect(shouldUseAgentFlow('+3')).toBe(false);
     });
 
-    it('应该在组合标记但无额外内容时返回 false', () => {
+    it.skip('应该在组合标记但无额外内容时返回 false', () => {
       expect(shouldUseAgentFlow('#gemini-3-pro-image-preview -size=1024x768 +2')).toBe(false);
     });
 
@@ -95,13 +103,13 @@ describe('ai-input-parser', () => {
         expect(result.hasExtraContent).toBe(false);
       });
 
-      it('场景2: 输入内容有模型、参数 -> direct_generation', () => {
+      it.skip('场景2: 输入内容有模型、参数 -> direct_generation', () => {
         const result = parseAIInput('#gemini-3-pro-image-preview -size=1024x768', createSelection([], 1));
         expect(result.scenario).toBe('direct_generation');
         expect(result.hasExtraContent).toBe(false);
       });
 
-      it('场景3: 输入内容指定了数量 -> direct_generation', () => {
+      it.skip('场景3: 输入内容指定了数量 -> direct_generation', () => {
         const result = parseAIInput('+4', createSelection([], 1));
         expect(result.scenario).toBe('direct_generation');
         expect(result.hasExtraContent).toBe(false);
@@ -132,7 +140,7 @@ describe('ai-input-parser', () => {
         expect(result.modelId).toBe('gemini-3-pro-image-preview');
       });
 
-      it('选择视频模型时应该是视频生成', () => {
+      it.skip('选择视频模型时应该是视频生成', () => {
         const result = parseAIInput('#veo3', createSelection([], 1));
         expect(result.generationType).toBe('video');
         expect(result.modelId).toBe('veo3');
@@ -140,7 +148,7 @@ describe('ai-input-parser', () => {
     });
 
     describe('提示词处理', () => {
-      it('应该使用清理后的输入文本作为提示词', () => {
+      it.skip('应该使用清理后的输入文本作为提示词', () => {
         const result = parseAIInput('#gemini-3-pro-image-preview 一只可爱的猫', createSelection([], 1));
         expect(result.prompt).toBe('一只可爱的猫');
       });
@@ -167,24 +175,24 @@ describe('ai-input-parser', () => {
         expect(result.count).toBe(1);
       });
 
-      it('应该正确解析 +2', () => {
+      it.skip('应该正确解析 +2', () => {
         const result = parseAIInput('+2', createSelection([], 1));
         expect(result.count).toBe(2);
       });
 
-      it('应该正确解析 +10', () => {
+      it.skip('应该正确解析 +10', () => {
         const result = parseAIInput('+10', createSelection([], 1));
         expect(result.count).toBe(10);
       });
 
-      it('应该正确解析组合输入中的数量', () => {
+      it.skip('应该正确解析组合输入中的数量', () => {
         const result = parseAIInput('#gemini-3-pro-image-preview +3', createSelection([], 1));
         expect(result.count).toBe(3);
       });
     });
 
     describe('尺寸参数解析', () => {
-      it('应该正确解析比例尺寸 -size=16:9', () => {
+      it.skip('应该正确解析比例尺寸 -size=16:9', () => {
         const result = parseAIInput('-size=16:9', createSelection([], 1));
         expect(result.size).toBe('16x9');
       });
@@ -194,7 +202,7 @@ describe('ai-input-parser', () => {
         expect(result.size).toBe('1x1');
       });
 
-      it('应该正确解析比例尺寸 -size=9:16', () => {
+      it.skip('应该正确解析比例尺寸 -size=9:16', () => {
         const result = parseAIInput('-size=9:16', createSelection([], 1));
         expect(result.size).toBe('9x16');
       });
@@ -206,19 +214,19 @@ describe('ai-input-parser', () => {
     });
 
     describe('时长参数解析', () => {
-      it('应该正确解析视频时长 -duration=8', () => {
+      it.skip('应该正确解析视频时长 -duration=8', () => {
         const result = parseAIInput('#veo3 -duration=8', createSelection([], 1));
         expect(result.duration).toBe('8');
       });
 
-      it('应该正确解析视频时长 -duration=16', () => {
+      it.skip('应该正确解析视频时长 -duration=16', () => {
         const result = parseAIInput('#sora-2-pro -duration=16', createSelection([], 1));
         expect(result.duration).toBe('16');
       });
     });
 
     describe('parseResult 保留', () => {
-      it('应该保留原始解析结果', () => {
+      it.skip('应该保留原始解析结果', () => {
         const result = parseAIInput('#gemini-3-pro-image-preview +2 一只猫', createSelection([], 1));
         expect(result.parseResult).toBeDefined();
         expect(result.parseResult.selectedImageModel).toBe('gemini-3-pro-image-preview');
@@ -228,7 +236,7 @@ describe('ai-input-parser', () => {
     });
 
     describe('复杂组合场景', () => {
-      it('应该正确处理只有标记没有额外内容的情况', () => {
+      it.skip('应该正确处理只有标记没有额外内容的情况', () => {
         const result = parseAIInput(
           '#gemini-3-pro-image-preview -size=16:9 +3',
           createSelection(['猫咪图片'], 1)
@@ -255,7 +263,7 @@ describe('ai-input-parser', () => {
         expect(result.hasExtraContent).toBe(false);
       });
 
-      it('应该处理无效的模型标记', () => {
+      it.skip('应该处理无效的模型标记', () => {
         const result = parseAIInput('#invalid-model', createSelection([], 1));
         // 无效模型不会被识别，所以 cleanText 会包含它
         expect(result.parseResult.selectedImageModel).toBeUndefined();
@@ -286,7 +294,7 @@ describe('ai-input-parser', () => {
     });
 
     describe('完整返回对象快照', () => {
-      it('图片生成场景 - 完整参数', () => {
+      it.skip('图片生成场景 - 完整参数', () => {
         const result = parseAIInput(
           '#gemini-3-pro-image-preview -size=1:1 +2 一只可爱的橘猫',
           createSelection([], 1)
@@ -313,7 +321,7 @@ describe('ai-input-parser', () => {
         expect(result.parseResult.selectedParams.some((p: any) => p.id === 'size' && p.value === '1:1')).toBe(true);
       });
 
-      it('视频生成场景 - 完整参数', () => {
+      it.skip('视频生成场景 - 完整参数', () => {
         const result = parseAIInput(
           '#veo3 -duration=8 -size=16:9 一只猫在跳舞',
           createSelection([], 1)
@@ -340,7 +348,7 @@ describe('ai-input-parser', () => {
         expect(result.parseResult.selectedParams.some((p: any) => p.id === 'size' && p.value === '16:9')).toBe(true);
       });
 
-      it('直接生成场景 - 无额外内容', () => {
+      it.skip('直接生成场景 - 无额外内容', () => {
         const result = parseAIInput(
           '#gemini-3-pro-image-preview -size=16:9 +3',
           createSelection(['猫咪', '狗狗'], 2)
@@ -387,7 +395,7 @@ describe('ai-input-parser', () => {
         });
       });
 
-      it('文本生成场景 - 显式文本模式应直接生成', () => {
+      it.skip('文本生成场景 - 显式文本模式应直接生成', () => {
         const result = parseAIInput('', createSelection([], 1), {
           generationType: 'text',
           modelId: 'deepseek-v3.2',

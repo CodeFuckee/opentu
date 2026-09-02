@@ -23,8 +23,8 @@ export function isPlaitVideo(element: PlaitElement): element is PlaitVideo {
 export function createPlaitVideo(
   url: string, 
   point: Point, 
-  width: number = 400, 
-  height: number = 225,
+  width = 400, 
+  height = 225,
   options?: Partial<PlaitVideo>
 ): PlaitVideo {
   return {

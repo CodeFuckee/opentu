@@ -76,7 +76,7 @@ export function getAspectRatioOption(
  */
 export function calculateDimensions(
   aspectRatio: string,
-  baseSize: number = 1024
+  baseSize = 1024
 ): { width: number; height: number } {
   const option = getAspectRatioOption(aspectRatio);
   if (!option) {

@@ -27,6 +27,18 @@ import {
   shouldDownloadVideoContent,
 } from '../video-binding-utils';
 
+// 导入共享模块的工具函数
+import {
+  normalizeApiBase,
+  getExtensionFromUrl,
+  sizeToAspectRatio,
+  sleep,
+  parseErrorMessage,
+} from '../media-api';
+
+// 从共享模块导入异步图片生成
+import { generateImageAsync as sharedGenerateImageAsync } from '../media-api';
+
 /** 参考图转 base64 时最大体积（1MB），避免请求体过大 */
 export const MAX_REFERENCE_IMAGE_BYTES = 1 * 1024 * 1024;
 
@@ -69,15 +81,6 @@ export {
   extractPromptFromMessages,
   buildImageRequestBody,
   parseImageResponse,
-} from '../media-api';
-
-// 导入共享模块的工具函数
-import {
-  normalizeApiBase,
-  getExtensionFromUrl,
-  sizeToAspectRatio,
-  sleep,
-  parseErrorMessage,
 } from '../media-api';
 
 /**
@@ -212,9 +215,6 @@ export async function pollVideoStatus(
 
   throw new Error('Video generation timeout');
 }
-
-// 从共享模块导入异步图片生成
-import { generateImageAsync as sharedGenerateImageAsync } from '../media-api';
 
 /**
  * 异步图片生成选项

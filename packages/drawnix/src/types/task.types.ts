@@ -13,10 +13,10 @@
 // ============================================================================
 
 // Re-export all types from shared module
-export * from './shared/core.types';
-
 // Import types for use in this file
 import type { Task } from './shared/core.types';
+
+export * from './shared/core.types';
 
 /**
  * Task queue state interface

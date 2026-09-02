@@ -163,7 +163,7 @@ function isFreehandClosed(element: Freehand): boolean {
  */
 function elementToPolygon(
   element: PlaitElement,
-  samplesPerSegment: number = 20
+  samplesPerSegment = 20
 ): Point[] | null {
   // PenPath 元素 - 仅支持闭合路径
   if (PenPath.isPenPath(element)) {
@@ -198,7 +198,7 @@ function elementToPolygon(
 /**
  * 获取形状元素的多边形点
  */
-function getShapePolygon(element: PlaitDrawElement, samplesPerSegment: number = 20): Point[] {
+function getShapePolygon(element: PlaitDrawElement, samplesPerSegment = 20): Point[] {
   const points = element.points;
   if (!points || points.length < 2) return [];
 

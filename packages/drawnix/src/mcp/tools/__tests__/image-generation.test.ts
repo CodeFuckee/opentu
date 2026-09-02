@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { imageGenerationTool } from '../image-generation';
+
 const mocks = vi.hoisted(() => ({
   createQueueTask: vi.fn(),
   resolveAdapterForInvocation: vi.fn(),
@@ -66,8 +68,6 @@ vi.mock('../shared/queue-utils', () => ({
       name: `reference-${index + 1}`,
     })),
 }));
-
-import { imageGenerationTool } from '../image-generation';
 
 describe('image-generation MCP tool', () => {
   beforeEach(() => {

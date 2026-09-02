@@ -331,13 +331,14 @@ export class SWCapabilitiesHandler {
             insertedCount++;
             break;
 
-          case 'svg':
+          case 'svg': {
             const dataUrl = this.svgToDataUrl(content);
             const imageItem = { url: dataUrl, width: 400, height: 400 };
             DrawTransforms.insertImage(board, imageItem, currentPoint);
             currentPoint = [currentPoint[0], currentPoint[1] + 400 + verticalGap] as Point;
             insertedCount++;
             break;
+          }
         }
       }
 

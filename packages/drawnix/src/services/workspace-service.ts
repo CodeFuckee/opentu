@@ -50,7 +50,7 @@ class WorkspaceService {
   private boards: Map<string, Board> = new Map();
   private state: WorkspaceState;
   private events$: Subject<WorkspaceEvent> = new Subject();
-  private initialized: boolean = false;
+  private initialized = false;
   private initializationPromise: Promise<void> | null = null;
 
   private constructor() {
@@ -567,7 +567,7 @@ class WorkspaceService {
     const folderSiblings = this.getFolderChildren(targetFolder);
 
     // Build ordered list of all items
-    let allItems: Array<{ id: string; type: 'board' | 'folder' }> = [
+    const allItems: Array<{ id: string; type: 'board' | 'folder' }> = [
       ...folderSiblings.map((f) => ({ id: f.id, type: 'folder' as const })),
       ...boardSiblings.map((b) => ({ id: b.id, type: 'board' as const })),
     ].sort((a, b) => {
@@ -677,7 +677,7 @@ class WorkspaceService {
     const boardSiblings = this.getBoardsInFolder(targetParentId);
 
     // Build ordered list of all items
-    let allItems: Array<{ id: string; type: 'board' | 'folder' }> = [
+    const allItems: Array<{ id: string; type: 'board' | 'folder' }> = [
       ...folderSiblings.map((f) => ({ id: f.id, type: 'folder' as const })),
       ...boardSiblings.map((b) => ({ id: b.id, type: 'board' as const })),
     ].sort((a, b) => {
@@ -927,7 +927,7 @@ class WorkspaceService {
 
   async saveBoard(boardId: string, data: BoardChangeData): Promise<void> {
     // 优先从已加载的画板获取
-    let board = this.loadedBoards.get(boardId) || this.boards.get(boardId);
+    const board = this.loadedBoards.get(boardId) || this.boards.get(boardId);
     if (!board) throw new Error(`Board ${boardId} not found`);
 
     board.elements = data.children;

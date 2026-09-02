@@ -1,3 +1,6 @@
+// SYNCED RUNTIME COPY for sw-debug pages
+// Canonical source: packages/drawnix/src/services/backup-restore/shared/backup-part-manager-core.js
+// Keep in sync when editing the canonical copy.
 import { BACKUP_SIGNATURE, BACKUP_VERSION } from './backup-core.js';
 
 export const PART_SIZE_THRESHOLD = 500 * 1024 * 1024;

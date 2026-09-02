@@ -51,16 +51,22 @@ describe('audio-api-service', () => {
       };
     });
 
-    vi.doMock('../../utils/settings-manager', () => ({
-      resolveInvocationRoute: () => ({
-        profileId: 'runtime',
-        profileName: 'Runtime',
-        providerType: 'custom',
-        baseUrl: 'https://api.tu-zi.com/v1',
-        apiKey: 'test-key',
-        authType: 'bearer',
-      }),
-    }));
+    vi.doMock('../../utils/settings-manager', async (importOriginal) => {
+      const actual = await importOriginal<
+        typeof import('../../utils/settings-manager')
+      >();
+      return {
+        ...actual,
+        resolveInvocationRoute: () => ({
+          profileId: 'runtime',
+          profileName: 'Runtime',
+          providerType: 'custom',
+          baseUrl: 'https://api.tu-zi.com/v1',
+          apiKey: 'test-key',
+          authType: 'bearer',
+        }),
+      };
+    });
 
     const { audioAPIService, extractAudioGenerationResult } = await import('../audio-api-service');
 
@@ -111,16 +117,22 @@ describe('audio-api-service', () => {
       };
     });
 
-    vi.doMock('../../utils/settings-manager', () => ({
-      resolveInvocationRoute: () => ({
-        profileId: 'runtime',
-        profileName: 'Runtime',
-        providerType: 'custom',
-        baseUrl: 'https://api.tu-zi.com/v1',
-        apiKey: 'test-key',
-        authType: 'bearer',
-      }),
-    }));
+    vi.doMock('../../utils/settings-manager', async (importOriginal) => {
+      const actual = await importOriginal<
+        typeof import('../../utils/settings-manager')
+      >();
+      return {
+        ...actual,
+        resolveInvocationRoute: () => ({
+          profileId: 'runtime',
+          profileName: 'Runtime',
+          providerType: 'custom',
+          baseUrl: 'https://api.tu-zi.com/v1',
+          apiKey: 'test-key',
+          authType: 'bearer',
+        }),
+      };
+    });
 
     const { audioAPIService } = await import('../audio-api-service');
 
@@ -186,16 +198,22 @@ describe('audio-api-service', () => {
       };
     });
 
-    vi.doMock('../../utils/settings-manager', () => ({
-      resolveInvocationRoute: () => ({
-        profileId: 'runtime',
-        profileName: 'Runtime',
-        providerType: 'custom',
-        baseUrl: 'https://api.tu-zi.com/v1',
-        apiKey: 'test-key',
-        authType: 'bearer',
-      }),
-    }));
+    vi.doMock('../../utils/settings-manager', async (importOriginal) => {
+      const actual = await importOriginal<
+        typeof import('../../utils/settings-manager')
+      >();
+      return {
+        ...actual,
+        resolveInvocationRoute: () => ({
+          profileId: 'runtime',
+          profileName: 'Runtime',
+          providerType: 'custom',
+          baseUrl: 'https://api.tu-zi.com/v1',
+          apiKey: 'test-key',
+          authType: 'bearer',
+        }),
+      };
+    });
 
     const { audioAPIService, extractAudioGenerationResult } = await import('../audio-api-service');
 
@@ -260,16 +278,22 @@ describe('audio-api-service', () => {
       };
     });
 
-    vi.doMock('../../utils/settings-manager', () => ({
-      resolveInvocationRoute: () => ({
-        profileId: 'runtime',
-        profileName: 'Runtime',
-        providerType: 'custom',
-        baseUrl: 'https://api.tu-zi.com/v1',
-        apiKey: 'test-key',
-        authType: 'bearer',
-      }),
-    }));
+    vi.doMock('../../utils/settings-manager', async (importOriginal) => {
+      const actual = await importOriginal<
+        typeof import('../../utils/settings-manager')
+      >();
+      return {
+        ...actual,
+        resolveInvocationRoute: () => ({
+          profileId: 'runtime',
+          profileName: 'Runtime',
+          providerType: 'custom',
+          baseUrl: 'https://api.tu-zi.com/v1',
+          apiKey: 'test-key',
+          authType: 'bearer',
+        }),
+      };
+    });
 
     const { audioAPIService } = await import('../audio-api-service');
 
@@ -388,16 +412,22 @@ describe('audio-api-service', () => {
       };
     });
 
-    vi.doMock('../../utils/settings-manager', () => ({
-      resolveInvocationRoute: () => ({
-        profileId: 'runtime',
-        profileName: 'Runtime',
-        providerType: 'custom',
-        baseUrl: 'https://api.tu-zi.com/v1',
-        apiKey: 'test-key',
-        authType: 'bearer',
-      }),
-    }));
+    vi.doMock('../../utils/settings-manager', async (importOriginal) => {
+      const actual = await importOriginal<
+        typeof import('../../utils/settings-manager')
+      >();
+      return {
+        ...actual,
+        resolveInvocationRoute: () => ({
+          profileId: 'runtime',
+          profileName: 'Runtime',
+          providerType: 'custom',
+          baseUrl: 'https://api.tu-zi.com/v1',
+          apiKey: 'test-key',
+          authType: 'bearer',
+        }),
+      };
+    });
 
     const { audioAPIService, extractAudioGenerationResult } = await import('../audio-api-service');
 
@@ -468,16 +498,22 @@ describe('audio-api-service', () => {
       };
     });
 
-    vi.doMock('../../utils/settings-manager', () => ({
-      resolveInvocationRoute: () => ({
-        profileId: 'runtime',
-        profileName: 'Runtime',
-        providerType: 'custom',
-        baseUrl: 'https://api.tu-zi.com/v1',
-        apiKey: 'test-key',
-        authType: 'bearer',
-      }),
-    }));
+    vi.doMock('../../utils/settings-manager', async (importOriginal) => {
+      const actual = await importOriginal<
+        typeof import('../../utils/settings-manager')
+      >();
+      return {
+        ...actual,
+        resolveInvocationRoute: () => ({
+          profileId: 'runtime',
+          profileName: 'Runtime',
+          providerType: 'custom',
+          baseUrl: 'https://api.tu-zi.com/v1',
+          apiKey: 'test-key',
+          authType: 'bearer',
+        }),
+      };
+    });
 
     const { audioAPIService, extractAudioGenerationResult } = await import('../audio-api-service');
 
@@ -569,16 +605,22 @@ describe('audio-api-service', () => {
       };
     });
 
-    vi.doMock('../../utils/settings-manager', () => ({
-      resolveInvocationRoute: () => ({
-        profileId: 'runtime',
-        profileName: 'Runtime',
-        providerType: 'custom',
-        baseUrl: 'https://api.tu-zi.com/v1',
-        apiKey: 'test-key',
-        authType: 'bearer',
-      }),
-    }));
+    vi.doMock('../../utils/settings-manager', async (importOriginal) => {
+      const actual = await importOriginal<
+        typeof import('../../utils/settings-manager')
+      >();
+      return {
+        ...actual,
+        resolveInvocationRoute: () => ({
+          profileId: 'runtime',
+          profileName: 'Runtime',
+          providerType: 'custom',
+          baseUrl: 'https://api.tu-zi.com/v1',
+          apiKey: 'test-key',
+          authType: 'bearer',
+        }),
+      };
+    });
 
     const { audioAPIService, extractAudioGenerationResult } = await import('../audio-api-service');
 
@@ -653,16 +695,22 @@ describe('audio-api-service', () => {
       };
     });
 
-    vi.doMock('../../utils/settings-manager', () => ({
-      resolveInvocationRoute: () => ({
-        profileId: 'runtime',
-        profileName: 'Runtime',
-        providerType: 'custom',
-        baseUrl: 'https://api.tu-zi.com/v1',
-        apiKey: 'test-key',
-        authType: 'bearer',
-      }),
-    }));
+    vi.doMock('../../utils/settings-manager', async (importOriginal) => {
+      const actual = await importOriginal<
+        typeof import('../../utils/settings-manager')
+      >();
+      return {
+        ...actual,
+        resolveInvocationRoute: () => ({
+          profileId: 'runtime',
+          profileName: 'Runtime',
+          providerType: 'custom',
+          baseUrl: 'https://api.tu-zi.com/v1',
+          apiKey: 'test-key',
+          authType: 'bearer',
+        }),
+      };
+    });
 
     const { audioAPIService, extractAudioGenerationResult } = await import('../audio-api-service');
 

@@ -25,7 +25,7 @@ const loadWinBox = async (): Promise<any> => {
   loadingPromise = (async () => {
     try {
       // 动态导入 winbox bundle，Vite 会将其作为外部资源处理
-      // @ts-ignore
+      // @ts-expect-error - winbox bundle 无类型声明
       await import('winbox/dist/winbox.bundle.min.js');
       WinBoxConstructor = (window as any).WinBox;
       if (WinBoxConstructor) {

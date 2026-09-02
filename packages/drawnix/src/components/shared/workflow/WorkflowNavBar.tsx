@@ -1,5 +1,6 @@
 import React from 'react';
 import { History, Star } from 'lucide-react';
+import { HoverTip } from '../hover';
 import { WorkflowStepBar, type WorkflowStepConfig } from './WorkflowStepBar';
 
 export interface WorkflowNavBarProps<TStepId extends string> {
@@ -54,37 +55,39 @@ export function WorkflowNavBar<TStepId extends string>({
             steps={steps}
           />
           <div className="va-nav-actions">
-            <button
-              className={`va-nav-btn va-nav-btn--history ${
-                recordsCount > 0 ? 'has-count' : ''
-              }`}
-              onClick={onOpenHistory}
-              aria-label="history"
-              title="历史"
-            >
-              <History size={17} strokeWidth={2.2} aria-hidden="true" />
-              {recordsCount > 0 && (
-                <span className="va-nav-count">{recordsCount}</span>
-              )}
-            </button>
-            <button
-              className={`va-nav-btn va-nav-btn--starred ${
-                starredCount > 0 ? 'has-count' : ''
-              }`}
-              onClick={onOpenStarred}
-              aria-label="starred"
-              title="收藏"
-            >
-              <Star
-                size={17}
-                strokeWidth={2.2}
-                fill={starredCount > 0 ? 'currentColor' : 'none'}
-                aria-hidden="true"
-              />
-              {starredCount > 0 && (
-                <span className="va-nav-count">{starredCount}</span>
-              )}
-            </button>
+            <HoverTip content="历史">
+              <button
+                className={`va-nav-btn va-nav-btn--history ${
+                  recordsCount > 0 ? 'has-count' : ''
+                }`}
+                onClick={onOpenHistory}
+                aria-label="history"
+              >
+                <History size={17} strokeWidth={2.2} aria-hidden="true" />
+                {recordsCount > 0 && (
+                  <span className="va-nav-count">{recordsCount}</span>
+                )}
+              </button>
+            </HoverTip>
+            <HoverTip content="收藏">
+              <button
+                className={`va-nav-btn va-nav-btn--starred ${
+                  starredCount > 0 ? 'has-count' : ''
+                }`}
+                onClick={onOpenStarred}
+                aria-label="starred"
+              >
+                <Star
+                  size={17}
+                  strokeWidth={2.2}
+                  fill={starredCount > 0 ? 'currentColor' : 'none'}
+                  aria-hidden="true"
+                />
+                {starredCount > 0 && (
+                  <span className="va-nav-count">{starredCount}</span>
+                )}
+              </button>
+            </HoverTip>
           </div>
         </>
       )}

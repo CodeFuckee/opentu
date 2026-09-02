@@ -13,7 +13,7 @@ interface PathSegment {
 export class PathResolver implements IPathResolver {
   private parsePath(path: string): PathSegment[] {
     const segments: PathSegment[] = [];
-    const regex = /([^.\[\]]+)|\[(-?\d+)\]|\["([^"]+)"\]|\['([^']+)'\]/g;
+    const regex = /([^.[\]]+)|\[(-?\d+)\]|\["([^"]+)"\]|\['([^']+)'\]/g;
     let match: RegExpExecArray | null;
 
     while ((match = regex.exec(path)) !== null) {

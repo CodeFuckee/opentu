@@ -64,7 +64,7 @@ export function getAbsoluteAnchors(element: PenPath): PenAnchor[] {
 export function createPenPath(
   board: PlaitBoard,
   anchors: PenAnchor[],
-  closed: boolean = false
+  closed = false
 ): PenPath {
   // 从设置中获取样式
   const settings = getPenSettings(board);
@@ -216,7 +216,7 @@ export interface AnchorHitResult {
 export function hitTestAnchor(
   element: PenPath,
   point: Point,
-  scale: number = 1
+  scale = 1
 ): AnchorHitResult {
   const anchorRadius = ANCHOR_HIT_RADIUS / scale;
   const handleRadius = HANDLE_HIT_RADIUS / scale;
@@ -254,7 +254,7 @@ export function hitTestAnchor(
 export function isHitStartAnchor(
   element: PenPath,
   point: Point,
-  scale: number = 1
+  scale = 1
 ): boolean {
   if (element.anchors.length < 2) return false;
   const anchorRadius = ANCHOR_HIT_RADIUS / scale;

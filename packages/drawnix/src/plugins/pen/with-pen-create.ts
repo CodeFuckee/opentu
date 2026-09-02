@@ -93,7 +93,7 @@ function getPenState(board: PlaitBoard): PenCreateState {
 function checkAlignmentAndSnap(
   point: Point,
   allAnchors: PenAnchor[],
-  excludeLastAnchor: boolean = false
+  excludeLastAnchor = false
 ): { snappedPoint: Point; alignment: AlignmentInfo } {
   const alignment: AlignmentInfo = {
     horizontal: false,
@@ -221,7 +221,7 @@ function updatePreview(board: PlaitBoard) {
 /**
  * 完成路径创建
  */
-function finishPath(board: PlaitBoard, closed: boolean = false) {
+function finishPath(board: PlaitBoard, closed = false) {
   const state = getPenState(board);
 
   // 先保存锚点副本，然后立即清理预览
@@ -427,7 +427,7 @@ export const withPenCreate = (board: PlaitBoard) => {
     }
 
     const state = getPenState(board);
-    let point = toViewBoxPoint(board, toHostPoint(board, event.x, event.y)) as Point;
+    const point = toViewBoxPoint(board, toHostPoint(board, event.x, event.y)) as Point;
     
     // 检测对齐并应用磁吸（检测与所有锚点的对齐）
     // 如果正在拖拽控制柄，排除最后一个锚点（因为它是当前正在编辑的锚点）
@@ -526,7 +526,7 @@ export function cancelPenCreation(board: PlaitBoard) {
 /**
  * 导出完成创建函数（供外部调用）
  */
-export function completePenCreation(board: PlaitBoard, closed: boolean = false) {
+export function completePenCreation(board: PlaitBoard, closed = false) {
   finishPath(board, closed);
 }
 

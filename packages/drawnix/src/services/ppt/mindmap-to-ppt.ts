@@ -81,7 +81,7 @@ export function extractTextFromMindData(data: MindElement['data']): string {
  * @param depth - 当前深度（根节点为 0）
  * @returns 节点信息
  */
-export function extractMindmapStructure(element: MindElement, depth: number = 0): MindmapNodeInfo {
+export function extractMindmapStructure(element: MindElement, depth = 0): MindmapNodeInfo {
   const text = extractTextFromMindData(element.data);
 
   const children: MindmapNodeInfo[] = [];
@@ -106,7 +106,7 @@ export function extractMindmapStructure(element: MindElement, depth: number = 0)
  * @param maxDepth - 最大展开深度（相对于当前节点）
  * @returns 要点文本数组
  */
-export function flattenChildrenToBullets(children: MindmapNodeInfo[], maxDepth: number = 2): string[] {
+export function flattenChildrenToBullets(children: MindmapNodeInfo[], maxDepth = 2): string[] {
   const bullets: string[] = [];
 
   function traverse(nodes: MindmapNodeInfo[], currentDepth: number) {

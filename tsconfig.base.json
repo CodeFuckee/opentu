@@ -18,6 +18,7 @@
     "paths": {
       "@drawnix/drawnix": ["packages/drawnix/src/index.ts"],
       "@drawnix/drawnix/runtime": ["packages/drawnix/src/runtime.ts"],
+      "@drawnix/drawnix/*": ["packages/drawnix/src/*"],
       "@aitu/utils": ["packages/utils/src/index.ts"],
       "tdesign-react": ["packages/drawnix/src/utils/tdesign.ts"],
       "@plait-board/react-board": ["packages/react-board/src/index.ts"],

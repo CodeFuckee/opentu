@@ -378,7 +378,7 @@ class AsyncImageAPIService {
         return;
       }
 
-      let timeoutId: ReturnType<typeof setTimeout>;
+      let timeoutId: ReturnType<typeof setTimeout> | undefined = undefined;
       const onAbort = () => {
         clearTimeout(timeoutId);
         signal?.removeEventListener('abort', onAbort);

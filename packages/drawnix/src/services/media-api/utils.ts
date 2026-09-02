@@ -337,7 +337,7 @@ function sizeTokenToRatio(sizeToken: string): number | null {
  */
 export function normalizeToClosestImageSize(
   size?: string,
-  defaultSize: string = 'auto'
+  defaultSize = 'auto'
 ): string {
   if (!size) return defaultSize;
 
@@ -396,7 +396,7 @@ export function normalizeToClosestImageSize(
 export function normalizeToClosestVideoSize(
   size?: string,
   validSizes?: string[],
-  defaultSize: string = '1280x720'
+  defaultSize = '1280x720'
 ): string {
   if (!size) return defaultSize;
   if (!validSizes || validSizes.length === 0) return defaultSize;

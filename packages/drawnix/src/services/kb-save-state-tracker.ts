@@ -13,6 +13,12 @@ import { knowledgeSaveManager, type DirectoryType } from './kb-save-manager';
 import type { KBSaveState, KBSaveStateInfo } from '../types/knowledge-base.types';
 
 // ============================================
+// React Hook
+// ============================================
+
+import { useState, useEffect, useRef, useCallback } from 'react';
+
+// ============================================
 // 类型
 // ============================================
 
@@ -241,12 +247,6 @@ export const saveStateTracker = new SaveStateTracker();
 
 // 导出类
 export { SaveStateTracker };
-
-// ============================================
-// React Hook
-// ============================================
-
-import { useState, useEffect, useRef, useCallback } from 'react';
 
 /**
  * React Hook: 追踪内容的保存状态

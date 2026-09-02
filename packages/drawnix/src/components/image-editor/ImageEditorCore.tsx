@@ -1518,8 +1518,8 @@ const CropCanvas: React.FC<CropCanvasProps> = ({
 
     const handleMouseMove = (e: MouseEvent) => {
       // 计算屏幕坐标的移动距离
-      let screenDeltaX = (e.clientX - dragStart.x) / (displayScale * zoom);
-      let screenDeltaY = (e.clientY - dragStart.y) / (displayScale * zoom);
+      const screenDeltaX = (e.clientX - dragStart.x) / (displayScale * zoom);
+      const screenDeltaY = (e.clientY - dragStart.y) / (displayScale * zoom);
 
       // 根据旋转角度转换屏幕坐标到图片坐标
       const normalizedRotation = ((rotation % 360) + 360) % 360;

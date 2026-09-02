@@ -3,6 +3,8 @@
  */
 
 /** 稀疏向量类型 */
+import { tokenize, token2vec } from './tokenizer';
+
 export type SparseVector = Record<string, number>;
 
 /**
@@ -36,8 +38,6 @@ export function cosineSimilarity(vecA: SparseVector, vecB: SparseVector): number
  * 计算两个文本的余弦相似度
  */
 export { textSimilarity };
-
-import { tokenize, token2vec } from './tokenizer';
 
 function textSimilarity(textA: string, textB: string): number {
   const vecA = token2vec(tokenize(textA));

@@ -9,6 +9,8 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+import { deleteLocalEntities } from './delete-local';
+
 const mocks = vi.hoisted(() => ({
   loadAllBoards: vi.fn().mockResolvedValue([
     { id: 'b1', name: 'A' },
@@ -33,8 +35,6 @@ vi.mock('../workspace-service', () => ({
     getState: () => ({ currentBoardId: mocks.getCurrentBoardId() }),
   },
 }));
-
-import { deleteLocalEntities } from './delete-local';
 
 describe('deleteLocalEntities', () => {
   beforeEach(() => {

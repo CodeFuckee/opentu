@@ -105,7 +105,7 @@ export class ToolTestHelper {
   /**
    * 插入指定ID的工具
    */
-  insertToolById(toolId: string, x: number = 200, y: number = 200): void {
+  insertToolById(toolId: string, x = 200, y = 200): void {
     const board = this.getBoard();
     if (!board) return;
 

@@ -374,7 +374,7 @@ async function mergeVideosWithMediaRecorder(
 class VideoMergeWebCodecsService {
   private static instance: VideoMergeWebCodecsService;
 
-  private constructor() {}
+  private constructor() { /* 单例：禁止外部实例化 */ }
 
   static getInstance(): VideoMergeWebCodecsService {
     if (!VideoMergeWebCodecsService.instance) {

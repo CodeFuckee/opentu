@@ -127,7 +127,7 @@ export interface ValidationResult {
 export function validateSceneDurations(
   scenes: StoryboardScene[],
   totalDuration: number,
-  minDuration: number = 1
+  minDuration = 1
 ): ValidationResult {
   if (scenes.length === 0) {
     return { valid: false, error: '至少需要一个场景' };
@@ -246,7 +246,7 @@ export function isStoryboardPrompt(prompt: string): boolean {
 export function redistributeDurationsOnAdd(
   scenes: StoryboardScene[],
   totalDuration: number,
-  addedSceneIndex: number = -1
+  addedSceneIndex = -1
 ): StoryboardScene[] {
   const newSceneCount = scenes.length + 1;
   const newDurations = calculateDefaultSceneDurations(totalDuration, newSceneCount);

@@ -196,6 +196,32 @@ describe('WorkflowEngine Module', () => {
   describe('WorkflowEngine Class', () => {
     beforeEach(() => {
       vi.resetModules();
+      // 整桶 mock 重型依赖：真实 media-executor/media-generation 在 jsdom 测试环境下
+      // 模块顶层初始化会挂起（导致导入超时），此处统一替换为轻量实现。
+      vi.doMock('../media-executor', () => ({
+        executorFactory: {
+          getExecutor: async () => ({
+            name: 'Mock',
+            isAvailable: async () => true,
+            generateImage: async () => ({ url: 'mock' }),
+            generateVideo: async () => ({ url: 'mock' }),
+            aiAnalyze: async () => null,
+            generateText: async () => ({ content: 'test' }),
+          }),
+        },
+        taskStorageWriter: {
+          getTasks: async () => [],
+          saveTask: async () => {},
+          deleteTask: async () => {},
+          updateTaskStatus: async () => {},
+          archiveTasks: async () => {},
+        },
+      }));
+      vi.doMock('../media-generation', () => ({
+        generateImage: async () => ({ url: 'mock' }),
+        generateVideo: async () => ({ url: 'mock' }),
+        TaskStatus: { COMPLETED: 'completed', FAILED: 'failed', RUNNING: 'running' },
+      }));
     });
 
     it('should export WorkflowEngine class', async () => {

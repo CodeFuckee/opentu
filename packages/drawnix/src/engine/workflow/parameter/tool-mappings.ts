@@ -99,7 +99,7 @@ export function createMappingRule(
   return { source, target, ...options };
 }
 
-export function createContentMapping(targetParam: string = 'content'): MappingRule[] {
+export function createContentMapping(targetParam = 'content'): MappingRule[] {
   return [
     {
       source: '$',

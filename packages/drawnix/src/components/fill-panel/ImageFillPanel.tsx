@@ -105,7 +105,7 @@ export const ImageFillPanel: React.FC<ImageFillPanelProps> = ({
       value: string,
       min: number,
       max: number,
-      divisor: number = 1
+      divisor = 1
     ) => {
       const numValue = parseFloat(value);
       if (isNaN(numValue)) return;

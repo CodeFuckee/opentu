@@ -1023,7 +1023,7 @@ async function responseToLimitedBlob(
   let total = 0;
 
   try {
-    while (true) {
+    for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
       if (!value) continue;
@@ -1192,7 +1192,9 @@ async function resolveMediaCover(
       if (normalizedData.startsWith('data:image/')) {
         return await imageToPngCover(data, size, descriptor.kind);
       }
-    } catch {}
+    } catch {
+      /* 数据不是 base64 图片时忽略 */
+    }
   }
 
   if (!allowGeneratedCover) {
@@ -1481,7 +1483,9 @@ async function addFrameSlide(
         h: '100%',
         transparency: 70,
       });
-    } catch {}
+    } catch {
+      /* 附加失败不影响整体导出 */
+    }
   }
 
   const ordered = sortElementsByPosition(board, children as PlaitElement[]);
@@ -1516,7 +1520,9 @@ async function addFrameSlide(
         try {
           const data = await ensureBase64Image(url);
           slide.addImage({ data, x: pos.x, y: pos.y, w: pos.w, h: pos.h });
-        } catch {}
+        } catch {
+          /* 单张图片失败时跳过 */
+        }
         continue;
       }
 

@@ -57,7 +57,7 @@ export class SWChannelClient {
   // eslint-disable-next-line @typescript-eslint/no-empty-function
   private constructor() {}
 
-  private log(...args: unknown[]): void {}
+  private log(...args: unknown[]): void { /* 默认关闭日志输出 */ }
 
   private async collectSWDebugState(): Promise<Record<string, unknown>> {
     if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {

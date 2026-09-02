@@ -54,7 +54,7 @@
     setCDNApi({
       selectBestCDN: function() { return Promise.resolve(getCDNPreference()); },
       getCDNBaseUrl: function() { return null; },
-      clearCDNCache: function() {},
+      clearCDNCache: function() { /* 开发模式无 CDN 缓存可清理 */ },
       reselectCDN: function() { return Promise.resolve(getCDNPreference()); },
       sources: [],
       config: {},

@@ -318,7 +318,7 @@ function detectBackgroundColor(imageData: ImageData): { r: number; g: number; b:
 function isSimilarToBackground(
   r: number, g: number, b: number,
   bgColor: { r: number; g: number; b: number },
-  colorThreshold: number = 30
+  colorThreshold = 30
 ): boolean {
   const dr = Math.abs(r - bgColor.r);
   const dg = Math.abs(g - bgColor.g);
@@ -470,7 +470,7 @@ async function createBinaryMaskByColor(imageData: ImageData): Promise<Uint8Array
  * 形态学操作：膨胀（异步版本）
  * 用于连接相邻的前景像素
  */
-async function dilate(mask: Uint8Array, width: number, height: number, radius: number = 2): Promise<Uint8Array> {
+async function dilate(mask: Uint8Array, width: number, height: number, radius = 2): Promise<Uint8Array> {
   const result = new Uint8Array(mask.length);
   let processedPixels = 0;
 
@@ -623,8 +623,8 @@ function computeBoundingBoxes(
  */
 function mergeOverlappingBoxes(
   boxes: Array<{ x: number; y: number; width: number; height: number; area: number }>,
-  overlapThreshold: number = 0.3,
-  proximityThreshold: number = 20
+  overlapThreshold = 0.3,
+  proximityThreshold = 20
 ): Array<{ x: number; y: number; width: number; height: number }> {
   if (boxes.length === 0) return [];
 

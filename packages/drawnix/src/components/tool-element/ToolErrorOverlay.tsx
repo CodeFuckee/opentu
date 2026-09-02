@@ -63,7 +63,7 @@ const ERROR_CONFIG: Record<
 /**
  * 截断 URL 显示
  */
-const truncateUrl = (url: string, maxLength: number = 50): string => {
+const truncateUrl = (url: string, maxLength = 50): string => {
   if (url.length <= maxLength) {
     return url;
   }

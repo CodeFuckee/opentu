@@ -38,7 +38,7 @@ export function distanceToCubicBezier(
   p1: Point,
   p2: Point,
   p3: Point,
-  samples: number = 50
+  samples = 50
 ): number {
   let minDistance = Infinity;
 
@@ -104,7 +104,7 @@ function isValidPoint(point: [number, number] | undefined): boolean {
  * @param closed 是否闭合
  * @param cornerRadius 圆角半径 (0-100)
  */
-export function generatePathFromAnchors(anchors: PenAnchor[], closed: boolean, cornerRadius: number = 0): string {
+export function generatePathFromAnchors(anchors: PenAnchor[], closed: boolean, cornerRadius = 0): string {
   // 过滤掉无效的锚点
   const validAnchors = anchors.filter(anchor => isValidPoint(anchor.point));
   
@@ -521,7 +521,7 @@ function distanceToLineSegment(point: Point, start: Point, end: Point): number {
 export function getPathBoundingBox(
   anchors: PenAnchor[],
   closed: boolean,
-  padding: number = 0
+  padding = 0
 ): { x: number; y: number; width: number; height: number } {
   if (anchors.length === 0) {
     return { x: 0, y: 0, width: 0, height: 0 };
@@ -572,7 +572,7 @@ export function getPathBoundingBox(
 export function getPathSamplePoints(
   anchors: PenAnchor[],
   closed: boolean,
-  samplesPerSegment: number = 10
+  samplesPerSegment = 10
 ): Point[] {
   if (anchors.length === 0) return [];
   if (anchors.length === 1) return [anchors[0].point];

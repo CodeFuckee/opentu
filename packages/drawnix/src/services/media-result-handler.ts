@@ -103,7 +103,7 @@ export function isInspirationBoardTask(params: TaskParams): boolean {
 /**
  * 获取默认插入位置
  */
-export function getDefaultInsertionPoint(offset: number = 800): Point | undefined {
+export function getDefaultInsertionPoint(offset = 800): Point | undefined {
   const board = getCanvasBoard();
   if (!board) return undefined;
   return getInsertionPointBelowBottommostElement(board, offset);

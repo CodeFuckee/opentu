@@ -25,6 +25,7 @@ vi.mock('../../services/kv-storage-service', () => ({
   kvStorageService: {
     get: getMock,
     set: setMock,
+    isAvailable: () => true,
   },
 }));
 

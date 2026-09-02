@@ -3,6 +3,8 @@ import React from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { RetryImage } from './retry-image';
+
 vi.mock('@aitu/utils', () => ({
   normalizeImageDataUrl: (value: string) => value,
 }));
@@ -12,8 +14,6 @@ vi.mock('../services/unified-cache-service', () => ({
     getCachedBlob: vi.fn(),
   },
 }));
-
-import { RetryImage } from './retry-image';
 
 describe('RetryImage', () => {
   afterEach(() => {

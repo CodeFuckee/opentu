@@ -205,8 +205,7 @@ export const UserMessageBubble: React.FC<UserMessageBubbleProps> = ({
   }, [onPreviewImages, previewItems]);
 
   return (
-    <>
-      <div className={`user-bubble chat-message chat-message--user ${isTextOnly ? 'user-bubble--text-only' : ''} ${className}`}>
+    <div className={`user-bubble chat-message chat-message--user ${isTextOnly ? 'user-bubble--text-only' : ''} ${className}`}>
         <div className="chat-message-avatar">
           <span>👤</span>
         </div>
@@ -255,7 +254,6 @@ export const UserMessageBubble: React.FC<UserMessageBubbleProps> = ({
           )}
         </div>
       </div>
-    </>
   );
 };
 

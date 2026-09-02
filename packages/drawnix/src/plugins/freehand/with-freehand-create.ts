@@ -50,7 +50,7 @@ export const withFreehandCreate = (board: PlaitBoard) => {
 
   // 用于计算速度的上一个点和时间
   let lastPoint: Point | null = null;
-  let lastTime: number = 0;
+  let lastTime = 0;
 
   // 获取当前画笔设置（带缓存）
   const getCurrentSettings = (forceRefresh = false): NonNullable<typeof cachedSettings> => {

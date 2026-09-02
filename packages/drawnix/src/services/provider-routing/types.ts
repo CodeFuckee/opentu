@@ -20,7 +20,7 @@ export type ProviderProtocol =
   | 'kling.video'
   | 'seedance.task'
   | 'happyhorse.video'
-  | (string & {});
+  | (string & Record<never, never>);
 
 export type ProviderBindingConfidence = 'high' | 'medium' | 'low';
 

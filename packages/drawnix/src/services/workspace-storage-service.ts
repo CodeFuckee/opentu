@@ -171,7 +171,7 @@ class WorkspaceStorageService {
   private foldersStore: LocalForage | null = null;
   private boardsStore: LocalForage | null = null;
   private stateStore: LocalForage | null = null;
-  private initialized: boolean = false;
+  private initialized = false;
   private initPromise: Promise<void> | null = null;
 
   constructor() {

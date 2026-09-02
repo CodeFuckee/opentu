@@ -75,7 +75,7 @@ export function useModelHealth(): UseModelHealthResult {
     }, []);
 
     // 获取健康数据
-    const fetchData = useCallback(async (force: boolean = false) => {
+    const fetchData = useCallback(async (force = false) => {
         // 检查是否应该显示
         if (!checkShouldShow()) {
             return;

@@ -316,7 +316,7 @@ function replaceToolCallPlaceholders(
 class AgentExecutor {
   private static instance: AgentExecutor;
 
-  private constructor() {}
+  private constructor() { /* 单例：禁止外部实例化 */ }
 
   /**
    * 获取单例实例

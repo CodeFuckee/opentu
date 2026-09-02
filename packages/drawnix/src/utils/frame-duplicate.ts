@@ -312,8 +312,8 @@ export function focusFrame(board: PlaitBoard, frame: PlaitFrame): void {
 
   // 获取画布容器尺寸
   const container = PlaitBoard.getBoardContainer(board);
-  let viewportWidth = container.clientWidth;
-  let viewportHeight = container.clientHeight;
+  const viewportWidth = container.clientWidth;
+  const viewportHeight = container.clientHeight;
 
   // 获取左侧抽屉宽度（如果存在）
   const drawer = document.querySelector('.project-drawer');

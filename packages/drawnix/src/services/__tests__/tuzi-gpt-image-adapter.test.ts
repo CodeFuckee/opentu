@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  buildTuziGPTImageRequestBody,
+  tuziGPTImageAdapter,
+} from '../model-adapters/tuzi-gpt-image-adapter';
+
 const mocks = vi.hoisted(() => ({
   sendAdapterRequest: vi.fn(),
 }));
@@ -7,11 +12,6 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../model-adapters/context', () => ({
   sendAdapterRequest: mocks.sendAdapterRequest,
 }));
-
-import {
-  buildTuziGPTImageRequestBody,
-  tuziGPTImageAdapter,
-} from '../model-adapters/tuzi-gpt-image-adapter';
 
 describe('tuzi GPT image adapter', () => {
   afterEach(() => {

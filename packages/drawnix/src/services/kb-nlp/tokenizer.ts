@@ -74,7 +74,7 @@ export function tokenize(text: string, options: TokenizerOptions = {}): string[]
       ' '
     );
   });
-  processedText = processedText.replace(/[.,!?;:()[\]{}"'`~@#$%^&*+=|\\<>\-]/g, ' ');
+  processedText = processedText.replace(/[.,!?;:()[\]{}"'`~@#$%^&*+=|\\<>-]/g, ' ');
 
   const parts = processedText.split(/\s+/).filter(Boolean);
   for (const part of parts) {

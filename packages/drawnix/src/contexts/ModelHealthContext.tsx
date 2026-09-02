@@ -70,7 +70,7 @@ export const ModelHealthProvider: React.FC<{ children: React.ReactNode }> = ({ c
         return show;
     }, []);
 
-    const fetchData = useCallback(async (force: boolean = false) => {
+    const fetchData = useCallback(async (force = false) => {
         if (!checkShouldShow()) {
             return;
         }
@@ -206,8 +206,8 @@ export function useModelHealthContext(): ModelHealthContextValue {
             loading: false,
             error: null,
             shouldShowHealth: false,
-            setActiveSelections: () => {},
-            refresh: async () => {},
+            setActiveSelections: () => { /* 默认空实现，由 Provider 提供 */ },
+            refresh: async () => { /* 默认空实现，由 Provider 提供 */ },
             getHealthStatus: () => undefined,
         };
     }

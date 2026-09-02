@@ -429,8 +429,7 @@ const DirectoryNode: React.FC<DirectoryNodeProps> = ({
               <Plus size={12} />
             </button>
           </HoverTip>
-          <>
-            <HoverTip content="重命名" showArrow={false}>
+          <HoverTip content="重命名" showArrow={false}>
               <button
                 className="kb-tree__icon-btn"
                 onClick={(e) => {
@@ -452,7 +451,6 @@ const DirectoryNode: React.FC<DirectoryNodeProps> = ({
                 <Trash2 size={12} />
               </button>
             </HoverTip>
-          </>
         </div>
       </div>
 

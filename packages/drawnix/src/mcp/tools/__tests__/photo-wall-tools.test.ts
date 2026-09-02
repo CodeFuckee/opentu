@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { gridImageTool } from '../photo-wall-tool';
+import { inspirationBoardTool } from '../creative-photo-wall-tool';
+
 const { createTaskMock, retryTaskMock, getTaskMock } = vi.hoisted(() => ({
   createTaskMock: vi.fn(),
   retryTaskMock: vi.fn(),
@@ -17,9 +20,6 @@ vi.mock('../../../services/task-queue', () => ({
 vi.mock('../image-generation', () => ({
   getCurrentImageModel: () => 'gpt-image-2',
 }));
-
-import { gridImageTool } from '../photo-wall-tool';
-import { inspirationBoardTool } from '../creative-photo-wall-tool';
 
 describe('photo wall MCP tools', () => {
   beforeEach(() => {

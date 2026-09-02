@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { callGoogleGenerateContentRaw } from './apiCalls';
+
 const { sendMock, analyticsMock } = vi.hoisted(() => ({
   sendMock: vi.fn(),
   analyticsMock: {
@@ -27,8 +29,6 @@ vi.mock('../posthog-analytics', () => ({
     };
   },
 }));
-
-import { callGoogleGenerateContentRaw } from './apiCalls';
 
 describe('callGoogleGenerateContentRaw', () => {
   beforeEach(() => {

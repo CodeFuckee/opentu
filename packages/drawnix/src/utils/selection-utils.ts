@@ -65,7 +65,7 @@ export const getImageDimensionsFromUrl = (url: string): Promise<{ width: number;
 /**
  * 压缩图像URL（用于生成的图像）
  */
-export const compressImageUrl = (imageUrl: string, maxWidth: number = 512, maxHeight: number = 512, quality: number = 0.8): Promise<string> => {
+export const compressImageUrl = (imageUrl: string, maxWidth = 512, maxHeight = 512, quality = 0.8): Promise<string> => {
   return new Promise((resolve, reject) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -622,7 +622,7 @@ const createUserSpacePatternForToImage = (
 const copyFillDefsToElements = async (board: PlaitBoard, elements: PlaitElement[]): Promise<() => void> => {
   const host = PlaitBoard.getHost(board);
   const defs = host?.querySelector('defs');
-  if (!defs) return () => {};
+  if (!defs) return () => { /* 无 defs 时的空清理回调 */ };
 
   const addedDefs: { element: Element; defsClone: Element }[] = [];
 
@@ -1449,7 +1449,7 @@ export const getSmartInsertionPoint = (board: PlaitBoard, defaultPoint?: Point):
  * @param margin - 边距，点距离视口边缘的最小距离（默认 50px）
  * @returns 如果点在视口内可见则返回 true
  */
-export const isPointInViewport = (board: PlaitBoard, point: Point, margin: number = 50): boolean => {
+export const isPointInViewport = (board: PlaitBoard, point: Point, margin = 50): boolean => {
   try {
     const boardContainer = PlaitBoard.getBoardContainer(board);
     const containerRect = boardContainer.getBoundingClientRect();
@@ -1513,7 +1513,7 @@ export const scrollToPoint = (board: PlaitBoard, point: Point): void => {
  * @param point - 目标点坐标（画布坐标系）
  * @param margin - 边距检查值（默认 100px）
  */
-export const scrollToPointIfNeeded = (board: PlaitBoard, point: Point, margin: number = 100): void => {
+export const scrollToPointIfNeeded = (board: PlaitBoard, point: Point, margin = 100): void => {
   if (!isPointInViewport(board, point, margin)) {
     scrollToPoint(board, point);
   }

@@ -2,6 +2,8 @@ import { createTestingBoard } from '@plait/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setBoard } from '../shared';
 
+import { pptGenerationTool } from '../ppt-generation';
+
 const mocks = vi.hoisted(() => ({
   sendChat: vi.fn(),
 }));
@@ -31,17 +33,18 @@ vi.mock('../../../services/unified-cache-service', () => ({
 }));
 
 vi.mock('../../../utils/settings-manager', () => ({
+  LEGACY_DEFAULT_PROVIDER_PROFILE_ID: 'openai',
   settingsManager: {
-    getSetting: vi.fn(),
-    updateSettings: vi.fn(),
-    updateSetting: vi.fn(),
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    getActiveInvocationPreset: vi.fn(() => null),
-    resolveInvocationRoute: vi.fn(() => null),
-    hasInvocationRouteCredentials: vi.fn(() => false),
-    updateActiveInvocationRouteModel: vi.fn(),
-  },
+      getSetting: vi.fn(),
+      updateSettings: vi.fn(),
+      updateSetting: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      getActiveInvocationPreset: vi.fn(() => null),
+      resolveInvocationRoute: vi.fn(() => null),
+      hasInvocationRouteCredentials: vi.fn(() => false),
+      updateActiveInvocationRouteModel: vi.fn(),
+    },
   geminiSettings: {
     get: () => ({
       textModelName: 'mock-text-model',
@@ -85,8 +88,6 @@ vi.mock('../../../utils/settings-manager', () => ({
   hasInvocationRouteCredentials: vi.fn(() => false),
   updateActiveInvocationRouteModel: vi.fn(),
 }));
-
-import { pptGenerationTool } from '../ppt-generation';
 
 function createFrame(id: string, overrides: Record<string, unknown> = {}) {
   return {

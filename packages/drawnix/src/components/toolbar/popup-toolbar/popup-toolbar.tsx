@@ -1915,7 +1915,7 @@ export const PopupToolbar = () => {
                         // 检查是否为外部 URL
                         try {
                           const urlObj = new URL(url);
-                          return urlObj.origin !== location.origin;
+                          return urlObj.origin !== window.location.origin;
                         } catch {
                           return false;
                         }

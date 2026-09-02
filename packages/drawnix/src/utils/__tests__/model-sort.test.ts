@@ -19,17 +19,19 @@ function createImageModel(
 }
 
 describe('model-sort', () => {
-  it('在没有显式顺序时按版本号从新到旧排序', () => {
+  it('在没有显式顺序时，同一系列按版本号从新到旧排序', () => {
+    // 全部为同一系列（命名键相同：gemini flash image preview），
+    // 仅版本号不同，用于验证同名聚合后按新版本优先排序。
     const models = [
-      createImageModel('gemini-2.5-flash-image'),
-      createImageModel('gemini-3-pro-image-preview'),
+      createImageModel('gemini-2.5-flash-image-preview'),
+      createImageModel('gemini-3-flash-image-preview'),
       createImageModel('gemini-3.1-flash-image-preview'),
     ];
 
     expect(sortModelsByDisplayPriority(models).map((model) => model.id)).toEqual([
       'gemini-3.1-flash-image-preview',
-      'gemini-3-pro-image-preview',
-      'gemini-2.5-flash-image',
+      'gemini-3-flash-image-preview',
+      'gemini-2.5-flash-image-preview',
     ]);
   });
 
@@ -56,14 +58,20 @@ describe('model-sort', () => {
   });
 
   it('同版本时 Pro 优先于非 Pro', () => {
+    // async/vip 后缀在命名键中被忽略，两个模型命名键（gemini image preview）
+    // 与版本（3）均相同，仅 description 中的 Pro 档次不同，用于验证档位兜底排序。
     const models = [
-      createImageModel('gemini-3-flash-image-preview'),
-      createImageModel('gemini-3-pro-image-preview'),
+      createImageModel('gemini-3-image-preview-async', {
+        description: '标准版本',
+      }),
+      createImageModel('gemini-3-image-preview-vip', {
+        description: 'Pro 版本',
+      }),
     ];
 
     expect(sortModelsByDisplayPriority(models).map((model) => model.id)).toEqual([
-      'gemini-3-pro-image-preview',
-      'gemini-3-flash-image-preview',
+      'gemini-3-image-preview-vip',
+      'gemini-3-image-preview-async',
     ]);
   });
 

@@ -23,7 +23,7 @@ async function loadImage(imageUrl: string): Promise<HTMLImageElement> {
     const img = new Image();
     
     // 检查是否为外部 URL
-    const isExternalUrl = imageUrl.startsWith('http') && !imageUrl.startsWith(location.origin);
+    const isExternalUrl = imageUrl.startsWith('http') && !imageUrl.startsWith(window.location.origin);
     
     // 对于需要 Canvas 操作的图片，必须设置 crossOrigin
     img.crossOrigin = 'anonymous';
@@ -48,7 +48,7 @@ async function loadImage(imageUrl: string): Promise<HTMLImageElement> {
 /**
  * 将 Canvas 导出为 DataURL
  */
-function canvasToDataURL(canvas: HTMLCanvasElement, quality: number = 0.92): string {
+function canvasToDataURL(canvas: HTMLCanvasElement, quality = 0.92): string {
   return canvas.toDataURL('image/jpeg', quality);
 }
 

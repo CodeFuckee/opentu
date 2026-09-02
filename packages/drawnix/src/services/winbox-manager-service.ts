@@ -21,7 +21,7 @@ class WinBoxManagerService {
   private windows = new Map<string, WinBoxEntry>();
   private counter = 0;
 
-  private constructor() {}
+  private constructor() { /* 单例：禁止外部实例化 */ }
 
   static getInstance(): WinBoxManagerService {
     if (!WinBoxManagerService.instance) {

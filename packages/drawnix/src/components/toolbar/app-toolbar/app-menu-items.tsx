@@ -308,7 +308,7 @@ export const VersionInfo = () => {
   return (
     <MenuItem
       data-track="toolbar_click_menu_version"
-      onSelect={() => {}}
+      onSelect={() => { /* 版本菜单项仅展示信息 */ }}
       aria-label={t('menu.version')}
     >
       <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>

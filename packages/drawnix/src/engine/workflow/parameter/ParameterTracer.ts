@@ -22,7 +22,7 @@ export class ParameterTracer implements IParameterTracer {
   private logLevel: LogLevel = 'info';
   private currentTrace: Partial<ParameterTraceRecord> | null = null;
   private steps: Array<{ step: string; data?: unknown; timestamp: number }> = [];
-  private enabled: boolean = true;
+  private enabled = true;
 
   setLogLevel(level: LogLevel): void {
     this.logLevel = level;

@@ -16,8 +16,8 @@ const MAX_RECENT_COLORS = 10;
 /** 默认上下文值 */
 const defaultContextValue: RecentColorsContextValue = {
   recentColors: [],
-  addRecentColor: () => {},
-  clearRecentColors: () => {},
+  addRecentColor: () => { /* 默认空实现，由 Provider 提供 */ },
+  clearRecentColors: () => { /* 默认空实现，由 Provider 提供 */ },
 };
 
 /** 最近使用颜色上下文 */

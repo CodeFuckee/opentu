@@ -86,11 +86,13 @@ describe('message-utils', () => {
   });
 
   it('converts local cached image paths into data urls before sending', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(new Blob(['fake-image'], { type: 'image/png' }), {
-        status: 200,
-      }) as Response
-    );
+    // jsdom 下 `new Response(new Blob(...)).blob()` 会丢失 Blob 的
+    // image/png 类型且其产物无法被 jsdom FileReader 读取，这里直接返回
+    // jsdom 原生 Blob，与真实浏览器中 fetch 返回本机 Blob 的行为一致。
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      blob: async () => new Blob(['fake-image'], { type: 'image/png' }),
+    } as unknown as Response);
 
     const normalized = await normalizeImageUrlForMultimodalInput(
       '/__aitu_cache__/image/example.png'

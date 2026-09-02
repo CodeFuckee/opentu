@@ -233,8 +233,8 @@ function drawAlignmentGuides(
 export function drawPenPreview(
   anchors: PenAnchor[],
   currentPoint: [number, number] | null,
-  strokeColor: string = '#1890ff',
-  strokeWidth: number = 2,
+  strokeColor = '#1890ff',
+  strokeWidth = 2,
   alignment?: AlignmentInfo
 ): SVGGElement {
   const g = createG();

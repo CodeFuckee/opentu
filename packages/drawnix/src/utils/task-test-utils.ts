@@ -108,6 +108,7 @@ export function createMockTasks(): Task[] {
  */
 if (typeof window !== 'undefined') {
   (window as any).addMockTasks = () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires -- 控制台调试工具延迟加载模块
     const { taskQueueService } = require('../services/task-queue-service');
     const mockTasks = createMockTasks();
     taskQueueService.restoreTasks(mockTasks);

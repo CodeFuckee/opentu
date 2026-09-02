@@ -17,6 +17,7 @@ import {
   normalizeKnowledgeContextRefs,
 } from '../../services/generation-context-service';
 import { Z_INDEX } from '../../constants/z-index';
+import { HoverTip } from './hover';
 import './knowledge-note-context-selector.scss';
 
 export interface KnowledgeNoteContextSelectorProps {
@@ -420,19 +421,21 @@ export const KnowledgeNoteContextSelector: React.FC<
         </div>
       ) : null}
 
-      <button
-        type="button"
-        className="knowledge-note-context-selector__trigger"
-        onClick={() => !disabled && setOpen((prev) => !prev)}
-        disabled={disabled}
-        aria-expanded={open}
-        aria-label={compactState.triggerLabel}
-        title={
+      <HoverTip
+        content={
           isCompact
             ? compactState.selectedTitleText || compactState.triggerLabel
             : undefined
         }
       >
+        <button
+          type="button"
+          className="knowledge-note-context-selector__trigger"
+          onClick={() => !disabled && setOpen((prev) => !prev)}
+          disabled={disabled}
+          aria-expanded={open}
+          aria-label={compactState.triggerLabel}
+        >
         <BookOpen size={isCompact ? 18 : 15} />
         {!isCompact ? (
           <>
@@ -453,6 +456,7 @@ export const KnowledgeNoteContextSelector: React.FC<
           </span>
         ) : null}
       </button>
+      </HoverTip>
 
       {isCompact && selectedRefs.length > 0 ? (
         <div

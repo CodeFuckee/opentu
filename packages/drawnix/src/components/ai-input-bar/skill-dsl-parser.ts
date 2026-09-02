@@ -62,7 +62,7 @@ export class SkillDSLParser {
   static parse(
     content: string,
     variables: SkillDSLVariables,
-    workflowIdPrefix: string = 'skill',
+    workflowIdPrefix = 'skill',
     userInput?: string
   ): SkillParseResult | null {
     if (!content || !content.trim()) {

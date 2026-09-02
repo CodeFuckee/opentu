@@ -16,7 +16,7 @@
     "lint": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "eslint src --ext .ts,.tsx,.js,.jsx; eslint_status=$?; node ./scripts/check-hover-usage.mjs; hover_status=$?; if [ $eslint_status -ne 0 ]; then exit $eslint_status; fi; exit $hover_status",
+        "command": "eslint src --ext .ts,.tsx,.js,.jsx && node ./scripts/check-hover-usage.mjs",
         "cwd": "packages/drawnix"
       }
     }

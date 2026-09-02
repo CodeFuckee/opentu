@@ -4,6 +4,7 @@
  */
 
 import { workspaceService } from '../workspace-service';
+import { workspaceStorageService } from '../workspace-storage-service';
 import {
   ValidationError,
   WORKSPACE_DEFAULTS,
@@ -11,7 +12,11 @@ import {
 
 describe('Workspace Rename Validation', () => {
   beforeEach(async () => {
-    // 初始化工作区
+    // workspaceService 是模块级单例，状态会在测试之间残留；
+    // 先清空持久化存储再重载，确保每个测试从空工作区开始。
+    await workspaceStorageService.clearAll();
+    await workspaceService.reload();
+    // 初始化工作区（reload 不改变 initialized 标记，首次测试仍需初始化）
     await workspaceService.initialize();
   });
 

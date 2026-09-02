@@ -1,9 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../media-executor/fallback-utils', () => ({
-  cacheRemoteUrl: vi.fn(async (url: string) => url),
-}));
-
 import {
   CanvasAudioPlaybackService,
   DEFAULT_PLAYBACK_MODE,
@@ -11,6 +7,11 @@ import {
   EMPTY_AUDIO_WAVEFORM,
 } from '../canvas-audio-playback-service';
 import { ttsSettings } from '../../utils/settings-manager';
+import { createReadingPlaybackSource } from '../reading-playback-source';
+
+vi.mock('../media-executor/fallback-utils', () => ({
+  cacheRemoteUrl: vi.fn(async (url: string) => url),
+}));
 
 beforeEach(async () => {
   globalThis.localStorage?.clear?.();
@@ -22,7 +23,6 @@ beforeEach(async () => {
     voicesByLanguage: {},
   });
 });
-import { createReadingPlaybackSource } from '../reading-playback-source';
 
 class MockAudioElement extends EventTarget {
   src = '';

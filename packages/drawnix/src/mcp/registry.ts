@@ -15,7 +15,7 @@ class MCPRegistry {
   /** 是否使用 SW 执行工具（默认 true，可通过 setUseSW 切换） */
   private useSW = true;
 
-  private constructor() {}
+  private constructor() { /* 单例：禁止外部实例化 */ }
 
   /**
    * 获取单例实例

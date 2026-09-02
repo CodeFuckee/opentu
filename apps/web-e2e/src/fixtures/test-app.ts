@@ -246,7 +246,7 @@ export class DrawnixApp {
   async closeSettings() {
     const closeBtn = this.dialogs.settings.locator('[data-testid="dialog-close"]');
     await closeBtn.click();
-    await expect(this.dialogs.settings).not.toBeVisible();
+    await expect(this.dialogs.settings).toBeHidden();
   }
 
   /**
@@ -331,7 +331,7 @@ export class DrawnixApp {
   async closeTaskQueue() {
     const closeBtn = this.taskQueue.panel.locator('.side-drawer__close-btn');
     await closeBtn.click();
-    await expect(this.taskQueue.panel).not.toBeVisible();
+    await expect(this.taskQueue.panel).toBeHidden();
   }
 
   /**

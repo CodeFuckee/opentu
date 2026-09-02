@@ -363,7 +363,7 @@ export const withImagePlugin = (board: PlaitBoard) => {
       isSupportedImageFileType(clipboardData.files[0].type)
     ) {
       const imageFile = clipboardData.files[0];
-      insertImage(board, imageFile, targetPoint, false).catch(() => {});
+      insertImage(board, imageFile, targetPoint, false).catch(() => { /* 粘贴图片失败时静默忽略 */ });
       return;
     }
     insertFragment(clipboardData, targetPoint, operationType);

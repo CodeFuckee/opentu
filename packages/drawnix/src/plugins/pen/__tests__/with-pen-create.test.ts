@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlaitBoard } from '@plait/core';
 import { PenShape } from '../type';
 
+import { withPenCreate } from '../with-pen-create';
+
 const {
   insertNodeMock,
   clearSelectedElementMock,
@@ -75,8 +77,6 @@ vi.mock('../pen-settings', () => ({
     defaultAnchorType: 'smooth',
   }),
 }));
-
-import { withPenCreate } from '../with-pen-create';
 
 type TestBoard = PlaitBoard & {
   pointer: string;

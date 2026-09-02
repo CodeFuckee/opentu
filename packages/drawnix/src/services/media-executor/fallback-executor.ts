@@ -822,6 +822,7 @@ export class FallbackMediaExecutor implements IMediaExecutor {
           this.pollingTasks.delete(taskId);
         }
       } else {
+        // 非视频结果无额外轮询逻辑
       }
     } catch (error: any) {
       const elapsedTime = Date.now() - startTime;

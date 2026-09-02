@@ -149,7 +149,16 @@ function buildStaticSoraMetadata(
 
   const config = getVideoModelConfig(modelId || 'sora-2');
   const fixedDurationMatch = (modelId || '').match(FIXED_SORA_DURATION_MODEL_PATTERN);
-  const allowedDurations = config.durationOptions.map((option) => option.value);
+
+  // 前端模式模型（sora-2 / sora-2-pro）支持多档时长（10/15 或 10/15/25 秒），
+  // 但运行时模型配置只携带单个默认时长；从模型参数定义中取完整可选项。
+  const durationParam = getCompatibleParams(modelId || 'sora-2').find(
+    (param) => param.id === 'duration'
+  );
+  const allowedDurations =
+    supportsSoraFrontendMode(modelId) && durationParam?.options?.length
+      ? durationParam.options.map((option) => option.value)
+      : config.durationOptions.map((option) => option.value);
 
   return {
     allowedDurations,

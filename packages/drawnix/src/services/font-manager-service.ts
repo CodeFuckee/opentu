@@ -215,7 +215,7 @@ class FontManagerService {
    */
   async generateFontPreview(
     family: string,
-    text: string = '元旦快乐 Happy New Year',
+    text = '元旦快乐 Happy New Year',
     options: {
       width?: number;
       height?: number;

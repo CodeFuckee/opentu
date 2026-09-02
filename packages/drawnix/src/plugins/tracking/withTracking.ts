@@ -57,7 +57,7 @@ export function resetGlobalTrackingService(): void {
  * );
  * ```
  */
-export function withTracking<T extends any>(
+export function withTracking<T>(
   editor: T,
   config?: Partial<TrackConfig>
 ): T {

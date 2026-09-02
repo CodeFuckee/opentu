@@ -12,6 +12,8 @@ import type {
 } from '../types/asset.types';
 import { AssetCategory } from '../types/asset.types';
 
+import { formatFileSize as formatFileSizeUtil, formatDate as formatDateUtil } from '@aitu/utils';
+
 type SearchableAsset = Asset & {
   title?: string;
 };
@@ -211,8 +213,6 @@ export function generateAssetNameFromPrompt(
 
   return format.replace('{timestamp}', timestamp);
 }
-
-import { formatFileSize as formatFileSizeUtil, formatDate as formatDateUtil } from '@aitu/utils';
 
 /**
  * Format File Size

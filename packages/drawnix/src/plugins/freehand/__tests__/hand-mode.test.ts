@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlaitBoard } from '@plait/core';
 import { FreehandShape } from '../type';
 
+import { withFreehandCreate } from '../with-freehand-create';
+import { withFreehandErase } from '../with-freehand-erase';
+
 const { insertNodeMock, removeElementsMock } = vi.hoisted(() => ({
   insertNodeMock: vi.fn((board: TestBoard, node: unknown) => {
     board.children.push(node);
@@ -108,9 +111,6 @@ vi.mock('../../../types/frame.types', () => ({
 vi.mock('../../../interfaces/video', () => ({
   isPlaitVideo: () => false,
 }));
-
-import { withFreehandCreate } from '../with-freehand-create';
-import { withFreehandErase } from '../with-freehand-erase';
 
 type TestElement = {
   id: string;

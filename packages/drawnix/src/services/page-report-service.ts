@@ -312,9 +312,9 @@ export function initPageReport(): void {
 
     // Intercept pushState for explicit SPA navigation.
     // replaceState is often used for transient URL cleanup and should not count as a page view.
-    const originalPushState = history.pushState;
+    const originalPushState = window.history.pushState;
 
-    history.pushState = function (...args) {
+    window.history.pushState = function (...args) {
       originalPushState.apply(this, args);
       setTimeout(() => {
         trackPageView();

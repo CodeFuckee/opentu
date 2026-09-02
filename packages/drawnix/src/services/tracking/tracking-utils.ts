@@ -17,7 +17,7 @@ export class TrackingDebouncer {
   private readonly debounceTime: number;
   private readonly globalDebounceTime: number = 200; // 200ms window to prevent duplicate events
 
-  constructor(debounceTime: number = 500) {
+  constructor(debounceTime = 500) {
     this.debounceTime = debounceTime;
   }
 
@@ -28,7 +28,7 @@ export class TrackingDebouncer {
    * @param devMode - Enable debug logging
    * @returns true if should track, false if debounced
    */
-  shouldTrack(element: Element, eventName: string, devMode: boolean = false): boolean {
+  shouldTrack(element: Element, eventName: string, devMode = false): boolean {
     const now = Date.now();
 
     // First check: Global event name debounce (prevents duplicate events within 200ms)

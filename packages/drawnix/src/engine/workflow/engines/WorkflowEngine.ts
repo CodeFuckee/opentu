@@ -43,7 +43,7 @@ export class WorkflowEngine {
   private aiService: AIService;
   private toolExecutor: ToolExecutor;
   private listeners: WorkflowEventListener[] = [];
-  private isCancelled: boolean = false;
+  private isCancelled = false;
   private guard: WorkflowGuard;
   private logger: ExecutionLogger;
   private parameterMapper: ParameterMapper;
@@ -268,7 +268,7 @@ export class WorkflowEngine {
           return result;
         }
 
-        let chainOutput: string = '';
+        let chainOutput = '';
         let shouldTerminateByTool = false;
         let terminateContent = '';
         

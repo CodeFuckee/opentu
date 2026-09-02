@@ -40,11 +40,10 @@ export interface ConfirmDialogProps {
   onOpenChange?: (open: boolean) => void;
 }
 
-export interface ConfirmDialogOptions
-  extends Omit<
+export type ConfirmDialogOptions = Omit<
     ConfirmDialogProps,
     'open' | 'onConfirm' | 'onCancel' | 'onOpenChange'
-  > {}
+  >
 
 function joinClassName(...classNames: Array<string | undefined>) {
   return classNames.filter(Boolean).join(' ');

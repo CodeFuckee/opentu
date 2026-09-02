@@ -107,7 +107,7 @@ function getRoundedRectanglePoints(
   width: number,
   height: number,
   radius: number,
-  samplesPerCorner: number = 16
+  samplesPerCorner = 16
 ): Point[] {
   // 限制圆角半径不超过宽高的一半
   const r = Math.min(radius, width / 2, height / 2);
@@ -168,7 +168,7 @@ function getCapsulePoints(
   y: number,
   width: number,
   height: number,
-  samplesPerArc: number = 32
+  samplesPerArc = 32
 ): Point[] {
   const points: Point[] = [];
   const r = height / 2; // 半圆的半径
@@ -215,7 +215,7 @@ function getCapsulePoints(
 
 function getShapePolygon(
   element: PlaitDrawElement,
-  samplesPerSegment: number = 20
+  samplesPerSegment = 20
 ): Point[] {
   const points = element.points;
   if (!points || points.length < 2) return [];
@@ -375,7 +375,7 @@ function getShapePolygon(
 function elementToPolygon(
   board: PlaitBoard,
   element: PlaitElement,
-  samplesPerSegment: number = 20
+  samplesPerSegment = 20
 ): Point[] | null {
   // PenPath 元素
   if (PenPath.isPenPath(element)) {
@@ -506,7 +506,7 @@ function generateSmoothHandles(
   prev: Point,
   curr: Point,
   next: Point,
-  smoothness: number = 0.25
+  smoothness = 0.25
 ): { handleIn: Point; handleOut: Point } {
   // 计算切线方向（从前一个点到后一个点的方向）
   const tangentX = next[0] - prev[0];
@@ -550,9 +550,9 @@ function generateSmoothHandles(
  */
 function polygonToPenPath(
   points: Point[],
-  strokeColor: string = '#333333',
-  fill: string = '#FFFFFF',
-  strokeWidth: number = 2
+  strokeColor = '#333333',
+  fill = '#FFFFFF',
+  strokeWidth = 2
 ): PenPath {
   if (points.length < 3) {
     throw new Error('Polygon must have at least 3 points');

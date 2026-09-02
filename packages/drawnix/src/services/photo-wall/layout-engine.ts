@@ -468,7 +468,7 @@ export class LayoutEngine {
   calculateRequiredSize(
     elements: ImageElement[],
     style: LayoutStyle,
-    targetScale: number = 0.5
+    targetScale = 0.5
   ): { width: number; height: number } {
     const count = elements.length;
     const cols = Math.ceil(Math.sqrt(count));

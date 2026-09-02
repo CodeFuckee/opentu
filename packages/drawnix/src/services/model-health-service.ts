@@ -66,11 +66,11 @@ class ModelHealthFetcher {
     // 缓存的数据
     private cachedData: ModelHealthResponse[] = [];
     // 上次成功请求的时间
-    private lastFetchTime: number = 0;
+    private lastFetchTime = 0;
     // 当前进行中的请求 Promise（用于防止并发）
     private pendingFetch: Promise<ModelHealthResponse[]> | null = null;
 
-    private constructor() {}
+    private constructor() { /* 单例：禁止外部实例化 */ }
 
     static getInstance(): ModelHealthFetcher {
         if (!ModelHealthFetcher.instance) {
@@ -84,7 +84,7 @@ class ModelHealthFetcher {
      * @param intervalMinutes 查询的时间范围（分钟），默认 5 分钟
      * @param force 是否强制刷新（忽略缓存间隔限制）
      */
-    async fetch(intervalMinutes: number = 5, force: boolean = false): Promise<ModelHealthResponse[]> {
+    async fetch(intervalMinutes = 5, force = false): Promise<ModelHealthResponse[]> {
         const now = Date.now();
         
         // 检查是否在最小间隔内（非强制模式）

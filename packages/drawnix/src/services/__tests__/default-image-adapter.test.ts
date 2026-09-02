@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { geminiImageAdapter } from '../model-adapters/default-adapters';
+
 const mocks = vi.hoisted(() => ({
   generateImage: vi.fn(),
   generateWithPolling: vi.fn(),
@@ -31,8 +33,6 @@ vi.mock('../video-api-service', () => ({
 vi.mock('../unified-cache-service', () => ({
   unifiedCacheService: {},
 }));
-
-import { geminiImageAdapter } from '../model-adapters/default-adapters';
 
 describe('default image adapter compatibility', () => {
   afterEach(() => {

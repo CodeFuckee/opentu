@@ -3024,29 +3024,31 @@ const ComicCreator: React.FC = () => {
                 <p>{record.sourcePrompt}</p>
               </button>
               <div className="comic-history-actions">
-                <button
-                  className={`comic-history-action comic-history-star ${
-                    record.starred ? 'is-starred' : ''
-                  }`}
-                  aria-label={record.starred ? '取消收藏' : '收藏'}
-                  title={record.starred ? '取消收藏' : '收藏'}
-                  onClick={() => void handleToggleStarRecord(record)}
-                >
-                  <Star
-                    size={15}
-                    strokeWidth={2.1}
-                    fill={record.starred ? 'currentColor' : 'none'}
-                    aria-hidden="true"
-                  />
-                </button>
-                <button
-                  className="comic-history-action comic-history-delete"
-                  aria-label="删除历史"
-                  title="删除历史"
-                  onClick={() => void handleDeleteRecord(record.id)}
-                >
-                  <Trash2 size={14} />
-                </button>
+                <HoverTip content={record.starred ? '取消收藏' : '收藏'}>
+                  <button
+                    className={`comic-history-action comic-history-star ${
+                      record.starred ? 'is-starred' : ''
+                    }`}
+                    aria-label={record.starred ? '取消收藏' : '收藏'}
+                    onClick={() => void handleToggleStarRecord(record)}
+                  >
+                    <Star
+                      size={15}
+                      strokeWidth={2.1}
+                      fill={record.starred ? 'currentColor' : 'none'}
+                      aria-hidden="true"
+                    />
+                  </button>
+                </HoverTip>
+                <HoverTip content="删除历史">
+                  <button
+                    className="comic-history-action comic-history-delete"
+                    aria-label="删除历史"
+                    onClick={() => void handleDeleteRecord(record.id)}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </HoverTip>
               </div>
             </div>
           ))}

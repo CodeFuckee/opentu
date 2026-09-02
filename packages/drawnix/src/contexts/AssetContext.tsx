@@ -1122,7 +1122,7 @@ export function AssetProvider({ children }: AssetProviderProps) {
           // AI 生成的素材：删除任务 + 清理缓存
           taskQueueService.deleteTask(asset.taskId || id);
           if (asset.url) {
-            await unifiedCacheService.deleteCache(asset.url).catch((e) => {});
+            await unifiedCacheService.deleteCache(asset.url).catch((e) => { /* 删除缓存失败静默忽略 */ });
           }
         } else {
           if (cleanupTargets) {
@@ -1143,7 +1143,7 @@ export function AssetProvider({ children }: AssetProviderProps) {
             );
             await Promise.all(
               cacheOnlyUrls.map((url) =>
-                unifiedCacheService.deleteCache(url).catch((e) => {})
+                unifiedCacheService.deleteCache(url).catch((e) => { /* 删除缓存失败静默忽略 */ })
               )
             );
           } else {
@@ -1284,7 +1284,7 @@ export function AssetProvider({ children }: AssetProviderProps) {
             const asset = assets.find((a) => a.id === id);
             taskQueueService.deleteTask(asset?.taskId || id);
             if (asset?.url) {
-              await unifiedCacheService.deleteCache(asset.url).catch((e) => {});
+              await unifiedCacheService.deleteCache(asset.url).catch((e) => { /* 删除缓存失败静默忽略 */ });
             }
             await audioPlaylistService.removeAssetFromAllPlaylists(id);
             successIds.push(id);
@@ -1327,7 +1327,7 @@ export function AssetProvider({ children }: AssetProviderProps) {
             Array.from(localUrlSet)
               .filter((url) => !storedAssetUrls.has(normalizeAssetUrl(url)))
               .map((url) =>
-                unifiedCacheService.deleteCache(url).catch((e) => {})
+                unifiedCacheService.deleteCache(url).catch((e) => { /* 删除缓存失败静默忽略 */ })
               )
           );
 

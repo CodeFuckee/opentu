@@ -63,9 +63,9 @@ class LongVideoChainService {
   /** 跟踪每个批次的完成状态 */
   private batches: Map<string, LongVideoBatch> = new Map();
   /** 服务初始化时间戳，用于过滤旧任务 */
-  private initTimestamp: number = 0;
+  private initTimestamp = 0;
 
-  private constructor() {}
+  private constructor() { /* 单例：禁止外部实例化 */ }
 
   static getInstance(): LongVideoChainService {
     if (!LongVideoChainService.instance) {

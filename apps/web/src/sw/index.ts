@@ -2722,7 +2722,7 @@ async function prewarmAllIdlePrefetchGroupsForUpdateReady(): Promise<void> {
   let iteration = 0;
   let orderedGroups: string[] | null = null;
 
-  while (true) {
+  for (;;) {
     if (!orderedGroups) {
       const manifest = await getIdlePrefetchManifest();
       if (!manifest) {
@@ -6315,7 +6315,8 @@ async function handleImageRequest(request: Request): Promise<Response> {
       throw timeoutError;
     }
   } catch (error) {
-    throw error;
+    // 统一错误类型，避免异常值破坏调用方语义
+    throw error instanceof Error ? error : new Error(String(error));
   }
 }
 

@@ -50,10 +50,6 @@ import './model-benchmark-workbench.scss';
 import { HoverTip } from '../shared/hover';
 import { KnowledgeNoteContextSelector, RetryImage } from '../shared';
 
-interface ModelBenchmarkWorkbenchProps {
-  // props reserved for future use
-}
-
 type CapabilityKey =
   | 'supportsText'
   | 'supportsImage'
@@ -396,7 +392,7 @@ function buildCustomSelectionKey(profileId: string, modelId: string): string {
   return `${profileId}::${modelId}`;
 }
 
-function ModelBenchmarkWorkbench({}: ModelBenchmarkWorkbenchProps) {
+function ModelBenchmarkWorkbench() {
   const { confirm, confirmDialog } = useConfirmDialog();
   const initialRequest = useAtomValue(benchmarkLaunchAtom);
   const profiles = useProviderProfilesState();
