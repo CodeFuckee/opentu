@@ -111,3 +111,52 @@ if (undiciResponse && jsdomWinForBlob && jsdomBlobCtor) {
     });
   }
 }
+
+// 在部分 Node 版本 + jsdom 组合下，SubtleCrypto.encrypt/decrypt 对传入的
+// 缓冲区参数做 instanceof 校验会失败（"Nth argument is not instance of
+// ArrayBuffer, Buffer, TypedArray, or DataView"）。这是 settings-manager
+// 加密自检的已捕获路径，但运行时噪音可能被 vitest 计为未处理错误导致偶发
+// exit 1。这里统一把参数归一化为标准 BufferSource。
+const gWeb = globalThis as unknown as { crypto?: { subtle?: SubtleCrypto } };
+const gW = gWeb.crypto?.subtle;
+if (gW && typeof gW.decrypt === 'function') {
+  const originalDecrypt = gW.decrypt.bind(gW);
+  const originalEncrypt = gW.encrypt?.bind(gW);
+  const toBufferSource = (x: unknown): BufferSource | undefined => {
+    if (
+      x instanceof ArrayBuffer ||
+      (typeof SharedArrayBuffer !== 'undefined' && x instanceof SharedArrayBuffer) ||
+      ArrayBuffer.isView(x)
+    ) {
+      return x as BufferSource;
+    }
+    if (x == null) {
+      return undefined;
+    }
+    try {
+      return new Uint8Array(x as ArrayLike<number>);
+    } catch {
+      return undefined;
+    }
+  };
+  gW.decrypt = ((algorithm, key, data) => {
+    const norm = toBufferSource(data);
+    if (norm === undefined) {
+      throw new TypeError('invalid BufferSource');
+    }
+    return originalDecrypt(
+      algorithm,
+      key,
+      norm
+    );
+  }) as typeof gW.decrypt;
+  if (originalEncrypt) {
+    gW.encrypt = ((algorithm, key, data) => {
+      const norm = toBufferSource(data);
+      if (norm === undefined) {
+        throw new TypeError('invalid BufferSource');
+      }
+      return originalEncrypt(algorithm, key, norm);
+    }) as typeof gW.encrypt;
+  }
+}
