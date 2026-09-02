@@ -84,3 +84,30 @@ if (jsdomWinForBlob) {
     }
   }
 }
+
+// undici 的 Response.prototype.blob() 返回 undici 内部 Blob（与 jsdom 实现不同源），
+// 传入 jsdom 的 FileReader/FormData 时被 instanceof 校验拒绝。统一转换为 jsdom Blob。
+const undiciResponse = (globalThis as unknown as { Response?: unknown }).Response as
+  | (new (body?: BodyInit | null, init?: ResponseInit) => Response)
+  | undefined;
+const jsdomBlobCtor = jsdomWinForBlob?.Blob as
+  | (new (parts?: BlobPart[], options?: BlobPropertyBag) => Blob)
+  | undefined;
+if (undiciResponse && jsdomWinForBlob && jsdomBlobCtor) {
+  const originalBlob = undiciResponse.prototype.blob;
+  if (originalBlob) {
+    Object.defineProperty(undiciResponse.prototype, 'blob', {
+      value: async function blob(this: Response): Promise<Blob> {
+        const native = await originalBlob.call(this);
+        if (native instanceof jsdomBlobCtor) {
+          return native;
+        }
+        return new jsdomBlobCtor([new Uint8Array(await native.arrayBuffer())], {
+          type: native.type,
+        });
+      },
+      configurable: true,
+      writable: true,
+    });
+  }
+}
