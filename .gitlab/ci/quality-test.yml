@@ -29,6 +29,8 @@ test:frontend:
 # supabase 边缘函数单元测试（node:test；Node ≥23.6 原生支持 .ts 类型剥离）
 test:backend:
   image: node:24
+  tags:
+    - ckd-runner
   stage: test
   rules:
     - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
@@ -40,6 +42,8 @@ test:backend:
 # E2E 测试（Playwright，Playwright 官方镜像自带全部浏览器与系统依赖）
 test:e2e:
   image: mcr.microsoft.com/playwright:v1.57.0-noble
+  tags:
+    - ckd-runner
   stage: test
   variables:
     # 默认跑全量 E2E（auth-setup + smoke + visual 全视口 + features 三浏览器 +

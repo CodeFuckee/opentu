@@ -46,8 +46,13 @@ variables:
 
 # 基础环境模板（供 include 文件通过 extends 复用）：
 # Node + corepack + pnpm 安装（带 store 缓存）
+# tags 固定到 Linux docker runner（ckd-runner），避免被 Windows shell runner 拾取——
+# 该 runner 在 prepare_environment 阶段的 PowerShell 变量注入会因
+# CI_COMMIT_AUTHOR 中的 <> 与 CI_RUNNER_TAGS 中的引号/反引号报 ParserError。
 .base_env:
   image: node:20
+  tags:
+    - ckd-runner
   cache:
     key:
       files:
