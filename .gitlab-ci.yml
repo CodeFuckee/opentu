@@ -1,0 +1,68 @@
+# =============================================================================
+# Yue画布 (opentu) — GitLab CI/CD 双流水线
+# -----------------------------------------------------------------------------
+# 流水线 A（推送即触发）：代码质量检查 + 全量测试
+#   - push 到任意分支时自动运行 quality / test:frontend / test:backend / test:e2e
+#   - 不构建、不部署（防止每推一版就发布）
+#
+# 流水线 B（手动触发）：质量检查 + 全量测试 + 构建 + 部署
+#   - GitLab 页面 → CI/CD → Pipelines → "Run pipeline"（或 API 触发）
+#   - 仅 web / api 两种手动来源会创建该流水线
+#   - build 自增版本号（最末位 +1，每逢 100 进 1）→ 提交+推送+打 tag → 部署
+#
+# 需要预先在 GitLab CI/CD Variables 中配置（均可选，缺省有安全默认值）：
+#   NPM_TOKEN                可选，npm registry 认证（.npmrc 引用 ${NPM_TOKEN}）
+#   GIT_PUSH_USER            推送用用户名，默认 gitlab-ci-token（配合 CI_JOB_TOKEN）
+#   GIT_PUSH_TOKEN           推送用令牌（Deploy Token / PAT，需 write_repository）
+#   E2E_SUPABASE_URL         E2E 目标 Supabase 地址（默认 http://10.37.80.25:8021）
+#   E2E_SUPABASE_ANON_KEY    E2E 目标 Supabase anon key（默认取代码内置值）
+#   E2E_TEST_PASSWORD        E2E 测试账号统一密码（默认 E2eTest_2026!）
+#   E2E_CUSTOM_ACCOUNT/PASSWORD  可选自定义 E2E 账号
+# =============================================================================
+
+workflow:
+  rules:
+    # 推送（任意分支）→ 流水线 A：quality + 全量测试
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+    # 手动（页面 Run pipeline / API）→ 流水线 B：完整流程
+    - if: '$CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
+    - when: never
+
+stages:
+  - quality
+  - test
+  - build
+  - deploy
+
+variables:
+  # 根 package.json 声明的 pnpm 版本；corepack 会自动安装锁定版本
+  PNPM_VERSION: "10.21.0"
+  # npm registry 认证（未配置时导出为空串，避免 pnpm 因 ${NPM_TOKEN} 未定义报错）
+  NPM_TOKEN: ""
+  # 部署产物名称（与 deploy/docker-compose.yml 一致）
+  IMAGE_NAME: "yue-huabu"
+  CONTAINER_NAME: "yue-huabu"
+  HOST_PORT: "8088"
+
+# 基础环境模板（供 include 文件通过 extends 复用）：
+# Node + corepack + pnpm 安装（带 store 缓存）
+.base_env:
+  image: node:20
+  cache:
+    key:
+      files:
+        - pnpm-lock.yaml
+    paths:
+      - .pnpm-store
+  before_script:
+    - export NPM_TOKEN="${NPM_TOKEN:-}"
+    - corepack enable
+    - corepack prepare pnpm@${PNPM_VERSION} --activate
+    - pnpm config set store-dir .pnpm-store
+    - pnpm install --frozen-lockfile
+
+include:
+  # 质量检查 + 全量测试（流水线 A 与 B 共用）
+  - local: '.gitlab/ci/quality-test.yml'
+  # 构建 + 部署（仅流水线 B）
+  - local: '.gitlab/ci/release.yml'

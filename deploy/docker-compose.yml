@@ -1,0 +1,18 @@
+# 部署编排（在 tag=yx 的 GitLab runner 上执行）
+#
+# 用法（由 .gitlab-ci.yml 的 deploy 阶段调用）：
+#   docker build -t yue-huabu:<version> -t yue-huabu:latest .
+#   docker compose -f deploy/docker-compose.yml up -d --force-recreate
+#
+# 说明：
+# - image 固定为本地构建的 yue-huabu:latest，容器名 yue-huabu
+# - 宿主机端口 8088 映射到容器 80（Dockerfile EXPOSE 80）
+# - 修改端口/容器名时同步更新 .gitlab-ci.yml 中的变量
+
+services:
+  yue-huabu:
+    image: yue-huabu:latest
+    container_name: yue-huabu
+    restart: unless-stopped
+    ports:
+      - "8088:80"

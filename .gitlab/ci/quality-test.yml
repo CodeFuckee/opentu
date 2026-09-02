@@ -1,0 +1,76 @@
+# =============================================================================
+# 分支一：代码质量检查 + 全量测试
+# -----------------------------------------------------------------------------
+# 在两个流水线中都会运行：
+#   - 流水线 A（push 触发）：只跑本文件的 job（quality + 全量测试）
+#   - 流水线 B（手动触发）：先跑本文件，再执行 .gitlab/ci/release.yml
+# =============================================================================
+
+# 阶段 1：代码质量检查（typecheck + ESLint）
+quality:
+  extends: .base_env
+  stage: quality
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
+  script:
+    - pnpm check
+
+# 阶段 2：全量测试（三个 job 并行）
+
+# 前端单元测试（Vitest，nx run-many -t=test：drawnix / utils / web 等全部包）
+test:frontend:
+  extends: .base_env
+  stage: test
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
+  script:
+    - pnpm test
+
+# supabase 边缘函数单元测试（node:test；Node ≥23.6 原生支持 .ts 类型剥离）
+test:backend:
+  image: node:24
+  stage: test
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
+  before_script:
+    - export NPM_TOKEN="${NPM_TOKEN:-}"
+  script:
+    - node --test supabase/functions/*/core.test.ts
+
+# E2E 测试（Playwright，Playwright 官方镜像自带全部浏览器与系统依赖）
+test:e2e:
+  image: mcr.microsoft.com/playwright:v1.57.0-noble
+  stage: test
+  variables:
+    # 默认跑全量 E2E（auth-setup + smoke + visual 全视口 + features 三浏览器 +
+    # functional + manual 手册截图）；如要精简可覆写：
+    #   E2E_ARGS: "--project=smoke --project=functional"
+    E2E_ARGS: ""
+    E2E_SUPABASE_URL: ""
+    E2E_SUPABASE_ANON_KEY: ""
+    E2E_TEST_PASSWORD: ""
+    E2E_CUSTOM_ACCOUNT: ""
+    E2E_CUSTOM_PASSWORD: ""
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
+  before_script:
+    - export NPM_TOKEN="${NPM_TOKEN:-}"
+    - corepack enable
+    - corepack prepare pnpm@${PNPM_VERSION} --activate
+    - pnpm config set store-dir .pnpm-store
+    - pnpm install --frozen-lockfile
+    - pnpm exec playwright install --with-deps chromium firefox webkit || true
+  script:
+    # 空 E2E_ARGS => 运行 playwright.config.ts 中定义的全部 project（全量 E2E）
+    - |
+      if [ -n "${E2E_ARGS}" ]; then
+        pnpm exec nx e2e web-e2e -- ${E2E_ARGS}
+      else
+        pnpm exec nx e2e web-e2e
+      fi
+  artifacts:
+    when: always
+    expire_in: 7 days
+    paths:
+      - apps/web-e2e/playwright-report/
+      - apps/web-e2e/test-results/

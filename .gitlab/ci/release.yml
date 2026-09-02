@@ -1,0 +1,83 @@
+# =============================================================================
+# 分支二：构建 + 部署（仅手动触发的流水线 B，web / api source）
+# -----------------------------------------------------------------------------
+# 由 .gitlab-ci.yml include 引入；这两个 job 只在手动触发时运行，
+# push 触发的流水线 A 不会包含它们（见各 job 的 rules）。
+# =============================================================================
+
+# 阶段 3：构建（自增版本号 -> 构建 -> 提交 + 推送 + 打 tag）
+build:
+  extends: .base_env
+  stage: build
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
+      when: always
+    - when: never
+  script:
+    # 1. 自增版本号（最末位 +1，每逢 100 进 1），写入根 package.json
+    - node scripts/ci-bump-version.js
+    - export APP_VERSION=$(node -p "require('./package.json').version")
+    - 'echo "构建版本: v${APP_VERSION}"'
+
+    # 2. 构建全部包（pnpm build = update-version.js + nx run-many -t=build；
+    #    update-version.js 会把新版本写入 apps/web/public/version.json）
+    - pnpm build
+
+    # 3. 提交版本变更并推送（提交信息带 [ci skip]，防止触发新流水线）
+    - git config user.email "gitlab-ci@opentu.local"
+    - git config user.name "GitLab CI"
+    - git add package.json apps/web/public/version.json apps/web/index.html
+    - |
+      if git diff --cached --quiet; then
+        echo "无版本变更需提交"
+      else
+        git commit -m "chore(release): bump version to ${APP_VERSION} [ci skip]"
+      fi
+    - |
+      if [ -n "${GIT_PUSH_TOKEN}" ]; then
+        AUTH_USER="${GIT_PUSH_USER:-gitlab-ci-token}"
+        AUTH_PASS="${GIT_PUSH_TOKEN}"
+      else
+        AUTH_USER="gitlab-ci-token"
+        AUTH_PASS="${CI_JOB_TOKEN}"
+      fi
+      echo "推送用户: ${AUTH_USER}"
+    - git push "https://${AUTH_USER}:${AUTH_PASS}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" "HEAD:${CI_COMMIT_BRANCH}"
+    - git tag -a "v${APP_VERSION}" -m "release v${APP_VERSION}"
+    - git push "https://${AUTH_USER}:${AUTH_PASS}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" "v${APP_VERSION}"
+
+    # 4. 把版本号传给 deploy 阶段
+    - echo "APP_VERSION=${APP_VERSION}" >> build.env
+  artifacts:
+    expire_in: 1 week
+    reports:
+      dotenv: build.env
+
+# 阶段 4：部署（docker build + docker compose，跑在 tag=yx 的 runner 上）
+#
+# 前置要求：yx runner 必须是 shell executor，且宿主机已安装：
+#   - docker（含 buildx）
+#   - docker compose v2 插件
+# runner 上不需要任何 node/pnpm 环境（deploy 只是构建镜像并启动容器）。
+deploy:
+  stage: deploy
+  tags:
+    - yx
+  needs:
+    - build
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
+      when: always
+    - when: never
+  script:
+    # APP_VERSION 来自 build 阶段 artifacts 的 dotenv 报告（GitLab 自动注入）
+    - 'echo "部署版本: v${APP_VERSION:-unknown}"'
+    # build 阶段已把「自增版本」提交+推送；同步到该提交，确保 docker build
+    # 内部执行 pnpm build 时 package.json / version.json 携带的是新版本号
+    - git fetch origin "${CI_COMMIT_BRANCH}"
+    - git checkout -f "origin/${CI_COMMIT_BRANCH}"
+    # 拉取部署目录中的编排文件（compose 与 Dockerfile 均在仓库内）
+    - docker build -t "${IMAGE_NAME}:${APP_VERSION}" -t "${IMAGE_NAME}:latest" .
+    - docker compose -f deploy/docker-compose.yml up -d --force-recreate
+    - docker image prune -f --filter "until=24h" || true
+    - echo "部署完成：容器 ${CONTAINER_NAME} @ 宿主机 :${HOST_PORT}（version ${APP_VERSION}）"
