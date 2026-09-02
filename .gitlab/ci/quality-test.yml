@@ -67,9 +67,9 @@ test:e2e:
     - corepack prepare pnpm@${PNPM_VERSION} --activate
     - pnpm config set store-dir .pnpm-store
     - pnpm install --frozen-lockfile
-    # 官方镜像已预装浏览器与系统依赖；仅校验版本，避免 --with-deps 在 runner 上
-    # 重新跑 apt 时可能长时间挂起（曾触发 60 分钟 job 超时）。
-    - pnpm exec playwright install chromium firefox webkit || true
+    # 该 runner 为 shell executor（忽略 image），宿主机缺 Playwright 浏览器
+    # 系统依赖，需在此安装（apt + 浏览器二进制）。
+    - pnpm exec playwright install --with-deps chromium firefox webkit || true
   script:
     # 空 E2E_ARGS => 运行 playwright.config.ts 中定义的全部 project（全量 E2E）
     - |
