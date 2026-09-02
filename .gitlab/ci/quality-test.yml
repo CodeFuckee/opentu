@@ -49,10 +49,12 @@ test:e2e:
     - linux-x64
   stage: test
   variables:
-    # 默认跑全量 E2E（auth-setup + smoke + visual 全视口 + features 三浏览器 +
-    # functional + manual 手册截图）；如要精简可覆写：
-    #   E2E_ARGS: "--project=smoke --project=functional"
-    E2E_ARGS: ""
+    # push 流水线默认跑精简集（smoke + functional），保证在 2 小时 job 超时内完成；
+    # 全量 E2E（visual + features 三浏览器 + manual 等）耗时 2.5h+，不适合每次 push，
+    # 需要时通过环境变量覆写，例如：
+    #   E2E_ARGS: ""                      # 全量
+    #   E2E_ARGS: "--project=smoke --project=functional --project=visual"
+    E2E_ARGS: "--project=smoke --project=functional"
     E2E_SUPABASE_URL: ""
     E2E_SUPABASE_ANON_KEY: ""
     E2E_TEST_PASSWORD: ""
