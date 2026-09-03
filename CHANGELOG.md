@@ -27,6 +27,20 @@
 
 ### 🩹 Fixes
 
+- **CI 流水线修复（push 流水线偶发失败）**：
+  - `test:frontend`：4 个 vitest 项目默认全并发（各 ~19 workers）会让 runner 偶发
+    5s 测试超时/进程被杀（1619 首次复现，`ChatMessagesArea` / `UserMessageBubble`
+    两个动态 import 用例单独跑约 800ms、并发时超 5s）。修复：这两个用例加 30s
+    `testTimeout`、`packages/drawnix/vite.config.ts` 限制 `maxWorkers: 6`、
+    流水线改用 `nx run-many -t=test --parallel=2`，降低峰值内存与偶发失败。
+  - `test:e2e`：runner 为 shell executor（忽略 image），CI 内 `playwright install
+    --with-deps` 需在宿主机切换 root 装 apt 依赖，因 sudo 无法交互挂死 2h 超时。
+    修复：CI 移除需要 root 的安装命令（流水线不再包含任何 sudo 命令），Playwright
+    系统依赖与浏览器改为宿主机一次性 `sudo` 安装到 `/opt/ms-playwright`
+    （版本与 lockfile 一致 1.57.0，命令见 `.gitlab/ci/quality-test.yml` 注释）；
+    同时把 e2e job 用唯一标签 `yue-e2e` 钉死在 runner 22（越秀服务器）上执行，
+    依赖只装这一台机器即可；并补上 e2e job 缺失的 `.pnpm-store` GitLab 缓存
+    （此前每次全量重下 1481 个包）。
 - **CI 流水线（`pnpm check`）质量门禁修复，各项目 ESLint 0 error**：
   - 各项目 `.eslintrc.json` 的 `ignorePatterns` 此前用 `!**/*` 反忽略了
     `node_modules`/`dist`/`coverage` 及构建产物（`apps/web/public/sw-debug/*.min.js`、

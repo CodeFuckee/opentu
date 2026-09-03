@@ -18,6 +18,11 @@
 #   E2E_SUPABASE_ANON_KEY    E2E 目标 Supabase anon key（默认取代码内置值）
 #   E2E_TEST_PASSWORD        E2E 测试账号统一密码（默认 E2eTest_2026!）
 #   E2E_CUSTOM_ACCOUNT/PASSWORD  可选自定义 E2E 账号
+#
+# 前置要求：test:e2e 固定运行在带 yue-e2e 唯一标签的 runner（越秀服务器 22 号，
+# shell executor，忽略 image），宿主机需一次性 sudo 安装 Playwright 系统依赖与
+# 浏览器（具体命令见 .gitlab/ci/quality-test.yml 注释），CI 内不执行任何需要
+# root 权限的命令。
 # =============================================================================
 
 workflow:

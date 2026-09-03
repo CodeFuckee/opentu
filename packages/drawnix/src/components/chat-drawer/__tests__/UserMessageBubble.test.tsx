@@ -8,6 +8,8 @@ afterEach(() => {
 });
 
 describe('UserMessageBubble', () => {
+  // 该测试动态 import 组件模块，全量并发跑（4 个 vitest 项目 x ~19 workers）时
+  // 模块 transform 可能超过默认 5s 超时（单独跑约 800ms），放宽到 30s 防偶发。
   it('click image triggers preview callback', async () => {
     const onPreviewImages = vi.fn();
     const { UserMessageBubble } = await import('../UserMessageBubble');
@@ -44,5 +46,5 @@ describe('UserMessageBubble', () => {
       }),
     ]);
     expect(onPreviewImages.mock.calls.at(-1)?.[1]).toBe(0);
-  });
+  }, 30_000);
 });

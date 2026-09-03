@@ -18,13 +18,15 @@ quality:
 # 阶段 2：全量测试（三个 job 并行）
 
 # 前端单元测试（Vitest，nx run-many -t=test：drawnix / utils / web 等全部包）
+# 4 个 vitest 项目默认全并发（各 ~19 workers）曾在低配 runner 上偶发 5s 测试
+# 超时/进程被杀，故限 2 个并行（配合 drawnix vite.config.ts 的 maxWorkers=6）。
 test:frontend:
   extends: .base_env
   stage: test
   rules:
     - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
   script:
-    - pnpm test
+    - pnpm exec nx run-many -t=test --parallel=2
 
 # supabase 边缘函数单元测试（node:test；Node ≥23.6 原生支持 .ts 类型剥离）
 test:backend:
@@ -40,13 +42,26 @@ test:backend:
     - node --test supabase/functions/*/core.test.ts
 
 # E2E 测试（Playwright，Playwright 官方镜像自带全部浏览器与系统依赖）
-# 需要访问内网 Supabase（10.37.80.25:8021），固定运行在带 supabase 标签的
-# Linux docker runner（supabase 标签同时挂在 Windows shell runner 上，故再限定 linux-x64）
+# 需要访问内网 Supabase（10.37.80.25:8021）。yue-e2e 是 runner 22（越秀服务器，
+# shell executor，忽略 image）独有的标签，该 job 被钉死在这台机器上执行，
+# Playwright 系统依赖只需在这台宿主上装一次，换 runner 不会缺依赖。
+#
+# ⚠️ 宿主机（越秀服务器）一次性 sudo 安装（版本须与 lockfile 一致 1.57.0）：
+#   cd <任一 job 检出目录，如 /home/mdc/gitlab-runner/zzvlpMvxf/0/chenkaidi/opentu>
+#   export NPM_TOKEN=
+#   corepack enable && corepack prepare pnpm@10.21.0 --activate
+#   pnpm install --frozen-lockfile
+#   export PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
+#   sudo -E pnpm exec playwright install --with-deps chromium firefox webkit
+#   sudo chmod -R a+rX /opt/ms-playwright
+# 浏览器装在共享路径 /opt/ms-playwright（CI 通过 PLAYWRIGHT_BROWSERS_PATH 只读），
+# CI 内不含任何需要 root 权限的命令。
 test:e2e:
   image: mcr.microsoft.com/playwright:v1.57.0-noble
   tags:
     - supabase
     - linux-x64
+    - yue-e2e
   stage: test
   variables:
     # push 流水线默认跑精简集（smoke + functional），保证在 2 小时 job 超时内完成；
@@ -60,6 +75,14 @@ test:e2e:
     E2E_TEST_PASSWORD: ""
     E2E_CUSTOM_ACCOUNT: ""
     E2E_CUSTOM_PASSWORD: ""
+    # 宿主机一次性 sudo 安装的共享浏览器路径（默认路径在 runner 用户 home，sudo 装会到 /root）
+    PLAYWRIGHT_BROWSERS_PATH: "/opt/ms-playwright"
+  cache:
+    key:
+      files:
+        - pnpm-lock.yaml
+    paths:
+      - .pnpm-store
   rules:
     - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
   timeout: 2 hours
@@ -69,9 +92,6 @@ test:e2e:
     - corepack prepare pnpm@${PNPM_VERSION} --activate
     - pnpm config set store-dir .pnpm-store
     - pnpm install --frozen-lockfile
-    # 该 runner 为 shell executor（忽略 image），宿主机缺 Playwright 浏览器
-    # 系统依赖，需在此安装（apt + 浏览器二进制）。
-    - pnpm exec playwright install --with-deps chromium firefox webkit || true
   script:
     # 空 E2E_ARGS => 运行 playwright.config.ts 中定义的全部 project（全量 E2E）
     - |
