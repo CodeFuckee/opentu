@@ -38,15 +38,28 @@ export async function expectElementsCreated(page: Page) {
     .toBeGreaterThan(0);
 }
 
-/** 关闭灵感创意板（空画布时它覆盖画布并拦截绘制事件） */
+/**
+ * 关闭灵感创意板（空画布时它覆盖画布并拦截绘制事件）。
+ * 慢速宿主上板子可能带入场动画，入场完成前不可见：只检查一次可见性会漏掉，
+ * 稍后板子出现并吞掉中心区域落笔（HOSTDIAG 实测 pointerdown 命中
+ * testid=inspiration-board）。这里轮询等待板子真正消失。
+ */
 export async function dismissInspirationBoard(page: Page): Promise<void> {
   const hide = page.locator('[data-track="inspiration_click_hide"]').first();
-  if (await hide.isVisible().catch(() => false)) {
-    await hide.click({ force: true });
-    await expect(page.getByTestId('inspiration-board')).toBeHidden({
-      timeout: 5000,
-    });
+  const board = page.getByTestId('inspiration-board');
+  for (let attempt = 0; attempt < 5; attempt++) {
+    if (await hide.isVisible().catch(() => false)) {
+      await hide.click({ force: true });
+    }
+    try {
+      await expect(board).toBeHidden({ timeout: 2000 });
+      return;
+    } catch {
+      // 板子可能刚入场/重新出现，下轮再关
+      await page.waitForTimeout(300);
+    }
   }
+  await expect(board).toBeHidden({ timeout: 5000 });
 }
 
 /**

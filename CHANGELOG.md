@@ -33,12 +33,17 @@
     两个动态 import 用例单独跑约 800ms、并发时超 5s）。修复：这两个用例加 30s
     `testTimeout`、`packages/drawnix/vite.config.ts` 限制 `maxWorkers: 6`、
     流水线改用 `nx run-many -t=test --parallel=2`，降低峰值内存与偶发失败。
-  - `test:e2e` 首次在 shell runner 跑通后的 functional 失败项：画笔用例在慢速
-    shell-executor 宿主上 3/3 落笔被瞬态浮层拦截（元素数为 0，本地与矩形用例均稳定
-    通过）。修复：`apps/web-e2e/src/functional/drawing.spec.ts` 画笔用例改为
-    「落笔未生成元素则重置焦点重试，最多 5 次」，最终断言（画布出现
-    `[plait-freehand="true"]` 元素）不变；文本/云端同步用例本机为 flaky，
-    重试后通过，无需改动。
+  - `test:e2e` 首次在 shell runner 跑通后的 functional 失败项：画笔用例在
+    runner 22 上 3/3 落笔未生成元素。定位（页面 pointerdown 探针）：空画布时
+    「灵感创意板」浮层带入场动画，慢速宿主上动画晚于 dismiss 的可见性检查，
+    板子随后出现在画布中心并把中心区域 pointerdown 全部拦截（实测命中
+    `testid=inspiration-board`），画布元素数为 0。修复：
+    `apps/web-e2e/src/fixtures/canvas-helpers.ts` 的 `dismissInspirationBoard`
+    改为轮询等待板子真正隐藏（最多 5 轮）；画笔用例绘制区域移至右下方
+    （与 `cloud-sync-canvas-materials` 的 `drawFreehand` 一致，CI 上稳定），
+    并保留「未生成元素则重置焦点重试」兜底，最终断言
+    （画布出现 `[plait-freehand="true"]` 元素）不变；文本/云端同步用例为
+    flaky（重试后通过），无需改动。
   - `test:e2e`：runner 为 shell executor（忽略 image），CI 内 `playwright install
     --with-deps` 需在宿主机切换 root 装 apt 依赖，因 sudo 无法交互挂死 2h 超时。
     修复：CI 移除需要 root 的安装命令（流水线不再包含任何 sudo 命令），Playwright

@@ -4,7 +4,6 @@
  * 使用 IndexedDB 进行存储（通过 kvStorageService）
  */
 
-import { LS_KEYS_TO_MIGRATE } from '../constants/storage-keys';
 import { kvStorageService } from './kv-storage-service';
 import {
   ToolbarConfig,
@@ -18,7 +17,11 @@ import {
   moveButtonToHidden,
 } from '../types/toolbar-config.types';
 
-const STORAGE_KEY = LS_KEYS_TO_MIGRATE.TOOLBAR_CONFIG;
+// 与 constants/storage-keys 的 LS_KEYS_TO_MIGRATE.TOOLBAR_CONFIG 保持一致。
+// 不能在这里顶层读取该常量：本服务会被 vite 动态注入到 tool-windows 等
+// 动态 chunk，那里的模块执行顺序会让常量模块（storage-keys）尚未完成初始化，
+// 报 "Cannot access before initialization"（生产构建启动即崩溃）。
+const STORAGE_KEY = 'toolbar_config';
 
 // 旧版默认布局，用于迁移判断
 const LEGACY_ALL_BUTTON_IDS = [

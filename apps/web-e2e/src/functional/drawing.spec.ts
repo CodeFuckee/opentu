@@ -26,22 +26,23 @@ test.describe('绘制与编辑', () => {
     await dismissInspirationBoard(page);
 
     // 键盘 P 激活毡尖画笔（点击按钮只打开子面板，需再选笔型；键盘更稳定）。
-    // 慢速环境（shell executor 宿主）下，画笔设置面板/灵感板等瞬态浮层可能
-    // 在第一次 pointerdown 时拦截事件导致未落笔；允许重试落笔（最多 5 次），
-    // 最终断言不变：画布上必须出现带 plait-freehand 标记的自由画笔元素。
+    // 绘制区域取视口中心右下（与 cloud-sync-canvas-materials 的 drawFreehand
+    // 一致，避让画布中心区域）：慢速 shell-executor 宿主机上，中心区域首次
+    // pointerdown 偶发被吞（3/3 复现），右下区域稳定落笔。另加最多 5 次
+    // 「未生成元素则重置焦点重试」兜底，最终断言不变。
     await focusCanvasEmptyArea(page);
     const vp = page.viewportSize() || { width: 1280, height: 720 };
     for (let attempt = 0; attempt < 5; attempt++) {
       await pressToolKey(page, 'p', 'feltTipPen');
       await page.waitForTimeout(300);
 
-      const x1 = vp.width / 2 - 150;
-      const y1 = vp.height / 2 - 80;
-      const x2 = vp.width / 2 + 150;
-      const y2 = vp.height / 2 + 80;
-      await page.mouse.move(x1, y1);
+      const cx = vp.width / 2 + 200;
+      const cy = vp.height / 2 + 120;
+      await page.mouse.move(cx - 80, cy - 60);
       await page.mouse.down();
-      await page.mouse.move(x2, y2, { steps: 12 });
+      await page.mouse.move(cx, cy - 20, { steps: 6 });
+      await page.mouse.move(cx + 40, cy + 40, { steps: 6 });
+      await page.mouse.move(cx - 30, cy + 70, { steps: 6 });
       await page.mouse.up();
 
       try {
