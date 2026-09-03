@@ -5,7 +5,7 @@
 # push 触发的流水线 A 不会包含它们（见各 job 的 rules）。
 # =============================================================================
 
-# 阶段 3：构建（自增版本号 -> 构建 -> 提交 + 推送 + 打 tag）
+# 阶段 3：构建（自增版本号 -> 处理 CHANGELOG -> 构建 -> 提交 + 推送 + 打 tag）
 build:
   extends: .base_env
   stage: build
@@ -19,14 +19,19 @@ build:
     - export APP_VERSION=$(node -p "require('./package.json').version")
     - 'echo "构建版本: v${APP_VERSION}"'
 
-    # 2. 构建全部包（pnpm build = update-version.js + nx run-many -t=build；
+    # 2. 处理 CHANGELOG：
+    #    把 CHANGELOG.md 中 `## Unreleased` 段落内容归入新版本号 + 日期标题下，
+    #    然后重置 `## Unreleased` 段落为空（仅保留标题行 + 空行）
+    - node scripts/ci-changelog.js "${APP_VERSION}"
+
+    # 3. 构建全部包（pnpm build = update-version.js + nx run-many -t=build；
     #    update-version.js 会把新版本写入 apps/web/public/version.json）
     - pnpm build
 
-    # 3. 提交版本变更并推送（提交信息带 [ci skip]，防止触发新流水线）
+    # 4. 提交版本变更 + CHANGELOG 变更并推送（提交信息带 [ci skip]，防止触发新流水线）
     - git config user.email "gitlab-ci@opentu.local"
     - git config user.name "GitLab CI"
-    - git add package.json apps/web/public/version.json apps/web/index.html
+    - git add package.json apps/web/public/version.json apps/web/index.html CHANGELOG.md
     - |
       if git diff --cached --quiet; then
         echo "无版本变更需提交"
@@ -46,7 +51,7 @@ build:
     - git tag -a "v${APP_VERSION}" -m "release v${APP_VERSION}"
     - git push "https://${AUTH_USER}:${AUTH_PASS}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" "v${APP_VERSION}"
 
-    # 4. 把版本号传给 deploy 阶段
+    # 5. 把版本号传给 deploy 阶段
     - echo "APP_VERSION=${APP_VERSION}" >> build.env
   artifacts:
     expire_in: 1 week

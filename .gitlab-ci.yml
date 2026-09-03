@@ -8,7 +8,8 @@
 # 流水线 B（手动触发）：质量检查 + 全量测试 + 构建 + 部署
 #   - GitLab 页面 → CI/CD → Pipelines → "Run pipeline"（或 API 触发）
 #   - 仅 web / api 两种手动来源会创建该流水线
-#   - build 自增版本号（最末位 +1，每逢 100 进 1）→ 提交+推送+打 tag → 部署
+#   - build 自增版本号（最末位 +1，每逢 100 进 1）→ 处理 CHANGELOG（Unreleased
+#     内容归入新版本标题，重置 Unreleased 段落）→ 构建 → 提交+推送+打 tag → 部署
 #
 # 需要预先在 GitLab CI/CD Variables 中配置（均可选，缺省有安全默认值）：
 #   NPM_TOKEN                可选，npm registry 认证（.npmrc 引用 ${NPM_TOKEN}）
