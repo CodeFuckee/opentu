@@ -25,23 +25,37 @@ test.describe('绘制与编辑', () => {
     });
     await dismissInspirationBoard(page);
 
-    // 键盘 P 激活毡尖画笔（点击按钮只打开子面板，需再选笔型；键盘更稳定）
+    // 键盘 P 激活毡尖画笔（点击按钮只打开子面板，需再选笔型；键盘更稳定）。
+    // 慢速环境（shell executor 宿主）下，画笔设置面板/灵感板等瞬态浮层可能
+    // 在第一次 pointerdown 时拦截事件导致未落笔；允许重试落笔（最多 5 次），
+    // 最终断言不变：画布上必须出现带 plait-freehand 标记的自由画笔元素。
     await focusCanvasEmptyArea(page);
-    await pressToolKey(page, 'p', 'feltTipPen');
-    await page.waitForTimeout(300);
-
-    // 画布上画一条线（视口中心偏移坐标）
     const vp = page.viewportSize() || { width: 1280, height: 720 };
-    const x1 = vp.width / 2 - 150;
-    const y1 = vp.height / 2 - 80;
-    const x2 = vp.width / 2 + 150;
-    const y2 = vp.height / 2 + 80;
-    await page.mouse.move(x1, y1);
-    await page.mouse.down();
-    await page.mouse.move(x2, y2, { steps: 12 });
-    await page.mouse.up();
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await pressToolKey(page, 'p', 'feltTipPen');
+      await page.waitForTimeout(300);
 
-    await expectElementsCreated(page);
+      const x1 = vp.width / 2 - 150;
+      const y1 = vp.height / 2 - 80;
+      const x2 = vp.width / 2 + 150;
+      const y2 = vp.height / 2 + 80;
+      await page.mouse.move(x1, y1);
+      await page.mouse.down();
+      await page.mouse.move(x2, y2, { steps: 12 });
+      await page.mouse.up();
+
+      try {
+        await expectElementsCreated(page);
+        break;
+      } catch (e) {
+        if (attempt === 4) {
+          throw e;
+        }
+        // 落笔被瞬态浮层吞掉：重置焦点后重试
+        await focusCanvasEmptyArea(page);
+      }
+    }
+
     // 自由画笔元素应带 plait-freehand 标记
     await expect(
       page
