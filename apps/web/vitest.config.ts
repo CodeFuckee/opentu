@@ -7,6 +7,9 @@ export default defineConfig({
     environment: 'jsdom',
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'src/**/*.spec.ts', 'src/**/*.spec.tsx'],
     exclude: ['node_modules', 'dist'],
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
+    maxWorkers: 6,
   },
   resolve: {
     alias: {

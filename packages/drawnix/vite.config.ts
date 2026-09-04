@@ -110,6 +110,8 @@ export default defineConfig({
     // 偶发 5s 测试超时/进程被杀（如 chat-drawer 动态 import 用例）；上限 6 个
     // worker，配合流水线 nx --parallel=2 显著降低峰值内存与偶发失败。
     maxWorkers: 6,
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
     cache: {
       dir: '../../node_modules/.vitest',
     },
