@@ -31,8 +31,11 @@
   - `test:frontend`：4 个 vitest 项目默认全并发（各 ~19 workers）会让 runner 偶发
     5s 测试超时/进程被杀（1619 首次复现，`ChatMessagesArea` / `UserMessageBubble`
     两个动态 import 用例单独跑约 800ms、并发时超 5s）。修复：这两个用例加 30s
-    `testTimeout`、`packages/drawnix/vite.config.ts` 限制 `maxWorkers: 6`、
+    `testTimeout`、`packages/drawnix/vite.config.ts` 限制 `maxWorkers`、
     流水线改用 `nx run-many -t=test --parallel=2`，降低峰值内存与偶发失败。
+    （后续加固：各项目 vitest 配置补全 `testTimeout`/`hookTimeout` 30s 与
+    `maxWorkers` 上限——drawnix/web 4、utils/react-board 2，进一步压低 ckd
+    runner 上的峰值内存，消除套件尾声偶发的进程被杀。）
   - `test:e2e` 首次在 shell runner 跑通后的 functional 失败项：画笔用例在
     runner 22 上 3/3 落笔未生成元素。定位（页面 pointerdown 探针）：空画布时
     「灵感创意板」浮层带入场动画，慢速宿主上动画晚于 dismiss 的可见性检查，
