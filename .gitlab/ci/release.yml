@@ -9,6 +9,8 @@
 build:
   extends: .base_env
   stage: build
+  tags:
+    - yx
   rules:
     - if: '$CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
       when: always
