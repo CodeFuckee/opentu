@@ -11,6 +11,8 @@ build:
   stage: build
   tags:
     - yx
+  # 慢速 yx 宿主机上 pnpm 依赖 + 全量构建可能很慢，显式放宽（默认 1h 会超时）
+  timeout: 2 hours
   rules:
     - if: '$CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
       when: always
@@ -79,6 +81,8 @@ deploy:
     - yx
   needs:
     - build
+  # docker build 在慢速宿主上（含 pnpm install + 全量构建）可能超过默认 1h 超时
+  timeout: 2 hours
   rules:
     - if: '$CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
       when: always
