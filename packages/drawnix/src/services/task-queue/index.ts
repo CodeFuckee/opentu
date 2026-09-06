@@ -8,6 +8,7 @@
 // Re-export types
 // Export the main-thread task queue service
 import { taskQueueService as _service } from '../task-queue-service';
+import type { TaskQueueService } from '../task-queue-service';
 
 export type { Task, TaskStatus, TaskType, TaskEvent, GenerationParams } from '../../types/task.types';
 export { taskQueueService } from '../task-queue-service';
@@ -16,6 +17,6 @@ export { taskQueueService as legacyTaskQueueService } from '../task-queue-servic
 /**
  * Get the task queue service instance
  */
-export function getTaskQueueService() {
+export function getTaskQueueService(): TaskQueueService {
   return _service;
 }

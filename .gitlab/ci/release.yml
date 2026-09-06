@@ -49,9 +49,16 @@ build:
         AUTH_PASS="${CI_JOB_TOKEN}"
       fi
       echo "推送用户: ${AUTH_USER}"
-    - git push "https://${AUTH_USER}:${AUTH_PASS}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" "HEAD:${CI_COMMIT_BRANCH}"
+    # 实例 external_url 未携带端口（CI_SERVER_HOST/URL 均无 :509），推送地址需显式
+    # 带上实例端口；默认 509，可用 CI_PUSH_HOST_PORT 变量覆盖（host 已含端口则跳过）。
+    - |
+      case "${CI_SERVER_HOST}" in
+        *:*) PUSH_HOST="${CI_SERVER_HOST}" ;;
+        *) PUSH_HOST="${CI_SERVER_HOST}:${CI_PUSH_HOST_PORT:-509}" ;;
+      esac
+    - git push "https://${AUTH_USER}:${AUTH_PASS}@${PUSH_HOST}/${CI_PROJECT_PATH}.git" "HEAD:${CI_COMMIT_BRANCH}"
     - git tag -a "v${APP_VERSION}" -m "release v${APP_VERSION}"
-    - git push "https://${AUTH_USER}:${AUTH_PASS}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" "v${APP_VERSION}"
+    - git push "https://${AUTH_USER}:${AUTH_PASS}@${PUSH_HOST}/${CI_PROJECT_PATH}.git" "v${APP_VERSION}"
 
     # 5. 把版本号传给 deploy 阶段
     - echo "APP_VERSION=${APP_VERSION}" >> build.env

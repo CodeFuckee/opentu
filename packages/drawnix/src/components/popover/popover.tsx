@@ -33,7 +33,16 @@ export function usePopover({
   crossAxisOffset,
   open: controlledOpen,
   onOpenChange: setControlledOpen,
-}: PopoverOptions = {}) {
+}: PopoverOptions = {}): ReturnType<typeof useFloating> &
+  ReturnType<typeof useInteractions> & {
+    open: boolean;
+    setOpen: (open: boolean) => void;
+    modal?: boolean;
+    labelId: string | undefined;
+    descriptionId: string | undefined;
+    setLabelId: React.Dispatch<React.SetStateAction<string | undefined>>;
+    setDescriptionId: React.Dispatch<React.SetStateAction<string | undefined>>;
+  } {
   const [uncontrolledOpen, setUncontrolledOpen] = React.useState(initialOpen);
   const [labelId, setLabelId] = React.useState<string | undefined>();
   const [descriptionId, setDescriptionId] = React.useState<
@@ -128,7 +137,7 @@ type ContextType =
 
 const PopoverContext = React.createContext<ContextType>(null);
 
-export const usePopoverContext = () => {
+export const usePopoverContext = (): NonNullable<ContextType> => {
   const context = React.useContext(PopoverContext);
 
   if (context == null) {

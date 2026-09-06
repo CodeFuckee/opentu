@@ -23,7 +23,15 @@ export function useDialog({
   initialOpen = false,
   open: controlledOpen,
   onOpenChange: setControlledOpen,
-}: DialogOptions = {}) {
+}: DialogOptions = {}): ReturnType<typeof useFloating> &
+  ReturnType<typeof useInteractions> & {
+    open: boolean;
+    setOpen: (open: boolean) => void;
+    labelId: string | undefined;
+    descriptionId: string | undefined;
+    setLabelId: React.Dispatch<React.SetStateAction<string | undefined>>;
+    setDescriptionId: React.Dispatch<React.SetStateAction<string | undefined>>;
+  } {
   const [uncontrolledOpen, setUncontrolledOpen] = React.useState(initialOpen);
   const [labelId, setLabelId] = React.useState<string | undefined>();
   const [descriptionId, setDescriptionId] = React.useState<
@@ -74,7 +82,7 @@ type ContextType =
 
 const DialogContext = React.createContext<ContextType>(null);
 
-export const useDialogContext = () => {
+export const useDialogContext = (): NonNullable<ContextType> => {
   const context = React.useContext(DialogContext);
 
   if (context == null) {

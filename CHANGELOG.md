@@ -27,6 +27,18 @@
 
 ### 🩹 Fixes
 
+- **手动（web/api）流水线 build/deploy 修复**：
+  - `build` 阶段版本号提交/推送失败：`release.yml` 用 `${CI_SERVER_HOST}` 拼推送
+    地址，但实例 external_url 未携带端口（实际跑在 `:509`），导致
+    `fatal: repository 'https://home.chenkaidi.top/chenkaidi/opentu.git/' not
+    found`；改用 `${CI_SERVER_HOST}:${CI_PUSH_HOST_PORT:-509}`（host 已含端口则
+    不再追加），`deploy` 阶段连锁失败（拿不到 `build.env` 的 APP_VERSION）随之解决。
+  - drawnix 类型声明生成报错（`vite-plugin-dts`）清理：`popover.tsx` /
+    `dialog.tsx` 的 `usePopover`/`useDialog` 及其 Context hook 补显式返回类型
+    （消除 TS2742，不再引用深层 pnpm 路径）；`task-queue-service.ts` 导出
+    `TaskQueueService` 类、`services/task-queue/index.ts` 的
+    `getTaskQueueService()` 显式标注返回类型（消除 TS4094，"exported class
+    expression may not have private members"）。drawnix 构建与 `pnpm check` 均通过。
 - **CI 流水线修复（push 流水线偶发失败）**：
   - `test:frontend`：4 个 vitest 项目默认全并发（各 ~19 workers）会让 runner 偶发
     5s 测试超时/进程被杀（1619 首次复现，`ChatMessagesArea` / `UserMessageBubble`

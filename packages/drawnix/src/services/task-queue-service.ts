@@ -427,7 +427,7 @@ async function cacheAudioCoverUrl(
  * Task Queue Service
  * Manages task creation, updates, and lifecycle events
  */
-class TaskQueueService {
+export class TaskQueueService {
   private static instance: TaskQueueService;
   private tasks: Map<string, Task>;
   private taskUpdates$: Subject<TaskEvent>;
