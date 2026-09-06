@@ -1,5 +1,7 @@
 ## Unreleased
 
+## 1.0.9 (2026-09-07)
+
 ### 🩹 Fixes
 
 - 非安全上下文（LAN 明文 HTTP 部署）无 `crypto.subtle` 时校验和崩溃修复：
