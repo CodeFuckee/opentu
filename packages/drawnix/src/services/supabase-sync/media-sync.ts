@@ -337,13 +337,24 @@ async function cacheBlobToLocal(url: string, blob: Blob): Promise<void> {
 /** SHA-256（十六进制小写） */
 async function sha256Hex(data: ArrayBuffer): Promise<string> {
   const subtle = globalThis.crypto?.subtle;
-  if (!subtle) {
-    throw new Error('crypto.subtle is not available');
+  if (subtle) {
+    const digest = await subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(digest))
+      .map((byte) => byte.toString(16).padStart(2, '0'))
+      .join('');
   }
-  const digest = await subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('');
+  // 非安全上下文无 crypto.subtle：确定性 FNV-1a 摘要兜底（仅内容寻址用）
+  const bytes = new Uint8Array(data);
+  let h1 = 0x811c9dc5;
+  let h2 = 0x01000193;
+  for (let i = 0; i < bytes.length; i++) {
+    h1 = (h1 ^ bytes[i]) >>> 0;
+    h1 = Math.imul(h1, 0x01000193) >>> 0;
+    h2 = (h2 ^ bytes[i]) >>> 0;
+    h2 = Math.imul(h2, 0x85ebca6b) >>> 0;
+  }
+  const hex = (v: number) => v.toString(16).padStart(8, '0');
+  return `fnv${bytes.length.toString(16)}${hex(h1)}${hex(h2)}`;
 }
 
 export { collectLocalMediaUrls, resolveUsername, sanitizeUsername, mimeToExtension };

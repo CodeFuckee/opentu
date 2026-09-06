@@ -53,13 +53,26 @@ export default defineConfig({
   },
 
   /* Run your local dev server before starting the tests */
-  webServer: {
-    command: 'npx nx serve web',
-    url: 'http://localhost:7200',
-    reuseExistingServer: !process.env.CI,
-    cwd: workspaceRoot,
-    timeout: 120000,
-  },
+  // E2E_WEB_SERVER=preview 时改用生产构建 + vite preview：CI 必须跑真实打包产物，
+  // 否则只打包才会暴露的问题（如 manualChunks 环导致的顶层初始化崩溃、
+  // tool-windows chunk 启动报错）在 dev server 下永远测不出来。
+  webServer:
+    process.env.E2E_WEB_SERVER === 'preview'
+      ? {
+          command:
+            "AITU_REWRITE_ENTRY_ASSETS_TO_CDN=0 VITE_SUPABASE_URL=http://10.37.80.25:8021 VITE_SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg4MTAyMzUyLCJleHAiOjIxMDM0NjIzNTJ9.nQP_hdmnIbCgVfsxlq6TTuRo_FKVYdrRaIDmKViiEBc' pnpm exec nx build web && pnpm exec vite preview --config apps/web/vite.config.ts --port 7200 --strictPort",
+          url: 'http://localhost:7200',
+          reuseExistingServer: true,
+          cwd: workspaceRoot,
+          timeout: 600000,
+        }
+      : {
+          command: 'npx nx serve web',
+          url: 'http://localhost:7200',
+          reuseExistingServer: !process.env.CI,
+          cwd: workspaceRoot,
+          timeout: 120000,
+        },
 
   projects: [
     // 认证 setup - 先注册一次性测试账号并登录，保存会话供其它项目复用

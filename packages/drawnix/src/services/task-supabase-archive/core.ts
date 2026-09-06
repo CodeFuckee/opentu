@@ -162,13 +162,25 @@ export function buildStoragePath(
  */
 export async function sha256Hex(data: BufferSource): Promise<string> {
   const subtle = globalThis.crypto?.subtle;
-  if (!subtle) {
-    throw new Error('crypto.subtle is not available');
+  if (subtle) {
+    const digest = await subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(digest))
+      .map((byte) => byte.toString(16).padStart(2, '0'))
+      .join('');
   }
-  const digest = await subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('');
+  // 非安全上下文（LAN 明文 HTTP）无 crypto.subtle：确定性 FNV-1a 摘要兜底
+  // （仅用于内容寻址/去重，非安全用途）
+  const bytes = new Uint8Array(data as ArrayBuffer);
+  let h1 = 0x811c9dc5;
+  let h2 = 0x01000193;
+  for (let i = 0; i < bytes.length; i++) {
+    h1 = (h1 ^ bytes[i]) >>> 0;
+    h1 = Math.imul(h1, 0x01000193) >>> 0;
+    h2 = (h2 ^ bytes[i]) >>> 0;
+    h2 = Math.imul(h2, 0x85ebca6b) >>> 0;
+  }
+  const hex = (v: number) => v.toString(16).padStart(8, '0');
+  return `fnv${bytes.length.toString(16)}${hex(h1)}${hex(h2)}`;
 }
 
 /**

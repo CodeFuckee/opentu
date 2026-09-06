@@ -127,7 +127,26 @@ export async function blobToDataUrl(blob: Blob): Promise<string> {
  */
 export async function calculateBlobChecksum(blob: Blob): Promise<string> {
   const arrayBuffer = await blob.arrayBuffer();
-  const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  const subtle = globalThis.crypto?.subtle;
+  if (subtle) {
+    const hashBuffer = await subtle.digest('SHA-256', arrayBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  }
+  // 非安全上下文（LAN 明文 HTTP 等）没有 crypto.subtle：
+  // 退化为确定性 FNV-1a（双 32 位通道 + 长度，128 位表达），
+  // 仅用于本地缓存内容寻址，不做安全用途。
+  const bytes = new Uint8Array(arrayBuffer);
+  let h1 = 0x811c9dc5;
+  let h2 = 0x01000193;
+  const PRIME1 = 0x01000193;
+  const PRIME2 = 0x85ebca6b;
+  for (let i = 0; i < bytes.length; i++) {
+    h1 = (h1 ^ bytes[i]) >>> 0;
+    h1 = Math.imul(h1, PRIME1) >>> 0;
+    h2 = (h2 ^ bytes[i]) >>> 0;
+    h2 = Math.imul(h2, PRIME2) >>> 0;
+  }
+  const hex = (v: number) => v.toString(16).padStart(8, '0');
+  return `fnv${bytes.length.toString(16)}${hex(h1)}${hex(h2)}`;
 }

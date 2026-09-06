@@ -7,6 +7,7 @@ import {
   pureBase64ToBlob,
   dataUrlToBlob,
   blobToDataUrl,
+  calculateBlobChecksum,
 } from './index';
 
 describe('blobToBase64', () => {
@@ -130,5 +131,37 @@ describe('roundtrip conversions', () => {
 
     expect(restored.size).toBe(original.size);
     expect(await readBlobAsText(restored)).toBe(await readBlobAsText(original));
+  });
+});
+
+describe('calculateBlobChecksum 非安全上下文降级', () => {
+  // jsdom 的 Blob 没有 arrayBuffer()，用带 arrayBuffer 的桩对象模拟
+  const makeContentBlob = (text: string) =>
+    ({
+      arrayBuffer: async () =>
+        new TextEncoder().encode(text).buffer as ArrayBuffer,
+    }) as unknown as Blob;
+
+  it('无 crypto.subtle 时返回确定性 FNV 摘要（同内容相同、异内容不同）', async () => {
+    const originalSubtle = globalThis.crypto?.subtle;
+    // 模拟非安全上下文（LAN 明文 HTTP 等没有 crypto.subtle）
+    Object.defineProperty(globalThis.crypto, 'subtle', {
+      configurable: true,
+      value: undefined,
+    });
+    try {
+      const hashA = await calculateBlobChecksum(makeContentBlob('hello world'));
+      const hashB = await calculateBlobChecksum(makeContentBlob('hello world'));
+      const hashC = await calculateBlobChecksum(makeContentBlob('hello world!'));
+
+      expect(hashA).toMatch(/^fnv[0-9a-f]+$/);
+      expect(hashB).toBe(hashA);
+      expect(hashC).not.toBe(hashA);
+    } finally {
+      Object.defineProperty(globalThis.crypto, 'subtle', {
+        configurable: true,
+        value: originalSubtle,
+      });
+    }
   });
 });
