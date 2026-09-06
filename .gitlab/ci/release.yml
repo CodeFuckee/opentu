@@ -96,6 +96,11 @@ deploy:
     - git checkout -f "origin/${CI_COMMIT_BRANCH}"
     # 拉取部署目录中的编排文件（compose 与 Dockerfile 均在仓库内）
     - docker build -t "${IMAGE_NAME}:${APP_VERSION}" -t "${IMAGE_NAME}:latest" .
+    # 释放旧容器占用的 8088 端口（同名容器/旧 compose 项目可能仍占着，否则
+    # `up --force-recreate` 会报 "Bind for 0.0.0.0:8088 failed: port is already
+    # allocated"）
+    - docker rm -f "${CONTAINER_NAME}" 2>/dev/null || true
+    - docker compose -f deploy/docker-compose.yml down --remove-orphans || true
     - docker compose -f deploy/docker-compose.yml up -d --force-recreate
     - docker image prune -f --filter "until=24h" || true
     - echo "部署完成：容器 ${CONTAINER_NAME} @ 宿主机 :${HOST_PORT}（version ${APP_VERSION}）"
