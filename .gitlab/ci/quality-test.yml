@@ -18,15 +18,15 @@ quality:
 # 阶段 2：全量测试（三个 job 并行）
 
 # 前端单元测试（Vitest，nx run-many -t=test：drawnix / utils / web 等全部包）
-# 4 个 vitest 项目默认全并发（各 ~19 workers）曾在低配 runner 上偶发 5s 测试
-# 超时/进程被杀，故限 2 个并行（配合 drawnix vite.config.ts 的 maxWorkers=6）。
+# 4 个 vitest 项目并发（各 maxWorkers 4/2）在 ckd runner 上仍偶发套件尾声进程被杀
+# （OOM 类），改为 1 个并行跑，峰值内存再减半（配合各项目 vitest maxWorkers 上限）。
 test:frontend:
   extends: .base_env
   stage: test
   rules:
     - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
   script:
-    - pnpm exec nx run-many -t=test --parallel=2
+    - pnpm exec nx run-many -t=test --parallel=1
 
 # supabase 边缘函数单元测试（node:test；Node ≥23.6 原生支持 .ts 类型剥离）
 test:backend:

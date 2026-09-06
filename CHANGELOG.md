@@ -40,6 +40,9 @@
     `getTaskQueueService()` 显式标注返回类型（消除 TS4094，"exported class
     expression may not have private members"）。drawnix 构建与 `pnpm check` 均通过。
 - **CI 流水线修复（push 流水线偶发失败）**：
+  - `test:frontend` 再加固：4 个 vitest 项目并发（各 maxWorkers 4/2）在 ckd
+    runner 上仍偶发套件尾声进程被杀（OOM 类，与 1619 同签名），流水线改为
+    `nx run-many -t=test --parallel=1` 串行跑项目，峰值内存再减半。
   - `test:frontend`：4 个 vitest 项目默认全并发（各 ~19 workers）会让 runner 偶发
     5s 测试超时/进程被杀（1619 首次复现，`ChatMessagesArea` / `UserMessageBubble`
     两个动态 import 用例单独跑约 800ms、并发时超 5s）。修复：这两个用例加 30s
