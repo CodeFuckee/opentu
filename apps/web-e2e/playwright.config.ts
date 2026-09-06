@@ -60,11 +60,19 @@ export default defineConfig({
     process.env.E2E_WEB_SERVER === 'preview'
       ? {
           command:
-            "AITU_REWRITE_ENTRY_ASSETS_TO_CDN=0 VITE_SUPABASE_URL=http://10.37.80.25:8021 VITE_SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg4MTAyMzUyLCJleHAiOjIxMDM0NjIzNTJ9.nQP_hdmnIbCgVfsxlq6TTuRo_FKVYdrRaIDmKViiEBc' pnpm exec nx build web && pnpm exec vite preview --config apps/web/vite.config.ts --port 7200 --strictPort",
+            'pnpm exec nx build web && pnpm exec vite preview --config apps/web/vite.config.ts --port 7200 --strictPort',
           url: 'http://localhost:7200',
           reuseExistingServer: true,
           cwd: workspaceRoot,
           timeout: 600000,
+          // 显式注入构建环境：禁用 CDN 入口改写、钉死内网 Supabase 地址，
+          // 覆盖本机 gitignored apps/web/.env（避免烘焙 https/生产地址导致登录失败）
+          env: {
+            AITU_REWRITE_ENTRY_ASSETS_TO_CDN: '0',
+            VITE_SUPABASE_URL: 'http://10.37.80.25:8021',
+            VITE_SUPABASE_ANON_KEY:
+              'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg4MTAyMzUyLCJleHAiOjIxMDM0NjIzNTJ9.nQP_hdmnIbCgVfsxlq6TTuRo_FKVYdrRaIDmKViiEBc',
+          },
         }
       : {
           command: 'npx nx serve web',

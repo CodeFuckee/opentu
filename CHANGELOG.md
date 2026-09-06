@@ -1,5 +1,14 @@
 ## Unreleased
 
+### 🩹 Fixes
+
+- 非安全上下文（LAN 明文 HTTP 部署）无 `crypto.subtle` 时校验和崩溃修复：
+  `@aitu/utils` 的 `calculateBlobChecksum`、`asset-storage-service`、任务归档
+  `task-supabase-archive/core` 与 supabase `media-sync`/`media-sync-adapter` 的
+  SHA-256 摘要统一在 `crypto.subtle` 缺失时降级为确定性 FNV-1a 摘要（仅用于内容
+  寻址/去重），修复在画布添加图片、素材上传、云同步媒体上传时的
+  `reading 'digest' of undefined` 崩溃；`@aitu/utils` 补回归测试。
+
 ## 1.0.1 (2026-09-06)
 
 ### 🚀 Features

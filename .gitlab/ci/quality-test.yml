@@ -81,9 +81,6 @@ test:e2e:
     E2E_CUSTOM_PASSWORD: ""
     # 宿主机一次性 sudo 安装的共享浏览器路径（默认路径在 runner 用户 home，sudo 装会到 /root）
     PLAYWRIGHT_BROWSERS_PATH: "/opt/ms-playwright"
-    # E2E 跑「生产构建 + vite preview」而非 dev server：只打包才暴露的问题
-    # （manualChunks 环崩溃、tool-windows chunk 初始化错乱等）必须在 CI 被拦截
-    E2E_WEB_SERVER: "preview"
   cache:
     key:
       files:
