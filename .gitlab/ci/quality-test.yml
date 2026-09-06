@@ -23,6 +23,10 @@ quality:
 test:frontend:
   extends: .base_env
   stage: test
+  variables:
+    # 每个 vitest worker 堆上限 1.5GB，避免 ckd runner 上多 worker 峰值内存
+    # 触发 OOM（套件尾声偶发进程被杀）
+    NODE_OPTIONS: "--max-old-space-size=1536"
   rules:
     - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
   script:

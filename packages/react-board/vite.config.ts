@@ -49,7 +49,7 @@ export default defineConfig({
 
   test: {
     globals: true,
-    maxWorkers: 2,
+    maxWorkers: 1,
     testTimeout: 30_000,
     hookTimeout: 30_000,
     cache: {
