@@ -88,6 +88,14 @@ test:e2e:
   timeout: 2 hours
   before_script:
     - export NPM_TOKEN="${NPM_TOKEN:-}"
+    - |
+      # 释放可能残留的 dev server：被取消/超时的旧 e2e job 可能遗留
+      # `nx serve web` 占用 7200，导致本 job 报
+      # "http://localhost:7200 is already used"
+      for pid in $(ss -ltnp 2>/dev/null | sed -n 's/.*:7200 .*pid=\([0-9]*\).*/\1/p' | sort -u); do
+        kill -9 "${pid}" 2>/dev/null || true
+      done
+      sleep 1
     - corepack enable
     - corepack prepare pnpm@${PNPM_VERSION} --activate
     - pnpm config set store-dir .pnpm-store
