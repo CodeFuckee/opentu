@@ -16,6 +16,10 @@ import { Trash2, RotateCcw, EyeOff } from 'lucide-react';
 import type { WorkflowMessageData } from '../../types/chat.types';
 import { ConfirmDialog } from '../dialog/ConfirmDialog';
 import { HoverTip } from '../shared/hover';
+// 静态导入 swChannelClient（低层启动级单例）：原动态 import 会让该模块被并入
+// ai-chat 分组 chunk，形成 tool-windows → ai-chat 的动态 chunk 环，导致生产构建
+// tool-windows chunk 顶层初始化顺序错乱（启动即报错）。静态导入不改变行为。
+import { swChannelClient } from '../../services/sw-channel/client';
 import './workzone-content.scss';
 
 // 状态图标映射
@@ -138,11 +142,6 @@ export const WorkZoneContent: React.FC<WorkZoneContentProps> = ({
         }
 
         // 尝试通过 SW claim
-        const { swChannelClient } = await import(
-          '../../services/sw-channel/client'
-        );
-
-        // 快速检查 SW 是否可用（不再等待 5 秒）
         if (!swChannelClient.isInitialized()) {
           const resumed =
             await workflowSubmissionService.resumeWorkflowWithFallback(

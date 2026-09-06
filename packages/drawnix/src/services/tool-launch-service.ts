@@ -6,6 +6,11 @@ import {
 import { MUSIC_PLAYER_TOOL_ID } from '../tools/tool-ids';
 import type { ToolDefinition } from '../types/toolbox.types';
 import type { ReadingPlaybackSource } from './reading-playback-source';
+// 静态导入 toolWindowService：该单例由懒加载运行时提供，但这里改静态导入以
+// 打破 ai-chat ↔ tool-windows 之间的动态 chunk 环（动态环会导致生产构建里
+// tool-windows chunk 顶层模块初始化顺序错乱，报 "reading 'isHotkey' of
+// undefined"，应用启动即失败）。调用都在函数内，静态导入不改变行为。
+import { toolWindowService } from './tool-window-service';
 
 type MusicPlayerSource = CanvasAudioPlaybackSource | ReadingPlaybackSource;
 
@@ -21,7 +26,6 @@ export async function openMusicPlayerTool(): Promise<boolean> {
     defaultHeight: 640,
   };
 
-  const { toolWindowService } = await import('./tool-window-service');
   toolWindowService.openTool(tool, { autoPin: true });
   return true;
 }

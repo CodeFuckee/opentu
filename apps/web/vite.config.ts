@@ -592,7 +592,14 @@ function resolveIdlePrefetchGroup(id: string): IdlePrefetchGroup | undefined {
     normalizedId.includes('/packages/drawnix/src/types/chat.types') ||
     normalizedId.includes('/packages/drawnix/src/types/chat-ui.types')
   ) {
-    return 'ai-chat';
+    // 聊天抽屉与工具箱运行时存在大量跨组静态引用（chat.types / chat-storage /
+    // tool-window-service / app-database 等相互可达），分别拆成 ai-chat 与
+    // tool-windows 两个 manual chunk 会形成「静态 chunk 环」（rollup 报
+    // "Circular chunk: tool-windows -> ai-chat -> tool-windows"），chunk 内
+    // 模块排序被打乱，生产构建 tool-windows chunk 顶层先执行、读到未初始化的
+    // 绑定（如 is-hotkey 的 "reading 'isHotkey' of undefined"），应用启动即崩。
+    // 合并到同一个桶后由 rollup 正常拓扑排序，问题消除（加载仍是按需/延后）。
+    return 'tool-windows';
   }
 
   if (

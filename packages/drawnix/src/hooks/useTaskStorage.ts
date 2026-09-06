@@ -20,6 +20,10 @@ import {
   TaskExecutionPhase,
 } from '../types/task.types';
 import { isResumableAsyncImageTask } from '../utils/task-utils';
+// 静态导入（原动态 import 会让 app-database 被并入 ai-chat 分组 chunk，形成
+// tool-windows → ai-chat 的动态 chunk 环，导致生产构建顶层初始化顺序错乱、
+// 应用启动报错）。app-database 是低层数据库模块，静态导入无副作用。
+import { migrateFromLegacyDB } from '../services/app-database';
 
 // Global flag to prevent multiple initializations (persists across HMR)
 let initializationStarted = false;
@@ -65,7 +69,6 @@ export function useTaskStorage(): boolean {
         // 数据迁移：从旧 sw-task-queue 数据库迁移到 aitu-app（一次性）
         // 必须在 taskStorageReader.getAllTasks() 之前完成，
         // 否则读取 aitu-app 时数据还在 sw-task-queue 中，导致首次打开为空
-        const { migrateFromLegacyDB } = await import('../services/app-database');
         await migrateFromLegacyDB();
 
         // Load tasks from IndexedDB (aitu-app)
