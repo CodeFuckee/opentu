@@ -15,6 +15,7 @@ import {
   pressToolKey,
   selectCenterElement,
   deleteSelectedElement,
+  warmUpCanvasRuntime,
 } from '../fixtures/canvas-helpers';
 
 test.describe('绘制与编辑', () => {
@@ -24,6 +25,8 @@ test.describe('绘制与编辑', () => {
       timeout: 15000,
     });
     await dismissInspirationBoard(page);
+    // 预热画布懒加载 chunk（生产构建首绘需加载，刷新后浏览器缓存已热）
+    await warmUpCanvasRuntime(page);
 
     // 键盘 P 激活毡尖画笔（点击按钮只打开子面板，需再选笔型；键盘更稳定）。
     // 绘制区域取视口中心右下（与 cloud-sync-canvas-materials 的 drawFreehand
@@ -80,6 +83,8 @@ test.describe('绘制与编辑', () => {
       timeout: 15000,
     });
     await dismissInspirationBoard(page);
+    // 预热画布懒加载 chunk（生产构建首绘需加载，刷新后浏览器缓存已热）
+    await warmUpCanvasRuntime(page);
 
     await drawRectangle(page);
 
@@ -107,6 +112,8 @@ test.describe('绘制与编辑', () => {
       timeout: 15000,
     });
     await dismissInspirationBoard(page);
+    // 预热画布懒加载 chunk（生产构建首绘需加载，刷新后浏览器缓存已热）
+    await warmUpCanvasRuntime(page);
 
     // 文本工具（radio 需点击容器切换）
     const textRadio = page.getByRole('radio', { name: /文本/ }).first();
@@ -136,6 +143,8 @@ test.describe('绘制与编辑', () => {
       timeout: 15000,
     });
     await dismissInspirationBoard(page);
+    // 预热画布懒加载 chunk（生产构建首绘需加载，刷新后浏览器缓存已热）
+    await warmUpCanvasRuntime(page);
 
     await drawRectangle(page);
     const countBefore = await elementCount(page);
@@ -158,6 +167,8 @@ test.describe('绘制与编辑', () => {
       timeout: 15000,
     });
     await dismissInspirationBoard(page);
+    // 预热画布懒加载 chunk（生产构建首绘需加载，刷新后浏览器缓存已热）
+    await warmUpCanvasRuntime(page);
 
     await drawRectangle(page);
     const afterDraw = await elementCount(page);
