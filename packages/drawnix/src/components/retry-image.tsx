@@ -119,17 +119,24 @@ function isCachedUrl(url: string): boolean {
  * 检测 URL 是否是虚拟路径（需要 SW 拦截）
  */
 function isVirtualUrl(url: string): boolean {
-  return url.startsWith('/__aitu_cache__/') || 
+  return url.startsWith('/__aitu_cache__/') ||
          url.startsWith('/asset-library/');
+}
+
+/**
+ * 检测环境是否具备 Service Worker API。
+ * 纯 HTTP 内网（非安全上下文）不存在该 API —— 虚拟 URL 永远不会被 SW 拦截，
+ * <img> 直接指向虚拟 URL 只会产生网络 404。
+ */
+function hasServiceWorkerAPI(): boolean {
+  return typeof navigator !== 'undefined' && 'serviceWorker' in navigator;
 }
 
 /**
  * 检测 Service Worker 是否可用
  */
 function isSWAvailable(): boolean {
-  return typeof navigator !== 'undefined' && 
-         'serviceWorker' in navigator && 
-         !!navigator.serviceWorker.controller;
+  return hasServiceWorkerAPI() && !!navigator.serviceWorker.controller;
 }
 
 export const RetryImage = forwardRef<HTMLImageElement, RetryImageProps>(({
@@ -154,7 +161,16 @@ export const RetryImage = forwardRef<HTMLImageElement, RetryImageProps>(({
   // 自动检测是否应该 eager 加载
   const shouldEagerLoad = eager ?? isCachedUrl(normalizedSrc);
 
-  const [imageSrc, setImageSrc] = useState<string>(normalizedSrc);
+  // 纯 HTTP 内网等非安全上下文没有 Service Worker API：虚拟 URL 发到网络必然
+  // 404（服务器无此静态文件）。初始状态与 src 变更后都不直接指向虚拟 URL，
+  // 由下方 effect 从缓存 blob 兜底解析后替换。
+  const [imageSrc, setImageSrc] = useState<string>(() => {
+    const normalized = normalizeImageDataUrl(src);
+    if (isVirtualUrl(normalized) && !hasServiceWorkerAPI()) {
+      return '';
+    }
+    return normalized;
+  });
   const [retryCount, setRetryCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [hasError, setHasError] = useState<boolean>(false);
@@ -285,16 +301,21 @@ export const RetryImage = forwardRef<HTMLImageElement, RetryImageProps>(({
     setBypassSW(false);
 
     // 检查是否需要虚拟路径降级
-    // 条件：是虚拟路径 && SW 不可用
+    // 条件：是虚拟路径 && SW 不可用（无 SW API 或尚未 claim）
     if (isVirtualUrl(normalizedSrc) && !isSWAvailable()) {
       // 异步尝试降级
       tryFallbackToBlobUrl(normalizedSrc).then((blobUrl) => {
         if (blobUrl) {
           blobUrlRef.current = blobUrl;
           setImageSrc(blobUrl);
-        } else {
-          // 降级失败，仍然使用原始 URL（可能会失败，但有重试机制）
+        } else if (hasServiceWorkerAPI()) {
+          // 有 SW API 但降级失败：使用原始 URL（可能有重试机制兜底）
           setImageSrc(normalizedSrc);
+        } else {
+          // 无 SW API 且缓存缺失：保留空 src，避免发起必然 404 的虚拟 URL 请求
+          setIsLoading(false);
+          setHasError(true);
+          setImageSrc('');
         }
       });
     } else {

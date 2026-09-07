@@ -102,8 +102,56 @@ export const loadHTMLImageElementWithRetry = (
   // 外部 URL 不设置 crossOrigin（避免 CORS），不追加参数（避免破坏签名）
   const isExternalUrl =
     normalizedURL.startsWith('http://') || normalizedURL.startsWith('https://');
+  const isVirtualLocalUrl =
+    normalizedURL.startsWith('/asset-library/') ||
+    normalizedURL.startsWith('/__aitu_cache__/') ||
+    normalizedURL.startsWith('/__aitu_generated__/');
+  // 纯 HTTP 内网等非安全上下文没有 Service Worker API：虚拟 URL 发到网络必然
+  // 404（服务器无此静态文件），不能靠 SW 拦截。此时直接从缓存读 blob →
+  // objectURL 加载（缓存未就绪则报错，不再发起必然失败的网络请求）。
+  const noSWEnvironment =
+    typeof navigator === 'undefined' || !('serviceWorker' in navigator);
+  const shouldLoadFromCacheOnly = isVirtualLocalUrl && noSWEnvironment;
 
   return new Promise((resolve, reject) => {
+    if (shouldLoadFromCacheOnly) {
+      void (async () => {
+        try {
+          const { unifiedCacheService } = await import(
+            '../services/unified-cache-service'
+          );
+          const blob = await unifiedCacheService.getCachedBlob(normalizedURL);
+          if (!blob || blob.size === 0) {
+            reject(new Error('本地媒体尚未就绪，无法加载图片'));
+            return;
+          }
+          const objectUrl = URL.createObjectURL(blob);
+          const image = new Image();
+          if (crossOrigin) {
+            image.crossOrigin = 'anonymous';
+          }
+          image.referrerPolicy = 'no-referrer';
+          image.onload = () => {
+            URL.revokeObjectURL(objectUrl);
+            resolve(image);
+          };
+          image.onerror = () => {
+            URL.revokeObjectURL(objectUrl);
+            reject(new Error('缓存图片解码失败'));
+          };
+          image.src = objectUrl;
+        } catch (error) {
+          console.error(
+            '[loadHTMLImageElement] 缓存读取失败（无 SW 环境）:',
+            normalizedURL,
+            error
+          );
+          reject(error as Error);
+        }
+      })();
+      return;
+    }
+
     let retryCount = 0;
     let currentUrl = normalizedURL;
     let bypassSW = false;

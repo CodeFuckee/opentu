@@ -417,7 +417,8 @@ class AssetStorageService {
         return [];
       }
 
-      // 获取 Cache Storage 中的有效 URL 集合
+      // 获取 Cache Storage 中的有效 URL 集合（非安全上下文无 Cache API 时，
+      // 改从 IndexedDB 兜底 Blob 存储读取，保证素材库只列出真实数据存在的素材）
       let validCacheUrls: Set<string> = new Set();
       if (typeof caches !== 'undefined') {
         try {
@@ -428,6 +429,18 @@ class AssetStorageService {
           );
         } catch (cacheError) {
           console.warn('[AssetStorageService] Failed to read Cache Storage:', cacheError);
+        }
+      } else {
+        try {
+          const { listCacheBlobFallbackUrls } = await import(
+            './cache-blob-fallback-store'
+          );
+          validCacheUrls = new Set(await listCacheBlobFallbackUrls());
+        } catch (fallbackError) {
+          console.warn(
+            '[AssetStorageService] Failed to read IDB blob fallback:',
+            fallbackError
+          );
         }
       }
 

@@ -15,6 +15,7 @@ import {
 import {
   clearVirtualUrlImageError,
   handleVirtualUrlImageError,
+  isVirtualUrl,
 } from '../../utils/asset-cleanup';
 import {
   getImage3DSourceRectangle,
@@ -362,6 +363,62 @@ export const Image: React.FC<ImageProps> = (props: ImageProps) => {
     },
     [props.imageItem.url, releasedAcquiredFallback]
   );
+
+  // 无 SW 环境（纯 HTTP 内网部署 / 隐私模式等，'serviceWorker' in navigator 为 false）：
+  // /asset-library、/__aitu_cache__ 等虚拟 URL 永远无法被 SW 接管，<img> 直接指向
+  // 虚拟 URL 只会产生网络 404（且刷新刷屏）。此环境改为从缓存读 blob → objectURL 展示；
+  // blob 尚未落地时（如 media-sync 后台补下载）按 3s 间隔慢轮询等待。
+  useEffect(() => {
+    const url = props.imageItem.url;
+    if (!isVirtualUrl(url)) {
+      return;
+    }
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      // 有 SW API：正常走 <img src=虚拟URL> → SW 拦截路径（含 claim 后重试）
+      return;
+    }
+    if (acquiredFallbackUrlRef.current === url) {
+      return;
+    }
+
+    let cancelled = false;
+    let ticks = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const tryResolve = async () => {
+      if (cancelled || acquiredFallbackUrlRef.current === url) {
+        return;
+      }
+      try {
+        const { unifiedCacheService } = await import(
+          '../../services/unified-cache-service'
+        );
+        const blob = await unifiedCacheService.getCachedBlob(url);
+        if (cancelled || acquiredFallbackUrlRef.current === url) {
+          return;
+        }
+        if (blob && blob.size > 0 && blob.type.startsWith('image/')) {
+          applyCachedBlobFallback(blob);
+          return;
+        }
+      } catch {
+        // 读取失败继续轮询（可能为临时索引未就绪等）
+      }
+      ticks += 1;
+      if (!cancelled && ticks <= 40) {
+        timer = setTimeout(tryResolve, 3000);
+      }
+    };
+
+    void tryResolve();
+
+    return () => {
+      cancelled = true;
+      if (timer) {
+        clearTimeout(timer);
+      }
+    };
+  }, [props.imageItem.url, applyCachedBlobFallback]);
 
   // 处理图片加载失败
   const handleImageError = useCallback(
@@ -719,8 +776,16 @@ export const Image: React.FC<ImageProps> = (props: ImageProps) => {
   }
 
   // 否则使用原来的图片渲染
+  // 无 SW 环境（纯 HTTP 内网等）：虚拟 URL 发到网络必然 404，先把 src 交给
+  // fallbackSrc（blob objectURL）；尚未解析出 blob 前不给 src（避免 404 刷控制台）。
+  const canServeViaSW =
+    typeof navigator !== 'undefined' && 'serviceWorker' in navigator;
+  const needBlobResolution =
+    isVirtualUrl(props.imageItem.url) && !canServeViaSW;
+  const resolvedSrc =
+    fallbackSrc || (needBlobResolution ? undefined : props.imageItem.url);
   const imgProps = {
-    src: fallbackSrc || props.imageItem.url,
+    src: resolvedSrc,
     draggable: false,
     ...(shouldContainFrameImage
       ? {

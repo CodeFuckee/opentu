@@ -4,6 +4,14 @@
 
 ### 🩹 Fixes
 
+- 非安全上下文（LAN 明文 HTTP 部署）媒体 Blob 丢失导致虚拟 URL 全部 404：该环境
+  没有 Service Worker 也没有 Cache Storage API，`cacheMediaFromBlob`/`cacheImage`/
+  `cacheToCacheStorageOnly` 原本只能写 IDB 元数据、真实二进制直接丢弃，画布/素材库
+  里的 `/asset-library/`、`/__aitu_cache__/` 虚拟 URL 请求全部落到网络 404（加图
+  报 `GET .../asset-library/content-xxx.png 404`）。新增 IndexedDB 兜底 Blob 存储
+  （`cache-blob-fallback-store`），caches API 缺失时媒体写入兜底库、读取与素材库
+  列表均从兜底库取数；画布图片与 RetryImage 在无 SW 环境下优先从缓存 blob 解析
+  objectURL 显示、插入流程从缓存测尺寸，不再对虚拟 URL 发起必然失败的网络请求。
 - 非安全上下文（LAN 明文 HTTP 部署）无 `crypto.subtle` 时校验和崩溃修复：
   `@aitu/utils` 的 `calculateBlobChecksum`、`asset-storage-service`、任务归档
   `task-supabase-archive/core` 与 supabase `media-sync`/`media-sync-adapter` 的

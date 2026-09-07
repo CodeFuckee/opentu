@@ -22,6 +22,12 @@ import type {
   CacheWarning,
   CacheWarningReasonCode,
 } from '../types/cache-warning.types';
+import {
+  clearCacheBlobFallbacks,
+  deleteCacheBlobFallback,
+  getCacheBlobFallback,
+  putCacheBlobFallback,
+} from './cache-blob-fallback-store';
 
 // ==================== 常量定义 ====================
 
@@ -838,8 +844,17 @@ class UnifiedCacheService {
           isInCacheAPI = true;
         }
       } else {
-        // 浏览器不支持 Cache API（不太可能，但兼容处理）
-        isInCacheAPI = true;
+        // 浏览器不支持 Cache API（非安全上下文，如纯 HTTP 内网部署）：
+        // 数据落在 IndexedDB 兜底存储，需确认真实二进制确实存在
+        try {
+          const fallbackBlob =
+            (await getCacheBlobFallback(normalizedUrl)) ||
+            (url !== normalizedUrl ? await getCacheBlobFallback(url) : null);
+          isInCacheAPI = !!fallbackBlob;
+        } catch (error) {
+          console.warn('[UnifiedCache] Failed to check IDB blob fallback:', error);
+          isInCacheAPI = true;
+        }
       }
 
       // 3. 只有在 IndexedDB 和 Cache API 都有时，才返回 isCached: true
@@ -929,6 +944,16 @@ class UnifiedCacheService {
             },
           })
         );
+      } else {
+        // Cache API 缺失（非安全上下文，如纯 HTTP 内网部署）：blob 落到
+        // IndexedDB 兜底存储，否则后续 getCachedBlob 读不到真实二进制。
+        const persisted = await putCacheBlobFallback(normalizedUrl, blob);
+        if (!persisted) {
+          console.warn(
+            '[UnifiedCache] Failed to persist cache image to IDB fallback:',
+            normalizedUrl
+          );
+        }
       }
 
       await this.putItem(item);
@@ -1032,8 +1057,13 @@ class UnifiedCacheService {
       // 1. 从 IndexedDB 删除
       await this.deleteItem(url);
       this.cachedUrls.delete(url);
+      // 2. 清理 IndexedDB 兜底 Blob 存储（非安全上下文数据源）
+      await deleteCacheBlobFallback(this.normalizeRemoteCacheUrl(url));
+      if (url !== this.normalizeRemoteCacheUrl(url)) {
+        await deleteCacheBlobFallback(url);
+      }
 
-      // 2. 通知 SW 删除 Cache API 中的条目
+      // 3. 通知 SW 删除 Cache API 中的条目
       await this.sendMessageToSW({ type: 'DELETE_CACHE', url });
 
       this.notifyListeners();
@@ -1059,6 +1089,12 @@ class UnifiedCacheService {
         try {
           store.delete(url);
           this.cachedUrls.delete(url);
+          // 清理 IndexedDB 兜底 Blob 存储（非安全上下文数据源）
+          const normalized = this.normalizeRemoteCacheUrl(url);
+          void deleteCacheBlobFallback(normalized);
+          if (normalized !== url) {
+            void deleteCacheBlobFallback(url);
+          }
           deletedCount++;
         } catch (error) {
           console.warn(
@@ -1165,6 +1201,8 @@ class UnifiedCacheService {
       });
 
       this.cachedUrls.clear();
+      // 清理 IndexedDB 兜底 Blob 存储（非安全上下文数据源）
+      await clearCacheBlobFallbacks();
       await this.sendMessageToSW({ type: 'CLEAR_ALL_CACHE' });
       this.notifyListeners();
 
@@ -1256,8 +1294,15 @@ class UnifiedCacheService {
   async cacheToCacheStorageOnly(url: string, blob: Blob): Promise<boolean> {
     try {
       if (typeof caches === 'undefined') {
-        console.warn('[UnifiedCache] caches API not available');
-        return false;
+        // Cache API 缺失（非安全上下文，如纯 HTTP 内网部署）：存入 IndexedDB 兜底存储
+        const persisted = await putCacheBlobFallback(url, blob);
+        if (!persisted) {
+          console.warn(
+            '[UnifiedCache] Failed to persist media to IDB fallback:',
+            url
+          );
+        }
+        return persisted;
       }
       const cache = await caches.open(IMAGE_CACHE_NAME);
       const response = new Response(blob, {
@@ -1356,7 +1401,15 @@ class UnifiedCacheService {
             });
         }
       } else {
-        console.warn('[UnifiedCache] caches API not available');
+        // Cache API 缺失（非安全上下文，如纯 HTTP 内网部署）：blob 落到
+        // IndexedDB 兜底存储，保证 getCachedBlob / 素材库/画布虚拟 URL 能读到二进制。
+        const persisted = await putCacheBlobFallback(cacheUrl, blob);
+        if (!persisted) {
+          console.warn(
+            '[UnifiedCache] Failed to persist media to IDB fallback:',
+            cacheUrl
+          );
+        }
       }
 
       // 2. 存储元数据到 IndexedDB
@@ -1419,6 +1472,18 @@ class UnifiedCacheService {
         if (response) {
           return await response.blob();
         }
+      }
+
+      // Cache API 不可用（非安全上下文）或未命中时，尝试从 IndexedDB 兜底
+      // 存储读取真实二进制（该存储仅在不支持 caches 的环境写入）。
+      const fallbackBlob =
+        (await getCacheBlobFallback(normalizedUrl)) ||
+        (cacheUrl !== normalizedUrl
+          ? await getCacheBlobFallback(cacheUrl)
+          : null) ||
+        (url !== cacheUrl ? await getCacheBlobFallback(url) : null);
+      if (fallbackBlob) {
+        return fallbackBlob;
       }
 
       const isTaskId =
