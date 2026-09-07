@@ -1,5 +1,17 @@
 ## Unreleased
 
+### 🚀 Features
+
+- **Supabase 后端数据看板（dashboard-stats 边缘函数）**：页面与数据接口托管在 Supabase 后端
+  （`http://10.37.80.25:8021/functions/v1/dashboard-stats/`），与用户前端完全分离；
+  `GET /` 返回自包含 HTML 看板（内联 CSS/JS/SVG 图表，无外部依赖），
+  `GET /overview?days=N` 返回四类聚合统计 —— 任务（task_submissions 总量/类型/状态/成功率/
+  日趋势/平均耗时）、用量与额度（generation_usage 月度汇总 + Top 用户）、用户与组织
+  （user_profiles/staff_directory/departments）、文件与存储（file_paths/response_file_paths
+  计数 + huabu bucket 对象数/大小）；聚合用 service_role 经 PostgREST 直查，无需新增迁移；
+  暂不做鉴权（函数不校验调用者，升级路径见 docs/dashboard-stats.md）
+  （实现见 `supabase/functions/dashboard-stats/`，部署说明见 `docs/dashboard-stats.md`）
+
 ## 1.0.9 (2026-09-07)
 
 ### 🩹 Fixes
