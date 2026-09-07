@@ -45,28 +45,6 @@ export async function expectElementsCreated(page: Page) {
 }
 
 /**
- * 预热画布核心运行时：进入绘制用例前调用一次，主动把画布与图形工具链的懒加载
- * chunk（shape-picker / popover / 绘制插件等）拉起，避免「本用例首次切工具 +
- * 首绘」顶穿下面的等待超时。
- *
- * 实现：focus 画布 → 切到 Rectangle 工具并等待 pointer-rectangle 状态类
- * （只有图形工具链加载完成后才出现）。不切回默认工具：各用例随后会自行
- * pressToolKey('r') / 点文本 radio / 按 P 覆盖当前工具，预热留下 rectangle
- * 状态无副作用（也能让 drawRectangle 的切换瞬时完成）。
- * 失败不抛错（drawRectangle 等还有各自的轮询断言兜底），只做尽力预热。
- */
-export async function warmUpCanvasRuntime(page: Page): Promise<void> {
-  try {
-    await focusCanvasEmptyArea(page);
-    // 触发形状/图形工具链懒加载（含 shape-picker、popover 等 chunk）
-    await pressToolKey(page, 'r', 'rectangle');
-  } catch {
-    // 预热是 best-effort：失败让后续用例自带的轮询兜底，不把预热当断言
-  }
-  await page.waitForTimeout(500);
-}
-
-/**
  * 关闭灵感创意板（空画布时它覆盖画布并拦截绘制事件）。
  * 慢速宿主上板子可能带入场动画，入场完成前不可见：只检查一次可见性会漏掉，
  * 稍后板子出现并吞掉中心区域落笔（HOSTDIAG 实测 pointerdown 命中
