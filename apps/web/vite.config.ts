@@ -1198,8 +1198,12 @@ export default defineConfig({
     port: 4300,
     host: 'localhost',
     headers: {
+      // 注意：不能带 upgrade-insecure-requests —— E2E 用 vite preview 跑编译产物时，
+      // 该指令会让浏览器把页面内所有 http:// 子资源（含内网 Supabase
+      // http://10.37.80.25:8021 的登录请求）强制升级为 https，导致 ERR_SSL，
+      // auth-setup 登录失败（dev server 无此头所以登录正常）。
       'Content-Security-Policy':
-        "upgrade-insecure-requests; default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://us.i.posthog.com https://us-assets.i.posthog.com https://wiki.tu-zi.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https: http: wss: data:; frame-ancestors 'self' localhost:* 127.0.0.1:* https://api.tu-zi.com;",
+        "default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://us.i.posthog.com https://us-assets.i.posthog.com https://wiki.tu-zi.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https: http: wss: data:; frame-ancestors 'self' localhost:* 127.0.0.1:* https://api.tu-zi.com;",
     },
   },
 

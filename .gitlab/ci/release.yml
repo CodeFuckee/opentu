@@ -1,11 +1,15 @@
 # =============================================================================
-# 分支二：构建 + 部署（仅手动触发的流水线 B，web / api source）
+# 分支二：构建 + 部署
 # -----------------------------------------------------------------------------
-# 由 .gitlab-ci.yml include 引入；这两个 job 只在手动触发时运行，
-# push 触发的流水线 A 不会包含它们（见各 job 的 rules）。
+# - build：push 与手动（web/api）都会执行。push 时纯做生产构建验证（不 bump
+#   版本、不提交、不打 tag），保证每次推送都能提前暴露编译打包问题；
+#   手动触发（web / api source）时才走完整发版：bump 版本 -> 处理 CHANGELOG ->
+#   构建 -> 提交 + 推送 + 打 tag（供 deploy 阶段取版本号）。
+# - deploy：仅手动触发（web / api source）时执行，对应"只有需要发布时才部署"。
 # =============================================================================
 
-# 阶段 3：构建（自增版本号 -> 处理 CHANGELOG -> 构建 -> 提交 + 推送 + 打 tag）
+# 阶段 3：构建（push = 构建验证；手动 = 自增版本号 -> 处理 CHANGELOG -> 构建
+#         -> 提交 + 推送 + 打 tag）
 build:
   extends: .base_env
   stage: build
@@ -14,55 +18,61 @@ build:
   # 慢速 yx 宿主机上 pnpm 依赖 + 全量构建可能很慢，显式放宽（默认 1h 会超时）
   timeout: 2 hours
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
+    - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
       when: always
     - when: never
   script:
-    # 1. 自增版本号（最末位 +1，每逢 100 进 1），写入根 package.json
-    - node scripts/ci-bump-version.js
+    # 1. 仅手动发布时自增版本号（最末位 +1，每逢 100 进 1），写入根 package.json；
+    #    push 触发的构建验证不改动版本号，避免每次推送都发版
+    - |
+      if [ "${CI_PIPELINE_SOURCE}" = "web" ] || [ "${CI_PIPELINE_SOURCE}" = "api" ]; then
+        node scripts/ci-bump-version.js
+      fi
     - export APP_VERSION=$(node -p "require('./package.json').version")
     - 'echo "构建版本: v${APP_VERSION}"'
 
-    # 2. 处理 CHANGELOG：
-    #    把 CHANGELOG.md 中 `## Unreleased` 段落内容归入新版本号 + 日期标题下，
-    #    然后重置 `## Unreleased` 段落为空（仅保留标题行 + 空行）
-    - node scripts/ci-changelog.js "${APP_VERSION}"
+    # 2. 仅手动发布时处理 CHANGELOG（Unreleased 段落归入新版本号 + 日期标题）
+    - |
+      if [ "${CI_PIPELINE_SOURCE}" = "web" ] || [ "${CI_PIPELINE_SOURCE}" = "api" ]; then
+        node scripts/ci-changelog.js "${APP_VERSION}"
+      fi
 
     # 3. 构建全部包（pnpm build = update-version.js + nx run-many -t=build；
     #    update-version.js 会把新版本写入 apps/web/public/version.json）
     - pnpm build
 
-    # 4. 提交版本变更 + CHANGELOG 变更并推送（提交信息带 [ci skip]，防止触发新流水线）
-    - git config user.email "gitlab-ci@opentu.local"
-    - git config user.name "GitLab CI"
-    - git add package.json apps/web/public/version.json apps/web/index.html CHANGELOG.md
+    # 4. 仅手动发布时提交版本变更 + CHANGELOG 变更并推送（提交带 [ci skip]，
+    #    防止触发新流水线），并打 release tag；push 验证不做这些副作用
     - |
-      if git diff --cached --quiet; then
-        echo "无版本变更需提交"
-      else
-        git commit -m "chore(release): bump version to ${APP_VERSION} [ci skip]"
+      if [ "${CI_PIPELINE_SOURCE}" = "web" ] || [ "${CI_PIPELINE_SOURCE}" = "api" ]; then
+        git config user.email "gitlab-ci@opentu.local"
+        git config user.name "GitLab CI"
+        git add package.json apps/web/public/version.json apps/web/index.html CHANGELOG.md
+        if git diff --cached --quiet; then
+          echo "无版本变更需提交"
+        else
+          git commit -m "chore(release): bump version to ${APP_VERSION} [ci skip]"
+        fi
+        if [ -n "${GIT_PUSH_TOKEN}" ]; then
+          AUTH_USER="${GIT_PUSH_USER:-gitlab-ci-token}"
+          AUTH_PASS="${GIT_PUSH_TOKEN}"
+        else
+          AUTH_USER="gitlab-ci-token"
+          AUTH_PASS="${CI_JOB_TOKEN}"
+        fi
+        echo "推送用户: ${AUTH_USER}"
+        # 实例 external_url 未携带端口（CI_SERVER_HOST/URL 均无 :509），推送地址需显式
+        # 带上实例端口；默认 509，可用 CI_PUSH_HOST_PORT 变量覆盖（host 已含端口则跳过）。
+        case "${CI_SERVER_HOST}" in
+          *:*) PUSH_HOST="${CI_SERVER_HOST}" ;;
+          *) PUSH_HOST="${CI_SERVER_HOST}:${CI_PUSH_HOST_PORT:-509}" ;;
+        esac
+        git push "https://${AUTH_USER}:${AUTH_PASS}@${PUSH_HOST}/${CI_PROJECT_PATH}.git" "HEAD:${CI_COMMIT_BRANCH}"
+        git tag -a "v${APP_VERSION}" -m "release v${APP_VERSION}"
+        git push "https://${AUTH_USER}:${AUTH_PASS}@${PUSH_HOST}/${CI_PROJECT_PATH}.git" "v${APP_VERSION}"
       fi
-    - |
-      if [ -n "${GIT_PUSH_TOKEN}" ]; then
-        AUTH_USER="${GIT_PUSH_USER:-gitlab-ci-token}"
-        AUTH_PASS="${GIT_PUSH_TOKEN}"
-      else
-        AUTH_USER="gitlab-ci-token"
-        AUTH_PASS="${CI_JOB_TOKEN}"
-      fi
-      echo "推送用户: ${AUTH_USER}"
-    # 实例 external_url 未携带端口（CI_SERVER_HOST/URL 均无 :509），推送地址需显式
-    # 带上实例端口；默认 509，可用 CI_PUSH_HOST_PORT 变量覆盖（host 已含端口则跳过）。
-    - |
-      case "${CI_SERVER_HOST}" in
-        *:*) PUSH_HOST="${CI_SERVER_HOST}" ;;
-        *) PUSH_HOST="${CI_SERVER_HOST}:${CI_PUSH_HOST_PORT:-509}" ;;
-      esac
-    - git push "https://${AUTH_USER}:${AUTH_PASS}@${PUSH_HOST}/${CI_PROJECT_PATH}.git" "HEAD:${CI_COMMIT_BRANCH}"
-    - git tag -a "v${APP_VERSION}" -m "release v${APP_VERSION}"
-    - git push "https://${AUTH_USER}:${AUTH_PASS}@${PUSH_HOST}/${CI_PROJECT_PATH}.git" "v${APP_VERSION}"
 
-    # 5. 把版本号传给 deploy 阶段
+    # 5. 把版本号传给 deploy 阶段（push 触发的 BUILD 也会生成，deploy 不执行无影响）
     - echo "APP_VERSION=${APP_VERSION}" >> build.env
   artifacts:
     expire_in: 1 week

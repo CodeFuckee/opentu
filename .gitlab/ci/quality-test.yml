@@ -60,6 +60,12 @@ test:backend:
 #   sudo chmod -R a+rX /opt/ms-playwright
 # 浏览器装在共享路径 /opt/ms-playwright（CI 通过 PLAYWRIGHT_BROWSERS_PATH 只读），
 # CI 内不含任何需要 root 权限的命令。
+#
+# E2E 跑「编译打包模式」：E2E_WEB_SERVER=preview 会让 playwright.config.ts 先
+# nx build web 再用 vite preview 提供生产构建产物（而非 dev server），从而拦截
+# 只在打包后才会暴露的问题（manualChunks 环、tool-windows 初始化崩溃等）。
+# vite preview 的 CSP 已移除 upgrade-insecure-requests，避免内网 HTTP Supabase
+# 请求被浏览器强制升级为 https 导致 auth-setup 登录 ERR_SSL。
 test:e2e:
   image: mcr.microsoft.com/playwright:v1.57.0-noble
   tags:
@@ -74,6 +80,8 @@ test:e2e:
     #   E2E_ARGS: ""                      # 全量
     #   E2E_ARGS: "--project=smoke --project=functional --project=visual"
     E2E_ARGS: "--project=smoke --project=functional"
+    # 编译打包模式：webServer 先构建再 vite preview 跑生产产物
+    E2E_WEB_SERVER: "preview"
     E2E_SUPABASE_URL: ""
     E2E_SUPABASE_ANON_KEY: ""
     E2E_TEST_PASSWORD: ""

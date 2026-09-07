@@ -1,15 +1,18 @@
 # =============================================================================
 # Yue画布 (opentu) — GitLab CI/CD 双流水线
 # -----------------------------------------------------------------------------
-# 流水线 A（推送即触发）：代码质量检查 + 全量测试
-#   - push 到任意分支时自动运行 quality / test:frontend / test:backend / test:e2e
-#   - 不构建、不部署（防止每推一版就发布）
+# 流水线 A（推送即触发）：代码质量检查 + 全量测试 + 构建验证
+#   - push 到任意分支时自动运行 quality / test:frontend / test:backend /
+#     test:e2e（E2E 走编译打包模式：先 nx build web 再用 vite preview 跑生产
+#     产物）以及 build 阶段（对全仓库生产构建做验证，不 bump 版本/不打 tag、
+#     不部署），保证每次推送都能提前暴露编译打包问题
 #
-# 流水线 B（手动触发）：质量检查 + 全量测试 + 构建 + 部署
+# 流水线 B（手动触发）：质量检查 + 全量测试 + 发版构建 + 部署
 #   - GitLab 页面 → CI/CD → Pipelines → "Run pipeline"（或 API 触发）
 #   - 仅 web / api 两种手动来源会创建该流水线
-#   - build 自增版本号（最末位 +1，每逢 100 进 1）→ 处理 CHANGELOG（Unreleased
-#     内容归入新版本标题，重置 Unreleased 段落）→ 构建 → 提交+推送+打 tag → 部署
+#   - build 在手动来源下自增版本号（最末位 +1，每逢 100 进 1）→ 处理 CHANGELOG
+#     （Unreleased 内容归入新版本标题，重置 Unreleased 段落）→ 构建 → 提交+
+#     推送+打 tag → 部署。deploy 只在这条手动流水线里执行（只有发布时才部署）
 #
 # 需要预先在 GitLab CI/CD Variables 中配置（均可选，缺省有安全默认值）：
 #   NPM_TOKEN                可选，npm registry 认证（.npmrc 引用 ${NPM_TOKEN}）
