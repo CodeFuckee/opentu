@@ -1,5 +1,11 @@
 ## Unreleased
 
+### 🚀 Features
+
+- 侧边栏（左侧工具栏底部固定区）新增 Feedbackland 反馈入口按钮：点击后在新标签页打开
+  Feedbackland 反馈平台，跳转地址收敛为 `FEEDBACKLAND_URL` 常量（`packages/drawnix/src/
+  constants.ts`），默认指向 Feedbackland 开源仓库页，部署自建实例后替换该常量即可。
+
 ## 1.0.9 (2026-09-07)
 
 ### 🩹 Fixes
