@@ -1,5 +1,20 @@
 ## Unreleased
 
+### 🩹 Fixes
+
+- E2E（apps/web-e2e）drawing 用例在 CI preview（生产构建 vite preview）模式下首试
+  即失败/flaky：空画布首次加载时「灵感创意板」晚到覆盖画布中心区域，矩形/删除/撤销
+  用例的首次落笔被吞（`expectElementsCreated` 轮询 20s 内元素数为 0），文本用例的
+  居中点击命中板子模板卡、按键全部落入 AI 输入框（快照确认 textarea 收到
+  「E2E 文本测试」+ 弹出确认后发送引导），仅靠 Playwright CI 内置 retries=2 兜底
+  （日志显示 4 flaky → job 绿）。修复：① 用例前注入 `aitu_hide_inspiration_board`
+  localStorage 偏好，让灵感板全程不挂载（仅 drawing.spec，灵感板自身功能用例不受
+  影响）；② drawing 套件首用例前新增无副作用预热 `warmUpCanvasRuntime`（独立上下文
+  真画矩形 + 插入文本，把懒加载 chunk 冷启动成本移出被测用例，替代曾被回退的用例内
+  切工具预热）；③ 等待类超时统一 8s→20s、文本工具切换后等待 `pointer-text` 就绪再
+  点画布输入。本地节流复现（CPU rate 10 模拟慢宿主）：修复前 4 failed / 修复后
+  6 passed，全量 smoke+functional 45 passed。
+
 ## 1.0.9 (2026-09-07)
 
 ### 🩹 Fixes
