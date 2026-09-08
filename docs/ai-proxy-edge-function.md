@@ -26,7 +26,8 @@ POST http://<SUPABASE_URL>/functions/v1/ai-proxy/<原上游路径>?<query>
 
 效果：
 - **API Key 不再下发到浏览器**，无法绕开页面直连中转站滥用；
-- 每用户每自然月生图 ≤200 张（可按部门在 `department_configs` 覆盖）；
+- 每用户每自然月生图 ≤200 张（限额解析顺序：**用户级覆盖 `user_quota_configs`** →
+  部门覆盖 `department_configs` → 全局 `image_monthly_quota_default` → 缺省 200）；
 - 失败自动退额度；月度边界惰性计算，无需定时任务；
 - 未登录（或托管未启用）行为完全不变：仍走本地直连 + 用户手填 Key。
 
@@ -73,11 +74,16 @@ edge-runtime CPU/墙钟硬限制 → supervisor 取消 worker → 客户端收�
 
 ```bash
 docker exec -i supabase-db psql -U supabase_admin -d postgres < supabase/migrations/generation_usage.sql
+docker exec -i supabase-db psql -U supabase_admin -d postgres < supabase/migrations/generation_usage_user_override.sql
 ```
 
 迁移内容：`generation_usage` 用量表、`generation_task_bills` 异步记账表、
 配额函数（`consume_image_quota` / `refund_image_quota` / `get_image_quota` /
-`record_task_bill` / `refund_task_bill`）、RLS 与 service_role 权限收口。
+`record_task_bill` / `refund_task_bill`）、RLS 与 service_role 权限收口；
+`generation_usage_user_override.sql` 追加**用户级额度覆盖**（`user_quota_configs`
+表 + 管理员总览视图 `user_quota_overview`）。
+⚠️ 若之后重新执行 `generation_usage.sql`，会回退用户级覆盖的函数改动，
+需要再执行一次 `generation_usage_user_override.sql`。
 
 ### 可选配置（configs 表）
 
@@ -96,6 +102,33 @@ insert into department_configs(key, value) values
   ('image_monthly_quota_设计部', '500')
 on conflict (key) do update set value = excluded.value;
 ```
+
+### 用户级额度覆盖（在 Supabase 里给特定用户调限额）
+
+限额解析顺序（每次生图/查额度实时解析，改完即生效，无需重启）：
+
+```
+user_quota_configs（用户级，优先级最高）
+  → department_configs: image_monthly_quota_{部门名}
+  → department_configs: image_monthly_quota_default
+  → 缺省 200
+```
+
+管理员操作（Supabase Dashboard → Table Editor → `user_quota_configs`）：
+
+1. 找到用户 UUID：查 `user_quota_overview` 视图（含 email / oa_account / 部门 /
+   当月用量与生效限额），或
+   `select user_id from user_profiles where oa_account = 'zhangsan';`
+2. 给该用户插一行（如调到 1000 张/月）：`user_id = <用户UUID>`、`quota_limit = 1000`；
+   已有行直接改 `quota_limit`；
+3. **删除该用户的行 = 回退**到部门/全局默认限额。
+
+注意：
+
+- `quota_limit` 必须 > 0；把限额调到低于当月已用量时，该用户本月剩余额度立即变 0
+  （次月恢复按新限额）；
+- `user_quota_configs` / `user_quota_overview` 均不授予 anon/authenticated，
+  只能经 Dashboard（表属主）或 service_role 访问，普通用户无法读取他人配额。
 
 ## 部署
 
@@ -125,10 +158,16 @@ cd supabase/functions/ai-proxy && node --test core.test.ts
 5. 把用户限额临时调到 5 后连续生成 >5 张 → 第 6 次返回 403 quota_exceeded，
    页面提示"本月图片生成额度已用完"，且未产生上游调用；
 6. 人为构造上游 500（如临时改 NEWAPI_URL 指向不可达端口）→ 额度被退回；
-7. 异步图像任务：提交成功、轮询到 failed → 记账行 `refunded=true`，额度恢复。
+7. 异步图像任务：提交成功、轮询到 failed → 记账行 `refunded=true`，额度恢复；
+8. 用户级覆盖：给测试用户插入 `user_quota_configs(user_id, quota_limit=3)` →
+   `get_image_quota` 立即返回 `limit=3` → 生成第 4 张被 403 → 删除该行后恢复
+   部门/全局限额；`user_quota_overview` 视图中 override_limit/effective_limit 正确。
 
 ## 回滚
 
 前端回滚开关即"登出即旧路径"；如需服务端紧急熔断，将 `department_configs`
-的 `image_monthly_quota_default` 设为大值即可放行全部流量，再删除
+的 `image_monthly_quota_default` 设为大值即可放行全部流量（若只想放开个别用户，
+直接在 `user_quota_configs` 给该用户插大额覆盖行即可），再删除
 volumes/functions/ai-proxy 目录并刷新即可彻底下线（其余函数不受影响）。
+如需回退用户级覆盖改造，重新执行 `generation_usage.sql` 即可恢复旧解析链
+（之后若又要用户级覆盖，需再执行 `generation_usage_user_override.sql`）。

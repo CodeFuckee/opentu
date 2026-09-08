@@ -9,6 +9,10 @@
 --   * 扣减为单语句原子操作，超限则不生效
 --   * 限额读取顺序：部门覆盖 → 全局配置(image_monthly_quota_default) → 缺省 200
 --   * 函数仅授予 service_role 执行；前端一律经 ai-proxy 边缘函数访问
+--
+-- ⚠️ 用户级额度覆盖（user_quota_configs）由 generation_usage_user_override.sql
+--    追加；若重新执行本文件，会回退该文件的函数改动，需再执行：
+--   docker exec -i supabase-db psql -U supabase_admin -d postgres < supabase/migrations/generation_usage_user_override.sql
 -- ============================================================
 
 -- 1. 用量表：每用户每月一行
