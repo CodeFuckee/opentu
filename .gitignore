@@ -50,6 +50,8 @@ Thumbs.db
 .nx/cache
 .nx/workspace-data
 package-lock.json
+# Feedbackland 使用 npm，其 lockfile 必须入库（Docker 内 npm ci 依赖它）
+!feedbackland/package-lock.json
 apps/web/public/sw.js
 apps/web/public/sw.js.map
 .pnpm-store

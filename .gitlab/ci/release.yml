@@ -116,5 +116,28 @@ deploy:
       done
     - docker compose -f deploy/docker-compose.yml down --remove-orphans || true
     - docker compose -f deploy/docker-compose.yml up -d --force-recreate
+
+    # ---------- Feedbackland 一并部署（自托管反馈平台） ----------
+    # 认证已改造为 Supabase Auth；NEXT_PUBLIC_* 为构建期内联变量。
+    # 运行期变量（DATABASE_URL / SERVICE_ROLE_KEY 等）经 compose 插值注入，
+    # 值来自 GitLab CI/CD 变量（FL_* 前缀）。未配置 FL_* 时构建会失败，
+    # 这是有意的——部署 Feedbackland 必须先配好这些变量。
+    - 'echo "部署 Feedbackland（自托管反馈平台）..."'
+    - |
+      docker build -f feedbackland/Dockerfile \
+        --build-arg NEXT_PUBLIC_SUPABASE_URL="${FL_SUPABASE_URL}" \
+        --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="${FL_SUPABASE_ANON_KEY}" \
+        --build-arg NEXT_PUBLIC_SELF_HOSTED=true \
+        -t feedbackland:latest feedbackland/
+    # 释放 8090 端口：删除同名容器 + 所有发布到该端口的容器
+    - docker rm -f feedbackland 2>/dev/null || true
+    - |
+      for cid in $(docker ps -q --filter "publish=8090" 2>/dev/null); do
+        docker rm -f "${cid}" 2>/dev/null || true
+      done
+    - docker compose -f deploy/feedbackland/docker-compose.yml down --remove-orphans || true
+    - docker compose -f deploy/feedbackland/docker-compose.yml up -d --force-recreate
+    - echo "Feedbackland 部署完成：容器 feedbackland @ 宿主机 :8090"
+
     - docker image prune -f --filter "until=24h" || true
     - echo "部署完成：容器 ${CONTAINER_NAME} @ 宿主机 :${HOST_PORT}（version ${APP_VERSION}）"

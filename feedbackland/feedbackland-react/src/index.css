@@ -1,0 +1,645 @@
+@import "tailwindcss/theme" prefix(fl);
+@import "tailwindcss/utilities" prefix(fl);
+@import "tw-animate-css/prefix";
+
+/*
+  The widget's unit basis.
+
+  Everything the widget draws used to be sized in `rem`, which resolves against
+  the *host document's* root font-size. The embedded board resolves the same
+  dimensions against the iframe's root instead — and the board sets no root
+  font-size, so the iframe always sits at the browser default. On a host that
+  ships `html { font-size: 62.5% }` (a common legacy reset) the two disagreed by
+  tens of pixels: the drawer's loading shimmer put the feedback form at y=40
+  against the board's y=64, and the posts list — the edge the eye actually
+  tracks — landed over 50px out.
+
+  `--fl-root` fixes the basis to the browser's own default instead:
+    - `font-size: medium` on `.fl-scope` is the UA default. Author rules on
+      `html` cannot move it, so a host's root-font-size reset is ignored.
+    - Registering `--fl-root` with `syntax: "<length>"` makes it *computed* at
+      the element that declares it, so `1em` resolves once against `.fl-scope`'s
+      own font-size and inherits downward as an absolute length. A plain
+      (unregistered) property would re-resolve `em` at each descendant, so a
+      `text-sm` child would get a smaller spacing unit than its parent.
+    - The scale tokens below are then multiples of `--fl-root` rather than `rem`.
+
+  This deliberately still tracks the visitor's browser font-size preference
+  (that preference is what `medium` means), which is exactly how the iframe's
+  root behaves — so the two stay in step for accessibility scaling while
+  ignoring host stylesheets.
+*/
+@property --fl-root {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 16px;
+}
+
+/*
+  Put the `fl:dark:*` utilities on the same signal as the dark token block near
+  the bottom of this file. Without this they fall back to Tailwind's default
+  `dark` variant — `@media (prefers-color-scheme: dark)` — so on a host that
+  implements dark mode with `html.dark` while the OS is light, the tokens
+  switched but `fl:dark:bg-input/30`, `fl:dark:border-input` and friends did not,
+  leaving light-palette inputs and buttons on a dark surface.
+
+  `.dark` as well as `.dark *`, because the widget flags its own overlay
+  surfaces on the element that also carries `.fl-scope` — utilities on that
+  element itself have to match too, which a descendant-only selector would miss.
+  Mirrors `@custom-variant dark` in app/globals.css on the board side.
+*/
+@custom-variant dark (&:is(.dark, .dark *));
+
+/*
+  Namespace the keyframes the widget drives itself.
+
+  Tailwind's `prefix(fl)` renames classes and custom properties but NOT keyframe
+  names, and keyframe names are global to the document. The widget's stylesheet is
+  injected at runtime, so it normally lands after the host's — meaning a bare
+  `@keyframes pulse` here silently redefines a host page's own `pulse`, and if the
+  host's sheet loads later instead, `fl:animate-pulse` runs *their* keyframes.
+  Either way the drawer's shimmer — the one animation this widget really cares
+  about — is at the mercy of a name collision.
+
+  Only `pulse` and `spin` are ours (`fl:animate-pulse` on the skeleton bars,
+  `fl:animate-spin` on the spinner). `enter` / `exit` come from tw-animate-css and
+  are left alone deliberately: renaming them would mean restating that library's
+  keyframes, including its whole `--tw-enter-*` / `--tw-exit-*` contract, and
+  re-doing it on every upgrade.
+*/
+@theme {
+  --animate-pulse: fl-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-spin: fl-spin 1s linear infinite;
+}
+
+@keyframes fl-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes fl-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@layer base {
+  .fl-scope {
+    /*
+      1. Prevent padding and border from affecting element width. (https://github.com/mozdevs/cssremedy/issues/4)
+      2. Remove default margins and padding
+      3. Reset all borders.
+    */
+
+    *,
+    ::after,
+    ::before,
+    ::backdrop,
+    ::file-selector-button {
+      box-sizing: border-box; /* 1 */
+      margin: 0; /* 2 */
+      padding: 0; /* 2 */
+      border: 0 solid; /* 3 */
+    }
+
+    /*
+      1. Use a consistent sensible line-height in all browsers.
+      2. Prevent adjustments of font size after orientation changes in iOS.
+      3. Use a more readable tab size.
+      4. Use the user's configured `sans` font-family by default.
+      5. Use the user's configured `sans` font-feature-settings by default.
+      6. Use the user's configured `sans` font-variation-settings by default.
+      7. Disable tap highlights on iOS.
+    */
+
+    & {
+      line-height: 1.5; /* 1 */
+      -webkit-text-size-adjust: 100%; /* 2 */
+      tab-size: 4; /* 3 */
+      font-family: --theme(
+        --default-font-family,
+        ui-sans-serif,
+        system-ui,
+        sans-serif,
+        "Apple Color Emoji",
+        "Segoe UI Emoji",
+        "Segoe UI Symbol",
+        "Noto Color Emoji"
+      ); /* 4 */
+      font-feature-settings: --theme(
+        --default-font-feature-settings,
+        normal
+      ); /* 5 */
+      font-variation-settings: --theme(
+        --default-font-variation-settings,
+        normal
+      ); /* 6 */
+      -webkit-tap-highlight-color: transparent; /* 7 */
+    }
+
+    /*
+      1. Add the correct height in Firefox.
+      2. Correct the inheritance of border color in Firefox. (https://bugzilla.mozilla.org/show_bug.cgi?id=190655)
+      3. Reset the default border style to a 1px solid border.
+    */
+
+    hr {
+      height: 0; /* 1 */
+      color: inherit; /* 2 */
+      border-top-width: 1px; /* 3 */
+    }
+
+    /*
+      Add the correct text decoration in Chrome, Edge, and Safari.
+    */
+
+    abbr:where([title]) {
+      -webkit-text-decoration: underline dotted;
+      text-decoration: underline dotted;
+    }
+
+    /*
+      Remove the default font size and weight for headings.
+    */
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      font-size: inherit;
+      font-weight: inherit;
+    }
+
+    /*
+      Reset links to optimize for opt-in styling instead of opt-out.
+    */
+
+    a {
+      color: inherit;
+      -webkit-text-decoration: inherit;
+      text-decoration: inherit;
+    }
+
+    /*
+      Add the correct font weight in Edge and Safari.
+    */
+
+    b,
+    strong {
+      font-weight: bolder;
+    }
+
+    /*
+      1. Use the user's configured `mono` font-family by default.
+      2. Use the user's configured `mono` font-feature-settings by default.
+      3. Use the user's configured `mono` font-variation-settings by default.
+      4. Correct the odd `em` font sizing in all browsers.
+    */
+
+    code,
+    kbd,
+    samp,
+    pre {
+      font-family: --theme(
+        --default-mono-font-family,
+        ui-monospace,
+        SFMono-Regular,
+        Menlo,
+        Monaco,
+        Consolas,
+        "Liberation Mono",
+        "Courier New",
+        monospace
+      ); /* 1 */
+      font-feature-settings: --theme(
+        --default-mono-font-feature-settings,
+        normal
+      ); /* 2 */
+      font-variation-settings: --theme(
+        --default-mono-font-variation-settings,
+        normal
+      ); /* 3 */
+      font-size: 1em; /* 4 */
+    }
+
+    /*
+      Add the correct font size in all browsers.
+    */
+
+    small {
+      font-size: 80%;
+    }
+
+    /*
+      Prevent `sub` and `sup` elements from affecting the line height in all browsers.
+    */
+
+    sub,
+    sup {
+      font-size: 75%;
+      line-height: 0;
+      position: relative;
+      vertical-align: baseline;
+    }
+
+    sub {
+      bottom: -0.25em;
+    }
+
+    sup {
+      top: -0.5em;
+    }
+
+    /*
+      1. Remove text indentation from table contents in Chrome and Safari. (https://bugs.chromium.org/p/chromium/issues/detail?id=999088, https://bugs.webkit.org/show_bug.cgi?id=201297)
+      2. Correct table border color inheritance in all Chrome and Safari. (https://bugs.chromium.org/p/chromium/issues/detail?id=935729, https://bugs.webkit.org/show_bug.cgi?id=195016)
+      3. Remove gaps between table borders by default.
+    */
+
+    table {
+      text-indent: 0; /* 1 */
+      border-color: inherit; /* 2 */
+      border-collapse: collapse; /* 3 */
+    }
+
+    /*
+      Use the modern Firefox focus style for all focusable elements.
+    */
+
+    :-moz-focusring {
+      outline: auto;
+    }
+
+    /*
+      Add the correct vertical alignment in Chrome and Firefox.
+    */
+
+    progress {
+      vertical-align: baseline;
+    }
+
+    /*
+      Add the correct display in Chrome and Safari.
+    */
+
+    summary {
+      display: list-item;
+    }
+
+    /*
+      Make lists unstyled by default.
+    */
+
+    ol,
+    ul,
+    menu {
+      list-style: none;
+    }
+
+    /*
+      1. Make replaced elements `display: block` by default. (https://github.com/mozdevs/cssremedy/issues/14)
+      2. Add `vertical-align: middle` to align replaced elements more sensibly by default. (https://github.com/jensimmons/cssremedy/issues/14#issuecomment-634934210)
+          This can trigger a poorly considered lint error in some tools but is included by design.
+    */
+
+    img,
+    svg,
+    video,
+    canvas,
+    audio,
+    iframe,
+    embed,
+    object {
+      display: block; /* 1 */
+      vertical-align: middle; /* 2 */
+    }
+
+    /*
+      Constrain images and videos to the parent width and preserve their intrinsic aspect ratio. (https://github.com/mozdevs/cssremedy/issues/14)
+    */
+
+    img,
+    video {
+      max-width: 100%;
+      height: auto;
+    }
+
+    /*
+      1. Inherit font styles in all browsers.
+      2. Remove border radius in all browsers.
+      3. Remove background color in all browsers.
+      4. Ensure consistent opacity for disabled states in all browsers.
+    */
+
+    button,
+    input,
+    select,
+    optgroup,
+    textarea,
+    ::file-selector-button {
+      font: inherit; /* 1 */
+      font-feature-settings: inherit; /* 1 */
+      font-variation-settings: inherit; /* 1 */
+      letter-spacing: inherit; /* 1 */
+      color: inherit; /* 1 */
+      border-radius: 0; /* 2 */
+      background-color: transparent; /* 3 */
+      opacity: 1; /* 4 */
+    }
+
+    /*
+      Restore default font weight.
+    */
+
+    :where(select:is([multiple], [size])) optgroup {
+      font-weight: bolder;
+    }
+
+    /*
+      Restore indentation.
+    */
+
+    :where(select:is([multiple], [size])) optgroup option {
+      padding-inline-start: 20px;
+    }
+
+    /*
+      Restore space after button.
+    */
+
+    ::file-selector-button {
+      margin-inline-end: 4px;
+    }
+
+    /*
+      Reset the default placeholder opacity in Firefox. (https://github.com/tailwindlabs/tailwindcss/issues/3300)
+    */
+
+    ::placeholder {
+      opacity: 1;
+    }
+
+    /*
+      Set the default placeholder color to a semi-transparent version of the current text color in browsers that do not
+      crash when using `color-mix(…)` with `currentcolor`. (https://github.com/tailwindlabs/tailwindcss/issues/17194)
+    */
+
+    @supports (not (-webkit-appearance: -apple-pay-button)) /* Not Safari */ or
+      (contain-intrinsic-size: 1px) /* Safari 17+ */ {
+      ::placeholder {
+        color: color-mix(in oklab, currentcolor 50%, transparent);
+      }
+    }
+
+    /*
+      Prevent resizing textareas horizontally by default.
+    */
+
+    textarea {
+      resize: vertical;
+    }
+
+    /*
+      Remove the inner padding in Chrome and Safari on macOS.
+    */
+
+    ::-webkit-search-decoration {
+      -webkit-appearance: none;
+    }
+
+    /*
+      1. Ensure date/time inputs have the same height when empty in iOS Safari.
+      2. Ensure text alignment can be changed on date/time inputs in iOS Safari.
+    */
+
+    ::-webkit-date-and-time-value {
+      min-height: 1lh; /* 1 */
+      text-align: inherit; /* 2 */
+    }
+
+    /*
+      Prevent height from changing on date/time inputs in macOS Safari when the input is set to `display: block`.
+    */
+
+    ::-webkit-datetime-edit {
+      display: inline-flex;
+    }
+
+    /*
+      Remove excess padding from pseudo-elements in date/time inputs to ensure consistent height across browsers.
+    */
+
+    ::-webkit-datetime-edit-fields-wrapper {
+      padding: 0;
+    }
+
+    ::-webkit-datetime-edit,
+    ::-webkit-datetime-edit-year-field,
+    ::-webkit-datetime-edit-month-field,
+    ::-webkit-datetime-edit-day-field,
+    ::-webkit-datetime-edit-hour-field,
+    ::-webkit-datetime-edit-minute-field,
+    ::-webkit-datetime-edit-second-field,
+    ::-webkit-datetime-edit-millisecond-field,
+    ::-webkit-datetime-edit-meridiem-field {
+      padding-block: 0;
+    }
+
+    /*
+      Center dropdown marker shown on inputs with paired `<datalist>`s in Chrome. (https://github.com/tailwindlabs/tailwindcss/issues/18499)
+    */
+
+    ::-webkit-calendar-picker-indicator {
+      line-height: 1;
+    }
+
+    /*
+      Remove the additional `:invalid` styles in Firefox. (https://github.com/mozilla/gecko-dev/blob/2f9eacd9d3d995c937b4251a5557d95d494c9be1/layout/style/res/forms.css#L728-L737)
+    */
+
+    :-moz-ui-invalid {
+      box-shadow: none;
+    }
+
+    /*
+      Correct the inability to style the border radius in iOS Safari.
+    */
+
+    button,
+    input:where([type="button"], [type="reset"], [type="submit"]),
+    ::file-selector-button {
+      appearance: button;
+    }
+
+    /*
+      Correct the cursor style of increment and decrement buttons in Safari.
+    */
+
+    ::-webkit-inner-spin-button,
+    ::-webkit-outer-spin-button {
+      height: auto;
+    }
+
+    /*
+      Make elements with the HTML hidden attribute stay hidden by default.
+    */
+
+    [hidden]:where(:not([hidden="until-found"])) {
+      display: none !important;
+    }
+  }
+}
+
+@theme inline {
+  --radius-sm: calc(var(--fl-radius) - 4px);
+  --radius-md: calc(var(--fl-radius) - 2px);
+  --radius-lg: var(--fl-radius);
+  --radius-xl: calc(var(--fl-radius) + 4px);
+  --color-background: var(--fl-background);
+  --color-foreground: var(--fl-foreground);
+  --color-card: var(--fl-card);
+  --color-card-foreground: var(--fl-card-foreground);
+  --color-popover: var(--fl-popover);
+  --color-popover-foreground: var(--fl-popover-foreground);
+  --color-primary: var(--fl-primary);
+  --color-primary-foreground: var(--fl-primary-foreground);
+  --color-secondary: var(--fl-secondary);
+  --color-secondary-foreground: var(--fl-secondary-foreground);
+  --color-muted: var(--fl-muted);
+  --color-muted-foreground: var(--fl-muted-foreground);
+  --color-accent: var(--fl-accent);
+  --color-accent-foreground: var(--fl-accent-foreground);
+  --color-destructive: var(--fl-destructive);
+  --color-border: var(--fl-border);
+  --color-input: var(--fl-input);
+  --color-ring: var(--fl-ring);
+  --color-chart-1: var(--fl-chart-1);
+  --color-chart-2: var(--fl-chart-2);
+  --color-chart-3: var(--fl-chart-3);
+  --color-chart-4: var(--fl-chart-4);
+  --color-chart-5: var(--fl-chart-5);
+  --color-sidebar: var(--fl-sidebar);
+  --color-sidebar-foreground: var(--fl-sidebar-foreground);
+  --color-sidebar-primary: var(--fl-sidebar-primary);
+  --color-sidebar-primary-foreground: var(--fl-sidebar-primary-foreground);
+  --color-sidebar-accent: var(--fl-sidebar-accent);
+  --color-sidebar-accent-foreground: var(--fl-sidebar-accent-foreground);
+  --color-sidebar-border: var(--fl-sidebar-border);
+  --color-sidebar-ring: var(--fl-sidebar-ring);
+}
+
+.fl-scope {
+  /* Unit basis — see the `@property --fl-root` block at the top of this file.
+     Declared here (unlayered) rather than in the `@layer base` reset so a host
+     stylesheet cannot outrank it. */
+  font-size: medium;
+  --fl-root: 1em;
+
+  /* Every rem-valued token Tailwind emits for this prefix, restated against
+     `--fl-root`. Ratios match Tailwind's defaults exactly (spacing .25,
+     text-xs .75, text-sm .875, text-base 1, container-sm 24, container-5xl 64).
+     The matching `--fl-text-*--line-height` tokens are unitless ratios, so they
+     follow font-size automatically and need no override. */
+  --fl-spacing: calc(var(--fl-root) * 0.25);
+  --fl-text-xs: calc(var(--fl-root) * 0.75);
+  --fl-text-sm: calc(var(--fl-root) * 0.875);
+  --fl-text-base: var(--fl-root);
+  --fl-container-sm: calc(var(--fl-root) * 24);
+  --fl-container-5xl: calc(var(--fl-root) * 64);
+
+  --fl-radius: calc(var(--fl-root) * 0.625);
+  --fl-background: oklch(1 0 0);
+  --fl-foreground: oklch(0.145 0 0);
+  --fl-card: oklch(1 0 0);
+  --fl-card-foreground: oklch(0.145 0 0);
+  --fl-popover: oklch(1 0 0);
+  --fl-popover-foreground: oklch(0.145 0 0);
+  --fl-primary: oklch(0.205 0 0);
+  --fl-primary-foreground: oklch(0.985 0 0);
+  --fl-secondary: oklch(0.97 0 0);
+  --fl-secondary-foreground: oklch(0.205 0 0);
+  --fl-muted: oklch(0.97 0 0);
+  --fl-muted-foreground: oklch(0.556 0 0);
+  --fl-accent: oklch(0.97 0 0);
+  --fl-accent-foreground: oklch(0.205 0 0);
+  --fl-destructive: oklch(0.577 0.245 27.325);
+  --fl-border: oklch(0.922 0 0);
+  --fl-input: oklch(0.922 0 0);
+  --fl-ring: oklch(0.708 0 0);
+  --fl-chart-1: oklch(0.646 0.222 41.116);
+  --fl-chart-2: oklch(0.6 0.118 184.704);
+  --fl-chart-3: oklch(0.398 0.07 227.392);
+  --fl-chart-4: oklch(0.828 0.189 84.429);
+  --fl-chart-5: oklch(0.769 0.188 70.08);
+  --fl-sidebar: oklch(0.985 0 0);
+  --fl-sidebar-foreground: oklch(0.145 0 0);
+  --fl-sidebar-primary: oklch(0.205 0 0);
+  --fl-sidebar-primary-foreground: oklch(0.985 0 0);
+  --fl-sidebar-accent: oklch(0.97 0 0);
+  --fl-sidebar-accent-foreground: oklch(0.205 0 0);
+  --fl-sidebar-border: oklch(0.922 0 0);
+  --fl-sidebar-ring: oklch(0.708 0 0);
+}
+
+/*
+  Dark tokens. The widget resolves dark mode from either the host's `.dark` class
+  or the OS `prefers-color-scheme`, and marks its own *overlay* surfaces with
+  `dark` when it does — so keying only on `html.dark` left the panel painted with
+  the light palette whenever the host signalled dark through the media query
+  alone, while the board inside the iframe (told the resolved mode via `?mode=`)
+  came up dark. That mismatch showed as a white shimmer snapping to a dark board
+  the moment the drawer handed over.
+
+  Custom properties inherit, so redefining them on whichever element carries
+  `dark` cascades to everything inside it:
+    - `html.dark .fl-scope` — host page in dark mode.
+    - `.fl-scope.dark`      — an overlay surface (scope and flag on one element):
+                              the drawer panel, the popover content, the mobile
+                              sheet.
+
+  Deliberately NOT a descendant selector (`.fl-scope .dark`). The trigger lives
+  inline in the host's own content, not on one of our overlay surfaces, so it has
+  to follow the *host page's* appearance rather than the mode we resolved. A
+  descendant rule would catch it and invert it: on a light host visited with an
+  OS dark preference, `bg-primary` flips from near-black to near-white and the
+  default button turns near-invisible against the page. When the host genuinely
+  is dark, `html.dark .fl-scope` already matches the wrapper and these
+  properties inherit down to the trigger anyway.
+*/
+html.dark .fl-scope,
+.fl-scope.dark {
+  --fl-background: oklch(0.145 0 0);
+  --fl-foreground: oklch(0.985 0 0);
+  --fl-card: oklch(0.205 0 0);
+  --fl-card-foreground: oklch(0.985 0 0);
+  --fl-popover: oklch(0.205 0 0);
+  --fl-popover-foreground: oklch(0.985 0 0);
+  --fl-primary: oklch(0.922 0 0);
+  --fl-primary-foreground: oklch(0.205 0 0);
+  --fl-secondary: oklch(0.269 0 0);
+  --fl-secondary-foreground: oklch(0.985 0 0);
+  --fl-muted: oklch(0.269 0 0);
+  --fl-muted-foreground: oklch(0.708 0 0);
+  --fl-accent: oklch(0.269 0 0);
+  --fl-accent-foreground: oklch(0.985 0 0);
+  --fl-destructive: oklch(0.704 0.191 22.216);
+  --fl-border: oklch(1 0 0 / 10%);
+  --fl-input: oklch(1 0 0 / 15%);
+  --fl-ring: oklch(0.556 0 0);
+  --fl-chart-1: oklch(0.488 0.243 264.376);
+  --fl-chart-2: oklch(0.696 0.17 162.48);
+  --fl-chart-3: oklch(0.769 0.188 70.08);
+  --fl-chart-4: oklch(0.627 0.265 303.9);
+  --fl-chart-5: oklch(0.645 0.246 16.439);
+  --fl-sidebar: oklch(0.205 0 0);
+  --fl-sidebar-foreground: oklch(0.985 0 0);
+  --fl-sidebar-primary: oklch(0.488 0.243 264.376);
+  --fl-sidebar-primary-foreground: oklch(0.985 0 0);
+  --fl-sidebar-accent: oklch(0.269 0 0);
+  --fl-sidebar-accent-foreground: oklch(0.985 0 0);
+  --fl-sidebar-border: oklch(1 0 0 / 10%);
+  --fl-sidebar-ring: oklch(0.556 0 0);
+}

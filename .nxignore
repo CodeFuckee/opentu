@@ -1,2 +1,6 @@
 # Exclude excalidraw directory from Nx processing
 excalidraw
+
+# Feedbackland 自托管应用独立用 npm 构建（feedbackland/Dockerfile），
+# 不参与 pnpm/nx 工作区；其中的 vite.config.ts 会被 @nx/vite 插件误识别为项目
+feedbackland

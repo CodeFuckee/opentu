@@ -1,0 +1,32 @@
+# Feedbackland 自托管部署编排（由 .gitlab-ci.yml release.yml 的 deploy job 调用）
+#
+# 用法（在 tag=yx 的 shell runner 上执行）：
+#   docker build -f feedbackland/Dockerfile \
+#     --build-arg NEXT_PUBLIC_SUPABASE_URL="${FL_SUPABASE_URL}" \
+#     --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="${FL_SUPABASE_ANON_KEY}" \
+#     -t feedbackland:latest feedbackland/
+#   docker compose -f deploy/feedbackland/docker-compose.yml up -d --force-recreate
+#
+# 说明：
+# - image 固定本地构建的 feedbackland:latest，容器名 feedbackland
+# - 宿主机端口 8090 映射容器 3000（Next.js 默认端口）
+# - 环境变量由 GitLab CI/CD 变量（FL_* 前缀）经 compose 插值注入：
+#   FL_SUPABASE_URL / FL_SUPABASE_ANON_KEY / FL_DATABASE_URL /
+#   FL_SUPABASE_SERVICE_ROLE_KEY / FL_OPENROUTER_API_KEY（可选）
+
+services:
+  feedbackland:
+    image: feedbackland:latest
+    container_name: feedbackland
+    restart: unless-stopped
+    ports:
+      - "8090:3000"
+    environment:
+      NODE_ENV: production
+      SELF_HOSTED: "true"
+      NEXT_PUBLIC_SELF_HOSTED: "true"
+      DATABASE_URL: ${FL_DATABASE_URL}
+      NEXT_PUBLIC_SUPABASE_URL: ${FL_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${FL_SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${FL_SUPABASE_SERVICE_ROLE_KEY}
+      OPENROUTER_API_KEY: ${FL_OPENROUTER_API_KEY:-}
