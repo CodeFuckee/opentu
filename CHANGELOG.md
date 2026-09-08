@@ -2,6 +2,14 @@
 
 ### 🚀 Features
 
+- 生图月度额度支持"用户级"覆盖（迁移 `supabase/migrations/
+  generation_usage_user_override.sql`）：新增 `user_quota_configs` 表，限额解析顺序
+  变为 用户覆盖 → 部门覆盖 → 全局默认 → 缺省 200；管理员在 Supabase Dashboard 的
+  Table Editor 里对特定用户增/删/改一行即可即时生效（每次生图实时解析，无需重启，
+  删行即回退默认）；附管理员总览视图 `user_quota_overview`（email/OA账号/部门/
+  覆盖值/当月用量/生效限额，仅管理员与 service_role 可读）。前端零改动（限额由
+  ai-proxy 服务端返回）。
+
 - 侧边栏（左侧工具栏底部固定区）新增 Feedbackland 反馈入口按钮：点击后在新标签页打开
   Feedbackland 反馈平台，跳转地址收敛为 `FEEDBACKLAND_URL` 常量（`packages/drawnix/src/
   constants.ts`），默认指向 Feedbackland 开源仓库页，部署自建实例后替换该常量即可。
