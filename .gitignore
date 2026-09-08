@@ -58,3 +58,9 @@ apps/web-e2e/playwright-report/
 test-results/
 apps/web/public/user-manual/
 apps/web-e2e/src/visual
+
+# 仓库内的独立实验项目（自带 node_modules/.next，非 opentu 源码）
+feedbackland/
+
+# ZCode 本地会话产物
+.zcode/
