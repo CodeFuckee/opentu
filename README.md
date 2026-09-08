@@ -76,6 +76,28 @@ pnpm manual:build      # 生成用户手册
 - Docker：使用仓库根目录的 `Dockerfile` 构建静态站点镜像。
 - Hybrid CDN + 自托管：见 [NPM CDN 部署](./docs/NPM_CDN_DEPLOY.md) 与 [CDN 部署](./docs/CDN_DEPLOYMENT.md)。
 
+### Feedbackland 自托管部署（随发布流水线一并部署）
+
+- 反馈平台 Feedbackland（Next.js 16）已 vendor 到 [`feedbackland/`](./feedbackland/)，
+  认证改造为复用现有自建 Supabase 的 Auth/存储/Postgres（独立 `feedbackland` 数据库）。
+- 容器化：`feedbackland/Dockerfile`（多阶段，`next start` 运行，EXPOSE 3000）+
+  [`deploy/feedbackland/docker-compose.yml`](./deploy/feedbackland/docker-compose.yml)
+  （宿主机 `8090` → 容器 `3000`）。
+- 发布流水线（手动 web/api 触发）的 deploy 阶段会与 opentu 一并构建并启动 Feedbackland。
+  部署前需在 GitLab CI/CD Variables 配置（`FL_` 前缀，缺少任一必填变量时构建会失败）：
+  - `FL_DATABASE_URL`：Feedbackland 独立数据库连接串（如
+    `postgres://postgres:<密码>@10.37.80.25:5432/feedbackland`）
+  - `FL_SUPABASE_URL`：自建 Supabase 网关地址（如 `http://10.37.80.25:8021`）
+  - `FL_SUPABASE_ANON_KEY`：anon key（公钥）
+  - `FL_SUPABASE_SERVICE_ROLE_KEY`：服务端 service_role 密钥（机密）
+  - `FL_OPENROUTER_API_KEY`（可选）：AI 洞察功能
+- 侧边栏 Feedbackland 按钮跳转地址为 `FEEDBACKLAND_URL` 常量
+  （`packages/drawnix/src/constants.ts`），当前指向 `http://10.37.80.25:8090`。
+- 首次部署前需在现有 Supabase 实例上做一次性数据准备：建 `feedbackland` 数据库 →
+  执行 [`feedbackland/db/schema.sql`](./feedbackland/db/schema.sql) → 建 storage
+  `images` 桶；并在 Supabase Auth 设置中关闭"邮箱确认"（Confirm email），否则注册后
+  不会自动登录。
+
 ## 仓库结构
 
 ```text

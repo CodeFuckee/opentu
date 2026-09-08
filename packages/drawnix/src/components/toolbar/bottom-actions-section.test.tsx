@@ -78,8 +78,8 @@ describe('BottomActionsSection Feedbackland 按钮', () => {
     openSpy.mockRestore();
   });
 
-  it('FEEDBACKLAND_URL 必须是合法的绝对 https 地址（避免空值/相对路径）', () => {
-    expect(FEEDBACKLAND_URL).toMatch(/^https:\/\//);
+  it('FEEDBACKLAND_URL 必须是合法的绝对 http/https 地址（避免空值/相对路径）', () => {
+    expect(FEEDBACKLAND_URL).toMatch(/^https?:\/\//);
     expect(() => new URL(FEEDBACKLAND_URL)).not.toThrow();
   });
 

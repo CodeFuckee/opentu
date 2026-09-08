@@ -5,6 +5,14 @@
 - 侧边栏（左侧工具栏底部固定区）新增 Feedbackland 反馈入口按钮：点击后在新标签页打开
   Feedbackland 反馈平台，跳转地址收敛为 `FEEDBACKLAND_URL` 常量（`packages/drawnix/src/
   constants.ts`），默认指向 Feedbackland 开源仓库页，部署自建实例后替换该常量即可。
+- Feedbackland 自托管 Docker 部署：vendor 开源反馈平台 Feedbackland（Next.js 16）到
+  `feedbackland/` 并容器化（`feedbackland/Dockerfile` + `deploy/feedbackland/
+  docker-compose.yml`，宿主机 8090）；认证从 Firebase 改为复用现有自建 Supabase 的
+  Auth（service_role 服务端验 token），存储复用现有实例的 storage（`images` 桶），
+  Postgres 建独立 `feedbackland` 数据库隔离应用表；发布流水线 deploy 阶段与 opentu
+  一并构建部署（新增 GitLab CI 变量 FL_DATABASE_URL / FL_SUPABASE_URL /
+  FL_SUPABASE_ANON_KEY / FL_SUPABASE_SERVICE_ROLE_KEY / FL_OPENROUTER_API_KEY）；
+  侧边栏 `FEEDBACKLAND_URL` 指向自托管实例 http://10.37.80.25:8090。
 
 ## 1.0.9 (2026-09-07)
 

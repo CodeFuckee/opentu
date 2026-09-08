@@ -16,3 +16,5 @@ test-results
 *.log
 .env
 .env.*
+# Feedbackland 自托管应用独立构建（feedbackland/Dockerfile），不进 opentu 镜像上下文
+feedbackland
