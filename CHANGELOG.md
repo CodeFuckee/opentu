@@ -2,6 +2,18 @@
 
 ### 🚀 Features
 
+- 新增「本地前端 + 生产环境 Supabase」一键启动脚本
+  `scripts/start-local-prod-supabase.mjs`（`pnpm start:prod-supabase`）：通过进程
+  环境变量注入 `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`（Vite 中进程环境变量
+  优先级高于 `apps/web/.env`，不修改本地配置文件），默认值取自
+  `apps/web/.env.example`；启动前自动探测生产 Supabase 可达性（不可达仅告警不
+  阻断），依赖缺失时自动 `pnpm install`，等待 dev server（http://localhost:7200）
+  就绪后自动打开浏览器，Ctrl+C 结束时按进程树整体清理（支持
+  `--url` / `--key` / `--no-open` 参数）；dev server 意外崩溃时自动重启
+  （连续 5 次失败后放弃）——本机 Node v26 + Vite 6.4 下浏览器异常断开可能触发
+  未捕获 ECONNRESET 使 dev server 整体退出，自动重启避免服务一崩只能靠
+  Service Worker 缓存兜底（表现为静态资源 503、HMR WebSocket 连接失败）。
+
 - 生图月度额度支持"用户级"覆盖（迁移 `supabase/migrations/
   generation_usage_user_override.sql`）：新增 `user_quota_configs` 表，限额解析顺序
   变为 用户覆盖 → 部门覆盖 → 全局默认 → 缺省 200；管理员在 Supabase Dashboard 的

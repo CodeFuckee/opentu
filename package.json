@@ -24,6 +24,7 @@
   "author": "ljquan",
   "scripts": {
     "start": "nx run web:serve-pwa",
+    "start:prod-supabase": "node scripts/start-local-prod-supabase.mjs",
     "build": "node scripts/update-version.js && nx run-many -t=build",
     "build:web": "node scripts/update-version.js && nx build web",
     "preview": "npx serve dist/apps/web -l 7288",

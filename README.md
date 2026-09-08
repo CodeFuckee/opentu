@@ -55,6 +55,20 @@ pnpm start
 
 启动后访问 `http://localhost:7200`。
 
+如需本地启动前端、后端直接连**生产环境 Supabase**（登录/云端同步走生产数据），
+使用：
+
+```bash
+pnpm start:prod-supabase
+```
+
+该脚本通过进程环境变量注入 `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`
+（优先级高于 `apps/web/.env`，默认值取自 `apps/web/.env.example`，不修改本地
+配置文件），启动前自动探测生产 Supabase 可达性，dev server 就绪后自动打开
+浏览器、意外崩溃时自动重启（连续 5 次失败后放弃）；支持 `--url` / `--key` /
+`--no-open` 参数，详见
+[`scripts/start-local-prod-supabase.mjs`](./scripts/start-local-prod-supabase.mjs)。
+
 ### 常用命令
 
 ```bash
