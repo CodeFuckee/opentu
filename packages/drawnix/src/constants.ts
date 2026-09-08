@@ -53,3 +53,9 @@ export const VERSIONS = {
   drawnix: 1,
   app: '0.2.1',
 } as const;
+
+// 自部署 Feedbackland 实例地址（侧边栏反馈按钮的跳转目标）
+// Feedbackland 开源项目：https://github.com/feedbackland/feedbackland
+// 已容器化部署到越秀宿主机（见 deploy/feedbackland/ 与 release.yml deploy job）；
+// 如需更换实例地址，只改这一处即可。
+export const FEEDBACKLAND_URL = 'http://10.37.80.25:8090';

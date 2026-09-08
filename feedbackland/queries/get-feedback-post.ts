@@ -1,0 +1,58 @@
+"server-only";
+
+import { db } from "@/db/db";
+
+export const getFeedbackPostQuery = async ({
+  postId,
+  userId,
+}: {
+  postId: string;
+  userId?: string | null;
+}) => {
+  try {
+    const result = await db
+      .selectFrom("feedback")
+      .leftJoin("user", (join) =>
+        join.onRef("feedback.authorId", "=", "user.id"),
+      )
+      .leftJoin("user_upvote", (join) =>
+        join
+          .onRef("feedback.id", "=", "user_upvote.contentId")
+          .on("user_upvote.userId", "=", userId || null),
+      )
+      .where("feedback.id", "=", postId)
+      .select([
+        "feedback.id",
+        "feedback.createdAt",
+        "feedback.updatedAt",
+        "feedback.orgId",
+        "feedback.authorId",
+        "feedback.category",
+        "feedback.title",
+        "feedback.description",
+        "feedback.upvotes",
+        "feedback.status",
+        "user.name as authorName",
+        "user.photoURL as authorPhotoURL",
+        (eb) =>
+          eb
+            .case()
+            .when("user_upvote.userId", "=", userId || null)
+            .then(true)
+            .else(false)
+            .end()
+            .as("hasUserUpvote"),
+        (eb) =>
+          eb
+            .selectFrom("comment")
+            .select(eb.fn.countAll().as("commentCount"))
+            .whereRef("comment.postId", "=", "feedback.id")
+            .as("commentCount"),
+      ])
+      .executeTakeFirstOrThrow();
+
+    return result;
+  } catch (error) {
+    throw error;
+  }
+};

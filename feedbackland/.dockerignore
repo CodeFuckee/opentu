@@ -1,0 +1,12 @@
+# Feedbackland 构建上下文排除项（node_modules 等由镜像内 npm ci 生成）
+node_modules
+**/node_modules
+.next
+out
+dist
+**/dist
+.env
+.env.*
+*.log
+.git
+.screenshots

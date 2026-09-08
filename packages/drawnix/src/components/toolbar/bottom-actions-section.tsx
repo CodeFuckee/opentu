@@ -10,7 +10,8 @@ import { Badge } from 'tdesign-react';
 import { ToolButton } from '../tool-button';
 import { useTaskQueue } from '../../hooks/useTaskQueue';
 import type { Task } from '../../types/task.types';
-import { FolderIcon, ToolboxIcon, TaskIcon } from '../icons';
+import { FolderIcon, ToolboxIcon, TaskIcon, FeedbacklandIcon } from '../icons';
+import { FEEDBACKLAND_URL } from '../../constants';
 import './bottom-actions-section.scss';
 
 const FAILED_TASK_ACK_STORAGE_KEY = 'aitu-task-queue-failed-ack-at';
@@ -169,6 +170,24 @@ export const BottomActionsSection: React.FC<BottomActionsSectionProps> = ({
           <div className="bottom-actions-section__status bottom-actions-section__status--failed" />
         )}
       </div>
+
+      {/* Feedbackland 反馈按钮 - 新标签页打开自部署反馈平台 */}
+      <ToolButton
+        type="icon"
+        icon={<FeedbacklandIcon />}
+        aria-label="Feedbackland 反馈"
+        tooltip="Feedbackland 反馈"
+        tooltipPlacement="right"
+        visible={true}
+        data-track="toolbar_click_feedbackland"
+        data-testid="toolbar-feedbackland"
+        onPointerDown={(e) => {
+          e.event.stopPropagation();
+        }}
+        onClick={() => {
+          window.open(FEEDBACKLAND_URL, '_blank', 'noopener,noreferrer');
+        }}
+      />
     </div>
   );
 };
