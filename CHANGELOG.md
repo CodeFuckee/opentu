@@ -2,6 +2,10 @@
 
 ### 🚀 Features
 
+- 侧边栏（左侧工具栏底部固定区）新增 Feedbackland 反馈入口按钮：点击后在新标签页打开
+  Feedbackland 反馈平台，跳转地址收敛为 `FEEDBACKLAND_URL` 常量（`packages/drawnix/src/
+  constants.ts`），默认指向 Feedbackland 开源仓库页，部署自建实例后替换该常量即可。
+
 - **Supabase 后端数据看板（dashboard-stats 边缘函数）**：页面与数据接口托管在 Supabase 后端
   （`http://10.37.80.25:8021/functions/v1/dashboard-stats/`），与用户前端完全分离；
   `GET /` 返回自包含 HTML 看板（内联 CSS/JS/SVG 图表，无外部依赖），
