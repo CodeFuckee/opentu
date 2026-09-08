@@ -7,15 +7,32 @@
 import { test, expect } from '../fixtures/test-base';
 import {
   clickToolRadio,
+  deleteSelectedElement,
   dismissInspirationBoard,
   drawRectangle,
   elementCount,
   expectElementsCreated,
   focusCanvasEmptyArea,
+  hideInspirationBoard,
   pressToolKey,
   selectCenterElement,
-  deleteSelectedElement,
+  waitForPointer,
+  warmUpCanvasRuntime,
 } from '../fixtures/canvas-helpers';
+
+// 套件级预热标记：只在首个用例前执行一次（drawing.spec 单文件单 worker，
+// 后续用例直接复用已热化的浏览器缓存/chunk）
+let warmedUp = false;
+
+test.beforeEach(async ({ page, browser }) => {
+  // 注入「用户已隐藏灵感板」偏好：板子全程不挂载，消除其覆盖画布中心、
+  // 吞掉首次落笔 / 把键入导入 AI 输入框的竞态（preview 模式首试 flaky 根因）
+  await hideInspirationBoard(page);
+  if (!warmedUp) {
+    warmedUp = true;
+    await warmUpCanvasRuntime(browser);
+  }
+});
 
 test.describe('绘制与编辑', () => {
   test('画笔：绘制产生自由画笔迹元素', async ({ page }) => {
@@ -69,7 +86,7 @@ test.describe('绘制与编辑', () => {
               '.board-host-svg .element-host [plait-freehand="true"]'
             )
             .count(),
-        { timeout: 8000, intervals: [200] }
+        { timeout: 20000, intervals: [200] }
       )
       .toBeGreaterThan(0);
   });
@@ -87,7 +104,7 @@ test.describe('绘制与编辑', () => {
     const geometry = page.locator(
       '.board-host-svg .element-host [plait-geometry="true"]'
     );
-    await expect(geometry.first()).toBeVisible({ timeout: 5000 });
+    await expect(geometry.first()).toBeVisible({ timeout: 15000 });
 
     // 点击元素 -> 弹出工具栏出现
     await selectCenterElement(page);
@@ -111,6 +128,9 @@ test.describe('绘制与编辑', () => {
     // 文本工具（radio 需点击容器切换）
     const textRadio = page.getByRole('radio', { name: /文本/ }).first();
     await clickToolRadio(page, textRadio);
+    // 等待文本工具链（Slate 编辑器 chunk）就绪：pointer-text 状态类出现后才
+    // 点画布，避免冷加载下编辑器未挂载、按键落入 AI 输入框而丢字
+    await waitForPointer(page, 'text');
     await page.waitForTimeout(400);
 
     const vp = page.viewportSize() || { width: 1280, height: 720 };
@@ -127,7 +147,7 @@ test.describe('绘制与编辑', () => {
         .locator('.board-host-svg .element-host')
         .getByText('E2E 文本测试')
         .first()
-    ).toBeVisible({ timeout: 5000 });
+    ).toBeVisible({ timeout: 15000 });
   });
 
   test('删除：选中元素后通过弹出工具栏删除', async ({ page }) => {
@@ -148,7 +168,7 @@ test.describe('绘制与编辑', () => {
 
     // 元素数量减少
     await expect
-      .poll(async () => elementCount(page), { timeout: 8000 })
+      .poll(async () => elementCount(page), { timeout: 20000 })
       .toBeLessThan(countBefore);
   });
 
@@ -170,7 +190,7 @@ test.describe('绘制与编辑', () => {
         await page.keyboard.press('Control+z');
         try {
           await expect
-            .poll(async () => elementCount(page), { timeout: 3000, intervals: [200] })
+            .poll(async () => elementCount(page), { timeout: 5000, intervals: [200] })
             .toBeLessThan(afterDraw);
           return;
         } catch {
@@ -184,7 +204,7 @@ test.describe('绘制与编辑', () => {
     // 重做（Ctrl+Shift+Z；同样轮询+重试）
     await page.keyboard.press('Control+Shift+z');
     await expect
-      .poll(async () => elementCount(page), { timeout: 8000 })
+      .poll(async () => elementCount(page), { timeout: 20000 })
       .toBe(afterDraw);
   });
 });

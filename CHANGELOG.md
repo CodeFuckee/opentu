@@ -10,6 +10,31 @@
   覆盖值/当月用量/生效限额，仅管理员与 service_role 可读）。前端零改动（限额由
   ai-proxy 服务端返回）。
 
+- **Supabase 后端数据看板（dashboard-stats 边缘函数）**：页面与数据接口托管在 Supabase 后端
+  （`http://10.37.80.25:8021/functions/v1/dashboard-stats/`），与用户前端完全分离；
+  `GET /` 返回自包含 HTML 看板（内联 CSS/JS/SVG 图表，无外部依赖），
+  `GET /overview?days=N` 返回四类聚合统计 —— 任务（task_submissions 总量/类型/状态/成功率/
+  日趋势/平均耗时）、用量与额度（generation_usage 月度汇总 + Top 用户）、用户与组织
+  （user_profiles/staff_directory/departments）、文件与存储（file_paths/response_file_paths
+  计数 + huabu bucket 对象数/大小）；聚合用 service_role 经 PostgREST 直查，无需新增迁移；
+  暂不做鉴权（函数不校验调用者，升级路径见 docs/dashboard-stats.md）
+  （实现见 `supabase/functions/dashboard-stats/`，部署说明见 `docs/dashboard-stats.md`）
+
+### 🩹 Fixes
+
+- E2E（apps/web-e2e）drawing 用例在 CI preview（生产构建 vite preview）模式下首试
+  即失败/flaky：空画布首次加载时「灵感创意板」晚到覆盖画布中心区域，矩形/删除/撤销
+  用例的首次落笔被吞（`expectElementsCreated` 轮询 20s 内元素数为 0），文本用例的
+  居中点击命中板子模板卡、按键全部落入 AI 输入框（快照确认 textarea 收到
+  「E2E 文本测试」+ 弹出确认后发送引导），仅靠 Playwright CI 内置 retries=2 兜底
+  （日志显示 4 flaky → job 绿）。修复：① 用例前注入 `aitu_hide_inspiration_board`
+  localStorage 偏好，让灵感板全程不挂载（仅 drawing.spec，灵感板自身功能用例不受
+  影响）；② drawing 套件首用例前新增无副作用预热 `warmUpCanvasRuntime`（独立上下文
+  真画矩形 + 插入文本，把懒加载 chunk 冷启动成本移出被测用例，替代曾被回退的用例内
+  切工具预热）；③ 等待类超时统一 8s→20s、文本工具切换后等待 `pointer-text` 就绪再
+  点画布输入。本地节流复现（CPU rate 10 模拟慢宿主）：修复前 4 failed / 修复后
+  6 passed，全量 smoke+functional 45 passed。
+
 ## 1.0.9 (2026-09-07)
 
 ### 🩹 Fixes
