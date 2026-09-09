@@ -9,6 +9,8 @@
 - [功能流](./FEATURE_FLOWS.md)：核心用户路径和主要功能流转。
 - [概念说明](./CONCEPTS.md)：领域概念与画布工作区说明。
 - [Service Worker 架构](./SW_ARCHITECTURE.md)：SW、缓存、后台任务与调试入口。
+- [项目优化与深入方向评估](./PROJECT_IMPROVEMENT_ROADMAP.md)：安全止血、质量地基、
+  架构收敛与产品方向的全局评估（2026-09，随重大改进滚动更新）。
 
 ## 测试
 
