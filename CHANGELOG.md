@@ -76,6 +76,21 @@
   点画布输入。本地节流复现（CPU rate 10 模拟慢宿主）：修复前 4 failed / 修复后
   6 passed，全量 smoke+functional 45 passed。
 
+### 🧪 Tests
+
+- 新增用户手册全页面图片加载 E2E（`apps/web-e2e/src/manual-nav/manual-images.spec.ts`，
+  manual-nav / manual-nav-prod 双项目覆盖开发与生产环境，复用现有
+  `pnpm e2e:manual-nav` / `:prod` / `:both` 命令运行）：从首页侧边栏逐页审计全部
+  `<img>`（懒加载图逐张 scrollIntoView 触发真实加载），每张图校验三层——响应 200
+  且 content-type 为图片类型（防 dev server 把缺失图片 SPA 回退成 200 的 HTML）、
+  解码成功（naturalWidth>0）、渲染尺寸>0；防误判守卫：侧边栏项数下限、每页
+  200+标题前缀+h1、首页图片 ≥3、每页审计数 ≥ 该页静态 HTML 声明的 `<img>` 数
+  （版本无关，两环境部署版本可不同）。无头自测多轮稳定：开发环境如实命中 7 张
+  引用缺失的截图（ai-step-0..3、backup-restore、settings-dialog 因 manual-gen
+  三个截图用例失败，image-preview 与产物 image-preview-empty 名称漂移）；生产
+  环境抓出 20 个内容页 404（部署的仍是 a2a48cd8 修复前的构建，重新发布后复测）。
+  CI 的 e2e job 仅跑 smoke/functional 项目，本套件不影响流水线。
+
 ## 1.0.9 (2026-09-07)
 
 ### 🩹 Fixes
