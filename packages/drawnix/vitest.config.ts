@@ -11,6 +11,21 @@ export default defineConfig({
     testTimeout: 30_000,
     hookTimeout: 30_000,
     maxWorkers: 2,
+    coverage: {
+      // 门禁：test 运行即收集覆盖率并执行阈值校验（跌破阈值测试即失败）
+      enabled: true,
+      provider: 'v8',
+      reportsDirectory: '../../coverage/packages/drawnix',
+      // 覆盖率口径限定为工作流执行引擎（核心链路零测试专项，2026-09）
+      include: ['src/engine/**/*.ts'],
+      exclude: ['src/engine/**/index.ts', 'src/engine/**/types/**'],
+      thresholds: {
+        statements: 95,
+        branches: 90,
+        functions: 98,
+        lines: 95,
+      },
+    },
   },
   resolve: {
     alias: {

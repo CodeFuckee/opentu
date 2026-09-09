@@ -93,6 +93,28 @@
 
 ### 🧪 Tests
 
+- 工作流执行引擎（`packages/drawnix/src/engine/`）从零测试补至行为级覆盖
+  （对应 `docs/PROJECT_IMPROVEMENT_ROADMAP.md` P1 专项）：新增 13 个测试文件、
+  191 个用例，覆盖 ParameterMapper（规则应用顺序/类型强转/回退/内置 transform）、
+  PathResolver（点路径/数组索引/负索引/引号键读写）、TypeValidator、
+  DefaultValueHandler（深拷贝隔离）、FallbackStrategy（四种策略 + executeAuto 决策）、
+  tool-mappings、ExecutionLogger、ToolResponseHelper、ResponseEnhancer、
+  workflow 响应解析（JSON 提取容错/终止判定/输出清理/图片过滤/提示词构建）与
+  WorkflowEngine 全链路（假 AI + 假工具执行器驱动：终止/链式注入/参数映射/工具
+  失败与超时/取消/迭代上限/guard 告警/事件流）。engine 整体覆盖率
+  语句 96.9% / 分支 94.0% / 函数 99.0%。
+- 新增覆盖率门禁：`packages/drawnix/vitest.config.ts` 开启 coverage（口径限定
+  `src/engine/**`，排除桶文件 index.ts 与纯类型 types/），阈值
+  statements 95 / branches 90 / functions 98 / lines 95——`pnpm test`（含 CI
+  test:frontend job）跌破即红，防止引擎覆盖率回退；新增 devDependency
+  `@vitest/coverage-v8`（与 vitest 3.2.4 同版本）。
+- 行为锁定时发现并如实记录的三个实现 quirks（未改源码，均有测试注释佐证）：
+  ① WorkflowEngine 的链式注入只发生在同一迭代 `next` 数组的相邻工具间，
+  跨迭代输出仅经用户提示词传回大模型，不自动注入工具参数；②
+  ParameterMapper 构造器的 `defaultFallback` 配置实际不参与规则回退决策
+  （applyRule 固定走 executeAuto）；③ 响应 `next` 数组含任一非法调用项时
+  整体按格式失败处理（content 保留、next 全部丢弃），逐项 filter 为防御性冗余。
+
 - 新增用户手册全页面图片加载 E2E（`apps/web-e2e/src/manual-nav/manual-images.spec.ts`，
   manual-nav / manual-nav-prod 双项目覆盖开发与生产环境，复用现有
   `pnpm e2e:manual-nav` / `:prod` / `:both` 命令运行）：从首页侧边栏逐页审计全部
