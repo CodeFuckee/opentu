@@ -4,6 +4,11 @@
  * 这些测试会生成用于用户手册的截图
  */
 import { test, expect } from '../fixtures/test-base';
+import { resolve } from 'path';
+import {
+  forceFileInputFallback,
+  insertImageToCanvas,
+} from '../fixtures/cloud-sync-helpers';
 import {
   screenshotWithAnnotations,
   circleOnElement,
@@ -298,9 +303,10 @@ test.describe('进阶功能手册', () => {
     await page.waitForTimeout(500);
 
     // 基于菜单项实际位置的标注
-    const settingsItem = page.getByRole('button', { name: '设置' });
-    const backupItemInMenu = page.getByRole('button', { name: /备份.*恢复/ });
-    const helpItem = page.getByRole('button', { name: /帮助|使用说明/ });
+    // 菜单项为 menuitem 角色，用稳定的 data-track 定位（与 functional/app-menu.spec.ts 一致）
+    const settingsItem = page.locator('[data-track="toolbar_click_menu_settings"]');
+    const backupItemInMenu = page.locator('[data-track="toolbar_click_menu_backup"]');
+    const helpItem = page.locator('[data-track="toolbar_click_menu_manual"]');
     
     const annotations1: Annotation[] = [];
     
@@ -346,8 +352,8 @@ test.describe('进阶功能手册', () => {
     await settingsItem.click();
     await page.waitForTimeout(500);
 
-    // 等待设置对话框并获取位置
-    const settingsDialog = page.locator('.t-dialog').or(page.locator('[role="dialog"]'));
+    // 等待设置对话框（WinBox 窗口）并获取位置
+    const settingsDialog = page.getByTestId('settings-dialog');
     const dialogBox = await settingsDialog.boundingBox().catch(() => null);
     
     // 基于对话框位置的标注
@@ -391,19 +397,19 @@ test.describe('进阶功能手册', () => {
     await menuBtn.click();
     await page.waitForTimeout(500);
 
-    // 点击备份恢复（使用 button，名称是 "备份 / 恢复"）
-    const backupItem = page.getByRole('button', { name: /备份.*恢复/ });
+    // 点击备份恢复（菜单项为 menuitem 角色，用 data-track 定位，名称是 "备份 / 恢复"）
+    const backupItem = page.locator('[data-track="toolbar_click_menu_backup"]');
     await expect(backupItem).toBeVisible();
     await backupItem.click();
     await page.waitForTimeout(800);
 
     // 等待对话框出现
-    const dialog = page.locator('.t-dialog').or(page.locator('[role="dialog"]'));
+    const dialog = page.getByTestId('backup-restore-dialog');
     await expect(dialog).toBeVisible({ timeout: 5000 });
     
     // 定位对话框中的实际元素
-    const exportBtn = page.locator('button').filter({ hasText: '导出备份' }).first();
-    const restoreTab = page.locator('text=恢复').first();
+    const exportBtn = dialog.locator('button').filter({ hasText: '导出备份' }).first();
+    const restoreTab = dialog.locator('text=恢复').first();
     
     // 基于实际元素位置创建标注
     const annotations: Annotation[] = [];
@@ -458,48 +464,42 @@ test.describe('进阶功能手册', () => {
       }),
     });
 
+    // browser-fs-access 回退到 hidden input，Playwright 才能拦截 filechooser 插入图片
+    await forceFileInputFallback(page);
     await page.goto('/');
     const drawnix = page.locator('.drawnix');
     await expect(drawnix).toBeVisible({ timeout: 10000 });
     await page.waitForTimeout(2000);
 
-    // 先打开素材库看看有没有图片（使用 label 选择器）
-    const toolbar = page.locator('.unified-toolbar').or(page.locator('[class*="toolbar"]')).first();
-    const mediaLibraryBtn = toolbar.locator('label').filter({ has: page.getByRole('radio', { name: /素材库/ }) }).first();
-    await expect(mediaLibraryBtn).toBeVisible();
-    await mediaLibraryBtn.click();
+    // 插入一张测试图片到画布（本环境素材库为空，改走画布图片预览，
+    // 与手册文档「在画布上双击图片元素打开全屏预览」一致）
+    const testImagePath = resolve(__dirname, '..', '..', 'images', 'test1.png');
+    await insertImageToCanvas(page, testImagePath);
+
+    // 双击图片元素打开全屏预览
+    const imageElement = page
+      .locator('.board-host-svg .element-host [plait-data-id]')
+      .first();
+    await imageElement.dblclick();
+    await expect(page.locator('.unified-viewer')).toBeVisible({ timeout: 5000 });
     await page.waitForTimeout(500);
 
-    // 如果有素材，双击第一个打开预览
-    const firstAsset = page.locator('[data-testid="asset-item"]').or(page.locator('.asset-item')).first();
-    if (await firstAsset.isVisible()) {
-      await firstAsset.dblclick();
-      await page.waitForTimeout(500);
-      
-      // 带标注截图：图片预览界面
-      const annotations: Annotation[] = [
-        circle(50, 50, 1),
-        arrow(100, 50, '关闭预览', 'right'),
-        arrow(100, 400, '缩放控制', 'right'),
-        arrow(100, 500, '编辑工具', 'right'),
-      ];
-      
-      await screenshotWithAnnotations(
-        page,
-        'test-results/manual-screenshots/image-preview.png',
-        annotations
-      );
-      await testInfo.attach('image-preview', {
-        path: 'test-results/manual-screenshots/image-preview.png',
-        contentType: 'image/png',
-      });
-    } else {
-      // 如果没有素材，截一个空状态
-      await page.screenshot({ path: 'test-results/manual-screenshots/image-preview-empty.png' });
-      await testInfo.attach('image-preview-empty', {
-        path: 'test-results/manual-screenshots/image-preview-empty.png',
-        contentType: 'image/png',
-      });
-    }
+    // 带标注截图：图片预览界面
+    const annotations: Annotation[] = [
+      circle(50, 50, 1),
+      arrow(100, 50, '关闭预览', 'right'),
+      arrow(100, 400, '缩放控制', 'right'),
+      arrow(100, 500, '编辑工具', 'right'),
+    ];
+
+    await screenshotWithAnnotations(
+      page,
+      'test-results/manual-screenshots/image-preview.png',
+      annotations
+    );
+    await testInfo.attach('image-preview', {
+      path: 'test-results/manual-screenshots/image-preview.png',
+      contentType: 'image/png',
+    });
   });
 });

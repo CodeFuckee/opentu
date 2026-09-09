@@ -46,6 +46,21 @@
 
 ### 🩹 Fixes
 
+- manual-gen 截图生成 4 个用例失败导致手册产物缺图（`e2e:manual-nav` 的图片审计
+  如实命中 7 张引用缺失截图）。修复 `apps/web-e2e/src/manual-gen/`：① 设置/备份
+  恢复用例的菜单项定位从 `getByRole('button')` 改为 `data-track`
+  （`toolbar_click_menu_settings` / `toolbar_click_menu_backup` 等，应用菜单重构后
+  菜单项是 menuitem 角色，旧定位器必空），设置/备份对话框改用
+  `settings-dialog` / `backup-restore-dialog` testid；② AI 生成图片用例的模型选择
+  器触发按钮 aria-label 已改为「{模型名} (↑↓ Tab)」（不含 #），改用
+  `[data-testid="model-selector"] button` 定位、发送按钮改用 `ai-send-btn` testid
+  （旧定位器 boundingBox 干等 30s 撞上 60s 用例超时）；③ 图片预览用例从「素材库
+  双击素材」改为确定性流程：`forceFileInputFallback` + `insertImageToCanvas` 插入
+  夹具图 `apps/web-e2e/images/test1.png` 到画布后双击打开全屏预览（与手册文档描述
+  一致，不再依赖环境素材库非空），产物固定为 `image-preview.png`。重跑
+  `pnpm manual:screenshots` + `pnpm manual:build` 后 20 用例全绿、手册 HTML 引用的
+  36 张截图与产物完全对齐，`pnpm e2e:manual-nav` 4 passed。
+
 - 用户手册（/user-manual/）所有内容页 404（生产 8088 部署与本地开发均只剩
   index.html，侧边栏 20 个内容项全部打不开）。两个叠加根因：① `generate-manual.ts`
   的 slug 只归一化正斜杠，Windows 下 glob 返回 `drawing\text.mdx` 反斜杠路径，

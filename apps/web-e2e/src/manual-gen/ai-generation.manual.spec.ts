@@ -41,7 +41,9 @@ test.describe('AI 生成功能手册', () => {
 
     // 步骤 0: 展示 AI 输入框（带标注）
     const textarea = page.locator('[data-testid="ai-input-textarea"]');
-    const modelSelector = page.getByRole('button', { name: /#/ }).first();
+    // 模型选择器触发按钮的 aria-label 是 "{模型名} (↑↓ Tab)"（不含 #），
+    // 用容器 testid 定位（点击后打开模型下拉菜单）
+    const modelSelector = page.locator('[data-testid="model-selector"] button').first();
     
     const annotations0: Annotation[] = [];
     const inputHighlight = await highlightElement(textarea, '输入提示词');
@@ -97,7 +99,7 @@ test.describe('AI 生成功能手册', () => {
     await page.waitForTimeout(300);
 
     // 步骤 3: 展示发送按钮
-    const sendBtn = page.locator('button').filter({ has: page.locator('svg') }).last();
+    const sendBtn = page.getByTestId('ai-send-btn');
     const annotations3: Annotation[] = [];
     const sendArrow = await arrowToElement(sendBtn, '点击发送', 'left');
     if (sendArrow) annotations3.push(sendArrow);
