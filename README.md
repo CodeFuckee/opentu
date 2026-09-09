@@ -78,8 +78,9 @@ pnpm build             # 构建工作区
 pnpm check             # typecheck + lint
 pnpm test              # 运行单元测试
 pnpm e2e:smoke         # 运行冒烟测试
+pnpm e2e:manual-nav    # 用户手册侧边栏导航 E2E（开发环境；生产环境用 e2e:manual-nav:prod）
 pnpm check:cycles      # 检查循环依赖
-pnpm manual:build      # 生成用户手册
+pnpm manual:build      # 生成用户手册（web 构建时自动执行，产出至 apps/web/public/user-manual）
 ```
 
 ## 部署

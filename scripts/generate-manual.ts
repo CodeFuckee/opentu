@@ -858,9 +858,12 @@ async function main() {
     const meta = data as PageMeta;
     
     // 生成 slug
+    // 注意：Windows 下 glob 返回反斜杠路径（drawing\text.mdx），需把两种
+    // 分隔符统一替换为 '-'，否则输出路径带子目录导致 ENOENT 崩溃，
+    // 手册永远只能生成出 index.html
     const slug = mdxFile
       .replace(/\.mdx$/, '')
-      .replace(/\//g, '-')
+      .replace(/[\\/]/g, '-')
       .replace(/^-/, '');
     
     // 转换 Markdown 为 HTML

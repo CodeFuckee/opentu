@@ -50,6 +50,7 @@
       "executor": "nx:run-commands",
       "options": {
         "commands": [
+          "pnpm manual:build",
           "nx run web:typecheck",
           "nx run web:build-app",
           "nx run web:build-sw"

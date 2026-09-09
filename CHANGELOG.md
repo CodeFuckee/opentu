@@ -46,6 +46,23 @@
 
 ### 🩹 Fixes
 
+- 用户手册（/user-manual/）所有内容页 404（生产 8088 部署与本地开发均只剩
+  index.html，侧边栏 20 个内容项全部打不开）。两个叠加根因：① `generate-manual.ts`
+  的 slug 只归一化正斜杠，Windows 下 glob 返回 `drawing\text.mdx` 反斜杠路径，
+  生成完 index.html 后写内容页即 ENOENT 崩溃（本机从未成功生成过内容页）；
+  ② 构建产物目录 `apps/web/public/user-manual/` 整体 gitignore（仅 index.html 被
+  单独提交），构建链（`pnpm build` / Dockerfile / CI）从未执行 `manual:build`，
+  镜像里自然只有这一页。修复：slug 兼容 `\\` 与 `/` 两种分隔符；`manual:build`
+  跨平台化（`--compiler-options` 的单引号 JSON 在 Windows cmd 下被剥坏致 ts-node
+  解析崩溃，改用专用 `scripts/tsconfig.manual.json`）；手册生成前置进 apps/web 的
+  build 目标，本地 / CI / Docker 三条构建路径自动产出全部 21 个页面（修复后开发
+  环境 manual-nav e2e 全绿；生产环境随下次发布部署生效）。
+- 新增手册侧边栏导航 E2E（apps/web-e2e/src/manual-nav/，manual-nav /
+  manual-nav-prod 双项目覆盖开发与生产环境）：从首页收集侧边栏全部站内链接并逐项
+  真实点击，验证文档响应 200、页面标题与点击项严格对应、正文渲染 h1、目标页侧边栏
+  高亮当前项，坏链接在测试末尾一次性汇总报告；新增 `pnpm e2e:manual-nav` /
+  `e2e:manual-nav:prod` / `e2e:manual-nav:both` 命令（--skip-nx-cache 防止缓存回放）。
+
 - E2E（apps/web-e2e）drawing 用例在 CI preview（生产构建 vite preview）模式下首试
   即失败/flaky：空画布首次加载时「灵感创意板」晚到覆盖画布中心区域，矩形/删除/撤销
   用例的首次落笔被吞（`expectElementsCreated` 轮询 20s 内元素数为 0），文本用例的

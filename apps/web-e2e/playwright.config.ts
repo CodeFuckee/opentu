@@ -179,6 +179,25 @@ export default defineConfig({
       dependencies: ['auth-setup'],
     },
 
+    // 手册侧边栏导航 - 开发环境（本地 dev server 托管 apps/web/public/user-manual，
+    // 无需登录态，不依赖 auth-setup）
+    {
+      name: 'manual-nav',
+      testMatch: '**/manual-nav/**/*.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+    },
+
+    // 手册侧边栏导航 - 生产环境（内网部署，可用 MANUAL_PROD_BASE_URL 覆盖）
+    {
+      name: 'manual-nav-prod',
+      testMatch: '**/manual-nav/**/*.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL:
+          process.env['MANUAL_PROD_BASE_URL'] || 'http://10.37.80.25:8088',
+      },
+    },
+
     // 响应式测试 - 多视口尺寸
     {
       name: 'responsive',
