@@ -143,12 +143,12 @@ test.describe('Feedbackland Supabase 账号登录', () => {
       '看板页应渲染排序筛选'
     ).toBeVisible();
     await expect(
-      page.getByText('Share any feedback...'),
-      '看板页应渲染发帖输入区'
+      page.getByRole('button', { name: 'Submit feedback' }),
+      '看板页应渲染发帖输入区（Submit feedback 按钮；编辑器占位文本是 CSS 生成内容，不可用 getByText 定位）'
     ).toBeVisible();
-    // 页面不应处于错误态
+    // 页面不应处于错误态（精确匹配，避免误伤页面上含数字的普通元素）
     await expect(
-      page.getByText(/500|Internal Server Error/i),
+      page.getByText('Internal Server Error', { exact: true }),
       '看板页不应出现服务端错误'
     ).toHaveCount(0);
   });

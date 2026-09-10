@@ -7,6 +7,15 @@ import { E2E_STATE_PATH } from './src/config/e2e.config';
 // For CI, you may want to set BASE_URL to the deployed application.
 const baseURL = process.env['BASE_URL'] || 'http://localhost:7200';
 
+// 仅运行 feedbackland 项目时跳过本地 webServer（被测对象是外部 8090 站点，
+// 与 localhost:7200 无关）；也可以用 E2E_SKIP_WEBSERVER=1 强制跳过
+const cliArgs = process.argv;
+const projectArgs = cliArgs
+  .filter((a) => a.startsWith('--project='))
+  .map((a) => a.split('=')[1] ?? '');
+const onlyFeedbackland =
+  projectArgs.length > 0 && projectArgs.every((p) => p === 'feedbackland');
+
 // 认证 setup 保存的会话文件（路径统一在 src/config/e2e.config.ts）
 const storageStatePath = E2E_STATE_PATH;
 
@@ -52,12 +61,17 @@ export default defineConfig({
     video: 'retain-on-failure',
   },
 
-  /* Run your local dev server before starting the tests */
-  // E2E_WEB_SERVER=preview 时改用生产构建 + vite preview：CI 必须跑真实打包产物，
-  // 否则只打包才会暴露的问题（如 manualChunks 环导致的顶层初始化崩溃、
-  // tool-windows chunk 启动报错）在 dev server 下永远测不出来。
+  /* Run your local dev server before starting the tests.
+     E2E_WEB_SERVER=preview 时改用生产构建 + vite preview：CI 必须跑真实打包产物，
+     否则只打包才会暴露的问题（如 manualChunks 环导致的顶层初始化崩溃、
+     tool-windows chunk 启动报错）在 dev server 下永远测不出来。
+     仅运行 feedbackland 项目（被测对象是外部 8090 站点）或设置
+     E2E_SKIP_WEBSERVER=1 时跳过本地 webServer */
   webServer:
-    process.env.E2E_WEB_SERVER === 'preview'
+    onlyFeedbackland ||
+    process.env['E2E_SKIP_WEBSERVER'] === '1'
+      ? undefined
+      : process.env.E2E_WEB_SERVER === 'preview'
       ? {
           command:
             'pnpm exec nx build web && pnpm exec vite preview --config apps/web/vite.config.ts --port 7200 --strictPort',
