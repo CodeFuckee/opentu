@@ -46,11 +46,12 @@ feedbackland:redeploy:
     - docker compose -f deploy/feedbackland/docker-compose.yml up -d --force-recreate
 
     # ---------- 健康检查：容器运行中 + 站点可访问（重试最多 ~40s） ----------
+    # 探测 /login：应用没有 "/" 根路由（404），/login 是稳定返回 200 的真实页面
     - docker ps --filter "name=^feedbackland$" --filter "status=running" --format "{{.Names}} -> {{.Ports}}"
     - |
       ok=""
       for i in 1 2 3 4 5 6 7 8; do
-        if docker exec feedbackland wget -q -O /dev/null http://127.0.0.1:3000/ 2>/dev/null; then
+        if docker exec feedbackland wget -q -O /dev/null http://127.0.0.1:3000/login 2>/dev/null; then
           ok=1
           break
         fi
