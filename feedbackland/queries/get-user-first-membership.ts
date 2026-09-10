@@ -4,8 +4,9 @@ import { db } from "@/db/db";
 
 /**
  * 回退查询：请求的组织不存在（如从 /login 等非组织页登录）时，
- * 取该用户已加入的第一个组织，使会话仍能绑定到有效组织。
- * 返回结构与 getUserWithRoleAndOrgQuery 一致；无任何组织成员关系时返回 undefined。
+ * 取该用户已加入的组织，使会话仍能绑定到有效组织。
+ * 返回结构与 getUserWithRoleAndOrgQuery 一致；无任何组织成员关系时抛错
+ * （由调用方兜底），因此返回类型与主查询完全一致。
  */
 export const getUserFirstMembershipQuery = async ({
   userId,
@@ -32,8 +33,7 @@ export const getUserFirstMembershipQuery = async ({
         "org.updatedAt as orgUpdatedAt",
       ])
       .where("user.id", "=", userId)
-      .orderBy("user_org.createdAt", "asc")
-      .executeTakeFirst();
+      .executeTakeFirstOrThrow();
   } catch (error) {
     throw error;
   }

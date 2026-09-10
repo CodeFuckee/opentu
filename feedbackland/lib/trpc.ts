@@ -47,11 +47,12 @@ export const createContext = async ({ req }: { req: Request }) => {
       }).catch(() => null);
 
       // 请求的组织不存在（如从 /login 等非组织页登录）时，回退到该用户
-      // 已加入的第一个组织，避免帖子列表等查询全部失败
+      // 已加入的组织，避免帖子列表等查询全部失败；无任何组织成员关系的
+      // 用户会抛错，由下方 catch 归一为 null
       if (!userWithRoleAndOrg) {
-        userWithRoleAndOrg = await getUserFirstMembershipQuery({ userId }).catch(
-          () => null
-        );
+        userWithRoleAndOrg = await getUserFirstMembershipQuery({
+          userId,
+        }).catch(() => null);
       }
 
       orgId = userWithRoleAndOrg?.orgId;
