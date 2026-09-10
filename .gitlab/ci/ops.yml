@@ -1,0 +1,66 @@
+# =============================================================================
+# Feedbackland 运维作业（手动触发）
+# -----------------------------------------------------------------------------
+# feedbackland:redeploy：在 yx runner（服务器本机）上重建并拉起 Feedbackland
+# 容器（8090），用于容器意外停止后的快速恢复，或发布流水线之外单独更新
+# Feedbackland。
+#
+# 与其它实例的隔离（与 release.yml deploy 作业的 Feedbackland 段落完全同参）：
+# - 仅操作容器 feedbackland / 端口 publish=8090 / compose 项目 feedbackland
+#   （deploy/feedbackland/ 子目录），绝不触碰生产主站（yue-huabu, 8088）、
+#   预览环境（yue-huabu-preview, 8090 之外端口 8089——注意 8089 归预览，
+#   本作业端口过滤只针对 8090）
+# - 运行期变量（DATABASE_URL 等）与发布流水线一致，来自 GitLab CI/CD 变量
+#   （FL_* 前缀）
+# =============================================================================
+
+feedbackland:redeploy:
+  stage: deploy
+  tags:
+    - yx
+  timeout: 2 hours
+  environment:
+    name: feedbackland
+    url: http://10.37.80.25:8090
+  rules:
+    # 仅 main 分支的 push 流水线提供手动运维入口；
+    # 流水线 B（web/api 手动发版）不出现本作业，发布流程照旧全量部署 Feedbackland
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"'
+      when: manual
+    - when: never
+  script:
+    # ---------- 诊断：容器现状 + 最近日志（便于追溯停止原因） ----------
+    - docker ps -a --filter "name=^feedbackland$" --format "{{.Names}} | {{.Status}} | {{.Image}}" || true
+    - docker logs --tail 80 feedbackland 2>&1 | tail -80 || true
+
+    # ---------- 重建镜像（与 release deploy 同参） ----------
+    - docker build -f feedbackland/Dockerfile --build-arg NEXT_PUBLIC_SUPABASE_URL="${FL_SUPABASE_URL}" --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="${FL_SUPABASE_ANON_KEY}" --build-arg NEXT_PUBLIC_SELF_HOSTED=true -t feedbackland:latest feedbackland/
+
+    # ---------- 释放 8090 端口：仅同名容器 + publish=8090 的容器 ----------
+    - docker rm -f feedbackland 2>/dev/null || true
+    - |
+      for cid in $(docker ps -q --filter "publish=8090" 2>/dev/null); do
+        docker rm -f "${cid}" 2>/dev/null || true
+      done
+    - docker compose -f deploy/feedbackland/docker-compose.yml down --remove-orphans || true
+    - docker compose -f deploy/feedbackland/docker-compose.yml up -d --force-recreate
+
+    # ---------- 健康检查：容器运行中 + 站点可访问（重试最多 ~40s） ----------
+    - docker ps --filter "name=^feedbackland$" --filter "status=running" --format "{{.Names}} -> {{.Ports}}"
+    - |
+      ok=""
+      for i in 1 2 3 4 5 6 7 8; do
+        if docker exec feedbackland wget -q -O /dev/null http://127.0.0.1:3000/ 2>/dev/null; then
+          ok=1
+          break
+        fi
+        echo "等待 Feedbackland 就绪（第 ${i} 次）..."
+        sleep 5
+      done
+      if [ -z "${ok}" ]; then
+        echo "Feedbackland 健康检查未通过，最近日志："
+        docker logs --tail 40 feedbackland 2>&1 | tail -40
+        exit 1
+      fi
+      echo "Feedbackland 可访问 ✓"
+    - 'echo "Feedbackland 重新部署完成：http://10.37.80.25:8090"'

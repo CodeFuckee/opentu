@@ -41,6 +41,11 @@
 # 部署到宿主机 8089 端口（容器 yue-huabu-preview）供小范围内测；后端与生产一致
 # （生产 Supabase）。与生产实例完全隔离——独立镜像名/容器名/compose 项目名，
 # 端口清理仅限 8089，测试（quality + 三类 test + build）全部成功后作业才可点击。
+#
+# Feedbackland 运维（ops.yml）：main 分支 push 流水线中的手动作业
+# feedbackland:redeploy，在服务器本机重建并拉起 Feedbackland 容器（8090），
+# 用于容器意外停止后的快速恢复；仅操作 feedbackland 容器 / 8090 端口，
+# 与生产主站（8088）、预览环境（8089）互不影响。
 # =============================================================================
 
 workflow:
@@ -101,3 +106,5 @@ include:
   - local: '.gitlab/ci/release.yml'
   # 预览环境手动部署（main 分支 push 流水线的手动作业，8089 端口，与生产隔离）
   - local: '.gitlab/ci/preview-deploy.yml'
+  # Feedbackland 运维作业（手动恢复/单独更新 8090 反馈平台，与其它实例隔离）
+  - local: '.gitlab/ci/ops.yml'

@@ -2,6 +2,14 @@
 
 ### 🚀 Features
 
+- CI/CD 新增 Feedbackland 运维作业 `feedbackland:redeploy`（`.gitlab/ci/ops.yml`）：
+  main 分支 push 流水线中的手动作业，在 yx runner（服务器本机）重建并拉起
+  Feedbackland 容器（8090），用于容器意外停止后的快速恢复或发布流水线之外单独
+  更新；作业先输出容器状态与最近日志便于追溯停止原因，再按与发布流水线完全
+  相同的参数重建镜像 + compose 拉起，并做就绪重试健康检查（最多 ~40s）；仅操作
+  feedbackland 容器 / publish=8090 / compose 项目 feedbackland，与生产主站
+  （8088）、预览环境（8089）互不影响。
+
 - CI/CD 新增预览环境手动部署作业 `deploy:preview`（`.gitlab/ci/preview-deploy.yml`
   + `deploy/preview/docker-compose.yml`）：main 分支 push 流水线在 quality、三类
   test、build 全部成功后（needs 硬依赖，任一失败作业不可点击），可手动把当前提交
