@@ -172,3 +172,17 @@ feedbackland:redeploy:
       fi
       echo "Feedbackland 可访问 ✓"
     - 'echo "Feedbackland 重新部署完成：http://10.37.80.25:8090"'
+
+feedbackland:db-diagnose:
+  stage: deploy
+  tags:
+    - yx
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"'
+      when: manual
+    - when: never
+  script:
+    - docker exec supabase-db psql -U postgres -c 'SELECT datname FROM pg_database;'
+    - docker exec supabase-db psql -U postgres -d feedbackland -c 'SELECT "orgSubdomain", "isClaimed", "createdAt" FROM org ORDER BY "createdAt" DESC LIMIT 5;' || true
+    - docker exec supabase-db psql -U postgres -d feedbackland -c 'SELECT id, name, email, "createdAt" FROM "user" ORDER BY "createdAt" DESC LIMIT 5;' || true
+    - docker exec supabase-db psql -U postgres -d feedbackland -c 'SELECT * FROM user_org LIMIT 5;' || true
