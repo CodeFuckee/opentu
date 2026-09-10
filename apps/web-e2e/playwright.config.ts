@@ -198,6 +198,18 @@ export default defineConfig({
       },
     },
 
+    // Feedbackland（8090 生产预览实例）Supabase 账号登录 E2E——
+    // 登录流程本身即被测对象，不依赖 auth-setup 登录态
+    {
+      name: 'feedbackland',
+      testMatch: '**/feedbackland/**/*.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL:
+          process.env['FEEDBACKLAND_BASE_URL'] || 'http://10.37.80.25:8090',
+      },
+    },
+
     // 响应式测试 - 多视口尺寸
     {
       name: 'responsive',

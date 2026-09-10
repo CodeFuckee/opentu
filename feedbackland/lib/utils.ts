@@ -57,9 +57,18 @@ export const getIsSubdirOrg = (urlString?: string | null) => {
 
   if (!url) return false;
 
-  const { host } = url;
+  const { host, hostname } = url;
 
-  return host?.includes("localhost") || host?.includes("vercel.app");
+  // IP 直连部署（如自托管 10.37.80.25:8090）没有域名子域可用，组织以路径段
+  // 承载（/:orgSubdomain）；此前仅认 localhost/vercel.app，IP 部署被误判为
+  // 子域名模式，客户端从主机名解析出 "10" 之类的假子域，导致登录建档、
+  // 帖子列表等所有按 org 查询的接口全部失败
+  const isIpOrDotlessHost =
+    /^[\d.]+$/.test(hostname) || !hostname.includes(".");
+
+  return (
+    host?.includes("localhost") || host?.includes("vercel.app") || isIpOrDotlessHost
+  );
 };
 
 export const getSubdomain = (urlString?: string | null) => {

@@ -48,6 +48,7 @@
     "e2e:manual-nav": "nx run web-e2e:e2e --skip-nx-cache -- --project=manual-nav",
     "e2e:manual-nav:prod": "nx run web-e2e:e2e --skip-nx-cache -- --project=manual-nav-prod",
     "e2e:manual-nav:both": "nx run web-e2e:e2e --skip-nx-cache -- --project=manual-nav --project=manual-nav-prod",
+    "e2e:feedbackland": "nx run web-e2e:e2e --skip-nx-cache -- --project=feedbackland",
     "e2e:manual": "nx e2e web-e2e -- --project=manual",
     "cleanup:e2e-users": "node scripts/cleanup-e2e-users.mjs",
     "manual:screenshots": "cd apps/web-e2e && CI= npx playwright test --project=manual",
