@@ -105,6 +105,31 @@ feedbackland:redeploy:
         docker exec feedbackland nc -z -w 2 supabase-db 5432 && echo "supabase-db:5432 可达 ✓"
       fi
 
+    # ---------- 数据库初始化（幂等：feedbackland 库不存在时建库 + 应用 schema） ----------
+    - |
+      if docker exec supabase-db psql -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname='feedbackland'" 2>/dev/null | grep -q 1; then
+        echo "数据库 feedbackland 已存在，跳过初始化"
+      else
+        docker exec supabase-db psql -U postgres -c "CREATE DATABASE feedbackland"
+        docker exec -i supabase-db psql -U postgres -v ON_ERROR_STOP=1 -d feedbackland < feedbackland/db/schema.sql >/dev/null && echo "数据库 feedbackland 初始化完成 ✓（已应用 db/schema.sql）"
+      fi
+
+    # ---------- storage images 桶（幂等：已存在则跳过，非阻断） ----------
+    - |
+      if [ -n "${FL_SUPABASE_SERVICE_ROLE_KEY}" ]; then
+        docker exec -e SR="${FL_SUPABASE_SERVICE_ROLE_KEY}" feedbackland node -e "
+          fetch('http://10.37.80.25:8021/storage/v1/bucket', {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + process.env.SR, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: 'images', public: true })
+          }).then(async (r) => {
+            const body = (await r.text()).slice(0, 100);
+            if (r.status === 200 || r.status === 201) console.log('storage images 桶已创建 ✓');
+            else console.log('storage images 桶：HTTP', r.status, body, '（已存在则无需处理）');
+          }).catch((e) => console.log('storage 桶自举失败（非阻断）:', e.message));
+        "
+      fi
+
     # ---------- 健康检查：容器运行中 + 站点可访问（重试最多 ~40s） ----------
     # 探测 /login：应用没有 "/" 根路由（404），/login 是稳定返回 200 的真实页面
     - docker ps --filter "name=^feedbackland$" --filter "status=running" --format "{{.Names}} -> {{.Ports}}"
