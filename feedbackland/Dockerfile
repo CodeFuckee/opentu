@@ -11,7 +11,10 @@ WORKDIR /app
 RUN apk add --no-cache libc6-compat
 COPY package.json package-lock.json ./
 COPY feedbackland-react/package.json feedbackland-react/package.json
-RUN npm ci
+# --legacy-peer-deps：typescript@7 与 typescript-eslint@8.66（peer <6.1.0）存在
+# peer 冲突，新版 node:22-alpine 自带的 npm 在 npm ci 时会硬失败；eslint 仅
+# 开发工具链，不影响运行期，跳过 peer 强校验
+RUN npm ci --legacy-peer-deps
 
 FROM node:22-alpine AS builder
 WORKDIR /app
