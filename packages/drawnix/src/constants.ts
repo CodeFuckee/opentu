@@ -57,5 +57,6 @@ export const VERSIONS = {
 // 自部署 Feedbackland 实例地址（侧边栏反馈按钮的跳转目标）
 // Feedbackland 开源项目：https://github.com/feedbackland/feedbackland
 // 已容器化部署到越秀宿主机（见 deploy/feedbackland/ 与 release.yml deploy job）；
-// 如需更换实例地址，只改这一处即可。
-export const FEEDBACKLAND_URL = 'http://10.37.80.25:8090';
+// 如需更换实例地址，只改这一处即可。路径必须带组织子域（/yjk）——
+// 根路径 / 与非组织路径（如 /login）在多租户路由下不是有效看板页
+export const FEEDBACKLAND_URL = 'http://10.37.80.25:8090/yjk';

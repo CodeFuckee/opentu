@@ -9,11 +9,33 @@ export const upsertUserQuery = async (args: UpsertUser) => {
     const email = args.email.toLowerCase();
 
     return await db.transaction().execute(async (trx) => {
-      const org = await trx
+      let org = await trx
         .selectFrom("org")
         .where("org.orgSubdomain", "=", orgSubdomain)
         .selectAll()
-        .executeTakeFirstOrThrow();
+        .executeTakeFirst();
+
+      if (!org) {
+        // 请求的组织不存在（如从 /login 等非组织页登录）：回退到该用户
+        // 已加入的组织，避免登录直接进入坏状态；从未加入任何组织的用户
+        // 仍需从组织看板（/:orgSubdomain）进入
+        const membership = await trx
+          .selectFrom("user_org")
+          .where("user_org.userId", "=", userId)
+          .selectAll()
+          .executeTakeFirst();
+
+        if (!membership) {
+          throw new Error(
+            `org "${orgSubdomain}" does not exist and the user has no membership`
+          );
+        }
+        org = await trx
+          .selectFrom("org")
+          .where("org.id", "=", membership.orgId)
+          .selectAll()
+          .executeTakeFirstOrThrow();
+      }
 
       const orgId = org.id;
 

@@ -146,6 +146,11 @@ test.describe('Feedbackland Supabase 账号登录', () => {
       page.getByRole('button', { name: 'Submit feedback' }),
       '看板页应渲染发帖输入区（Submit feedback 按钮；编辑器占位文本是 CSS 生成内容，不可用 getByText 定位）'
     ).toBeVisible();
+    // 帖子列表不应处于加载失败态
+    await expect(
+      page.getByText('Error loading posts'),
+      '帖子列表不应出现加载失败提示'
+    ).toHaveCount(0);
     // 页面不应处于错误态（精确匹配，避免误伤页面上含数字的普通元素）
     await expect(
       page.getByText('Internal Server Error', { exact: true }),

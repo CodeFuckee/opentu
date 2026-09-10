@@ -105,6 +105,15 @@ const upsertUser = async ({
       body: JSON.stringify(input),
     });
 
+    // 必须检查响应状态：服务端失败（如组织不存在）时 body 是 {error} 对象，
+    // 不做检查会把错误对象当成会话使用，进入 "Unnamed user" 的坏登录态
+    if (!response.ok) {
+      const errorData = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      throw new Error(errorData?.error || "Failed to sync user profile");
+    }
+
     const session: Session = await response.json();
 
     if (session) {
