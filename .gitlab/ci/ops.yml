@@ -126,7 +126,7 @@ feedbackland:redeploy:
       docker exec -i supabase-db psql -U postgres -v ON_ERROR_STOP=0 -d feedbackland < feedbackland/db/schema.sql 2>&1 | grep -aE "ERROR" | head -10 || true
       # 核心表仍缺失（此前多次半途应用导致 public schema 损坏）时整体重建：
       # 该库为本次新建的独立应用库，仅当核心表缺失（应用不可用态）才会执行
-      if ! docker exec supabase-db psql -U postgres -tAc "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='feedback'" 2>/dev/null | grep -q 1; then
+      if ! docker exec supabase-db psql -U postgres -d feedbackland -tAc "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='feedback'" 2>/dev/null | grep -q 1; then
         echo "核心表缺失，重建 feedbackland 库 ..."
         docker exec supabase-db psql -U postgres -c "DROP DATABASE feedbackland WITH (FORCE)" 2>&1 || true
         docker exec supabase-db psql -U postgres -c "CREATE DATABASE feedbackland" 2>&1 || true
@@ -138,9 +138,11 @@ feedbackland:redeploy:
         done
         docker exec -i supabase-db psql -U postgres -v ON_ERROR_STOP=0 -d feedbackland < feedbackland/db/schema.sql >/dev/null 2>&1 || true
       fi
-      # 种子数据：yjk 组织（幂等；isClaimed 由首次 claim 流程置位）
-      docker exec supabase-db psql -U postgres -d feedbackland -c "INSERT INTO org (orgSubdomain, orgName) SELECT 'yjk', 'YJK' WHERE NOT EXISTS (SELECT 1 FROM org WHERE orgSubdomain = 'yjk');" 2>&1 | head -3 || true
-      if docker exec supabase-db psql -U postgres -tAc "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='feedback'" 2>/dev/null | grep -q 1; then
+      # 种子数据：yjk 组织（幂等；isClaimed 由首次 claim 流程置位）。
+      # 列名是大小写敏感的驼峰（"orgSubdomain"），必须带引号：YAML/脚本/psql
+      # 三层引号逐层转义，最终 psql 收到 "orgSubdomain"
+      docker exec supabase-db psql -U postgres -d feedbackland -c "INSERT INTO org (\"orgSubdomain\", \"orgName\") SELECT 'yjk', 'YJK' WHERE NOT EXISTS (SELECT 1 FROM org WHERE \"orgSubdomain\" = 'yjk');" 2>&1 | head -3 || true
+      if docker exec supabase-db psql -U postgres -d feedbackland -tAc "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='feedback'" 2>/dev/null | grep -q 1; then
         echo "数据库 feedbackland 就绪 ✓"
       else
         echo "✗ feedbackland 核心表缺失"
