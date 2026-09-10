@@ -56,6 +56,30 @@ feedbackland:redeploy:
     # ---------- 重建镜像（与 release deploy 同参） ----------
     - docker build -f feedbackland/Dockerfile --build-arg NEXT_PUBLIC_SUPABASE_URL="${FL_SUPABASE_URL}" --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="${FL_SUPABASE_ANON_KEY}" --build-arg NEXT_PUBLIC_SELF_HOSTED=true -t feedbackland:latest feedbackland/
 
+    # ---------- 数据库直连（绕过多租户 pooler 的租户标识要求） ----------
+    # 5432 网关是租户模式的 Supavisor（直连报 ENOIDENTIFIER），改用容器直连
+    # supabase-db：口令从 db 容器环境变量读取（不打印）。设置 FL_SKIP_DB_DIRECT=1
+    # 可跳过本逻辑（此时需自行保证 FL_DATABASE_URL 可用）
+    - |
+      if [ "${FL_SKIP_DB_DIRECT:-0}" != "1" ]; then
+        DB_CONTAINER=""
+        for c in supabase-db supabase_db db; do
+          if docker inspect "$c" >/dev/null 2>&1; then DB_CONTAINER="$c"; break; fi
+        done
+        if [ -n "${DB_CONTAINER}" ]; then
+          DB_PWD=$(docker exec "${DB_CONTAINER}" printenv POSTGRES_PASSWORD 2>/dev/null || true)
+          if [ -n "${DB_PWD}" ]; then
+            FL_DATABASE_URL="postgres://postgres:${DB_PWD}@${DB_CONTAINER}:5432/feedbackland"
+            export FL_DATABASE_URL
+            echo "DATABASE_URL 已指向 ${DB_CONTAINER}:5432 直连 ✓（口令不打印）"
+          else
+            echo "⚠ 未能从 ${DB_CONTAINER} 读取 POSTGRES_PASSWORD，沿用 FL_DATABASE_URL"
+          fi
+        else
+          echo "⚠ 未找到 supabase-db 容器，沿用 FL_DATABASE_URL"
+        fi
+      fi
+
     # ---------- 释放 8090 端口：仅同名容器 + publish=8090 的容器 ----------
     - docker rm -f feedbackland 2>/dev/null || true
     - |
@@ -64,6 +88,22 @@ feedbackland:redeploy:
       done
     - docker compose -f deploy/feedbackland/docker-compose.yml down --remove-orphans || true
     - docker compose -f deploy/feedbackland/docker-compose.yml up -d --force-recreate
+
+    # 直连模式：把 feedbackland 挂到 supabase-db 所在网络并重启使其生效
+    - |
+      if [ "${FL_SKIP_DB_DIRECT:-0}" != "1" ] && docker inspect supabase-db >/dev/null 2>&1; then
+        NET=$(docker inspect supabase-db --format '{{range $k,$_ := .NetworkSettings.Networks}}{{$k}} {{end}}' | awk '{print $1}')
+        if [ -n "${NET}" ]; then
+          docker network connect "${NET}" feedbackland 2>/dev/null || true
+          docker restart feedbackland >/dev/null 2>&1 || true
+          echo "已接入网络 ${NET}（直连 supabase-db）并重启容器"
+        fi
+      fi
+    # 数据库网络连通性断言（直连模式）
+    - |
+      if [ "${FL_SKIP_DB_DIRECT:-0}" != "1" ] && docker inspect supabase-db >/dev/null 2>&1; then
+        docker exec feedbackland nc -z -w 2 supabase-db 5432 && echo "supabase-db:5432 可达 ✓"
+      fi
 
     # ---------- 健康检查：容器运行中 + 站点可访问（重试最多 ~40s） ----------
     # 探测 /login：应用没有 "/" 根路由（404），/login 是稳定返回 200 的真实页面
