@@ -33,6 +33,26 @@ feedbackland:redeploy:
     - docker ps -a --filter "name=^feedbackland$" --format "{{.Names}} | {{.Status}} | {{.Image}}" || true
     - docker logs --tail 80 feedbackland 2>&1 | tail -80 || true
 
+    # ---------- 补齐 service_role key（登录验签依赖） ----------
+    # CI 变量 FL_SUPABASE_SERVICE_ROLE_KEY 未配置时，从本机（yx runner 与
+    # Supabase 栈同宿主机）的 Supabase 栈容器环境变量读取，值不打印、不出服务器；
+    # 找不到则明确告警（登录验签将不可用，但站点仍可启动）
+    - |
+      if [ -z "${FL_SUPABASE_SERVICE_ROLE_KEY}" ]; then
+        for c in $(docker ps --format "{{.Names}}" | grep -iE "supabase|kong" || true); do
+          v=$(docker exec "$c" printenv SUPABASE_SERVICE_ROLE_KEY 2>/dev/null || true)
+          if [ -n "${v}" ]; then
+            FL_SUPABASE_SERVICE_ROLE_KEY="${v}"
+            export FL_SUPABASE_SERVICE_ROLE_KEY
+            echo "已从容器 ${c} 读取 SUPABASE_SERVICE_ROLE_KEY ✓（值不打印）"
+            break
+          fi
+        done
+      fi
+      if [ -z "${FL_SUPABASE_SERVICE_ROLE_KEY}" ]; then
+        echo "⚠ 未获取到 SUPABASE_SERVICE_ROLE_KEY：登录验签不可用；请在 CI/CD Variables 配置 FL_SUPABASE_SERVICE_ROLE_KEY"
+      fi
+
     # ---------- 重建镜像（与 release deploy 同参） ----------
     - docker build -f feedbackland/Dockerfile --build-arg NEXT_PUBLIC_SUPABASE_URL="${FL_SUPABASE_URL}" --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="${FL_SUPABASE_ANON_KEY}" --build-arg NEXT_PUBLIC_SELF_HOSTED=true -t feedbackland:latest feedbackland/
 
