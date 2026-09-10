@@ -36,6 +36,11 @@
 # shell executor，忽略 image），宿主机需一次性 sudo 安装 Playwright 系统依赖与
 # 浏览器（具体命令见 .gitlab/ci/quality-test.yml 注释），CI 内不执行任何需要
 # root 权限的命令。
+#
+# 预览环境（preview-deploy.yml）：main 分支 push 流水线中的手动 deploy 作业，
+# 部署到宿主机 8089 端口（容器 yue-huabu-preview）供小范围内测；后端与生产一致
+# （生产 Supabase）。与生产实例完全隔离——独立镜像名/容器名/compose 项目名，
+# 端口清理仅限 8089，测试（quality + 三类 test + build）全部成功后作业才可点击。
 # =============================================================================
 
 workflow:
@@ -61,6 +66,11 @@ variables:
   IMAGE_NAME: "yue-huabu"
   CONTAINER_NAME: "yue-huabu"
   HOST_PORT: "8088"
+  # 预览环境产物名称（与 deploy/preview/docker-compose.yml 一致，
+  # 见 .gitlab/ci/preview-deploy.yml；与生产镜像/容器/端口完全隔离）
+  PREVIEW_IMAGE_NAME: "yue-huabu-preview"
+  PREVIEW_CONTAINER_NAME: "yue-huabu-preview"
+  PREVIEW_HOST_PORT: "8089"
 
 # 基础环境模板（供 include 文件通过 extends 复用）：
 # Node + corepack + pnpm 安装（带 store 缓存）
@@ -89,3 +99,5 @@ include:
   - local: '.gitlab/ci/quality-test.yml'
   # 构建 + 部署（仅流水线 B）
   - local: '.gitlab/ci/release.yml'
+  # 预览环境手动部署（main 分支 push 流水线的手动作业，8089 端口，与生产隔离）
+  - local: '.gitlab/ci/preview-deploy.yml'

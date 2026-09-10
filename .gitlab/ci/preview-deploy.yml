@@ -1,0 +1,62 @@
+# =============================================================================
+# 预览环境部署（手动触发的 deploy 作业，与生产实例完全隔离）
+# -----------------------------------------------------------------------------
+# - 仅 main 分支的 push 流水线（流水线 A）中出现，需在 GitLab 页面手动点击执行；
+#   quality / test:backend / test:frontend / test:e2e / build 五个作业全部成功后
+#   才可点击（needs 硬依赖，任一失败本作业不可运行）
+# - 后端与生产一致：使用生产环境 Supabase（构建期内置默认网关
+#   http://10.37.80.25:8021，与生产 8088 相同数据面，登录/云端同步走生产数据）
+# - 端口 8089，作为预览版供小范围内测，生产实例（8088）不受任何影响：
+#   * 独立镜像名 yue-huabu-preview:*（不读写生产 yue-huabu:* 镜像）
+#   * 独立容器名 yue-huabu-preview（生产容器是 yue-huabu）
+#   * 独立 compose 项目名 opentu-preview（显式 -p；生产 deploy 作业的项目名是
+#     deploy，其 `compose down --remove-orphans` 与预览容器互不波及）
+#   * 端口清理只过滤 publish=8089，绝不触碰 8088（生产）/ 8090（Feedbackland）
+# - 零发布副作用：不 bump 版本、不修改 CHANGELOG、不提交推送、不打 tag
+# =============================================================================
+
+deploy:preview:
+  stage: deploy
+  tags:
+    - yx
+  needs:
+    - quality
+    - test:backend
+    - test:frontend
+    - test:e2e
+    - build
+  # docker build 在慢速宿主上（含 pnpm install + 全量构建）可能超过默认 1h 超时
+  timeout: 2 hours
+  environment:
+    name: preview
+    url: http://10.37.80.25:8089
+  rules:
+    # 仅 main 分支的 push 流水线提供手动预览部署入口；
+    # 流水线 B（web/api 手动发版）不出现本作业，与生产发布流程零交集
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"'
+      when: manual
+    - when: never
+  script:
+    - 'echo "预览部署 commit ${CI_COMMIT_SHORT_SHA}（分支 ${CI_COMMIT_BRANCH}）→ 宿主机 :${PREVIEW_HOST_PORT}"'
+
+    # 从当前 main 提交构建预览镜像（镜像名独立于生产 yue-huabu:*，不会覆盖
+    # 生产正在使用的 latest 标签）
+    - docker build -t "${PREVIEW_IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}" -t "${PREVIEW_IMAGE_NAME}:latest" .
+
+    # 释放 8089 端口：仅删除预览同名容器 + 发布到 8089 端口的容器；
+    # publish 过滤范围不含 8088（生产）/ 8090（Feedbackland），绝不误删
+    - docker rm -f "${PREVIEW_CONTAINER_NAME}" 2>/dev/null || true
+    - |
+      for cid in $(docker ps -q --filter "publish=${PREVIEW_HOST_PORT}" 2>/dev/null); do
+        docker rm -f "${cid}" 2>/dev/null || true
+      done
+
+    # 独立 compose 项目（显式 -p opentu-preview）：与生产 compose 项目（deploy）
+    # 完全隔离，生产部署的 down --remove-orphans 不会波及预览容器，反之亦然
+    - docker compose -p opentu-preview -f deploy/preview/docker-compose.yml up -d --force-recreate
+
+    # 健康检查：容器运行中 + 站点可访问（busybox 镜像自带 wget）
+    - sleep 5
+    - docker ps --filter "name=^${PREVIEW_CONTAINER_NAME}$" --filter "status=running" --format "{{.Names}} -> {{.Ports}}"
+    - docker exec "${PREVIEW_CONTAINER_NAME}" wget -q -O /dev/null http://127.0.0.1:80/ && echo "预览站点可访问 ✓"
+    - 'echo "预览环境部署完成：http://10.37.80.25:${PREVIEW_HOST_PORT}（commit ${CI_COMMIT_SHORT_SHA}，后端=生产 Supabase）"'

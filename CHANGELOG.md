@@ -2,6 +2,17 @@
 
 ### 🚀 Features
 
+- CI/CD 新增预览环境手动部署作业 `deploy:preview`（`.gitlab/ci/preview-deploy.yml`
+  + `deploy/preview/docker-compose.yml`）：main 分支 push 流水线在 quality、三类
+  test、build 全部成功后（needs 硬依赖，任一失败作业不可点击），可手动把当前提交
+  一键部署到宿主机 8089 端口（容器 yue-huabu-preview，
+  http://10.37.80.25:8089），后端与生产一致（生产 Supabase 10.37.80.25:8021），
+  供小范围内测。与生产实例完全隔离：独立镜像名（yue-huabu-preview:*，不覆盖生产
+  yue-huabu:* 的 latest 标签）、独立容器名、独立 compose 项目名（opentu-preview，
+  生产 deploy 作业的 down --remove-orphans 项目名为 deploy，互不波及）、端口清理
+  仅过滤 publish=8089（不触碰 8088 生产 / 8090 Feedbackland）；不 bump 版本、不打
+  tag、不提交推送，生产发布流程零改动。
+
 - 新增「本地前端 + 生产环境 Supabase」一键启动脚本
   `scripts/start-local-prod-supabase.mjs`（`pnpm start:prod-supabase`）：通过进程
   环境变量注入 `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`（Vite 中进程环境变量

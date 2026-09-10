@@ -1,0 +1,22 @@
+# 预览环境编排（在 tag=yx 的 GitLab runner 上执行）
+#
+# 用法（由 .gitlab/ci/preview-deploy.yml 的 deploy:preview 作业调用）：
+#   docker build -t yue-huabu-preview:<sha> -t yue-huabu-preview:latest .
+#   docker compose -p opentu-preview -f deploy/preview/docker-compose.yml up -d --force-recreate
+#
+# 与生产环境的隔离（重要）：
+# - 独立镜像名 yue-huabu-preview:*（生产是 yue-huabu:*，互不影响）
+# - 独立容器名 yue-huabu-preview（生产是 yue-huabu）
+# - 独立宿主机端口 8089（生产 8088、Feedbackland 8090）
+# - 独立 compose 项目名（本文件位于子目录 preview/ 且 CI 侧显式 -p opentu-preview，
+#   生产 deploy 作业的 `compose -f deploy/docker-compose.yml down --remove-orphans`
+#   项目名为 deploy，双方互不波及）
+# - 后端与生产一致：构建期内置生产 Supabase 默认值（http://10.37.80.25:8021）
+
+services:
+  yue-huabu-preview:
+    image: yue-huabu-preview:latest
+    container_name: yue-huabu-preview
+    restart: unless-stopped
+    ports:
+      - "8089:80"
