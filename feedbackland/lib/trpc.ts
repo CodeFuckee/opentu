@@ -2,6 +2,7 @@ import superjson from "superjson";
 import { initTRPC, TRPCError } from "@trpc/server";
 import z, { ZodError } from "zod/v4";
 import { getUserWithRoleAndOrgQuery } from "@/queries/get-user-with-role-and-org";
+import { getUserFirstMembershipQuery } from "@/queries/get-user-first-membership";
 import { getOrgQuery } from "@/queries/get-org";
 import { UserRole } from "@/lib/typings";
 import { getClientIp } from "@/lib/rate-limit";
@@ -40,10 +41,18 @@ export const createContext = async ({ req }: { req: Request }) => {
     }
     // signed in
     else {
-      const userWithRoleAndOrg = await getUserWithRoleAndOrgQuery({
+      let userWithRoleAndOrg = await getUserWithRoleAndOrgQuery({
         userId,
         orgSubdomain,
-      });
+      }).catch(() => null);
+
+      // 请求的组织不存在（如从 /login 等非组织页登录）时，回退到该用户
+      // 已加入的第一个组织，避免帖子列表等查询全部失败
+      if (!userWithRoleAndOrg) {
+        userWithRoleAndOrg = await getUserFirstMembershipQuery({ userId }).catch(
+          () => null
+        );
+      }
 
       orgId = userWithRoleAndOrg?.orgId;
       orgIsClaimed = userWithRoleAndOrg?.orgIsClaimed;

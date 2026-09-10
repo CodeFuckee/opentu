@@ -15,7 +15,9 @@
   登录不再进入坏状态）；无任何组织成员关系则返回明确错误。另：主应用
   FEEDBACKLAND_URL 直达组织看板 /yjk（根路径 / 是 404 页）；feedbackland:redeploy
   的 DB 引导改为幂等容错（schema 尾部 storage 段报错可忽略 + 核心表断言 +
-  幂等种子 org yjk，去掉会误删数据的重建分支）。
+  幂等种子 org yjk，去掉会误删数据的重建分支）；tRPC 上下文对已登录用户同样
+  做组织回退（请求的组织不存在时取其已加入组织，/login 页登录后帖子列表不再
+  "Error loading posts"）。
 
 - 新增 Feedbackland Supabase 账号登录 E2E（apps/web-e2e/src/feedbackland/，
   project `feedbackland`，命令 `pnpm e2e:feedbackland` / `e2e:feedbackland:headed`）：
