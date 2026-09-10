@@ -110,16 +110,22 @@ feedbackland:redeploy:
     # 在独立 feedbackland 库必然报错：用 ON_ERROR_STOP=0 全量尝试，以
     # feedback 核心表存在性作为成功标准
     - |
+      echo "=== DB INIT: 现有数据库 ==="
+      docker exec supabase-db psql -U postgres -tAc "SELECT datname FROM pg_database" 2>&1 | head -15 || true
       if ! docker exec supabase-db psql -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname='feedbackland'" 2>/dev/null | grep -q 1; then
-        docker exec supabase-db psql -U postgres -c "CREATE DATABASE feedbackland"
-        docker exec supabase-db psql -U postgres -d feedbackland -c "CREATE SCHEMA IF NOT EXISTS extensions;"
+        echo "=== DB INIT: 创建数据库 feedbackland ==="
+        docker exec supabase-db psql -U postgres -c "CREATE DATABASE feedbackland" 2>&1 || true
+        docker exec supabase-db psql -U postgres -d feedbackland -c "CREATE SCHEMA IF NOT EXISTS extensions;" 2>&1 || true
         for ext in pgvecto.rs vector; do
           if docker exec supabase-db psql -U postgres -tAc "SELECT 1 FROM pg_available_extensions WHERE name='${ext}'" 2>/dev/null | grep -q 1; then
-            docker exec supabase-db psql -U postgres -d feedbackland -c "CREATE EXTENSION IF NOT EXISTS ${ext} SCHEMA extensions;" && echo "已创建扩展 ${ext} ✓" && break
+            docker exec supabase-db psql -U postgres -d feedbackland -c "CREATE EXTENSION IF NOT EXISTS ${ext} SCHEMA extensions;" 2>&1 | head -3 && echo "已创建扩展 ${ext} ✓" && break
           fi
         done
       fi
-      docker exec -i supabase-db psql -U postgres -v ON_ERROR_STOP=0 -d feedbackland < feedbackland/db/schema.sql >/dev/null 2>&1 || true
+      echo "=== DB INIT: 应用 schema.sql（storage 段报错可忽略） ==="
+      docker exec -i supabase-db psql -U postgres -v ON_ERROR_STOP=0 -d feedbackland < feedbackland/db/schema.sql 2>&1 | grep -aE "ERROR" | head -10 || true
+      echo "=== DB INIT: public 表清单 ==="
+      docker exec supabase-db psql -U postgres -tAc "SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name" 2>&1 | head -20 || true
       if docker exec supabase-db psql -U postgres -tAc "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='feedback'" 2>/dev/null | grep -q 1; then
         echo "数据库 feedbackland 就绪 ✓（核心表齐全）"
       else
