@@ -105,13 +105,24 @@ feedbackland:redeploy:
         docker exec feedbackland nc -z -w 2 supabase-db 5432 && echo "supabase-db:5432 可达 ✓"
       fi
 
-    # ---------- 数据库初始化（幂等：feedbackland 库不存在时建库 + 应用 schema） ----------
+    # ---------- 数据库初始化（幂等）：建库 + extensions schema/halfvec + schema ----------
+    # 库不存在，或库存在但核心表 feedback 缺失（此前半途失败残留）时执行重建；
+    # feedbackland 表结构依赖 extensions.halfvec（pgvecto.rs），需先建 schema 与扩展
     - |
-      if docker exec supabase-db psql -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname='feedbackland'" 2>/dev/null | grep -q 1; then
-        echo "数据库 feedbackland 已存在，跳过初始化"
-      else
+      NEED_INIT=""
+      if ! docker exec supabase-db psql -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname='feedbackland'" 2>/dev/null | grep -q 1; then
+        NEED_INIT=1
+      elif ! docker exec supabase-db psql -U postgres -tAc "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='feedback'" 2>/dev/null | grep -q 1; then
+        NEED_INIT=1
+        echo "检测到残留的空库（缺 feedback 表），重建 ..."
+        docker exec supabase-db psql -U postgres -c "DROP DATABASE feedbackland WITH (FORCE)" || true
+      fi
+      if [ "${NEED_INIT}" = "1" ]; then
         docker exec supabase-db psql -U postgres -c "CREATE DATABASE feedbackland"
-        docker exec -i supabase-db psql -U postgres -v ON_ERROR_STOP=1 -d feedbackland < feedbackland/db/schema.sql >/dev/null && echo "数据库 feedbackland 初始化完成 ✓（已应用 db/schema.sql）"
+        docker exec supabase-db psql -U postgres -d feedbackland -c "CREATE SCHEMA IF NOT EXISTS extensions; CREATE EXTENSION IF NOT EXISTS halfvec SCHEMA extensions;"
+        docker exec -i supabase-db psql -U postgres -v ON_ERROR_STOP=1 -d feedbackland < feedbackland/db/schema.sql >/dev/null && echo "数据库 feedbackland 初始化完成 ✓（extensions + halfvec + db/schema.sql）"
+      else
+        echo "数据库 feedbackland 已存在且核心表齐全，跳过初始化"
       fi
 
     # ---------- storage images 桶（幂等：已存在则跳过，非阻断） ----------
