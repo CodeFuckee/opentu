@@ -1,5 +1,29 @@
 ## Unreleased
 
+### 🩹 Fixes
+
+- Feedbackland 登录与看板在 IP 直连部署（10.37.80.25:8090）下不可用：登录后显示
+  "Unnamed user"、帖子列表 "Error loading posts"。四个叠加根因与修复：
+  ① `getIsSubdirOrg` 仅认 localhost/vercel.app 为路径式组织，IP:端口部署被误判
+  为子域名模式，客户端把 IP 首段 "10" 当 orgSubdomain → 登录建档/帖子列表等按
+  org 查询全部失败；改为 IP/无点主机按路径式组织处理。② `use-auth upsertUser`
+  不检查 response.ok，服务端 500 的 {error} 对象被当会话使用，静默进入坏登录态
+  （半登录 + Unnamed user）；改为校验状态码并向登录框透出服务端错误。③ 主应用
+  （Yue画布）注册不写 user_metadata.displayName，Feedbackland 只读该键 → 用户名
+  恒为 Unnamed user；回退到邮箱前缀（chenkaidi@yjk.com → chenkaidi）。④
+  upsert-user 请求的组织不存在时回退到用户已加入的组织（从 /login 等非组织页
+  登录不再进入坏状态）；无任何组织成员关系则返回明确错误。另：主应用
+  FEEDBACKLAND_URL 直达组织看板 /yjk（根路径 / 是 404 页）；feedbackland:redeploy
+  的 DB 引导改为幂等容错（schema 尾部 storage 段报错可忽略 + 核心表断言 +
+  幂等种子 org yjk，去掉会误删数据的重建分支）。
+
+- 新增 Feedbackland Supabase 账号登录 E2E（apps/web-e2e/src/feedbackland/，
+  project `feedbackland`，命令 `pnpm e2e:feedbackland` / `e2e:feedbackland:headed`）：
+  FB-001 登录成功、FB-002 用户名与邮箱正确（头像下拉菜单）、FB-003 帖子看板渲染
+  正确且无加载失败、FB-004 未登录访问、FB-005 错误密码拒绝、FB-006 刷新保持登录；
+  账号取自 .env.e2e.local（E2E_CUSTOM_ACCOUNT/PASSWORD），未配置自动跳过。
+  测试报告见 apps/web-e2e/reports/feedbackland-login-report.md。
+
 ### 🚀 Features
 
 - CI/CD 新增 Feedbackland 运维作业 `feedbackland:redeploy`（`.gitlab/ci/ops.yml`）：
