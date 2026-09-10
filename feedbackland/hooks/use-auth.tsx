@@ -189,7 +189,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         createSession({
           userId: user.id,
           email: user.email || `${user.id}@no-email.com`,
-          name: (user.user_metadata?.displayName as string | undefined) ?? null,
+          name:
+            (user.user_metadata?.displayName as string | undefined) ??
+            // 主应用（Yue画布）注册的账号没有 displayName 元数据，
+            // 回退到邮箱前缀，避免登录后显示 "Unnamed user"
+            user.email?.split("@")[0] ??
+            null,
           photoURL:
             (user.user_metadata?.avatar_url as string | undefined) ?? null,
         });
@@ -218,7 +223,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const session = await createSession({
         userId: user.id,
         email: user.email || `${user.id}@no-email.com`,
-        name: (user.user_metadata?.displayName as string | undefined) ?? null,
+        name:
+          (user.user_metadata?.displayName as string | undefined) ??
+          // 主应用（Yue画布）注册的账号没有 displayName 元数据，
+          // 回退到邮箱前缀，避免登录后显示 "Unnamed user"
+          user.email?.split("@")[0] ??
+          null,
         photoURL:
           (user.user_metadata?.avatar_url as string | undefined) ?? null,
       });

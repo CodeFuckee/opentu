@@ -105,35 +105,26 @@ feedbackland:redeploy:
         docker exec feedbackland nc -z -w 2 supabase-db 5432 && echo "supabase-db:5432 可达 ✓"
       fi
 
-    # ---------- 数据库初始化（幂等）：建库 + extensions schema/halfvec + schema ----------
-    # 库不存在，或库存在但核心表 feedback 缺失（此前半途失败残留）时执行重建；
-    # feedbackland 表结构依赖 extensions.halfvec（pgvecto.rs），需先建 schema 与扩展
+    # ---------- 数据库初始化（幂等、绝不 DROP 已有库） ----------
+    # schema.sql 尾部的 storage.buckets/policies 段仅适用于主 Supabase 库，
+    # 在独立 feedbackland 库必然报错：用 ON_ERROR_STOP=0 全量尝试，以
+    # feedback 核心表存在性作为成功标准
     - |
-      NEED_INIT=""
       if ! docker exec supabase-db psql -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname='feedbackland'" 2>/dev/null | grep -q 1; then
-        NEED_INIT=1
-      elif ! docker exec supabase-db psql -U postgres -tAc "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='feedback'" 2>/dev/null | grep -q 1; then
-        NEED_INIT=1
-        echo "检测到残留的空库（缺 feedback 表），重建 ..."
-        docker exec supabase-db psql -U postgres -c "DROP DATABASE feedbackland WITH (FORCE)" || true
-      fi
-      if [ "${NEED_INIT}" = "1" ]; then
         docker exec supabase-db psql -U postgres -c "CREATE DATABASE feedbackland"
         docker exec supabase-db psql -U postgres -d feedbackland -c "CREATE SCHEMA IF NOT EXISTS extensions;"
-        # 向量扩展候选：pgvecto.rs（halfvec 原生）/ pgvector ≥0.7（halfvec 半精度类型）。
-        # 建到 extensions schema，使 db/schema.sql 的 extensions.halfvec(3072) 可解析
         for ext in pgvecto.rs vector; do
           if docker exec supabase-db psql -U postgres -tAc "SELECT 1 FROM pg_available_extensions WHERE name='${ext}'" 2>/dev/null | grep -q 1; then
             docker exec supabase-db psql -U postgres -d feedbackland -c "CREATE EXTENSION IF NOT EXISTS ${ext} SCHEMA extensions;" && echo "已创建扩展 ${ext} ✓" && break
           fi
         done
-        if ! docker exec supabase-db psql -U postgres -d feedbackland -tAc "SELECT 1 FROM pg_type t JOIN pg_namespace n ON t.typnamespace=n.oid WHERE n.nspname='extensions' AND t.typname='halfvec'" 2>/dev/null | grep -q 1; then
-          echo "✗ extensions.halfvec 类型不可用（栈内无 pgvecto.rs/pgvector），无法应用 db/schema.sql"
-          exit 1
-        fi
-        docker exec -i supabase-db psql -U postgres -v ON_ERROR_STOP=1 -d feedbackland < feedbackland/db/schema.sql >/dev/null && echo "数据库 feedbackland 初始化完成 ✓（extensions + halfvec + db/schema.sql）"
+      fi
+      docker exec -i supabase-db psql -U postgres -v ON_ERROR_STOP=0 -d feedbackland < feedbackland/db/schema.sql >/dev/null 2>&1 || true
+      if docker exec supabase-db psql -U postgres -tAc "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='feedback'" 2>/dev/null | grep -q 1; then
+        echo "数据库 feedbackland 就绪 ✓（核心表齐全）"
       else
-        echo "数据库 feedbackland 已存在且核心表齐全，跳过初始化"
+        echo "✗ feedbackland 核心表缺失，请检查上方 schema 应用日志"
+        exit 1
       fi
 
     # ---------- storage images 桶（幂等：已存在则跳过，非阻断） ----------
