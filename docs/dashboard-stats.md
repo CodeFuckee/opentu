@@ -7,23 +7,24 @@
 ## 功能
 
 - `GET /functions/v1/dashboard-stats/` → 自包含 HTML 看板页面（内联 CSS/JS/SVG 图表，无外部依赖）
-- `GET /functions/v1/dashboard-stats/overview?days=N` → 四类聚合统计 JSON（默认 days=30，范围 1~365）
+- `GET /functions/v1/dashboard-stats/overview?days=N` → 三类聚合统计 JSON（默认 days=30，范围 1~365）
 
 页面统计块（对照原 newapi 看板口径补全）：
 
 | 区块 | 数据源 | 内容 |
 | --- | --- | --- |
-| KPI 四卡 | `task_submissions` | 总操作次数（成功任务）、消耗金额（**暂无计费数据源，显示 -**）、活跃用户数、数据覆盖天数 |
+| KPI 五卡 | `task_submissions` + tu-zi 价目 | 总操作次数（成功任务）、消耗金额（USD，tu-zi 价目折算）、活跃用户数、本月用量（**全局用量，不含个人额度**）、数据覆盖天数 |
 | 操作类型分布 | `task_submissions.type` | 成功任务按 type 环图 |
 | 模型使用分布 | `task_submissions.params->>model` | 成功任务按模型环图 |
 | 使用次数排行 | `task_submissions.user_id` + Display Name | 用户前 10（头像=姓名首字） |
 | 日历使用热力 | `created_at`（东八区） | 当月日历格热力 |
 | 24小时使用分布 | `created_at`（东八区） | 0-23 时柱状 |
-| 部门使用情况 / 区间使用排行 / 部门使用汇总 | 用户部门 join | 次数、占比（可切部门/用户排行）；金额列因无计费数据源暂缺 |
+| 部门使用情况 / 区间使用排行 / 部门使用汇总 | 用户部门 join + tu-zi 价目 | 次数、金额、占比（排行可切部门/用户） |
 | 每日成功任务趋势 | `created_at` | 折线（东八区切日） |
-| 用量与额度 | `generation_usage` + `user_profiles` | 月度用量汇总、最新周期用量、Top 用户、限额 |
+| 用量与额度 | `generation_usage` + `user_profiles` | 月度用量汇总、最新周期全局用量、Top 用户、限额配置 |
 | 用户与组织 | `user_profiles` / `staff_directory` / `departments` / `auth.users` | 用户总数、部门/区域分布、最近注册、花名册、可用部门；用户统一显示 Display Name，取值顺序：`auth.users.user_metadata`（displayName → full_name → name，经 GoTrue admin API 按 user_id 关联）→ `staff_directory.name`（按 oa_account join）→ 回退 oa_account。注：自托管网关未放行 `/auth/v1/admin/*`，函数对网关 404 时自动降级直连内部 `http://auth:9999` |
-| 文件与存储 | `file_paths`/`response_file_paths` + huabu bucket | 上传/生成文件计数、bucket 对象数与总大小 |
+
+**消耗金额口径**：价目来自 tu-zi（new-api 底座）公开接口 `https://api.tu-zi.com/api/pricing`。按次计费模型（quota_type=0）用 `model_price` 精确单价；按量计费模型（quota_type=1）无调用侧 token 数据，按「每次调用 1500 输出 token × model_ratio ÷ 500000（new-api 默认 $1=500k quota）」估算，估算常数 `ESTIMATED_OUTPUT_TOKENS_PER_CALL` 在 core.ts 顶部可调。价目拉取失败时金额降级显示 `-`。
 
 除特别注明外，任务类统计口径均为**仅成功（completed）任务**。
 
@@ -73,7 +74,7 @@ curl -s -H "Authorization: Bearer $ANON_KEY" \
 
 ## 验收清单
 
-- [ ] `curl` 页面返回 200 text/html；浏览器打开渲染四类指标
+- [ ] `curl` 页面返回 200 text/html；浏览器打开渲染全部统计块
 - [ ] `curl` overview 返回 200 JSON，`tasks/usage/users/storage` 四区块均有数据
 - [ ] 修改 `days=7/90` 后任务趋势与过滤窗口随之变化
 - [ ] `node --test supabase/functions/*/core.test.ts` 全绿

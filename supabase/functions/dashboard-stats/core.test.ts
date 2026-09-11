@@ -15,9 +15,8 @@ import {
   aggregateTaskParticipation,
   aggregateUsage,
   aggregateUsers,
-  countTaskFiles,
   readQuotaLimit,
-  fetchBucketStats,
+  fetchModelPricing,
   fetchAuthDisplayNames,
   aggregateOverview,
   buildDashboardHtml,
@@ -108,12 +107,35 @@ test('aggregateTaskParticipation：使用次数排行（用户前 10）与部门
   assert.deepEqual(result.usageByDepartment, { 技术部: 2, 设计部: 1 });
 });
 
-test('countTaskFiles：jsonb 数组长度求和', () => {
-  const rows = [
-    { file_paths: ['a.png', 'b.png'], response_file_paths: ['o.png'] },
-    { file_paths: [], response_file_paths: ['o2.png', 'o3.png'] },
-  ] as never;
-  assert.deepEqual(countTaskFiles(rows), { input: 2, output: 3 });
+test('fetchModelPricing：按次精确价/按量按 1500 token 估算；不可用返回空映射', async () => {
+  const fetchImpl = routeFetch(
+    [
+      {
+        match: (url) => url.includes('api.tu-zi.com'),
+        respond: () =>
+          json(200, {
+            data: [
+              { model_name: 'p1', quota_type: 0, model_price: 0.04 },
+              { model_name: 'p2', quota_type: 1, model_ratio: 2.5 },
+              { model_name: 'free', quota_type: 0, model_price: 0 },
+              { model_name: '匿名', },
+            ],
+          }),
+      },
+    ],
+    []
+  );
+  // p1 = $0.04/次；p2 按量 = 2.5 × 1500 / 500000 = $0.0075/次
+  assert.deepEqual(
+    await fetchModelPricing({ fetch: fetchImpl }),
+    new Map([
+      ['p1', 0.04],
+      ['p2', 0.0075],
+    ])
+  );
+
+  const bad = routeFetch([], []);
+  assert.deepEqual(await fetchModelPricing({ fetch: bad }), new Map());
 });
 
 test('aggregateUsage：周期汇总 + 最新周期 Top 用户（join user_profiles）', () => {
@@ -193,35 +215,6 @@ test('readQuotaLimit：读到配置值 / 查询失败回退默认', async () => 
   assert.equal(await readQuotaLimit(ENV, { fetch: badFetch }), 200);
 });
 
-test('fetchBucketStats：分页累加对象数与字节数；失败返回 null', async () => {
-  const itemsPage1 = Array.from({ length: 1000 }, (_, i) => ({
-    name: `f${i}.png`,
-    metadata: { size: 100 },
-  }));
-  const calls: string[] = [];
-  const okFetch = routeFetch(
-    [
-      {
-        match: (url) => url.includes('/storage/v1/object/list/huabu'),
-        respond: (_url, init) => {
-          const body = JSON.parse(String((init as RequestInit).body));
-          const offset = Number(body.offset);
-          return json(200, offset === 0 ? itemsPage1 : []);
-        },
-      },
-    ],
-    calls
-  );
-  assert.deepEqual(await fetchBucketStats(ENV, { fetch: okFetch }), {
-    objects: 1000,
-    bytes: 100000,
-  });
-  assert.ok(calls.some((u) => u.includes('/storage/v1/object/list/huabu')));
-
-  const badFetch = routeFetch([], []);
-  assert.equal(await fetchBucketStats(ENV, { fetch: badFetch }), null);
-});
-
 test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () => {
   const calls: string[] = [];
   const fetchImpl = routeFetch(
@@ -269,8 +262,11 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
         respond: () => json(200, [{ value: '200' }]),
       },
       {
-        match: (url) => url.includes('/storage/v1/object/list/huabu'),
-        respond: () => json(200, [{ name: 'x.png', metadata: { size: 42 } }]),
+        match: (url) => url.includes('api.tu-zi.com'),
+        respond: () =>
+          json(200, {
+            data: [{ model_name: 'm-a', quota_type: 0, model_price: 0.5 }],
+          }),
       },
     ],
     calls
@@ -284,6 +280,8 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
   assert.deepEqual(overview.tasks.topUsers, [
     { userId: 'u1', displayName: '王五', department: '技术部', count: 1 },
   ]);
+  // 消耗金额：m-a 按次 $0.5 × 1 次
+  assert.equal(overview.tasks.totalCostUsd, 0.5);
   assert.equal(overview.usage.latestUsed, 12);
   // 认证表 displayName（王五）优先于花名册姓名（张三）
   assert.deepEqual(overview.usage.topUsers, [
@@ -292,17 +290,16 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
   assert.equal(overview.users.total, 1);
   assert.equal(overview.users.staffDirectory, 320);
   assert.deepEqual(overview.users.usageByDepartment, { 技术部: 1 });
+  assert.deepEqual(overview.users.costByDepartment, { 技术部: 0.5 });
   assert.deepEqual(overview.users.recent, [
     { oaAccount: 'alice', displayName: '王五', createdAt: '2026-08-01T00:00:00Z' },
   ]);
-  assert.equal(overview.storage.inputFiles, 1);
-  assert.equal(overview.storage.outputFiles, 1);
-  assert.deepEqual(overview.storage.bucket, { objects: 1, bytes: 42 });
 
   // 所有 REST 请求都应携带 service_role 身份头
   for (const url of calls) {
     assert.ok(
-      url.startsWith('http://supabase.local/'),
+      url.startsWith('http://supabase.local/') ||
+        url.includes('api.tu-zi.com'),
       `unexpected url: ${url}`
     );
   }

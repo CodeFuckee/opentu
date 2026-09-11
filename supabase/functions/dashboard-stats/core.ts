@@ -3,7 +3,7 @@
  *
  * 数据看板聚合逻辑：
  * - 使用 service_role 身份经 PostgREST /storage/v1 REST 直查（绕过 RLS）
- * - 四类统计：任务（task_submissions）、用量（generation_usage）、
+ * - 三类统计：任务（task_submissions）、用量（generation_usage）、
  *   用户与组织（user_profiles/staff_directory/departments）、
  *   文件与存储（file_paths/response_file_paths + huabu bucket 对象）
  * - 自包含 HTML 看板页面生成（内联 CSS/JS，无外部依赖）
@@ -27,6 +27,25 @@ export interface DashboardEnv {
 /** 可注入依赖（便于 node:test 单测） */
 export interface DashboardDeps {
   fetch?: typeof fetch;
+}
+
+/** GoTrue admin users 响应（/auth/v1/admin/users） */
+interface AuthUsersResponse {
+  users?: Array<{
+    id?: unknown;
+    user_metadata?: { displayName?: unknown; full_name?: unknown; name?: unknown };
+  }>;
+  next_page?: unknown;
+}
+
+/** tu-zi（new-api 底座）公开价目响应（/api/pricing） */
+interface PricingResponse {
+  data?: Array<{
+    model_name?: unknown;
+    quota_type?: unknown;
+    model_ratio?: unknown;
+    model_price?: unknown;
+  }>;
 }
 
 interface TaskRow {
@@ -64,16 +83,7 @@ interface StaffRow {
   name: string;
 }
 
-/** GoTrue admin users 响应（/auth/v1/admin/users） */
-interface AuthUsersResponse {
-  users?: Array<{
-    id?: unknown;
-    user_metadata?: { displayName?: unknown; full_name?: unknown; name?: unknown };
-  }>;
-  next_page?: unknown;
-}
-
-/** 四类聚合的最终返回结构 */
+/** 聚合的最终返回结构 */
 export interface DashboardOverview {
   generatedAt: string;
   days: number;
@@ -96,6 +106,8 @@ export interface DashboardOverview {
       department: string | null;
       count: number;
     }>;
+    /** 消耗金额（USD，按 tu-zi 价目折算；价目不可用时为 null） */
+    totalCostUsd: number | null;
   };
   usage: {
     quotaLimit: number;
@@ -116,6 +128,8 @@ export interface DashboardOverview {
     byRegion: Record<string, number>;
     /** 部门使用情况（窗口内成功任务次数按用户部门汇总） */
     usageByDepartment: Record<string, number>;
+    /** 部门消耗金额（USD，按 tu-zi 价目估算；价目不可用时为空对象） */
+    costByDepartment: Record<string, number>;
     recent: Array<{
       oaAccount: string | null;
       displayName: string | null;
@@ -123,11 +137,6 @@ export interface DashboardOverview {
     }>;
     staffDirectory: number;
     enabledDepartments: number;
-  };
-  storage: {
-    inputFiles: number;
-    outputFiles: number;
-    bucket: { objects: number; bytes: number } | null;
   };
 }
 
@@ -293,14 +302,16 @@ export function aggregateTasks(rows: TaskRow[]): DashboardOverview['tasks'] {
   };
 }
 
-/** 任务参与统计：使用次数排行（按用户前 10）与部门使用情况 */
+/** 任务参与统计：使用次数排行（按用户前 10）、部门使用情况与部门消耗金额 */
 export function aggregateTaskParticipation(
   rows: TaskRow[],
   profileRows: ProfileRow[],
   nameByOa: Map<string, string>,
-  nameByUser: Map<string, string>
+  nameByUser: Map<string, string>,
+  priceByModel: Map<string, number> = new Map()
 ): Pick<DashboardOverview['tasks'], 'topUsers'> & {
   usageByDepartment: Record<string, number>;
+  costByDepartment: Record<string, number>;
 } {
   const okRows = rows.filter((row) => row.status === 'completed');
   const deptByUser = new Map(profileRows.map((p) => [p.user_id, p.department]));
@@ -308,6 +319,7 @@ export function aggregateTaskParticipation(
 
   const countByUser = new Map<string, number>();
   const usageByDepartment: Record<string, number> = {};
+  const costByDepartment: Record<string, number> = {};
   for (const row of okRows) {
     const userId = row.user_id || '';
     if (!userId) {
@@ -316,6 +328,11 @@ export function aggregateTaskParticipation(
     countByUser.set(userId, (countByUser.get(userId) ?? 0) + 1);
     const dept = deptByUser.get(userId) || '未知部门';
     usageByDepartment[dept] = (usageByDepartment[dept] ?? 0) + 1;
+    const price = row.model ? priceByModel.get(row.model) : undefined;
+    if (price !== undefined) {
+      costByDepartment[dept] =
+        (costByDepartment[dept] ?? 0) + price;
+    }
   }
 
   const topUsers = Array.from(countByUser.entries())
@@ -331,7 +348,7 @@ export function aggregateTaskParticipation(
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
-  return { topUsers, usageByDepartment };
+  return { topUsers, usageByDepartment, costByDepartment };
 }
 
 /** 用量与额度：generation_usage + user_profiles join + 部门配置限额 */
@@ -417,71 +434,47 @@ export function aggregateUsers(
   };
 }
 
-/** 文件计数：file_paths / response_file_paths 的 jsonb 数组长度求和 */
-export function countTaskFiles(rows: TaskRow[]): { input: number; output: number } {
-  let input = 0;
-  let output = 0;
-  for (const row of rows) {
-    input += arrayLength(row.file_paths);
-    output += arrayLength(row.response_file_paths);
-  }
-  return { input, output };
-}
-
 /**
- * huabu bucket 对象数与总大小（service_role 调 storage 对象列表，分页统计）。
- * 失败时返回 null（页面降级只显示文件计数）。
+ * tu-zi（new-api 底座）按模型单次调用价目（USD）。
+ * 计费口径：quota_type=0 按次计费用 model_price 精确值；quota_type=1 按量（token）
+ * 计费无调用侧 token 数据，按「每次调用 ESTIMATED_OUTPUT_TOKENS_PER_CALL 个输出
+ * token × model_ratio ÷ NEWAPI_QUOTA_PER_UNIT」估算（new-api 默认 $1 = 500000 quota）。
+ * 价目不可用时返回空映射（页面金额降级显示 -）。
  */
-export async function fetchBucketStats(
-  env: DashboardEnv,
-  deps: DashboardDeps
-): Promise<{ objects: number; bytes: number } | null> {
+export const TUZI_PRICING_URL = 'https://api.tu-zi.com/api/pricing';
+export const ESTIMATED_OUTPUT_TOKENS_PER_CALL = 1500;
+export const NEWAPI_QUOTA_PER_UNIT = 500000;
+
+export async function fetchModelPricing(
+  deps: DashboardDeps = {},
+  pricingUrl: string = TUZI_PRICING_URL
+): Promise<Map<string, number>> {
   const doFetch = deps.fetch || fetch;
-  const url = `${baseUrl(env)}/storage/v1/object/list/huabu`;
-  const headers = {
-    ...srkHeaders(env),
-    'Content-Type': 'application/json',
-  };
-
-  let objects = 0;
-  let bytes = 0;
-  const PAGE_LIMIT = 1000;
-  const MAX_PAGES = 100;
-
   try {
-    for (let offset = 0, page = 0; page < MAX_PAGES; page += 1) {
-      const response = await doFetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ prefix: '', limit: PAGE_LIMIT, offset }),
-      });
-      if (!response.ok) {
-        return null;
+    const response = await doFetch(pricingUrl, { method: 'GET' });
+    if (!response.ok) {
+      return new Map();
+    }
+    const body = (await response.json()) as PricingResponse;
+    const list = Array.isArray(body?.data) ? body.data : [];
+    const prices = new Map<string, number>();
+    for (const item of list) {
+      const name = typeof item?.model_name === 'string' ? item.model_name : '';
+      if (!name) {
+        continue;
       }
-      const body = (await response.json()) as unknown;
-      const items = Array.isArray(body)
-        ? body
-        : (body as { error?: unknown }).error
-          ? []
-          : [];
-      if (items.length === 0) {
-        break;
-      }
-      for (const item of items as Array<{
-        metadata?: { size?: unknown };
-      }>) {
-        const size = Number(item?.metadata?.size ?? 0);
-        bytes += Number.isFinite(size) ? size : 0;
-      }
-      objects += items.length;
-      offset += items.length;
-      if (items.length < PAGE_LIMIT) {
-        break;
+      const perCall =
+        item.quota_type === 0
+          ? Number(item.model_price)
+          : (Number(item.model_ratio) * ESTIMATED_OUTPUT_TOKENS_PER_CALL) /
+            NEWAPI_QUOTA_PER_UNIT;
+      if (Number.isFinite(perCall) && perCall > 0) {
+        prices.set(name, perCall);
       }
     }
-    return { objects, bytes };
+    return prices;
   } catch {
-    return null;
+    return new Map();
   }
 }
 
@@ -590,7 +583,7 @@ export async function aggregateOverview(
   const from = dateNDaysAgo(safeDays);
 
   // 并行拉取基础数据
-  const [taskResult, usageResult, profileResult, staffResult, deptResult, nameByUser] =
+  const [taskResult, usageResult, profileResult, staffResult, deptResult, nameByUser, priceByModel] =
     await Promise.all([
       restGet(
         env,
@@ -618,6 +611,7 @@ export async function aggregateOverview(
         deps
       ).catch(() => ({ rows: [], total: null })),
       fetchAuthDisplayNames(env, deps),
+      fetchModelPricing(deps),
     ]);
 
   const taskRows = taskResult.rows as TaskRow[];
@@ -631,19 +625,35 @@ export async function aggregateOverview(
   );
 
   const quotaLimit = await readQuotaLimit(env, deps);
-  const bucket = await fetchBucketStats(env, deps);
-  const files = countTaskFiles(taskRows);
+  const tasksAgg = aggregateTasks(taskRows);
   const participation = aggregateTaskParticipation(
     taskRows,
     profileRows,
     nameByOa,
-    nameByUser
+    nameByUser,
+    priceByModel
   );
+  // 消耗金额：成功任务按模型次数 × 单次价目（USD）；价目不可用为 null
+  let totalCostUsd: number | null = null;
+  if (priceByModel.size > 0) {
+    totalCostUsd = 0;
+    for (const [model, count] of Object.entries(tasksAgg.byModel)) {
+      const price = priceByModel.get(model);
+      if (price !== undefined) {
+        totalCostUsd += count * price;
+      }
+    }
+    totalCostUsd = Math.round(totalCostUsd * 100) / 100;
+  }
 
   return {
     generatedAt: new Date().toISOString(),
     days: safeDays,
-    tasks: { ...aggregateTasks(taskRows), topUsers: participation.topUsers },
+    tasks: {
+      ...tasksAgg,
+      topUsers: participation.topUsers,
+      totalCostUsd,
+    },
     usage: aggregateUsage(usageRows, profileRows, quotaLimit, nameByOa, nameByUser),
     users: {
       ...aggregateUsers(
@@ -654,11 +664,7 @@ export async function aggregateOverview(
         nameByUser
       ),
       usageByDepartment: participation.usageByDepartment,
-    },
-    storage: {
-      inputFiles: files.input,
-      outputFiles: files.output,
-      bucket,
+      costByDepartment: participation.costByDepartment,
     },
   };
 }
@@ -751,7 +757,6 @@ export function buildDashboardHtml(anonKey: string): string {
 <div class="wrap">
 
 <div class="cards" id="kpiCards"><div class="sk"></div></div>
-<div class="cards small" id="subCards"><div class="sk"></div></div>
 
 <div class="grid">
   <div class="panel"><h2>操作类型分布</h2><div id="typeDonut"><div class="sk"></div></div></div>
@@ -771,7 +776,7 @@ export function buildDashboardHtml(anonKey: string): string {
   <div class="panel"><h2>区间使用排行 <select id="rankSel" style="margin-left:8px"><option value="dept" selected>部门排行</option><option value="user">用户排行</option></select></h2><div id="rankTable"><div class="sk"></div></div></div>
 </div>
 <div class="grid">
-  <div class="panel"><h2>部门使用汇总</h2><table id="deptSummary"><thead><tr><th>部门</th><th>用户数</th><th>使用次数</th><th>占比</th></tr></thead><tbody></tbody></table></div>
+  <div class="panel"><h2>部门使用汇总</h2><table id="deptSummary"><thead><tr><th>部门</th><th>用户数</th><th>使用次数</th><th>金额</th><th>占比</th></tr></thead><tbody></tbody></table></div>
   <div class="panel"><h2>月度用量趋势</h2><div id="usageTrend"><div class="sk"></div></div></div>
 </div>
 <div class="grid">
@@ -848,25 +853,18 @@ function sparkline(trend){
 }
 
 function kpiCards(o){
-  var t = o.tasks, u = o.users, s = o.storage, q = o.usage;
+  var t = o.tasks, u = o.users, q = o.usage;
+  var costVal = t.totalCostUsd == null ? '-' : '$' + t.totalCostUsd.toFixed(2);
+  var costSub = t.totalCostUsd == null ? '暂无计费数据源' : '按 tu-zi 价目估算（按量模型 1500 token/次）';
   var big = [
     ['总操作次数（近 '+o.days+' 天）', t.total, '日均 '+(t.total/Math.max(1,o.days)).toFixed(1)+' · 平均耗时 '+fmtDur(t.avgDurationMs), sparkline(t.dailyTrend)],
-    ['消耗金额', '-', '暂无计费数据源', ''],
-    ['活跃用户数', t.activeUsers, '用户总数 '+u.total, ''],
+    ['消耗金额', costVal, costSub, ''],
+    ['活跃用户数', t.activeUsers, '用户总数 '+u.total+' · 花名册 '+u.staffDirectory, ''],
+    ['本月用量（全局）', q.latestUsed, '周期 '+(q.latestPeriod||'-'), ''],
     ['数据覆盖天数', o.days, '截至 '+fmtDate(o.generatedAt).slice(0,10), ''],
   ];
   document.getElementById('kpiCards').innerHTML = big.map(function(c){
     return '<div class="card"><div class="label">'+esc(c[0])+'</div><div class="value" style="font-size:30px">'+esc(c[1])+'</div><div class="sub">'+esc(c[2])+'</div>'+(c[3]||'')+'</div>';
-  }).join('');
-  var sub = [
-    ['用户总数', u.total, '花名册 '+u.staffDirectory+' · 可用部门 '+u.enabledDepartments],
-    ['本月用量', q.latestUsed + ' / ' + q.quotaLimit, '周期 '+ (q.latestPeriod||'-')],
-    ['上传文件', s.inputFiles, 'input-*'],
-    ['生成文件', s.outputFiles, 'output-*'],
-    ['bucket 对象', s.bucket ? s.bucket.objects : '-', s.bucket ? fmtBytes(s.bucket.bytes) : 'storage 不可用'],
-  ];
-  document.getElementById('subCards').innerHTML = sub.map(function(c){
-    return '<div class="card"><div class="label">'+esc(c[0])+'</div><div class="value">'+esc(c[1])+'</div><div class="sub">'+esc(c[2])+'</div></div>';
   }).join('');
 }
 
@@ -986,11 +984,13 @@ function render(o){
   rankTable(document.getElementById('rankTable'), o);
   var summaryRows = Object.entries(o.users.usageByDepartment||{}).sort(function(a,b){return b[1]-a[1];});
   var usersByDept = o.users.byDepartment||{};
+  var costByDept = o.users.costByDepartment||{};
   var total = o.tasks.total;
   document.getElementById('deptSummary').querySelector('tbody').innerHTML =
     (summaryRows.length?summaryRows.map(function(e){
-      return '<tr><td>'+esc(e[0])+'</td><td>'+esc(usersByDept[e[0]]||0)+'</td><td>'+e[1]+'</td><td>'+(total?(e[1]/total*100).toFixed(1)+'%':'-')+'</td></tr>';
-    }).join(''):'<tr><td colspan="4" class="muted">暂无数据</td></tr>');
+      var cost = costByDept[e[0]];
+      return '<tr><td>'+esc(e[0])+'</td><td>'+esc(usersByDept[e[0]]||0)+'</td><td>'+e[1]+'</td><td>'+(cost!=null?'$'+cost.toFixed(2):'-')+'</td><td>'+(total?(e[1]/total*100).toFixed(1)+'%':'-')+'</td></tr>';
+    }).join(''):'<tr><td colspan="5" class="muted">暂无数据</td></tr>');
   bars(document.getElementById('byRegion'), o.users.byRegion, '#c084fc');
   bars(document.getElementById('usageTrend'), (o.usage.byPeriod||[]).reduce(function(m,p){m[p.period]=p.used;return m;},{}), '#f472b6');
   document.getElementById('recentUsers').querySelector('tbody').innerHTML =

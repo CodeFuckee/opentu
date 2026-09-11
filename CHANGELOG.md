@@ -32,6 +32,15 @@
   期间修复排行条内联 onmouseover 在模板字符串中的引号转义导致的页面 JS
   语法错误（改纯 CSS :hover 实现）。
 
+- 数据看板三项优化：① 「本月用量」改为全局用量，去掉按个人额度展示的「/200」
+  （200 是个人额度，非软件全局额度）；② 移除「上传文件/生成文件/bucket 对象」
+  三项统计（页面与 overview 的 storage 区块整体移除，省去 bucket 分页查询开销）；
+  ③ 接入消耗金额：价目来自 tu-zi（new-api 底座）公开接口 `/api/pricing`，按次
+  计费模型用 model_price 精确单价，按量计费模型按「1500 输出 token/次 ×
+  model_ratio ÷ 500000」估算（new-api 默认 $1=500k quota，常数可调），KPI 卡与
+  部门使用汇总新增金额列，价目拉取失败降级显示 `-`；本月用量与消耗金额并列
+  进 KPI 行。
+
 ### 🩹 Fixes
 
 - CI 加固：`build` / `deploy` / `deploy:preview` / `feedbackland:redeploy` 的 runner
