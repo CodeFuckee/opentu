@@ -19,6 +19,9 @@ deploy:preview:
   stage: deploy
   tags:
     - yx
+    # yx 已非服务器独有（24 号 runner 同带 yx），叠加 deploy 取交集钉死越秀服务器，
+    # 防止预览环境被部署到错误机器
+    - deploy
   needs:
     - quality
     - test:backend

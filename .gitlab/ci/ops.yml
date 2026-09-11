@@ -18,6 +18,8 @@ feedbackland:redeploy:
   stage: deploy
   tags:
     - yx
+    # yx 已非服务器独有（24 号 runner 同带 yx），叠加 deploy 取交集钉死越秀服务器
+    - deploy
   timeout: 2 hours
   environment:
     name: feedbackland

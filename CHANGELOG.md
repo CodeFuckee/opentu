@@ -17,6 +17,12 @@
 
 ### 🩹 Fixes
 
+- CI 加固：`build` / `deploy` / `deploy:preview` / `feedbackland:redeploy` 的 runner
+  标签由 `yx` 改为 `yx + deploy` 取交集。`yx` 已非服务器独有（2026-09-10 新增的
+  24 号 runner 同带 `yx` 但宿主机未做 corepack 初始化，作业必在 5 秒内失败），
+  曾导致 build 被其抢走而失败；部署类作业若被抢走还会把预览/生产环境起到错误
+  机器上。交集后仅剩越秀服务器（唯一同时带两标签的 runner），与历史实际执行机一致。
+
 - Feedbackland 登录与看板在 IP 直连部署（10.37.80.25:8090）下不可用：登录后显示
   "Unnamed user"、帖子列表 "Error loading posts"。四个叠加根因与修复：
   ① `getIsSubdirOrg` 仅认 localhost/vercel.app 为路径式组织，IP:端口部署被误判
