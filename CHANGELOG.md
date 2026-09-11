@@ -1,5 +1,14 @@
 ## Unreleased
 
+### 🚀 Features
+
+- 新增钉钉自定义机器人通知脚本 `scripts/dingtalk-notify.mjs`（零依赖，Node 内置
+  crypto + fetch）：支持 text / markdown 消息与官方加签（HmacSHA256 + base64 +
+  urlEncode，`timestamp\nsecret` 待签串）；配置经 `DINGTALK_WEBHOOK` /
+  `DINGTALK_SECRET` 环境变量或根目录 `.env.local`（已被 gitignore，密钥不入库）
+  注入，命令行参数可临时覆盖；发送失败退出码非 0，可直接用于后续 CI 失败通知。
+  已用测试环境机器人实测加签发送成功。
+
 ### 🩹 Fixes
 
 - Feedbackland 登录与看板在 IP 直连部署（10.37.80.25:8090）下不可用：登录后显示
