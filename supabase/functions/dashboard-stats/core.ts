@@ -680,43 +680,64 @@ export function buildDashboardHtml(anonKey: string): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>数据看板 · AI 平台</title>
 <style>
-  :root { --bg:#0f1420; --card:#171e2e; --card2:#1d2638; --line:#2a3550; --text:#e6ecf7; --muted:#8b98b3; --accent:#4f8cff; --ok:#34d399; --fail:#f87171; --warn:#fbbf24; }
+  :root { --bg:#070b16; --card:rgba(255,255,255,.035); --card2:rgba(148,163,184,.09); --line:rgba(148,163,184,.14); --text:#e8eefc; --muted:#8b98b3; --accent:#5b8cff; --accent2:#22d3ee; --ok:#34d399; --fail:#f87171; --warn:#fbbf24; --radius:14px; }
   * { box-sizing:border-box; margin:0; padding:0; }
-  body { background:var(--bg); color:var(--text); font-family:-apple-system,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif; padding:20px; }
-  header { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:20px; }
-  h1 { font-size:20px; font-weight:600; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif; -webkit-font-smoothing:antialiased; padding:0 0 36px; }
+  body::before { content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+    background: radial-gradient(640px 320px at 12% -6%, rgba(91,140,255,.16), transparent 62%),
+                radial-gradient(720px 340px at 88% -8%, rgba(34,211,238,.11), transparent 62%); }
+  header { position:sticky; top:0; z-index:10; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+    padding:14px 26px; background:rgba(7,11,22,.74); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border-bottom:1px solid var(--line); }
+  h1 { font-size:18px; font-weight:700; letter-spacing:.5px; background:linear-gradient(90deg,#a5c4ff,#22d3ee); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .wrap { position:relative; z-index:1; max-width:1280px; margin:0 auto; padding:6px 26px 0; }
   .controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-  button, select { background:var(--card2); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:6px 10px; font-size:13px; cursor:pointer; }
-  button:hover { border-color:var(--accent); }
+  button, select { background:rgba(148,163,184,.1); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:7px 12px; font-size:13px; cursor:pointer; transition:.15s; }
+  button:hover, select:hover { border-color:var(--accent); background:rgba(91,140,255,.12); }
   .meta { color:var(--muted); font-size:12px; }
-  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-bottom:20px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
-  .card .label { color:var(--muted); font-size:12px; margin-bottom:6px; }
-  .card .value { font-size:24px; font-weight:600; }
-  .card .sub { color:var(--muted); font-size:12px; margin-top:4px; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:12px; margin-bottom:20px; }
-  .panel { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; }
-  .panel h2 { font-size:14px; font-weight:600; margin-bottom:12px; color:var(--text); }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px; margin:16px 0; }
+  .cards.small { grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); }
+  .card { position:relative; overflow:hidden; background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.015));
+    border:1px solid var(--line); border-radius:var(--radius); padding:16px 18px; transition:transform .18s, border-color .18s, box-shadow .18s; }
+  .card:hover { transform:translateY(-2px); border-color:rgba(91,140,255,.45); box-shadow:0 10px 26px rgba(0,0,0,.35); }
+  .card::before { content:''; position:absolute; top:0; left:0; right:0; height:1px;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent); }
+  .card .label { color:var(--muted); font-size:12px; margin-bottom:8px; letter-spacing:.3px; }
+  .card .value { font-size:26px; font-weight:700; letter-spacing:-.3px; font-variant-numeric:tabular-nums; }
+  .card .sub { color:var(--muted); font-size:12px; margin-top:6px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(360px,1fr)); gap:14px; margin-bottom:14px; }
+  .panel { background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.015)); border:1px solid var(--line);
+    border-radius:var(--radius); padding:18px; animation:fadeUp .45s ease both; transition:border-color .18s; }
+  .grid .panel:nth-child(2) { animation-delay:.06s; }
+  .grid .panel:nth-child(3) { animation-delay:.12s; }
+  .panel:hover { border-color:rgba(91,140,255,.35); }
+  .panel h2 { font-size:13px; font-weight:600; margin-bottom:14px; color:var(--text); display:flex; align-items:center; gap:8px; }
+  .panel h2::before { content:''; width:3px; height:12px; border-radius:2px; background:linear-gradient(180deg,var(--accent),var(--accent2)); }
   .bar-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:12px; }
   .bar-row .name { width:110px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--muted); }
-  .bar-row .track { flex:1; height:14px; background:var(--card2); border-radius:4px; overflow:hidden; }
-  .bar-row .fill { height:100%; background:var(--accent); border-radius:4px; }
-  .bar-row .num { width:56px; text-align:right; }
+  .bar-row .track { flex:1; height:12px; background:var(--card2); border-radius:6px; overflow:hidden; }
+  .bar-row .fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:6px; }
+  .bar-row .num { width:56px; text-align:right; font-variant-numeric:tabular-nums; }
   table { width:100%; border-collapse:collapse; font-size:12px; }
-  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid rgba(148,163,184,.09); }
   th { color:var(--muted); font-weight:500; }
-  .pill { display:inline-block; padding:1px 8px; border-radius:10px; font-size:11px; background:var(--card2); }
-  .pill.ok { color:var(--ok); } .pill.fail { color:var(--fail); } .pill.warn { color:var(--warn); }
+  tbody tr { transition:background .12s; }
+  tbody tr:hover { background:rgba(91,140,255,.07); }
   .legend { display:flex; gap:12px; font-size:12px; color:var(--muted); margin-bottom:10px; flex-wrap:wrap; }
-  .legend span i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; }
+  .legend span i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; }
+  .chip { transition:transform .15s; }
+  .chip:hover { transform:translateY(-2px); }
   svg { width:100%; height:auto; display:block; }
+  svg text { font-family:inherit; }
+  .sk { min-height:120px; border-radius:10px; background:linear-gradient(100deg,rgba(255,255,255,.04) 30%,rgba(255,255,255,.09) 50%,rgba(255,255,255,.04) 70%); background-size:200% 100%; animation:shimmer 1.2s linear infinite; }
+  @keyframes shimmer { to { background-position:-200% 0; } }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
   .error { color:var(--fail); padding:20px; text-align:center; }
   .muted { color:var(--muted); }
 </style>
 </head>
 <body>
 <header>
-  <h1>📊 数据看板</h1>
+  <h1>YUE 画布数据看板</h1>
   <div class="controls">
     <span class="meta" id="generatedAt"></span>
     <select id="daysSel">
@@ -727,34 +748,36 @@ export function buildDashboardHtml(anonKey: string): string {
     <button id="refreshBtn">刷新</button>
   </div>
 </header>
+<div class="wrap">
 
-<div class="cards" id="kpiCards"></div>
-<div class="cards" id="subCards"></div>
+<div class="cards" id="kpiCards"><div class="sk"></div></div>
+<div class="cards small" id="subCards"><div class="sk"></div></div>
 
 <div class="grid">
-  <div class="panel"><h2>操作类型分布</h2><div id="typeDonut"></div></div>
-  <div class="panel"><h2>模型使用分布</h2><div id="modelDonut"></div></div>
-  <div class="panel"><h2>使用次数排行（前 10）</h2><div id="rankChips"></div></div>
+  <div class="panel"><h2>操作类型分布</h2><div id="typeDonut"><div class="sk"></div></div></div>
+  <div class="panel"><h2>模型使用分布</h2><div id="modelDonut"><div class="sk"></div></div></div>
+  <div class="panel"><h2>使用次数排行（前 10）</h2><div id="rankChips"><div class="sk"></div></div></div>
 </div>
 <div class="grid">
-  <div class="panel"><h2>日历使用热力（当月）</h2><div id="calendarHeat"></div></div>
-  <div class="panel"><h2>24小时使用分布</h2><div id="hourlyChart"></div></div>
+  <div class="panel"><h2>日历使用热力（当月）</h2><div id="calendarHeat"><div class="sk"></div></div></div>
+  <div class="panel"><h2>24小时使用分布</h2><div id="hourlyChart"><div class="sk"></div></div></div>
 </div>
 <div class="grid">
   <div class="panel"><h2>每日成功任务趋势（近 <span id="trendDays"></span> 天）</h2><svg id="trendChart" viewBox="0 0 680 220"></svg></div>
   <div class="panel"><h2>月度用量 Top 用户（当前周期）</h2><table id="topUsers"><thead><tr><th>用户</th><th>部门</th><th>用量</th></tr></thead><tbody></tbody></table></div>
 </div>
 <div class="grid">
-  <div class="panel"><h2>部门使用情况</h2><div id="deptUsage"></div></div>
-  <div class="panel"><h2>区间使用排行 <select id="rankSel" style="margin-left:8px"><option value="dept" selected>部门排行</option><option value="user">用户排行</option></select></h2><div id="rankTable"></div></div>
+  <div class="panel"><h2>部门使用情况</h2><div id="deptUsage"><div class="sk"></div></div></div>
+  <div class="panel"><h2>区间使用排行 <select id="rankSel" style="margin-left:8px"><option value="dept" selected>部门排行</option><option value="user">用户排行</option></select></h2><div id="rankTable"><div class="sk"></div></div></div>
 </div>
 <div class="grid">
   <div class="panel"><h2>部门使用汇总</h2><table id="deptSummary"><thead><tr><th>部门</th><th>用户数</th><th>使用次数</th><th>占比</th></tr></thead><tbody></tbody></table></div>
-  <div class="panel"><h2>月度用量趋势</h2><div id="usageTrend"></div></div>
+  <div class="panel"><h2>月度用量趋势</h2><div id="usageTrend"><div class="sk"></div></div></div>
 </div>
 <div class="grid">
-  <div class="panel"><h2>区域分布</h2><div id="byRegion"></div></div>
+  <div class="panel"><h2>区域分布</h2><div id="byRegion"><div class="sk"></div></div></div>
   <div class="panel"><h2>最近注册用户</h2><table id="recentUsers"><thead><tr><th>用户</th><th>注册时间</th></tr></thead><tbody></tbody></table></div>
+</div>
 </div>
 
 <script>
@@ -777,7 +800,7 @@ function bars(el, data, color){
 
 function trendLine(svg, data){
   var points = data||[];
-  var W=680, H=200, pad=30;
+  var W=680, H=210, pad=34;
   if(!points.length){
     svg.innerHTML='<text x="340" y="100" text-anchor="middle" fill="#8b98b3" font-size="13">暂无数据</text>';
     return;
@@ -786,33 +809,54 @@ function trendLine(svg, data){
   var n = points.length;
   var stepX = (W-pad*2)/Math.max(1,n-1);
   var coords = points.map(function(p,i){
-    return [pad + i*stepX, H-pad+10 - (p.count/max)*(H-pad*2)];
+    return [pad + i*stepX, H-pad+8 - (p.count/max)*(H-pad*2-12)];
   });
-  var path = coords.map(function(c,i){return (i?'L':'M')+c[0].toFixed(1)+','+c[1].toFixed(1);}).join(' ');
-  var area = path + ' L'+(pad+(n-1)*stepX).toFixed(1)+','+(H-pad+10)+' L'+pad+','+(H-pad+10)+' Z';
+  // 平滑曲线（相邻点水平中点作控制点）
+  var d = 'M'+coords[0][0].toFixed(1)+','+coords[0][1].toFixed(1);
+  for(var i=1;i<n;i++){
+    var p0=coords[i-1], p1=coords[i], cx=((p0[0]+p1[0])/2).toFixed(1);
+    d += ' C'+cx+','+p0[1].toFixed(1)+' '+cx+','+p1[1].toFixed(1)+' '+p1[0].toFixed(1)+','+p1[1].toFixed(1);
+  }
+  var area = d + ' L'+coords[n-1][0].toFixed(1)+','+(H-pad+8)+' L'+pad+','+(H-pad+8)+' Z';
+  var grid='';
+  for(var g=1;g<=3;g++){
+    var gy=(H-pad+8)-(g/3)*(H-pad*2-12);
+    grid+='<line x1="'+pad+'" y1="'+gy.toFixed(1)+'" x2="'+(W-pad)+'" y2="'+gy.toFixed(1)+'" stroke="rgba(148,163,184,.12)" stroke-dasharray="3 4"/>';
+  }
+  var last = coords[n-1];
   svg.innerHTML =
-    '<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4f8cff" stop-opacity="0.35"/><stop offset="1" stop-color="#4f8cff" stop-opacity="0"/></linearGradient></defs>'+
+    '<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5b8cff" stop-opacity="0.32"/><stop offset="1" stop-color="#5b8cff" stop-opacity="0"/></linearGradient></defs>'+
+    grid+
     '<path d="'+area+'" fill="url(#g)"/>'+
-    '<path d="'+path+'" fill="none" stroke="#4f8cff" stroke-width="2"/>'+
-    coords.map(function(c){return '<circle cx="'+c[0].toFixed(1)+'" cy="'+c[1].toFixed(1)+'" r="3" fill="#4f8cff"/>';}).join('')+
-    '<text x="'+pad+'" y="'+(H-pad+5)+'" fill="#8b98b3" font-size="10">'+esc(points[0].date)+'</text>'+
-    '<text x="'+(W-pad)+'" y="'+(H-pad+5)+'" fill="#8b98b3" font-size="10" text-anchor="end">'+esc(points[n-1].date)+'</text>'+
+    '<path d="'+d+'" fill="none" stroke="#5b8cff" stroke-width="2.5" stroke-linecap="round" style="filter:drop-shadow(0 0 6px rgba(91,140,255,.5))"/>'+
+    '<circle cx="'+last[0].toFixed(1)+'" cy="'+last[1].toFixed(1)+'" r="4" fill="#22d3ee"><animate attributeName="r" values="4;6.5;4" dur="2s" repeatCount="indefinite"/></circle>'+
+    '<text x="'+pad+'" y="'+(H-pad+26)+'" fill="#8b98b3" font-size="10">'+esc(points[0].date)+'</text>'+
+    '<text x="'+(W-pad)+'" y="'+(H-pad+26)+'" fill="#8b98b3" font-size="10" text-anchor="end">'+esc(points[n-1].date)+'</text>'+
     '<text x="'+pad+'" y="15" fill="#8b98b3" font-size="11">峰值 '+max+'</text>';
 }
 
 var CHART_COLORS = ['#4f8cff','#34d399','#fbbf24','#f472b6','#c084fc','#f97316','#22d3ee','#a3e635','#fb7185','#60a5fa'];
 var LAST_OVERVIEW = null;
 
+function sparkline(trend){
+  var pts=(trend||[]).slice(-14);
+  if(pts.length<2) return '';
+  var max=Math.max.apply(null,pts.map(function(p){return p.count;}))||1;
+  var W=92,H=28, step=W/(pts.length-1);
+  var poly=pts.map(function(p,i){return (i*step).toFixed(1)+','+(H-3-(p.count/max)*(H-7)).toFixed(1);}).join(' ');
+  return '<svg width="'+W+'" height="'+H+'" style="position:absolute;right:14px;top:16px;opacity:.85"><polyline points="'+poly+'" fill="none" stroke="#22d3ee" stroke-width="1.5"/></svg>';
+}
+
 function kpiCards(o){
   var t = o.tasks, u = o.users, s = o.storage, q = o.usage;
   var big = [
-    ['总操作次数（近 '+o.days+' 天）', t.total, '日均 '+(t.total/Math.max(1,o.days)).toFixed(1)+' · 平均耗时 '+fmtDur(t.avgDurationMs)],
-    ['消耗金额', '-', '暂无计费数据源'],
-    ['活跃用户数', t.activeUsers, '用户总数 '+u.total],
-    ['数据覆盖天数', o.days, '截至 '+fmtDate(o.generatedAt).slice(0,10)],
+    ['总操作次数（近 '+o.days+' 天）', t.total, '日均 '+(t.total/Math.max(1,o.days)).toFixed(1)+' · 平均耗时 '+fmtDur(t.avgDurationMs), sparkline(t.dailyTrend)],
+    ['消耗金额', '-', '暂无计费数据源', ''],
+    ['活跃用户数', t.activeUsers, '用户总数 '+u.total, ''],
+    ['数据覆盖天数', o.days, '截至 '+fmtDate(o.generatedAt).slice(0,10), ''],
   ];
   document.getElementById('kpiCards').innerHTML = big.map(function(c){
-    return '<div class="card"><div class="label">'+esc(c[0])+'</div><div class="value" style="font-size:30px">'+esc(c[1])+'</div><div class="sub">'+esc(c[2])+'</div></div>';
+    return '<div class="card"><div class="label">'+esc(c[0])+'</div><div class="value" style="font-size:30px">'+esc(c[1])+'</div><div class="sub">'+esc(c[2])+'</div>'+(c[3]||'')+'</div>';
   }).join('');
   var sub = [
     ['用户总数', u.total, '花名册 '+u.staffDirectory+' · 可用部门 '+u.enabledDepartments],
@@ -836,11 +880,13 @@ function donut(el, data){
   var acc=0, stops=[];
   top.forEach(function(e,i){
     var from=acc/total*360; acc+=e[1]; var to=acc/total*360;
-    stops.push(CHART_COLORS[i%CHART_COLORS.length]+' '+from.toFixed(1)+'deg '+to.toFixed(1)+'deg');
+    var c=CHART_COLORS[i%CHART_COLORS.length];
+    stops.push(c+' '+(from+1.5).toFixed(1)+'deg '+(to-1.5<from+1.5?to:to-1.5).toFixed(1)+'deg');
   });
   el.innerHTML = '<div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">'+
-    '<div style="width:150px;height:150px;border-radius:50%;flex:none;background:conic-gradient('+stops.join(',')+');position:relative">'+
-    '<div style="position:absolute;inset:26%;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600">'+total+'</div></div>'+
+    '<div style="width:150px;height:150px;border-radius:50%;flex:none;background:conic-gradient('+stops.join(',')+');position:relative;box-shadow:0 6px 18px rgba(0,0,0,.3)">'+
+    '<div style="position:absolute;inset:26%;border-radius:50%;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center">'+
+    '<span style="font-size:17px;font-weight:700;font-variant-numeric:tabular-nums">'+total+'</span><span class="muted" style="font-size:10px">总计</span></div></div>'+
     '<div style="display:flex;flex-direction:column;gap:4px;min-width:150px">'+top.map(function(e,i){
       return '<span class="legend" style="margin:0"><i style="background:'+CHART_COLORS[i%CHART_COLORS.length]+'"></i>'+esc(e[0])+' <b>'+e[1]+'</b>（'+(e[1]/total*100).toFixed(1)+'%）</span>';
     }).join('')+'</div></div>';
@@ -848,12 +894,15 @@ function donut(el, data){
 
 function rankChips(el, list){
   el.style.display='flex'; el.style.gap='8px'; el.style.flexWrap='wrap';
-  el.innerHTML = (list||[]).map(function(r){
+  var medals=['#fbbf24','#cbd5e1','#f59e0b'];
+  el.innerHTML = (list||[]).map(function(r,i){
     var name = r.displayName || '-';
-    return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 8px;background:var(--card2);border-radius:8px;min-width:66px;flex:1">'+
-      '<div style="width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px">'+esc(name.charAt(0))+'</div>'+
+    var ring = i<3 ? medals[i] : 'transparent';
+    return '<div class="chip" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 8px;background:var(--card2);border-radius:10px;min-width:66px;flex:1">'+
+      '<div style="position:relative;width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;border:2px solid '+ring+'">'+esc(name.charAt(0))+
+      (i<3?'<span style="position:absolute;top:-6px;right:-6px;font-size:10px">'+(i===0?'🥇':i===1?'🥈':'🥉')+'</span>':'')+'</div>'+
       '<div style="font-size:11px;color:var(--muted);max-width:76px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(name)+'">'+esc(name)+'</div>'+
-      '<div style="font-size:14px;font-weight:600;color:var(--accent)">'+r.count+'</div></div>';
+      '<div style="font-size:14px;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums">'+r.count+'</div></div>';
   }).join('') || '<div class="muted">暂无数据</div>';
 }
 
@@ -873,18 +922,22 @@ function calendarHeat(el, trend){
     var bg=c>0?'rgba(79,140,255,'+(0.18+0.82*(c/max)).toFixed(3)+')':'var(--card2)';
     html+='<div title="'+ds+'：'+c+' 次" style="width:26px;height:30px;border-radius:6px;background:'+bg+';display:flex;align-items:center;justify-content:center;font-size:10px;color:'+(c>0?'#e6ecf7':'#5b6884')+'">'+d+'</div>';
   }
-  html+='</div>'; el.innerHTML=html;
+  html+='</div>';
+  html+='<div class="muted" style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:11px">少 '+
+    [0.15,0.4,0.7,1].map(function(a){return '<span style="width:14px;height:12px;border-radius:3px;background:rgba(79,140,255,'+a+')"></span>';}).join('')+' 多</div>';
+  el.innerHTML=html;
 }
 
 function hourlyBars(el, hourly){
   var a = hourly||[]; var max = Math.max.apply(null, a.length?a:[0]) || 1;
-  var W=680,H=180,pad=22, bw=(W-pad*2)/24;
-  var svg='';
+  var W=680,H=190,pad=24, bw=(W-pad*2)/24;
+  var svg='<defs><linearGradient id="hb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5b8cff"/><stop offset="1" stop-color="#3b5fd9" stop-opacity=".5"/></linearGradient></defs>';
+  svg+='<line x1="'+pad+'" y1="'+(H-pad)+'" x2="'+(W-pad)+'" y2="'+(H-pad)+'" stroke="rgba(148,163,184,.18)"/>';
   for(var h=0;h<24;h++){
-    var c=a[h]||0; var hgt=c/max*(H-pad*2-10); var x=pad+h*bw;
-    svg+='<rect x="'+x.toFixed(1)+'" y="'+(H-pad-Math.max(0,hgt)).toFixed(1)+'" width="'+(bw-3).toFixed(1)+'" height="'+Math.max(0,hgt).toFixed(1)+'" rx="2" fill="#4f8cff"></rect>'+
-      '<text x="'+(x+bw/2-1.5).toFixed(1)+'" y="'+(H-6)+'" fill="#8b98b3" font-size="9" text-anchor="middle">'+h+'h</text>';
-    if(c>0) svg+='<text x="'+(x+bw/2-1.5).toFixed(1)+'" y="'+(H-pad-hgt-4).toFixed(1)+'" fill="#8b98b3" font-size="9" text-anchor="middle">'+c+'</text>';
+    var c=a[h]||0; var hgt=c/max*(H-pad*2-8); var x=pad+h*bw;
+    svg+='<rect x="'+x.toFixed(1)+'" y="'+(H-pad-Math.max(0,hgt)).toFixed(1)+'" width="'+(bw-3).toFixed(1)+'" height="'+Math.max(0,hgt).toFixed(1)+'" rx="3" fill="url(#hb)"><title>'+h+':00　'+c+' 次</title></rect>';
+    if(c>0) svg+='<text x="'+(x+bw/2-1.5).toFixed(1)+'" y="'+(H-pad-hgt-5).toFixed(1)+'" fill="#8b98b3" font-size="9" text-anchor="middle">'+c+'</text>';
+    if(h%2===0) svg+='<text x="'+(x+bw/2-1.5).toFixed(1)+'" y="'+(H-6)+'" fill="#8b98b3" font-size="9" text-anchor="middle">'+h+'h</text>';
   }
   el.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block">'+svg+'</svg>';
 }
@@ -895,7 +948,7 @@ function deptUsageCards(el, usageByDept, total){
     var pct = total? (e[1]/total*100):0;
     return '<div style="background:var(--card2);border-radius:8px;padding:10px 12px;margin-bottom:8px">'+
       '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px"><span>'+esc(e[0])+'</span><span class="muted">使用次数 '+e[1]+'　'+pct.toFixed(1)+'%</span></div>'+
-      '<div style="height:6px;border-radius:3px;background:var(--bg);overflow:hidden"><div style="height:100%;width:'+pct.toFixed(1)+'%;background:var(--accent);border-radius:3px"></div></div></div>';
+      '<div style="height:6px;border-radius:3px;background:var(--bg);overflow:hidden"><div style="height:100%;width:'+pct.toFixed(1)+'%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:3px"></div></div></div>';
   }).join('') || '<div class="muted">暂无数据</div>';
 }
 
@@ -973,6 +1026,7 @@ document.getElementById('rankSel').addEventListener('change', function(){
 });
 load();
 </script>
+</div>
 </body>
 </html>`;
 }
