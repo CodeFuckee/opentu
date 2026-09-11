@@ -26,6 +26,11 @@
   账号取自 .env.e2e.local（E2E_CUSTOM_ACCOUNT/PASSWORD），未配置自动跳过。
   测试报告见 apps/web-e2e/reports/feedbackland-login-report.md。
 
+- 预览环境部署从手动改为自动：main 分支 push 流水线在 quality、三类 test、build
+  全部成功后，`deploy:preview` 自动把最新 main 部署到 8089 预览环境（此前需在
+  流水线页面手动点击）；生产 8088 仍仅通过发版流水线手动部署，隔离设计与全部
+  修复保持不变。
+
 ### 🚀 Features
 
 - CI/CD 新增 Feedbackland 运维作业 `feedbackland:redeploy`（`.gitlab/ci/ops.yml`）：
