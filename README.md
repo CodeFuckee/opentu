@@ -90,10 +90,10 @@ pnpm manual:build      # 生成用户手册（web 构建时自动执行，产出
 - Vercel / Netlify：使用上方一键部署按钮或仓库配置。
 - Docker：使用仓库根目录的 `Dockerfile` 构建静态站点镜像。
 - Hybrid CDN + 自托管：见 [NPM CDN 部署](./docs/NPM_CDN_DEPLOY.md) 与 [CDN 部署](./docs/CDN_DEPLOYMENT.md)。
-- 预览环境（内测）：main 分支 push 流水线提供手动 `deploy:preview` 作业，把当前提交
-  部署到宿主机 8089 端口（http://10.37.80.25:8089），后端与生产一致（生产 Supabase）；
-  与生产实例完全隔离（独立镜像名/容器名/compose 项目名，端口清理仅限 8089），
-  仅在 quality + 全量测试 + 构建全部成功后作业可点击执行。
+- 预览环境（内测）：main 分支 push 流水线在 quality + 全量测试 + 构建全部成功后，
+  **自动**把当前提交部署到宿主机 8089 端口（http://10.37.80.25:8089），后端与生产
+  一致（生产 Supabase）；与生产实例完全隔离（独立镜像名/容器名/compose 项目名，
+  端口清理仅限 8089），生产 8088 仍仅通过发版流水线手动部署。
 
 ### Feedbackland 自托管部署（随发布流水线一并部署）
 

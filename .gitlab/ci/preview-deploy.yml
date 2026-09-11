@@ -1,11 +1,11 @@
 # =============================================================================
-# 预览环境部署（手动触发的 deploy 作业，与生产实例完全隔离）
+# 预览环境部署（自动作业，与生产实例完全隔离）
 # -----------------------------------------------------------------------------
-# - 仅 main 分支的 push 流水线（流水线 A）中出现，需在 GitLab 页面手动点击执行；
-#   quality / test:backend / test:frontend / test:e2e / build 五个作业全部成功后
-#   才可点击（needs 硬依赖，任一失败本作业不可运行）
+# - main 分支 push 流水线（流水线 A）中，quality / test:backend / test:frontend /
+#   test:e2e / build 全部成功后自动执行（needs 硬依赖，任一失败本作业不运行），
+#   把最新 main 部署到 8089 预览环境
 # - 后端与生产一致：使用生产环境 Supabase（构建期内置默认网关
-#   http://10.37.80.25:8021，与生产 8088 相同数据面，登录/云端同步走生产数据）
+#   http://10.37.80.25:8021，与生产 8088 相同数据面）
 # - 端口 8089，作为预览版供小范围内测，生产实例（8088）不受任何影响：
 #   * 独立镜像名 yue-huabu-preview:*（不读写生产 yue-huabu:* 镜像）
 #   * 独立容器名 yue-huabu-preview（生产容器是 yue-huabu）
@@ -31,10 +31,10 @@ deploy:preview:
     name: preview
     url: http://10.37.80.25:8089
   rules:
-    # 仅 main 分支的 push 流水线提供手动预览部署入口；
+    # main 分支的 push 流水线测试+构建全绿后自动部署预览；
     # 流水线 B（web/api 手动发版）不出现本作业，与生产发布流程零交集
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"'
-      when: manual
+      when: on_success
     - when: never
   script:
     - 'echo "预览部署 commit ${CI_COMMIT_SHORT_SHA}（分支 ${CI_COMMIT_BRANCH}）→ 宿主机 :${PREVIEW_HOST_PORT}"'
