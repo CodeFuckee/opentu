@@ -57,6 +57,11 @@ interface DepartmentRow {
   enabled: boolean;
 }
 
+interface StaffRow {
+  oa_account: string;
+  name: string;
+}
+
 /** 四类聚合的最终返回结构 */
 export interface DashboardOverview {
   generatedAt: string;
@@ -75,6 +80,8 @@ export interface DashboardOverview {
     latestUsed: number;
     topUsers: Array<{
       oaAccount: string | null;
+      /** Display Name：staff_directory.name，花名册无此人时为 null（页面回退 oaAccount） */
+      displayName: string | null;
       department: string | null;
       used: number;
     }>;
@@ -83,7 +90,11 @@ export interface DashboardOverview {
     total: number;
     byDepartment: Record<string, number>;
     byRegion: Record<string, number>;
-    recent: Array<{ oaAccount: string | null; createdAt: string }>;
+    recent: Array<{
+      oaAccount: string | null;
+      displayName: string | null;
+      createdAt: string;
+    }>;
     staffDirectory: number;
     enabledDepartments: number;
   };
@@ -211,7 +222,8 @@ export function aggregateTasks(rows: TaskRow[]): DashboardOverview['tasks'] {
 export function aggregateUsage(
   usageRows: UsageRow[],
   profileRows: ProfileRow[],
-  quotaLimit: number
+  quotaLimit: number,
+  nameByOa: Map<string, string> = new Map()
 ): DashboardOverview['usage'] {
   const byPeriodMap = new Map<string, number>();
   for (const row of usageRows) {
@@ -239,8 +251,10 @@ export function aggregateUsage(
   const topUsers = Array.from(usageByUser.entries())
     .map(([userId, used]) => {
       const profile = profileByUserId.get(userId);
+      const oaAccount = profile?.oa_account ?? null;
       return {
-        oaAccount: profile?.oa_account ?? null,
+        oaAccount,
+        displayName: (oaAccount && nameByOa.get(oaAccount)) || null,
         department: profile?.department ?? null,
         used,
       };
@@ -255,7 +269,8 @@ export function aggregateUsage(
 export function aggregateUsers(
   profileRows: ProfileRow[],
   staffDirectoryTotal: number,
-  departmentRows: DepartmentRow[]
+  departmentRows: DepartmentRow[],
+  nameByOa: Map<string, string> = new Map()
 ): DashboardOverview['users'] {
   const recent = [...profileRows]
     .sort(
@@ -263,7 +278,11 @@ export function aggregateUsers(
         new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
     )
     .slice(0, 10)
-    .map((row) => ({ oaAccount: row.oa_account ?? null, createdAt: row.created_at }));
+    .map((row) => ({
+      oaAccount: row.oa_account ?? null,
+      displayName: (row.oa_account && nameByOa.get(row.oa_account)) || null,
+      createdAt: row.created_at,
+    }));
 
   return {
     total: profileRows.length,
@@ -399,7 +418,7 @@ export async function aggregateOverview(
       ),
       restGet(
         env,
-        `/rest/v1/staff_directory?select=id&limit=1`,
+        `/rest/v1/staff_directory?select=oa_account,name&limit=50000`,
         deps
       ).catch(() => ({ rows: [], total: null })),
       restGet(
@@ -413,6 +432,11 @@ export async function aggregateOverview(
   const usageRows = usageResult.rows as UsageRow[];
   const profileRows = profileResult.rows as ProfileRow[];
   const departmentRows = deptResult.rows as DepartmentRow[];
+  const staffRows = staffResult.rows as StaffRow[];
+  // Display Name 映射：staff_directory.name（按 oa_account 唯一键），花名册外回退 oa_account
+  const nameByOa = new Map<string, string>(
+    staffRows.map((row) => [row.oa_account, row.name])
+  );
 
   const quotaLimit = await readQuotaLimit(env, deps);
   const bucket = await fetchBucketStats(env, deps);
@@ -422,8 +446,13 @@ export async function aggregateOverview(
     generatedAt: new Date().toISOString(),
     days: safeDays,
     tasks: aggregateTasks(taskRows),
-    usage: aggregateUsage(usageRows, profileRows, quotaLimit),
-    users: aggregateUsers(profileRows, staffResult.total ?? 0, departmentRows),
+    usage: aggregateUsage(usageRows, profileRows, quotaLimit, nameByOa),
+    users: aggregateUsers(
+      profileRows,
+      staffResult.total ?? staffRows.length,
+      departmentRows,
+      nameByOa
+    ),
     storage: {
       inputFiles: files.input,
       outputFiles: files.output,
@@ -581,14 +610,14 @@ function render(o){
   trendLine(document.getElementById('trendChart'), o.tasks.dailyTrend);
   document.getElementById('topUsers').querySelector('tbody').innerHTML =
     (o.usage.topUsers||[]).map(function(r){
-      return '<tr><td>'+esc(r.oaAccount)+'</td><td>'+esc(r.department)+'</td><td>'+r.used+'</td></tr>';
+      return '<tr><td>'+esc(r.displayName || r.oaAccount)+'</td><td>'+esc(r.department)+'</td><td>'+r.used+'</td></tr>';
     }).join('') || '<tr><td colspan="3" class="muted">暂无数据</td></tr>';
   bars(document.getElementById('byDept'), o.users.byDepartment, '#fbbf24');
   bars(document.getElementById('byRegion'), o.users.byRegion, '#c084fc');
   bars(document.getElementById('usageTrend'), (o.usage.byPeriod||[]).reduce(function(m,p){m[p.period]=p.used;return m;},{}), '#f472b6');
   document.getElementById('recentUsers').querySelector('tbody').innerHTML =
     (o.users.recent||[]).map(function(r){
-      return '<tr><td>'+esc(r.oaAccount)+'</td><td>'+fmtDate(r.createdAt)+'</td></tr>';
+      return '<tr><td>'+esc(r.displayName || r.oaAccount)+'</td><td>'+fmtDate(r.createdAt)+'</td></tr>';
     }).join('') || '<tr><td colspan="2" class="muted">暂无数据</td></tr>';
 }
 

@@ -92,7 +92,7 @@ test('aggregateUsage：周期汇总 + 最新周期 Top 用户（join user_profil
     { user_id: 'u2', department: '设计部', region: '深圳', oa_account: 'bob', created_at: '2026-08-02T00:00:00Z' },
   ];
 
-  const result = aggregateUsage(usage, profiles as never, 200);
+  const result = aggregateUsage(usage, profiles as never, 200, new Map([['alice', '张三']]));
   assert.equal(result.quotaLimit, 200);
   assert.deepEqual(result.byPeriod, [
     { period: '2026-07-01', used: 5 },
@@ -100,9 +100,10 @@ test('aggregateUsage：周期汇总 + 最新周期 Top 用户（join user_profil
   ]);
   assert.equal(result.latestPeriod, '2026-08-01');
   assert.equal(result.latestUsed, 40);
+  // Display Name：花名册内显示姓名，花名册外为 null（页面回退 oaAccount）
   assert.deepEqual(result.topUsers, [
-    { oaAccount: 'bob', department: '设计部', used: 30 },
-    { oaAccount: 'alice', department: '技术部', used: 10 },
+    { oaAccount: 'bob', displayName: null, department: '设计部', used: 30 },
+    { oaAccount: 'alice', displayName: '张三', department: '技术部', used: 10 },
   ]);
 });
 
@@ -118,13 +119,19 @@ test('aggregateUsers：总数/部门/区域/最近注册/花名册/可用部门'
     { name: '市场部', enabled: false },
   ];
 
-  const result = aggregateUsers(profiles as never, 300, departments as never);
+  const result = aggregateUsers(
+    profiles as never,
+    300,
+    departments as never,
+    new Map([['b', '李四']])
+  );
   assert.equal(result.total, 3);
   assert.deepEqual(result.byDepartment, { 技术部: 2, 设计部: 1 });
   assert.deepEqual(result.byRegion, { 广州: 2, 深圳: 1 });
   assert.equal(result.staffDirectory, 300);
   assert.equal(result.enabledDepartments, 2);
   assert.deepEqual(result.recent.map((r) => r.oaAccount), ['b', 'c', 'a']);
+  assert.deepEqual(result.recent.map((r) => r.displayName), ['李四', null, null]);
 });
 
 test('readQuotaLimit：读到配置值 / 查询失败回退默认', async () => {
@@ -197,7 +204,7 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
       {
         match: (url) => url.includes('/rest/v1/staff_directory'),
         respond: () =>
-          json(200, [], { 'Content-Range': '0-0/320' }),
+          json(200, [{ oa_account: 'alice', name: '张三' }], { 'Content-Range': '0-0/320' }),
       },
       {
         match: (url) => url.includes('/rest/v1/departments'),
@@ -219,8 +226,14 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
 
   assert.equal(overview.tasks.total, 1);
   assert.equal(overview.usage.latestUsed, 12);
+  assert.deepEqual(overview.usage.topUsers, [
+    { oaAccount: 'alice', displayName: '张三', department: '技术部', used: 12 },
+  ]);
   assert.equal(overview.users.total, 1);
   assert.equal(overview.users.staffDirectory, 320);
+  assert.deepEqual(overview.users.recent, [
+    { oaAccount: 'alice', displayName: '张三', createdAt: '2026-08-01T00:00:00Z' },
+  ]);
   assert.equal(overview.storage.inputFiles, 1);
   assert.equal(overview.storage.outputFiles, 1);
   assert.deepEqual(overview.storage.bucket, { objects: 1, bytes: 42 });
@@ -251,4 +264,6 @@ test('buildDashboardHtml：自包含页面，内嵌 anon key，无外部脚本�
   assert.ok(html.includes('每日成功任务趋势'));
   assert.ok(!html.includes('任务状态分布'), '页面不得展示任务状态分布');
   assert.ok(!html.includes('成功率'), '页面不得展示成功率');
+  // 用户统一用 Display Name 渲染（花名册姓名，缺失回退 oaAccount）
+  assert.ok(html.includes('displayName || r.oaAccount'));
 });

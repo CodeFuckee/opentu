@@ -23,6 +23,11 @@
   曾导致 build 被其抢走而失败；部署类作业若被抢走还会把预览/生产环境起到错误
   机器上。交集后仅剩越秀服务器（唯一同时带两标签的 runner），与历史实际执行机一致。
 
+- 数据看板用户统一改用 Display Name 显示：用量 Top 用户与最近注册用户从
+  `staff_directory.name`（按 oa_account join 花名册）取中文姓名，花名册外回退
+  显示 OA 账号；staff_directory 聚合查询从仅取计数（select=id&limit=1）改为
+  拉取花名册映射（select=oa_account,name）。
+
 - Feedbackland 登录与看板在 IP 直连部署（10.37.80.25:8090）下不可用：登录后显示
   "Unnamed user"、帖子列表 "Error loading posts"。四个叠加根因与修复：
   ① `getIsSubdirOrg` 仅认 localhost/vercel.app 为路径式组织，IP:端口部署被误判
