@@ -30,12 +30,14 @@ export interface DashboardDeps {
 }
 
 interface TaskRow {
+  user_id?: string;
   type: string;
   status: string;
   created_at: string;
   completed_at: string | null;
   file_paths?: unknown;
   response_file_paths?: unknown;
+  model?: string;
 }
 
 interface UsageRow {
@@ -79,8 +81,21 @@ export interface DashboardOverview {
     /** 口径：仅统计成功（status=completed）任务 */
     total: number;
     byType: Record<string, number>;
+    /** 模型使用分布（params->>model） */
+    byModel: Record<string, number>;
+    /** 活跃用户数（窗口内成功任务的去重用户数） */
+    activeUsers: number;
     avgDurationMs: number;
     dailyTrend: Array<{ date: string; count: number }>;
+    /** 24 小时使用分布（东八区，下标 0-23） */
+    hourly: number[];
+    /** 使用次数排行（按用户，前 10） */
+    topUsers: Array<{
+      userId: string;
+      displayName: string | null;
+      department: string | null;
+      count: number;
+    }>;
   };
   usage: {
     quotaLimit: number;
@@ -99,6 +114,8 @@ export interface DashboardOverview {
     total: number;
     byDepartment: Record<string, number>;
     byRegion: Record<string, number>;
+    /** 部门使用情况（窗口内成功任务次数按用户部门汇总） */
+    usageByDepartment: Record<string, number>;
     recent: Array<{
       oaAccount: string | null;
       displayName: string | null;
@@ -208,18 +225,49 @@ function dateNDaysAgo(days: number): string {
 // 各统计块
 // ============================================================================
 
+/** 业务统计时区：用户群在国内，按东八区切日/切小时 */
+const TZ_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+/** 东八区本地日期（YYYY-MM-DD）与小时（0-23） */
+function localDateAndHour(iso: string): { date: string; hour: number } | null {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) {
+    return null;
+  }
+  const shifted = new Date(t + TZ_OFFSET_MS).toISOString();
+  return { date: shifted.slice(0, 10), hour: Number(shifted.slice(11, 13)) };
+}
+
+/** 模型使用分布（成功任务 params->>model 计数） */
+function countModelUsage(rows: TaskRow[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const row of rows) {
+    const model = (row.model || '').trim();
+    if (model) {
+      out[model] = (out[model] ?? 0) + 1;
+    }
+  }
+  return out;
+}
+
 /** 任务统计：task_submissions（仅统计成功 completed 任务） */
 export function aggregateTasks(rows: TaskRow[]): DashboardOverview['tasks'] {
   const okRows = rows.filter((row) => row.status === 'completed');
   const byType = countOccurrences(okRows, 'type');
+  const byModel = countModelUsage(okRows);
+  const activeUsers = new Set(
+    okRows.map((row) => row.user_id).filter((id): id is string => Boolean(id))
+  ).size;
 
   const trendMap = new Map<string, number>();
+  const hourly = new Array<number>(24).fill(0);
   let durationSum = 0;
   let durationCount = 0;
   for (const row of okRows) {
-    const date = (row.created_at || '').slice(0, 10);
-    if (date) {
-      trendMap.set(date, (trendMap.get(date) ?? 0) + 1);
+    const local = row.created_at ? localDateAndHour(row.created_at) : null;
+    if (local) {
+      trendMap.set(local.date, (trendMap.get(local.date) ?? 0) + 1);
+      hourly[local.hour] += 1;
     }
     if (
       typeof row.created_at === 'string' &&
@@ -234,11 +282,56 @@ export function aggregateTasks(rows: TaskRow[]): DashboardOverview['tasks'] {
   return {
     total: okRows.length,
     byType,
+    byModel,
+    activeUsers,
     avgDurationMs: durationCount > 0 ? Math.round(durationSum / durationCount) : 0,
     dailyTrend: Array.from(trendMap.entries())
       .map(([date, count]) => ({ date, count }))
       .sort((a, b) => a.date.localeCompare(b.date)),
+    hourly,
+    topUsers: [],
   };
+}
+
+/** 任务参与统计：使用次数排行（按用户前 10）与部门使用情况 */
+export function aggregateTaskParticipation(
+  rows: TaskRow[],
+  profileRows: ProfileRow[],
+  nameByOa: Map<string, string>,
+  nameByUser: Map<string, string>
+): Pick<DashboardOverview['tasks'], 'topUsers'> & {
+  usageByDepartment: Record<string, number>;
+} {
+  const okRows = rows.filter((row) => row.status === 'completed');
+  const deptByUser = new Map(profileRows.map((p) => [p.user_id, p.department]));
+  const oaByUser = new Map(profileRows.map((p) => [p.user_id, p.oa_account]));
+
+  const countByUser = new Map<string, number>();
+  const usageByDepartment: Record<string, number> = {};
+  for (const row of okRows) {
+    const userId = row.user_id || '';
+    if (!userId) {
+      continue;
+    }
+    countByUser.set(userId, (countByUser.get(userId) ?? 0) + 1);
+    const dept = deptByUser.get(userId) || '未知部门';
+    usageByDepartment[dept] = (usageByDepartment[dept] ?? 0) + 1;
+  }
+
+  const topUsers = Array.from(countByUser.entries())
+    .map(([userId, count]) => {
+      const oaAccount = oaByUser.get(userId) ?? null;
+      return {
+        userId,
+        displayName: resolveDisplayName(userId, oaAccount, nameByUser, nameByOa),
+        department: deptByUser.get(userId) ?? null,
+        count,
+      };
+    })
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+
+  return { topUsers, usageByDepartment };
 }
 
 /** 用量与额度：generation_usage + user_profiles join + 部门配置限额 */
@@ -501,7 +594,7 @@ export async function aggregateOverview(
     await Promise.all([
       restGet(
         env,
-        `/rest/v1/task_submissions?select=id,type,status,created_at,completed_at,file_paths,response_file_paths&created_at=gte.${from}&order=created_at.asc&limit=50000`,
+        `/rest/v1/task_submissions?select=id,user_id,type,status,created_at,completed_at,file_paths,response_file_paths,model:params-%3E%3Emodel&created_at=gte.${from}&order=created_at.asc&limit=50000`,
         deps
       ),
       restGet(
@@ -540,19 +633,28 @@ export async function aggregateOverview(
   const quotaLimit = await readQuotaLimit(env, deps);
   const bucket = await fetchBucketStats(env, deps);
   const files = countTaskFiles(taskRows);
+  const participation = aggregateTaskParticipation(
+    taskRows,
+    profileRows,
+    nameByOa,
+    nameByUser
+  );
 
   return {
     generatedAt: new Date().toISOString(),
     days: safeDays,
-    tasks: aggregateTasks(taskRows),
+    tasks: { ...aggregateTasks(taskRows), topUsers: participation.topUsers },
     usage: aggregateUsage(usageRows, profileRows, quotaLimit, nameByOa, nameByUser),
-    users: aggregateUsers(
-      profileRows,
-      staffResult.total ?? staffRows.length,
-      departmentRows,
-      nameByOa,
-      nameByUser
-    ),
+    users: {
+      ...aggregateUsers(
+        profileRows,
+        staffResult.total ?? staffRows.length,
+        departmentRows,
+        nameByOa,
+        nameByUser
+      ),
+      usageByDepartment: participation.usageByDepartment,
+    },
     storage: {
       inputFiles: files.input,
       outputFiles: files.output,
@@ -627,21 +729,32 @@ export function buildDashboardHtml(anonKey: string): string {
 </header>
 
 <div class="cards" id="kpiCards"></div>
+<div class="cards" id="subCards"></div>
 
 <div class="grid">
-  <div class="panel"><h2>成功任务按类型</h2><div id="byType"></div></div>
+  <div class="panel"><h2>操作类型分布</h2><div id="typeDonut"></div></div>
+  <div class="panel"><h2>模型使用分布</h2><div id="modelDonut"></div></div>
+  <div class="panel"><h2>使用次数排行（前 10）</h2><div id="rankChips"></div></div>
+</div>
+<div class="grid">
+  <div class="panel"><h2>日历使用热力（当月）</h2><div id="calendarHeat"></div></div>
+  <div class="panel"><h2>24小时使用分布</h2><div id="hourlyChart"></div></div>
 </div>
 <div class="grid">
   <div class="panel"><h2>每日成功任务趋势（近 <span id="trendDays"></span> 天）</h2><svg id="trendChart" viewBox="0 0 680 220"></svg></div>
   <div class="panel"><h2>月度用量 Top 用户（当前周期）</h2><table id="topUsers"><thead><tr><th>用户</th><th>部门</th><th>用量</th></tr></thead><tbody></tbody></table></div>
 </div>
 <div class="grid">
-  <div class="panel"><h2>部门分布</h2><div id="byDept"></div></div>
-  <div class="panel"><h2>区域分布</h2><div id="byRegion"></div></div>
+  <div class="panel"><h2>部门使用情况</h2><div id="deptUsage"></div></div>
+  <div class="panel"><h2>区间使用排行 <select id="rankSel" style="margin-left:8px"><option value="dept" selected>部门排行</option><option value="user">用户排行</option></select></h2><div id="rankTable"></div></div>
 </div>
 <div class="grid">
+  <div class="panel"><h2>部门使用汇总</h2><table id="deptSummary"><thead><tr><th>部门</th><th>用户数</th><th>使用次数</th><th>占比</th></tr></thead><tbody></tbody></table></div>
   <div class="panel"><h2>月度用量趋势</h2><div id="usageTrend"></div></div>
-  <div class="panel"><h2>最近注册用户</h2><table id="recentUsers"><thead><tr><th>账号</th><th>注册时间</th></tr></thead><tbody></tbody></table></div>
+</div>
+<div class="grid">
+  <div class="panel"><h2>区域分布</h2><div id="byRegion"></div></div>
+  <div class="panel"><h2>最近注册用户</h2><table id="recentUsers"><thead><tr><th>用户</th><th>注册时间</th></tr></thead><tbody></tbody></table></div>
 </div>
 
 <script>
@@ -687,32 +800,144 @@ function trendLine(svg, data){
     '<text x="'+pad+'" y="15" fill="#8b98b3" font-size="11">峰值 '+max+'</text>';
 }
 
+var CHART_COLORS = ['#4f8cff','#34d399','#fbbf24','#f472b6','#c084fc','#f97316','#22d3ee','#a3e635','#fb7185','#60a5fa'];
+var LAST_OVERVIEW = null;
+
 function kpiCards(o){
   var t = o.tasks, u = o.users, s = o.storage, q = o.usage;
-  var cards = [
-    ['成功任务（近 '+o.days+' 天）', t.total, '平均耗时 '+fmtDur(t.avgDurationMs)],
+  var big = [
+    ['总操作次数（近 '+o.days+' 天）', t.total, '日均 '+(t.total/Math.max(1,o.days)).toFixed(1)+' · 平均耗时 '+fmtDur(t.avgDurationMs)],
+    ['消耗金额', '-', '暂无计费数据源'],
+    ['活跃用户数', t.activeUsers, '用户总数 '+u.total],
+    ['数据覆盖天数', o.days, '截至 '+fmtDate(o.generatedAt).slice(0,10)],
+  ];
+  document.getElementById('kpiCards').innerHTML = big.map(function(c){
+    return '<div class="card"><div class="label">'+esc(c[0])+'</div><div class="value" style="font-size:30px">'+esc(c[1])+'</div><div class="sub">'+esc(c[2])+'</div></div>';
+  }).join('');
+  var sub = [
     ['用户总数', u.total, '花名册 '+u.staffDirectory+' · 可用部门 '+u.enabledDepartments],
     ['本月用量', q.latestUsed + ' / ' + q.quotaLimit, '周期 '+ (q.latestPeriod||'-')],
     ['上传文件', s.inputFiles, 'input-*'],
     ['生成文件', s.outputFiles, 'output-*'],
     ['bucket 对象', s.bucket ? s.bucket.objects : '-', s.bucket ? fmtBytes(s.bucket.bytes) : 'storage 不可用'],
   ];
-  document.getElementById('kpiCards').innerHTML = cards.map(function(c){
+  document.getElementById('subCards').innerHTML = sub.map(function(c){
     return '<div class="card"><div class="label">'+esc(c[0])+'</div><div class="value">'+esc(c[1])+'</div><div class="sub">'+esc(c[2])+'</div></div>';
   }).join('');
 }
 
+function donut(el, data){
+  var entries = Object.entries(data||{}).filter(function(e){return e[1]>0;}).sort(function(a,b){return b[1]-a[1];});
+  var total = entries.reduce(function(s,e){return s+e[1];},0);
+  if(!total){ el.innerHTML = '<div class="muted">暂无数据</div>'; return; }
+  var top = entries.slice(0,9);
+  var rest = entries.slice(9);
+  if(rest.length){ top.push(['其他', rest.reduce(function(s,e){return s+e[1];},0)]); }
+  var acc=0, stops=[];
+  top.forEach(function(e,i){
+    var from=acc/total*360; acc+=e[1]; var to=acc/total*360;
+    stops.push(CHART_COLORS[i%CHART_COLORS.length]+' '+from.toFixed(1)+'deg '+to.toFixed(1)+'deg');
+  });
+  el.innerHTML = '<div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">'+
+    '<div style="width:150px;height:150px;border-radius:50%;flex:none;background:conic-gradient('+stops.join(',')+');position:relative">'+
+    '<div style="position:absolute;inset:26%;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600">'+total+'</div></div>'+
+    '<div style="display:flex;flex-direction:column;gap:4px;min-width:150px">'+top.map(function(e,i){
+      return '<span class="legend" style="margin:0"><i style="background:'+CHART_COLORS[i%CHART_COLORS.length]+'"></i>'+esc(e[0])+' <b>'+e[1]+'</b>（'+(e[1]/total*100).toFixed(1)+'%）</span>';
+    }).join('')+'</div></div>';
+}
+
+function rankChips(el, list){
+  el.style.display='flex'; el.style.gap='8px'; el.style.flexWrap='wrap';
+  el.innerHTML = (list||[]).map(function(r){
+    var name = r.displayName || '-';
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 8px;background:var(--card2);border-radius:8px;min-width:66px;flex:1">'+
+      '<div style="width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px">'+esc(name.charAt(0))+'</div>'+
+      '<div style="font-size:11px;color:var(--muted);max-width:76px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(name)+'">'+esc(name)+'</div>'+
+      '<div style="font-size:14px;font-weight:600;color:var(--accent)">'+r.count+'</div></div>';
+  }).join('') || '<div class="muted">暂无数据</div>';
+}
+
+function calendarHeat(el, trend){
+  var m={}; (trend||[]).forEach(function(p){ m[p.date]=p.count; });
+  var now=new Date(); var y=now.getFullYear(), mo=now.getMonth();
+  var pad=function(x){return String(x).padStart(2,'0');};
+  var firstDow=(new Date(y,mo,1).getDay()+6)%7;
+  var dim=new Date(y,mo+1,0).getDate();
+  var max=0; for(var d=1;d<=dim;d++){ max=Math.max(max, m[y+'-'+pad(mo+1)+'-'+pad(d)]||0); }
+  var html='<div style="display:flex;gap:6px;margin-bottom:6px"><span class="muted" style="width:26px;text-align:center">'+(mo+1)+'月</span>'+
+    ['一','二','三','四','五','六','日'].map(function(d){return '<span class="muted" style="width:26px;text-align:center">'+d+'</span>';}).join('')+'</div>';
+  html+='<div style="display:grid;grid-template-columns:repeat(7,max-content);gap:6px">';
+  for(var i=0;i<firstDow;i++) html+='<span style="width:26px"></span>';
+  for(var d=1;d<=dim;d++){
+    var ds=y+'-'+pad(mo+1)+'-'+pad(d); var c=m[ds]||0;
+    var bg=c>0?'rgba(79,140,255,'+(0.18+0.82*(c/max)).toFixed(3)+')':'var(--card2)';
+    html+='<div title="'+ds+'：'+c+' 次" style="width:26px;height:30px;border-radius:6px;background:'+bg+';display:flex;align-items:center;justify-content:center;font-size:10px;color:'+(c>0?'#e6ecf7':'#5b6884')+'">'+d+'</div>';
+  }
+  html+='</div>'; el.innerHTML=html;
+}
+
+function hourlyBars(el, hourly){
+  var a = hourly||[]; var max = Math.max.apply(null, a.length?a:[0]) || 1;
+  var W=680,H=180,pad=22, bw=(W-pad*2)/24;
+  var svg='';
+  for(var h=0;h<24;h++){
+    var c=a[h]||0; var hgt=c/max*(H-pad*2-10); var x=pad+h*bw;
+    svg+='<rect x="'+x.toFixed(1)+'" y="'+(H-pad-Math.max(0,hgt)).toFixed(1)+'" width="'+(bw-3).toFixed(1)+'" height="'+Math.max(0,hgt).toFixed(1)+'" rx="2" fill="#4f8cff"></rect>'+
+      '<text x="'+(x+bw/2-1.5).toFixed(1)+'" y="'+(H-6)+'" fill="#8b98b3" font-size="9" text-anchor="middle">'+h+'h</text>';
+    if(c>0) svg+='<text x="'+(x+bw/2-1.5).toFixed(1)+'" y="'+(H-pad-hgt-4).toFixed(1)+'" fill="#8b98b3" font-size="9" text-anchor="middle">'+c+'</text>';
+  }
+  el.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block">'+svg+'</svg>';
+}
+
+function deptUsageCards(el, usageByDept, total){
+  var entries=Object.entries(usageByDept||{}).sort(function(a,b){return b[1]-a[1];});
+  el.innerHTML = entries.map(function(e){
+    var pct = total? (e[1]/total*100):0;
+    return '<div style="background:var(--card2);border-radius:8px;padding:10px 12px;margin-bottom:8px">'+
+      '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px"><span>'+esc(e[0])+'</span><span class="muted">使用次数 '+e[1]+'　'+pct.toFixed(1)+'%</span></div>'+
+      '<div style="height:6px;border-radius:3px;background:var(--bg);overflow:hidden"><div style="height:100%;width:'+pct.toFixed(1)+'%;background:var(--accent);border-radius:3px"></div></div></div>';
+  }).join('') || '<div class="muted">暂无数据</div>';
+}
+
+function rankTable(el, o){
+  var mode = document.getElementById('rankSel').value;
+  var total = o.tasks.total;
+  var rows;
+  if(mode==='user'){
+    rows = (o.tasks.topUsers||[]).map(function(r){return [r.displayName||'-', r.count];});
+  } else {
+    rows = Object.entries(o.users.usageByDepartment||{}).sort(function(a,b){return b[1]-a[1];}).slice(0,10);
+  }
+  el.innerHTML = '<table><thead><tr><th>排名</th><th>名称</th><th>使用次数</th><th>占比</th></tr></thead><tbody>'+
+    (rows.length?rows.map(function(r,i){
+      return '<tr><td>'+(i+1)+'</td><td>'+esc(r[0])+'</td><td>'+r[1]+'</td><td>'+(total?(r[1]/total*100).toFixed(1)+'%':'-')+'</td></tr>';
+    }).join(''):'<tr><td colspan="4" class="muted">暂无数据</td></tr>')+'</tbody></table>';
+}
+
 function render(o){
+  LAST_OVERVIEW = o;
   document.getElementById('generatedAt').textContent = '生成于 ' + fmtDate(o.generatedAt);
   kpiCards(o);
-  bars(document.getElementById('byType'), o.tasks.byType, '#4f8cff');
+  donut(document.getElementById('typeDonut'), o.tasks.byType);
+  donut(document.getElementById('modelDonut'), o.tasks.byModel);
+  rankChips(document.getElementById('rankChips'), o.tasks.topUsers);
+  calendarHeat(document.getElementById('calendarHeat'), o.tasks.dailyTrend);
+  hourlyBars(document.getElementById('hourlyChart'), o.tasks.hourly);
   document.getElementById('trendDays').textContent = o.days;
   trendLine(document.getElementById('trendChart'), o.tasks.dailyTrend);
   document.getElementById('topUsers').querySelector('tbody').innerHTML =
     (o.usage.topUsers||[]).map(function(r){
       return '<tr><td>'+esc(r.displayName || r.oaAccount)+'</td><td>'+esc(r.department)+'</td><td>'+r.used+'</td></tr>';
     }).join('') || '<tr><td colspan="3" class="muted">暂无数据</td></tr>';
-  bars(document.getElementById('byDept'), o.users.byDepartment, '#fbbf24');
+  deptUsageCards(document.getElementById('deptUsage'), o.users.usageByDepartment, o.tasks.total);
+  rankTable(document.getElementById('rankTable'), o);
+  var summaryRows = Object.entries(o.users.usageByDepartment||{}).sort(function(a,b){return b[1]-a[1];});
+  var usersByDept = o.users.byDepartment||{};
+  var total = o.tasks.total;
+  document.getElementById('deptSummary').querySelector('tbody').innerHTML =
+    (summaryRows.length?summaryRows.map(function(e){
+      return '<tr><td>'+esc(e[0])+'</td><td>'+esc(usersByDept[e[0]]||0)+'</td><td>'+e[1]+'</td><td>'+(total?(e[1]/total*100).toFixed(1)+'%':'-')+'</td></tr>';
+    }).join(''):'<tr><td colspan="4" class="muted">暂无数据</td></tr>');
   bars(document.getElementById('byRegion'), o.users.byRegion, '#c084fc');
   bars(document.getElementById('usageTrend'), (o.usage.byPeriod||[]).reduce(function(m,p){m[p.period]=p.used;return m;},{}), '#f472b6');
   document.getElementById('recentUsers').querySelector('tbody').innerHTML =
@@ -743,6 +968,9 @@ function load(){
 
 document.getElementById('refreshBtn').addEventListener('click', load);
 document.getElementById('daysSel').addEventListener('change', load);
+document.getElementById('rankSel').addEventListener('change', function(){
+  if(LAST_OVERVIEW) rankTable(document.getElementById('rankTable'), LAST_OVERVIEW);
+});
 load();
 </script>
 </body>

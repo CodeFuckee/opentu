@@ -12,6 +12,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   aggregateTasks,
+  aggregateTaskParticipation,
   aggregateUsage,
   aggregateUsers,
   countTaskFiles,
@@ -53,25 +54,58 @@ const json = (status: number, body: unknown, headers?: Record<string, string>) =
     headers: { 'Content-Type': 'application/json', ...headers },
   });
 
-test('aggregateTasks：仅统计成功任务（数量/类型/趋势/平均耗时）', () => {
+test('aggregateTasks：仅统计成功任务（数量/类型/模型/活跃用户/趋势/24h/平均耗时）', () => {
   const rows = [
-    { type: 'image', status: 'completed', created_at: '2026-08-01T01:00:00Z', completed_at: '2026-08-01T01:00:10Z', file_paths: ['a'], response_file_paths: ['b', 'c'] },
-    { type: 'image', status: 'completed', created_at: '2026-08-01T02:00:00Z', completed_at: '2026-08-01T02:00:30Z', file_paths: [], response_file_paths: [] },
-    { type: 'video', status: 'failed', created_at: '2026-08-02T03:00:00Z', completed_at: '2026-08-02T03:05:00Z', file_paths: ['x'], response_file_paths: [] },
-    { type: 'chat', status: 'cancelled', created_at: '2026-08-02T04:00:00Z', completed_at: null, file_paths: [], response_file_paths: [] },
+    { user_id: 'u1', type: 'image', status: 'completed', created_at: '2026-08-01T01:00:00Z', completed_at: '2026-08-01T01:00:10Z', model: 'm-a', file_paths: ['a'], response_file_paths: ['b', 'c'] },
+    { user_id: 'u2', type: 'image', status: 'completed', created_at: '2026-08-01T02:00:00Z', completed_at: '2026-08-01T02:00:30Z', model: 'm-a', file_paths: [], response_file_paths: [] },
+    { user_id: 'u3', type: 'video', status: 'failed', created_at: '2026-08-02T03:00:00Z', completed_at: '2026-08-02T03:05:00Z', model: 'm-b', file_paths: ['x'], response_file_paths: [] },
+    { user_id: 'u3', type: 'chat', status: 'cancelled', created_at: '2026-08-02T04:00:00Z', completed_at: null, model: 'm-b', file_paths: [], response_file_paths: [] },
   ] as never;
 
   const stats = aggregateTasks(rows);
   // 只统计 completed：failed/cancelled 不计入任何任务指标，也不再输出状态分布/成功率
   assert.equal(stats.total, 2);
   assert.deepEqual(stats.byType, { image: 2 });
+  assert.deepEqual(stats.byModel, { 'm-a': 2 });
+  assert.equal(stats.activeUsers, 2);
   assert.ok(!('byStatus' in stats));
   assert.ok(!('successRate' in stats));
   // 平均耗时：(10 + 30) / 2 = 20s
   assert.equal(stats.avgDurationMs, 20000);
+  // 趋势按东八区切日（01:00Z/02:00Z → 08-01 当天 9/10 点）
   assert.deepEqual(stats.dailyTrend, [
     { date: '2026-08-01', count: 2 },
   ]);
+  assert.equal(stats.hourly[9], 1);
+  assert.equal(stats.hourly[10], 1);
+  assert.equal(stats.hourly.reduce((s, c) => s + c, 0), 2);
+  assert.equal(stats.topUsers.length, 0);
+});
+
+test('aggregateTaskParticipation：使用次数排行（用户前 10）与部门使用汇总', () => {
+  const rows = [
+    { user_id: 'u1', status: 'completed', created_at: '2026-08-01T01:00:00Z' },
+    { user_id: 'u1', status: 'completed', created_at: '2026-08-02T01:00:00Z' },
+    { user_id: 'u2', status: 'completed', created_at: '2026-08-02T02:00:00Z' },
+    { user_id: 'u3', status: 'failed', created_at: '2026-08-02T03:00:00Z' },
+  ] as never;
+  const profiles = [
+    { user_id: 'u1', department: '技术部', region: '广州', oa_account: 'a', created_at: '2026-08-01T00:00:00Z' },
+    { user_id: 'u2', department: '设计部', region: '深圳', oa_account: 'b', created_at: '2026-08-02T00:00:00Z' },
+  ];
+
+  const result = aggregateTaskParticipation(
+    rows as never,
+    profiles as never,
+    new Map([['a', '张三'], ['b', '李四']]),
+    new Map([['u1', '王五']])
+  );
+  // 认证表姓名优先（u1→王五），无认证姓名回退花名册（u2→李四）；failed 不计入
+  assert.deepEqual(result.topUsers, [
+    { userId: 'u1', displayName: '王五', department: '技术部', count: 2 },
+    { userId: 'u2', displayName: '李四', department: '设计部', count: 1 },
+  ]);
+  assert.deepEqual(result.usageByDepartment, { 技术部: 2, 设计部: 1 });
 });
 
 test('countTaskFiles：jsonb 数组长度求和', () => {
@@ -196,7 +230,7 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
         match: (url) => url.includes('/rest/v1/task_submissions'),
         respond: () =>
           json(200, [
-            { type: 'image', status: 'completed', created_at: '2026-08-01T01:00:00Z', completed_at: '2026-08-01T01:00:05Z', file_paths: ['a'], response_file_paths: ['o'] },
+            { user_id: 'u1', type: 'image', status: 'completed', created_at: '2026-08-01T01:00:00Z', completed_at: '2026-08-01T01:00:05Z', model: 'm-a', file_paths: ['a'], response_file_paths: ['o'] },
           ]),
       },
       {
@@ -245,6 +279,11 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
   const overview = await aggregateOverview(ENV, 30, { fetch: fetchImpl });
 
   assert.equal(overview.tasks.total, 1);
+  assert.deepEqual(overview.tasks.byModel, { 'm-a': 1 });
+  assert.equal(overview.tasks.activeUsers, 1);
+  assert.deepEqual(overview.tasks.topUsers, [
+    { userId: 'u1', displayName: '王五', department: '技术部', count: 1 },
+  ]);
   assert.equal(overview.usage.latestUsed, 12);
   // 认证表 displayName（王五）优先于花名册姓名（张三）
   assert.deepEqual(overview.usage.topUsers, [
@@ -252,6 +291,7 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
   ]);
   assert.equal(overview.users.total, 1);
   assert.equal(overview.users.staffDirectory, 320);
+  assert.deepEqual(overview.users.usageByDepartment, { 技术部: 1 });
   assert.deepEqual(overview.users.recent, [
     { oaAccount: 'alice', displayName: '王五', createdAt: '2026-08-01T00:00:00Z' },
   ]);
@@ -270,6 +310,13 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
     .map((url) => url)
     .filter((url) => url.includes('/rest/v1/'));
   assert.ok(authHeaders.length >= 5);
+  // 任务查询需带出模型字段（模型使用分布数据源）
+  assert.ok(
+    calls.some((url) => url.includes('model:params-%3E%3Emodel')),
+    'task_submissions 查询应带 model:params->>model'
+  );
+  // 认证用户姓名查询也应发出（Display Name 优先来源）
+  assert.ok(calls.some((url) => url.includes('/auth/v1/admin/users')));
 });
 
 test('fetchAuthDisplayNames：主端点 404 时降级内部 auth 服务；全失败返回空映射', async () => {
@@ -321,10 +368,14 @@ test('buildDashboardHtml：自包含页面，内嵌 anon key，无外部脚本�
   assert.ok(!/<script[^>]+src=/i.test(html), '页面不得引用外部脚本');
   assert.ok(!/<link[^>]+href=/i.test(html), '页面不得引用外部样式');
   // 任务口径：只展示成功任务，不展示状态/失败分布
-  assert.ok(html.includes('成功任务按类型'));
+  assert.ok(html.includes('成功任务按类型') || html.includes('操作类型分布'));
   assert.ok(html.includes('每日成功任务趋势'));
   assert.ok(!html.includes('任务状态分布'), '页面不得展示任务状态分布');
   assert.ok(!html.includes('成功率'), '页面不得展示成功率');
-  // 用户统一用 Display Name 渲染（花名册姓名，缺失回退 oaAccount）
+  // 图片看板要求的全部统计块
+  for (const block of ['总操作次数', '消耗金额', '活跃用户数', '数据覆盖天数', '操作类型分布', '模型使用分布', '使用次数排行', '日历使用热力', '24小时使用分布', '部门使用情况', '区间使用排行', '部门使用汇总']) {
+    assert.ok(html.includes(block), `页面缺少统计块：${block}`);
+  }
+  // 用户统一用 Display Name 渲染（缺失回退 oaAccount）
   assert.ok(html.includes('displayName || r.oaAccount'));
 });

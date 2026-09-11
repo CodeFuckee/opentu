@@ -15,6 +15,14 @@
   overview 接口同步移除 tasks.byStatus / tasks.successRate 字段
   （文件/存储等非任务口径不变）。
 
+- 数据看板统计补全（对照原 newapi 用量看板）：新增 KPI 四卡（总操作次数、
+  消耗金额、活跃用户数、数据覆盖天数）、操作类型/模型使用分布双环图、使用次数
+  排行（用户前 10，头像取姓名首字）、日历使用热力（当月格）、24 小时使用分布、
+  部门使用情况（占比条）、区间使用排行（部门/用户可切换）、部门使用汇总表；
+  模型数据取自 `task_submissions.params->>model`，时间维度按东八区切日/切小时。
+  **消耗金额暂显示 -**：新栈（ai-proxy 直连自建节点）无计费字段，老看板金额来自
+  newapi 计费，待有计费数据源后再接入；任务类统计口径保持仅成功任务。
+
 ### 🩹 Fixes
 
 - CI 加固：`build` / `deploy` / `deploy:preview` / `feedbackland:redeploy` 的 runner
