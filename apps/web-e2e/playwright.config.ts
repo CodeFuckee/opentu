@@ -224,6 +224,21 @@ export default defineConfig({
       },
     },
 
+    // Feedbackland 反馈入口 E2E——主应用侧边栏按钮跳转（需主应用登录态，
+    // 复用 auth-setup；被测跳转目标为外部 8090 站点）。
+    // MAIN_APP_BASE_URL 可切换主应用环境（本地 dev / 生产 8088）
+    {
+      name: 'feedbackland-entry',
+      testMatch: '**/feedbackland-entry/**/*.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL:
+          process.env['MAIN_APP_BASE_URL'] || 'http://localhost:7200',
+        storageState: storageStatePath,
+      },
+      dependencies: ['auth-setup'],
+    },
+
     // 响应式测试 - 多视口尺寸
     {
       name: 'responsive',
