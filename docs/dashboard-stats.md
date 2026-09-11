@@ -13,7 +13,7 @@
 
 | 区块 | 数据源 | 内容 |
 | --- | --- | --- |
-| 任务统计 | `task_submissions` | 总量、按 type/status 分布、成功率、按日趋势、平均耗时 |
+| 任务统计 | `task_submissions` | **仅统计成功（status=completed）任务**：数量、按 type 分布、按日趋势、平均耗时（页面不展示失败/状态分布与成功率） |
 | 用量与额度 | `generation_usage` + `user_profiles` | 月度用量汇总、最新周期用量、Top 用户、限额 |
 | 用户与组织 | `user_profiles` / `staff_directory` / `departments` | 用户总数、部门/区域分布、最近注册、花名册、可用部门 |
 | 文件与存储 | `file_paths`/`response_file_paths` + huabu bucket | 上传/生成文件计数、bucket 对象数与总大小 |

@@ -52,7 +52,7 @@ const json = (status: number, body: unknown, headers?: Record<string, string>) =
     headers: { 'Content-Type': 'application/json', ...headers },
   });
 
-test('aggregateTasks：总量/分布/成功率/趋势/平均耗时', () => {
+test('aggregateTasks：仅统计成功任务（数量/类型/趋势/平均耗时）', () => {
   const rows = [
     { type: 'image', status: 'completed', created_at: '2026-08-01T01:00:00Z', completed_at: '2026-08-01T01:00:10Z', file_paths: ['a'], response_file_paths: ['b', 'c'] },
     { type: 'image', status: 'completed', created_at: '2026-08-01T02:00:00Z', completed_at: '2026-08-01T02:00:30Z', file_paths: [], response_file_paths: [] },
@@ -61,15 +61,15 @@ test('aggregateTasks：总量/分布/成功率/趋势/平均耗时', () => {
   ] as never;
 
   const stats = aggregateTasks(rows);
-  assert.equal(stats.total, 4);
-  assert.deepEqual(stats.byType, { image: 2, video: 1, chat: 1 });
-  assert.deepEqual(stats.byStatus, { completed: 2, failed: 1, cancelled: 1 });
-  assert.equal(stats.successRate, 2 / 3);
+  // 只统计 completed：failed/cancelled 不计入任何任务指标，也不再输出状态分布/成功率
+  assert.equal(stats.total, 2);
+  assert.deepEqual(stats.byType, { image: 2 });
+  assert.ok(!('byStatus' in stats));
+  assert.ok(!('successRate' in stats));
   // 平均耗时：(10 + 30) / 2 = 20s
   assert.equal(stats.avgDurationMs, 20000);
   assert.deepEqual(stats.dailyTrend, [
     { date: '2026-08-01', count: 2 },
-    { date: '2026-08-02', count: 2 },
   ]);
 });
 
@@ -246,4 +246,9 @@ test('buildDashboardHtml：自包含页面，内嵌 anon key，无外部脚本�
   assert.ok(html.includes(DEFAULT_ANON_KEY));
   assert.ok(!/<script[^>]+src=/i.test(html), '页面不得引用外部脚本');
   assert.ok(!/<link[^>]+href=/i.test(html), '页面不得引用外部样式');
+  // 任务口径：只展示成功任务，不展示状态/失败分布
+  assert.ok(html.includes('成功任务按类型'));
+  assert.ok(html.includes('每日成功任务趋势'));
+  assert.ok(!html.includes('任务状态分布'), '页面不得展示任务状态分布');
+  assert.ok(!html.includes('成功率'), '页面不得展示成功率');
 });

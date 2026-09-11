@@ -62,10 +62,9 @@ export interface DashboardOverview {
   generatedAt: string;
   days: number;
   tasks: {
+    /** 口径：仅统计成功（status=completed）任务 */
     total: number;
     byType: Record<string, number>;
-    byStatus: Record<string, number>;
-    successRate: number;
     avgDurationMs: number;
     dailyTrend: Array<{ date: string; count: number }>;
   };
@@ -175,25 +174,20 @@ function dateNDaysAgo(days: number): string {
 // 各统计块
 // ============================================================================
 
-/** 任务统计：task_submissions（轻量列 + created_at 日期过滤） */
+/** 任务统计：task_submissions（仅统计成功 completed 任务） */
 export function aggregateTasks(rows: TaskRow[]): DashboardOverview['tasks'] {
-  const byType = countOccurrences(rows, 'type');
-  const byStatus = countOccurrences(rows, 'status');
-
-  const completed = byStatus['completed'] ?? 0;
-  const failed = byStatus['failed'] ?? 0;
-  const successRate = completed + failed > 0 ? completed / (completed + failed) : 0;
+  const okRows = rows.filter((row) => row.status === 'completed');
+  const byType = countOccurrences(okRows, 'type');
 
   const trendMap = new Map<string, number>();
   let durationSum = 0;
   let durationCount = 0;
-  for (const row of rows) {
+  for (const row of okRows) {
     const date = (row.created_at || '').slice(0, 10);
     if (date) {
       trendMap.set(date, (trendMap.get(date) ?? 0) + 1);
     }
     if (
-      row.status === 'completed' &&
       typeof row.created_at === 'string' &&
       typeof row.completed_at === 'string'
     ) {
@@ -204,10 +198,8 @@ export function aggregateTasks(rows: TaskRow[]): DashboardOverview['tasks'] {
   }
 
   return {
-    total: rows.length,
+    total: okRows.length,
     byType,
-    byStatus,
-    successRate,
     avgDurationMs: durationCount > 0 ? Math.round(durationSum / durationCount) : 0,
     dailyTrend: Array.from(trendMap.entries())
       .map(([date, count]) => ({ date, count }))
@@ -508,11 +500,10 @@ export function buildDashboardHtml(anonKey: string): string {
 <div class="cards" id="kpiCards"></div>
 
 <div class="grid">
-  <div class="panel"><h2>任务量按类型</h2><div id="byType"></div></div>
-  <div class="panel"><h2>任务状态分布</h2><div id="byStatus"></div></div>
+  <div class="panel"><h2>成功任务按类型</h2><div id="byType"></div></div>
 </div>
 <div class="grid">
-  <div class="panel"><h2>每日任务趋势（近 <span id="trendDays"></span> 天）</h2><svg id="trendChart" viewBox="0 0 680 220"></svg></div>
+  <div class="panel"><h2>每日成功任务趋势（近 <span id="trendDays"></span> 天）</h2><svg id="trendChart" viewBox="0 0 680 220"></svg></div>
   <div class="panel"><h2>月度用量 Top 用户（当前周期）</h2><table id="topUsers"><thead><tr><th>用户</th><th>部门</th><th>用量</th></tr></thead><tbody></tbody></table></div>
 </div>
 <div class="grid">
@@ -531,7 +522,7 @@ var days = 30;
 function fmtDate(iso){ if(!iso) return '-'; var d=new Date(iso); if(isNaN(d)) return iso; var p=function(x){return String(x).padStart(2,'0')}; return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
 function fmtBytes(n){ if(n==null) return '-'; if(n<1024) return n+' B'; if(n<1048576) return (n/1024).toFixed(1)+' KB'; if(n<1073741824) return (n/1048576).toFixed(1)+' MB'; return (n/1073741824).toFixed(2)+' GB'; }
 function esc(s){ return String(s==null?'-':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
-function pct(n){ return (n*100).toFixed(1)+'%'; }
+function fmtDur(ms){ if(!ms) return '-'; var s=ms/1000; if(s<60) return Math.round(s)+' 秒'; if(s<3600) return (s/60).toFixed(1)+' 分钟'; return (s/3600).toFixed(1)+' 小时'; }
 
 function bars(el, data, color){
   var entries = Object.entries(data||{}).sort(function(a,b){return b[1]-a[1];});
@@ -570,7 +561,7 @@ function trendLine(svg, data){
 function kpiCards(o){
   var t = o.tasks, u = o.users, s = o.storage, q = o.usage;
   var cards = [
-    ['任务总数（近 '+o.days+' 天）', t.total, '成功率 '+pct(t.successRate)],
+    ['成功任务（近 '+o.days+' 天）', t.total, '平均耗时 '+fmtDur(t.avgDurationMs)],
     ['用户总数', u.total, '花名册 '+u.staffDirectory+' · 可用部门 '+u.enabledDepartments],
     ['本月用量', q.latestUsed + ' / ' + q.quotaLimit, '周期 '+ (q.latestPeriod||'-')],
     ['上传文件', s.inputFiles, 'input-*'],
@@ -586,7 +577,6 @@ function render(o){
   document.getElementById('generatedAt').textContent = '生成于 ' + fmtDate(o.generatedAt);
   kpiCards(o);
   bars(document.getElementById('byType'), o.tasks.byType, '#4f8cff');
-  bars(document.getElementById('byStatus'), o.tasks.byStatus, '#34d399');
   document.getElementById('trendDays').textContent = o.days;
   trendLine(document.getElementById('trendChart'), o.tasks.dailyTrend);
   document.getElementById('topUsers').querySelector('tbody').innerHTML =
