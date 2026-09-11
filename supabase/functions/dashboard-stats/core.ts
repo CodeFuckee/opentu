@@ -62,6 +62,15 @@ interface StaffRow {
   name: string;
 }
 
+/** GoTrue admin users 响应（/auth/v1/admin/users） */
+interface AuthUsersResponse {
+  users?: Array<{
+    id?: unknown;
+    user_metadata?: { displayName?: unknown; full_name?: unknown; name?: unknown };
+  }>;
+  next_page?: unknown;
+}
+
 /** 四类聚合的最终返回结构 */
 export interface DashboardOverview {
   generatedAt: string;
@@ -80,7 +89,7 @@ export interface DashboardOverview {
     latestUsed: number;
     topUsers: Array<{
       oaAccount: string | null;
-      /** Display Name：staff_directory.name，花名册无此人时为 null（页面回退 oaAccount） */
+      /** Display Name：auth.users.user_metadata.displayName 优先，其次 staff_directory.name，均无为 null（页面回退 oaAccount） */
       displayName: string | null;
       department: string | null;
       used: number;
@@ -168,6 +177,20 @@ function arrayLength(value: unknown): number {
   return Array.isArray(value) ? value.length : 0;
 }
 
+/** Display Name 解析：认证表 displayName 优先，其次花名册姓名，均无返回 null */
+function resolveDisplayName(
+  userId: string | null,
+  oaAccount: string | null,
+  nameByUser: Map<string, string>,
+  nameByOa: Map<string, string>
+): string | null {
+  return (
+    (userId && nameByUser.get(userId)) ||
+    (oaAccount && nameByOa.get(oaAccount)) ||
+    null
+  );
+}
+
 function clampDays(days: unknown): number {
   const n = typeof days === 'string' ? Number(days) : Number(days) || 30;
   if (!Number.isFinite(n)) {
@@ -223,7 +246,8 @@ export function aggregateUsage(
   usageRows: UsageRow[],
   profileRows: ProfileRow[],
   quotaLimit: number,
-  nameByOa: Map<string, string> = new Map()
+  nameByOa: Map<string, string> = new Map(),
+  nameByUser: Map<string, string> = new Map()
 ): DashboardOverview['usage'] {
   const byPeriodMap = new Map<string, number>();
   for (const row of usageRows) {
@@ -254,7 +278,7 @@ export function aggregateUsage(
       const oaAccount = profile?.oa_account ?? null;
       return {
         oaAccount,
-        displayName: (oaAccount && nameByOa.get(oaAccount)) || null,
+        displayName: resolveDisplayName(userId, oaAccount, nameByUser, nameByOa),
         department: profile?.department ?? null,
         used,
       };
@@ -270,7 +294,8 @@ export function aggregateUsers(
   profileRows: ProfileRow[],
   staffDirectoryTotal: number,
   departmentRows: DepartmentRow[],
-  nameByOa: Map<string, string> = new Map()
+  nameByOa: Map<string, string> = new Map(),
+  nameByUser: Map<string, string> = new Map()
 ): DashboardOverview['users'] {
   const recent = [...profileRows]
     .sort(
@@ -280,7 +305,12 @@ export function aggregateUsers(
     .slice(0, 10)
     .map((row) => ({
       oaAccount: row.oa_account ?? null,
-      displayName: (row.oa_account && nameByOa.get(row.oa_account)) || null,
+      displayName: resolveDisplayName(
+        row.user_id ?? null,
+        row.oa_account ?? null,
+        nameByUser,
+        nameByOa
+      ),
       createdAt: row.created_at,
     }));
 
@@ -362,6 +392,74 @@ export async function fetchBucketStats(
   }
 }
 
+/**
+ * 认证用户 Display Name 映射（auth.users.user_metadata.displayName，按 user_id）。
+ * GoTrue admin API 分页拉取；网关未放行 /auth/v1/admin 时降级尝试自托管内部
+ * auth 服务（http://auth:9999），仍不可用返回空映射（调用方回退花名册/OA 账号）。
+ */
+export async function fetchAuthDisplayNames(
+  env: DashboardEnv,
+  deps: DashboardDeps = {}
+): Promise<Map<string, string>> {
+  const bases = [
+    `${baseUrl(env)}/auth/v1/admin/users`,
+    'http://auth:9999/admin/users',
+  ];
+  for (const base of bases) {
+    try {
+      const result = await fetchAuthNamesFrom(base, env, deps);
+      if (result !== null) {
+        return result;
+      }
+    } catch {
+      // 端点不可用 → 尝试下一个 base
+    }
+  }
+  return new Map();
+}
+
+/** 从单个 GoTrue admin 端点分页拉取；端点不可用返回 null（区别于可用但无数据） */
+async function fetchAuthNamesFrom(
+  base: string,
+  env: DashboardEnv,
+  deps: DashboardDeps
+): Promise<Map<string, string> | null> {
+  const doFetch = deps.fetch || fetch;
+  const names = new Map<string, string>();
+  for (let page = 1; page <= 50; page += 1) {
+    const response = await doFetch(`${base}?page=${page}&per_page=200`, {
+      method: 'GET',
+      headers: srkHeaders(env),
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const body = (await response.json()) as AuthUsersResponse;
+    const users = Array.isArray(body?.users) ? body.users : [];
+    for (const user of users) {
+      const id = typeof user?.id === 'string' ? user.id : '';
+      // 键名随注册时期不同：displayName（主应用）/ full_name（早期）/ name（OAuth 惯例）
+      const md = user?.user_metadata ?? {};
+      const raw = [md.displayName, md.full_name, md.name].find(
+        (v) => typeof v === 'string' && v.trim() !== ''
+      );
+      const name = typeof raw === 'string' ? raw.trim() : '';
+      if (id && name) {
+        names.set(id, name);
+      }
+    }
+    if (users.length === 0) {
+      return names;
+    }
+    const next = Number(body?.next_page);
+    if (!Number.isFinite(next) || next <= page) {
+      return names;
+    }
+    page = next - 1; // for 循环自增后到达 next 页
+  }
+  return names;
+}
+
 /** 读取部门配置 KV（image_monthly_quota_default）；读不到返回默认值 */
 export async function readQuotaLimit(
   env: DashboardEnv,
@@ -399,7 +497,7 @@ export async function aggregateOverview(
   const from = dateNDaysAgo(safeDays);
 
   // 并行拉取基础数据
-  const [taskResult, usageResult, profileResult, staffResult, deptResult] =
+  const [taskResult, usageResult, profileResult, staffResult, deptResult, nameByUser] =
     await Promise.all([
       restGet(
         env,
@@ -426,6 +524,7 @@ export async function aggregateOverview(
         `/rest/v1/departments?select=name,enabled&limit=1000`,
         deps
       ).catch(() => ({ rows: [], total: null })),
+      fetchAuthDisplayNames(env, deps),
     ]);
 
   const taskRows = taskResult.rows as TaskRow[];
@@ -446,12 +545,13 @@ export async function aggregateOverview(
     generatedAt: new Date().toISOString(),
     days: safeDays,
     tasks: aggregateTasks(taskRows),
-    usage: aggregateUsage(usageRows, profileRows, quotaLimit, nameByOa),
+    usage: aggregateUsage(usageRows, profileRows, quotaLimit, nameByOa, nameByUser),
     users: aggregateUsers(
       profileRows,
       staffResult.total ?? staffRows.length,
       departmentRows,
-      nameByOa
+      nameByOa,
+      nameByUser
     ),
     storage: {
       inputFiles: files.input,

@@ -17,6 +17,7 @@ import {
   countTaskFiles,
   readQuotaLimit,
   fetchBucketStats,
+  fetchAuthDisplayNames,
   aggregateOverview,
   buildDashboardHtml,
   DEFAULT_ANON_KEY,
@@ -92,7 +93,13 @@ test('aggregateUsage：周期汇总 + 最新周期 Top 用户（join user_profil
     { user_id: 'u2', department: '设计部', region: '深圳', oa_account: 'bob', created_at: '2026-08-02T00:00:00Z' },
   ];
 
-  const result = aggregateUsage(usage, profiles as never, 200, new Map([['alice', '张三']]));
+  const result = aggregateUsage(
+    usage,
+    profiles as never,
+    200,
+    new Map([['alice', '张三']]),
+    new Map([['u1', '张三Auth']])
+  );
   assert.equal(result.quotaLimit, 200);
   assert.deepEqual(result.byPeriod, [
     { period: '2026-07-01', used: 5 },
@@ -100,10 +107,10 @@ test('aggregateUsage：周期汇总 + 最新周期 Top 用户（join user_profil
   ]);
   assert.equal(result.latestPeriod, '2026-08-01');
   assert.equal(result.latestUsed, 40);
-  // Display Name：花名册内显示姓名，花名册外为 null（页面回退 oaAccount）
+  // Display Name：认证表优先，其次花名册；均无为 null（页面回退 oaAccount）
   assert.deepEqual(result.topUsers, [
     { oaAccount: 'bob', displayName: null, department: '设计部', used: 30 },
-    { oaAccount: 'alice', displayName: '张三', department: '技术部', used: 10 },
+    { oaAccount: 'alice', displayName: '张三Auth', department: '技术部', used: 10 },
   ]);
 });
 
@@ -123,7 +130,8 @@ test('aggregateUsers：总数/部门/区域/最近注册/花名册/可用部门'
     profiles as never,
     300,
     departments as never,
-    new Map([['b', '李四']])
+    new Map([['b', '李四']]),
+    new Map([['u2', '李四Auth']])
   );
   assert.equal(result.total, 3);
   assert.deepEqual(result.byDepartment, { 技术部: 2, 设计部: 1 });
@@ -131,7 +139,8 @@ test('aggregateUsers：总数/部门/区域/最近注册/花名册/可用部门'
   assert.equal(result.staffDirectory, 300);
   assert.equal(result.enabledDepartments, 2);
   assert.deepEqual(result.recent.map((r) => r.oaAccount), ['b', 'c', 'a']);
-  assert.deepEqual(result.recent.map((r) => r.displayName), ['李四', null, null]);
+  // 认证表 displayName 优先于花名册姓名
+  assert.deepEqual(result.recent.map((r) => r.displayName), ['李四Auth', null, null]);
 });
 
 test('readQuotaLimit：读到配置值 / 查询失败回退默认', async () => {
@@ -207,6 +216,17 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
           json(200, [{ oa_account: 'alice', name: '张三' }], { 'Content-Range': '0-0/320' }),
       },
       {
+        match: (url) => url.includes('/auth/v1/admin/users'),
+        respond: () =>
+          json(200, {
+            users: [
+              { id: 'u1', user_metadata: { displayName: '王五' } },
+              { id: 'orphan', user_metadata: {} },
+            ],
+            next_page: null,
+          }),
+      },
+      {
         match: (url) => url.includes('/rest/v1/departments'),
         respond: () => json(200, [{ name: '技术部', enabled: true }]),
       },
@@ -226,13 +246,14 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
 
   assert.equal(overview.tasks.total, 1);
   assert.equal(overview.usage.latestUsed, 12);
+  // 认证表 displayName（王五）优先于花名册姓名（张三）
   assert.deepEqual(overview.usage.topUsers, [
-    { oaAccount: 'alice', displayName: '张三', department: '技术部', used: 12 },
+    { oaAccount: 'alice', displayName: '王五', department: '技术部', used: 12 },
   ]);
   assert.equal(overview.users.total, 1);
   assert.equal(overview.users.staffDirectory, 320);
   assert.deepEqual(overview.users.recent, [
-    { oaAccount: 'alice', displayName: '张三', createdAt: '2026-08-01T00:00:00Z' },
+    { oaAccount: 'alice', displayName: '王五', createdAt: '2026-08-01T00:00:00Z' },
   ]);
   assert.equal(overview.storage.inputFiles, 1);
   assert.equal(overview.storage.outputFiles, 1);
@@ -249,6 +270,46 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
     .map((url) => url)
     .filter((url) => url.includes('/rest/v1/'));
   assert.ok(authHeaders.length >= 5);
+});
+
+test('fetchAuthDisplayNames：主端点 404 时降级内部 auth 服务；全失败返回空映射', async () => {
+  const calls: string[] = [];
+  const fetchImpl = routeFetch(
+    [
+      {
+        // 网关路径未放行
+        match: (url) => url.includes('/auth/v1/admin/users'),
+        respond: () => json(404, { message: 'not found' }),
+      },
+      {
+        // 自托管内部 auth 服务可用
+        match: (url) => url.includes('auth:9999/admin/users'),
+        respond: () =>
+          json(200, {
+            users: [
+              { id: 'u-a', user_metadata: { displayName: ' 甲 ' } },
+              { id: 'u-b', user_metadata: { displayName: '', full_name: '乙' } },
+              { id: 'u-c', user_metadata: { name: '丙' } },
+              { id: 'u-d' },
+            ],
+          }),
+      },
+    ],
+    calls
+  );
+  assert.deepEqual(
+    await fetchAuthDisplayNames(ENV, { fetch: fetchImpl }),
+    new Map([
+      ['u-a', '甲'],
+      ['u-b', '乙'],
+      ['u-c', '丙'],
+    ])
+  );
+  assert.ok(calls.some((u) => u.includes('/auth/v1/admin/users')));
+  assert.ok(calls.some((u) => u.includes('auth:9999/admin/users')));
+
+  const badFetch = routeFetch([], []);
+  assert.deepEqual(await fetchAuthDisplayNames(ENV, { fetch: badFetch }), new Map());
 });
 
 test('buildDashboardHtml：自包含页面，内嵌 anon key，无外部脚本依赖', () => {
