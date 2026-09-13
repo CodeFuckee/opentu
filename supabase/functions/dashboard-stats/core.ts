@@ -962,7 +962,7 @@ function trendLine(svg, data){
 }
 
 var CHART_COLORS = ['#4f8cff','#34d399','#fbbf24','#f472b6','#c084fc','#f97316','#22d3ee','#a3e635','#fb7185','#60a5fa'];
-var USD_CNY = 7.1; // tu-zi 价目为美元计价，展示按此汇率折人民币
+var USD_CNY = 0.1; // 内部结算汇率：10 美元 = 1 人民币
 var LAST_OVERVIEW = null;
 
 function sparkline(trend){
