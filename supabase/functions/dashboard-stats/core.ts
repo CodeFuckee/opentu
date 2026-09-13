@@ -780,7 +780,7 @@ export function buildDashboardHtml(anonKey: string): string {
 </div>
 <div class="grid">
   <div class="panel"><h2>部门使用情况</h2><div id="deptUsage"><div class="sk"></div></div></div>
-  <div class="panel"><h2>部门使用排行 <select id="rankSel" style="margin-left:8px"><option value="dept" selected>部门排行</option><option value="user">用户排行</option></select></h2><div id="rankTable"><div class="sk"></div></div></div>
+  <div class="panel"><h2>部门使用排行</h2><div id="rankTable"><div class="sk"></div></div></div>
 </div>
 <div class="grid">
   <div class="panel"><h2>部门使用汇总</h2><table id="deptSummary"><thead><tr><th>部门</th><th>用户数</th><th>使用次数</th><th>金额</th><th>占比</th></tr></thead><tbody></tbody></table></div>
@@ -961,14 +961,8 @@ function deptUsageCards(el, usageByDept, total){
 }
 
 function rankTable(el, o){
-  var mode = document.getElementById('rankSel').value;
   var total = o.tasks.total;
-  var rows;
-  if(mode==='user'){
-    rows = (o.tasks.topUsers||[]).map(function(r){return [r.displayName||'-', r.count];});
-  } else {
-    rows = Object.entries(o.users.usageByRegion||{}).sort(function(a,b){return b[1]-a[1];});
-  }
+  var rows = Object.entries(o.users.usageByRegion||{}).sort(function(a,b){return b[1]-a[1];});
   el.innerHTML = '<table><thead><tr><th>排名</th><th>名称</th><th>使用次数</th><th>占比</th></tr></thead><tbody>'+
     (rows.length?rows.map(function(r,i){
       return '<tr><td>'+(i+1)+'</td><td>'+esc(r[0])+'</td><td>'+r[1]+'</td><td>'+(total?(r[1]/total*100).toFixed(1)+'%':'-')+'</td></tr>';
@@ -1027,9 +1021,6 @@ function load(){
 
 document.getElementById('refreshBtn').addEventListener('click', load);
 document.getElementById('daysSel').addEventListener('change', load);
-document.getElementById('rankSel').addEventListener('change', function(){
-  if(LAST_OVERVIEW) rankTable(document.getElementById('rankTable'), LAST_OVERVIEW);
-});
 load();
 </script>
 </div>
