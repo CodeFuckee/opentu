@@ -780,7 +780,7 @@ export function buildDashboardHtml(anonKey: string): string {
   <div class="panel"><h2>月度用量趋势</h2><div id="usageTrend"><div class="sk"></div></div></div>
 </div>
 <div class="grid">
-  <div class="panel"><h2>区域分布</h2><div id="byRegion"><div class="sk"></div></div></div>
+  <div class="panel"><h2>部门分布</h2><div id="byDept"><div class="sk"></div></div></div>
   <div class="panel"><h2>最近注册用户</h2><table id="recentUsers"><thead><tr><th>用户</th><th>注册时间</th></tr></thead><tbody></tbody></table></div>
 </div>
 </div>
@@ -994,7 +994,7 @@ function render(o){
       var cost = costByDept[e[0]];
       return '<tr><td>'+esc(e[0])+'</td><td>'+esc(usersByDept[e[0]]||0)+'</td><td>'+e[1]+'</td><td>'+(cost!=null?'$'+cost.toFixed(2):'-')+'</td><td>'+(total?(e[1]/total*100).toFixed(1)+'%':'-')+'</td></tr>';
     }).join(''):'<tr><td colspan="5" class="muted">暂无数据</td></tr>');
-  bars(document.getElementById('byRegion'), o.users.byRegion, '#c084fc');
+  bars(document.getElementById('byDept'), o.users.byDepartment, '#c084fc');
   bars(document.getElementById('usageTrend'), (o.usage.byPeriod||[]).reduce(function(m,p){m[p.period]=p.used;return m;},{}), '#f472b6');
   document.getElementById('recentUsers').querySelector('tbody').innerHTML =
     (o.users.recent||[]).map(function(r){
