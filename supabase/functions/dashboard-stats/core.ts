@@ -835,7 +835,7 @@ function kpiCards(o){
     ['总操作次数（近 '+o.days+' 天）', t.total, '日均 '+(t.total/Math.max(1,o.days)).toFixed(1)+' · 平均耗时 '+fmtDur(t.avgDurationMs), sparkline(t.dailyTrend)],
     ['消耗金额', costVal, costSub, ''],
     ['活跃用户数', t.activeUsers, '用户总数 '+u.total+' · 花名册 '+u.staffDirectory, ''],
-    ['本月用量（全局）', q.latestUsed, '周期 '+(q.latestPeriod||'-'), ''],
+    ['本月用量', q.latestUsed, '周期 '+(q.latestPeriod||'-'), ''],
     ['数据覆盖天数', o.days, '截至 '+fmtDate(o.generatedAt).slice(0,10), ''],
   ];
   document.getElementById('kpiCards').innerHTML = big.map(function(c){
