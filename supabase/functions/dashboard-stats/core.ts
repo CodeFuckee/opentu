@@ -832,6 +832,7 @@ function trendLine(svg, data){
 }
 
 var CHART_COLORS = ['#4f8cff','#34d399','#fbbf24','#f472b6','#c084fc','#f97316','#22d3ee','#a3e635','#fb7185','#60a5fa'];
+var USD_CNY = 7.1; // tu-zi 价目为美元计价，展示按此汇率折人民币
 var LAST_OVERVIEW = null;
 
 function sparkline(trend){
@@ -848,7 +849,7 @@ function sparkline(trend){
 
 function kpiCards(o){
   var t = o.tasks, u = o.users, q = o.usage;
-  var costVal = t.totalCostUsd == null ? '-' : '$' + t.totalCostUsd.toFixed(2);
+  var costVal = t.totalCostUsd == null ? '-' : '¥' + (t.totalCostUsd * USD_CNY).toFixed(2);
   var costSub = t.totalCostUsd == null ? '暂无计费数据源' : '';
   var big = [
     ['总操作次数（近 '+o.days+' 天）', t.total, '日均 '+(t.total/Math.max(1,o.days)).toFixed(1)+' · 平均耗时 '+fmtDur(t.avgDurationMs), sparkline(t.dailyTrend)],
@@ -983,7 +984,7 @@ function render(o){
   document.getElementById('deptSummary').querySelector('tbody').innerHTML =
     (summaryRows.length?summaryRows.map(function(e){
       var cost = costByDept[e[0]];
-      return '<tr><td>'+esc(e[0])+'</td><td>'+esc(usersByDept[e[0]]||0)+'</td><td>'+e[1]+'</td><td>'+(cost!=null?'$'+cost.toFixed(2):'-')+'</td><td>'+(total?(e[1]/total*100).toFixed(1)+'%':'-')+'</td></tr>';
+      return '<tr><td>'+esc(e[0])+'</td><td>'+esc(usersByDept[e[0]]||0)+'</td><td>'+e[1]+'</td><td>'+(cost!=null?'¥'+(cost*USD_CNY).toFixed(2):'-')+'</td><td>'+(total?(e[1]/total*100).toFixed(1)+'%':'-')+'</td></tr>';
     }).join(''):'<tr><td colspan="5" class="muted">暂无数据</td></tr>');
   bars(document.getElementById('byDept'), o.users.byDepartment, '#c084fc');
   bars(document.getElementById('usageTrend'), (o.usage.byPeriod||[]).reduce(function(m,p){m[p.period]=p.used;return m;},{}), '#f472b6');
