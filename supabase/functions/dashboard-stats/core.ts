@@ -773,7 +773,7 @@ export function buildDashboardHtml(anonKey: string): string {
 </div>
 <div class="grid">
   <div class="panel"><h2>部门使用情况</h2><div id="deptUsage"><div class="sk"></div></div></div>
-  <div class="panel"><h2>区间使用排行 <select id="rankSel" style="margin-left:8px"><option value="dept" selected>部门排行</option><option value="user">用户排行</option></select></h2><div id="rankTable"><div class="sk"></div></div></div>
+  <div class="panel"><h2>部门使用排行 <select id="rankSel" style="margin-left:8px"><option value="dept" selected>部门排行</option><option value="user">用户排行</option></select></h2><div id="rankTable"><div class="sk"></div></div></div>
 </div>
 <div class="grid">
   <div class="panel"><h2>部门使用汇总</h2><table id="deptSummary"><thead><tr><th>部门</th><th>用户数</th><th>使用次数</th><th>金额</th><th>占比</th></tr></thead><tbody></tbody></table></div>
