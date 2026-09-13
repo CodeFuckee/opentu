@@ -830,7 +830,7 @@ function sparkline(trend){
 function kpiCards(o){
   var t = o.tasks, u = o.users, q = o.usage;
   var costVal = t.totalCostUsd == null ? '-' : '$' + t.totalCostUsd.toFixed(2);
-  var costSub = t.totalCostUsd == null ? '暂无计费数据源' : '按 tu-zi 价目折算';
+  var costSub = t.totalCostUsd == null ? '暂无计费数据源' : '';
   var big = [
     ['总操作次数（近 '+o.days+' 天）', t.total, '日均 '+(t.total/Math.max(1,o.days)).toFixed(1)+' · 平均耗时 '+fmtDur(t.avgDurationMs), sparkline(t.dailyTrend)],
     ['消耗金额', costVal, costSub, ''],
