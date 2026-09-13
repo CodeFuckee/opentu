@@ -779,7 +779,6 @@ export function buildDashboardHtml(anonKey: string): string {
   <div class="panel"><h2>月度用量 Top 用户（当前周期）</h2><table id="topUsers"><thead><tr><th>用户</th><th>部门</th><th>用量</th></tr></thead><tbody></tbody></table></div>
 </div>
 <div class="grid">
-  <div class="panel"><h2>部门使用情况</h2><div id="deptUsage"><div class="sk"></div></div></div>
   <div class="panel"><h2>部门使用排行</h2><div id="rankTable"><div class="sk"></div></div></div>
 </div>
 <div class="grid">
@@ -950,16 +949,6 @@ function hourlyBars(el, hourly){
   el.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block">'+svg+'</svg>';
 }
 
-function deptUsageCards(el, usageByDept, total){
-  var entries=Object.entries(usageByDept||{}).sort(function(a,b){return b[1]-a[1];});
-  el.innerHTML = entries.map(function(e){
-    var pct = total? (e[1]/total*100):0;
-    return '<div style="background:var(--card2);border-radius:8px;padding:10px 12px;margin-bottom:8px">'+
-      '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px"><span>'+esc(e[0])+'</span><span class="muted">使用次数 '+e[1]+'　'+pct.toFixed(1)+'%</span></div>'+
-      '<div style="height:6px;border-radius:3px;background:var(--bg);overflow:hidden"><div style="height:100%;width:'+pct.toFixed(1)+'%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:3px"></div></div></div>';
-  }).join('') || '<div class="muted">暂无数据</div>';
-}
-
 function rankTable(el, o){
   var total = o.tasks.total;
   var rows = Object.entries(o.users.usageByRegion||{}).sort(function(a,b){return b[1]-a[1];});
@@ -984,7 +973,6 @@ function render(o){
     (o.usage.topUsers||[]).map(function(r){
       return '<tr><td>'+esc(r.displayName || r.oaAccount)+'</td><td>'+esc(r.department)+'</td><td>'+r.used+'</td></tr>';
     }).join('') || '<tr><td colspan="3" class="muted">暂无数据</td></tr>';
-  deptUsageCards(document.getElementById('deptUsage'), o.users.usageByDepartment, o.tasks.total);
   rankTable(document.getElementById('rankTable'), o);
   var summaryRows = Object.entries(o.users.usageByDepartment||{}).sort(function(a,b){return b[1]-a[1];});
   var usersByDept = o.users.byDepartment||{};
