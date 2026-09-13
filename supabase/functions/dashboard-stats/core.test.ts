@@ -170,7 +170,7 @@ test('aggregateUsage：周期汇总 + 最新周期 Top 用户（join user_profil
   ]);
 });
 
-test('aggregateUsers：总数/部门/区域/最近注册/花名册/可用部门', () => {
+test('aggregateUsers：总数/部门/区域/花名册/可用部门', () => {
   const profiles = [
     { user_id: 'u1', department: '技术部', region: '广州', oa_account: 'a', created_at: '2026-08-01T00:00:00Z' },
     { user_id: 'u2', department: '技术部', region: '广州', oa_account: 'b', created_at: '2026-08-05T00:00:00Z' },
@@ -182,21 +182,13 @@ test('aggregateUsers：总数/部门/区域/最近注册/花名册/可用部门'
     { name: '市场部', enabled: false },
   ];
 
-  const result = aggregateUsers(
-    profiles as never,
-    300,
-    departments as never,
-    new Map([['b', '李四']]),
-    new Map([['u2', '李四Auth']])
-  );
+  const result = aggregateUsers(profiles as never, 300, departments as never);
   assert.equal(result.total, 3);
   assert.deepEqual(result.byDepartment, { 技术部: 2, 设计部: 1 });
   assert.deepEqual(result.byRegion, { 广州: 2, 深圳: 1 });
   assert.equal(result.staffDirectory, 300);
   assert.equal(result.enabledDepartments, 2);
-  assert.deepEqual(result.recent.map((r) => r.oaAccount), ['b', 'c', 'a']);
-  // 认证表 displayName 优先于花名册姓名
-  assert.deepEqual(result.recent.map((r) => r.displayName), ['李四Auth', null, null]);
+  assert.ok(!('recent' in result));
 });
 
 test('readQuotaLimit：读到配置值 / 查询失败回退默认', async () => {
@@ -291,9 +283,6 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
   assert.equal(overview.users.staffDirectory, 320);
   assert.deepEqual(overview.users.usageByDepartment, { 技术部: 1 });
   assert.deepEqual(overview.users.costByDepartment, { 技术部: 0.5 });
-  assert.deepEqual(overview.users.recent, [
-    { oaAccount: 'alice', displayName: '王五', createdAt: '2026-08-01T00:00:00Z' },
-  ]);
 
   // 所有 REST 请求都应携带 service_role 身份头
   for (const url of calls) {

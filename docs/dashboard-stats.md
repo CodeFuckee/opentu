@@ -22,7 +22,7 @@
 | 部门使用情况 / 区间使用排行 / 部门使用汇总 | 用户部门 join + tu-zi 价目 | 次数、金额、占比（排行可切部门/用户） |
 | 每日成功任务趋势 | `created_at` | 折线（东八区切日） |
 | 用量与额度 | `generation_usage` + `user_profiles` | 月度用量汇总、最新周期全局用量、Top 用户、限额配置 |
-| 用户与组织 | `user_profiles` / `staff_directory` / `departments` / `auth.users` | 用户总数、部门/区域分布、最近注册、花名册、可用部门；用户统一显示 Display Name，取值顺序：`auth.users.user_metadata`（displayName → full_name → name，经 GoTrue admin API 按 user_id 关联）→ `staff_directory.name`（按 oa_account join）→ 回退 oa_account。注：自托管网关未放行 `/auth/v1/admin/*`，函数对网关 404 时自动降级直连内部 `http://auth:9999` |
+| 用户与组织 | `user_profiles` / `staff_directory` / `departments` / `auth.users` | 用户总数、部门/区域分布、花名册、可用部门；用户统一显示 Display Name，取值顺序：`auth.users.user_metadata`（displayName → full_name → name，经 GoTrue admin API 按 user_id 关联）→ `staff_directory.name`（按 oa_account join）→ 回退 oa_account。注：自托管网关未放行 `/auth/v1/admin/*`，函数对网关 404 时自动降级直连内部 `http://auth:9999` |
 
 **消耗金额口径**：价目来自 tu-zi（new-api 底座）公开接口 `https://api.tu-zi.com/api/pricing`。按次计费模型（quota_type=0）用 `model_price` 精确单价；按量计费模型（quota_type=1）无调用侧 token 数据，按「每次调用 1500 输出 token × model_ratio ÷ 500000（new-api 默认 $1=500k quota）」估算，估算常数 `ESTIMATED_OUTPUT_TOKENS_PER_CALL` 在 core.ts 顶部可调。价目拉取失败时金额降级显示 `-`。
 

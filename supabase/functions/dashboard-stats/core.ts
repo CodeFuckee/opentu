@@ -130,11 +130,6 @@ export interface DashboardOverview {
     usageByDepartment: Record<string, number>;
     /** 部门消耗金额（USD，按 tu-zi 价目估算；价目不可用时为空对象） */
     costByDepartment: Record<string, number>;
-    recent: Array<{
-      oaAccount: string | null;
-      displayName: string | null;
-      createdAt: string;
-    }>;
     staffDirectory: number;
     enabledDepartments: number;
   };
@@ -403,32 +398,12 @@ export function aggregateUsage(
 export function aggregateUsers(
   profileRows: ProfileRow[],
   staffDirectoryTotal: number,
-  departmentRows: DepartmentRow[],
-  nameByOa: Map<string, string> = new Map(),
-  nameByUser: Map<string, string> = new Map()
+  departmentRows: DepartmentRow[]
 ): DashboardOverview['users'] {
-  const recent = [...profileRows]
-    .sort(
-      (a, b) =>
-        new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-    )
-    .slice(0, 10)
-    .map((row) => ({
-      oaAccount: row.oa_account ?? null,
-      displayName: resolveDisplayName(
-        row.user_id ?? null,
-        row.oa_account ?? null,
-        nameByUser,
-        nameByOa
-      ),
-      createdAt: row.created_at,
-    }));
-
   return {
     total: profileRows.length,
     byDepartment: countOccurrences(profileRows, 'department'),
     byRegion: countOccurrences(profileRows, 'region'),
-    recent,
     staffDirectory: staffDirectoryTotal,
     enabledDepartments: departmentRows.filter((d) => d.enabled).length,
   };
@@ -659,9 +634,7 @@ export async function aggregateOverview(
       ...aggregateUsers(
         profileRows,
         staffResult.total ?? staffRows.length,
-        departmentRows,
-        nameByOa,
-        nameByUser
+        departmentRows
       ),
       usageByDepartment: participation.usageByDepartment,
       costByDepartment: participation.costByDepartment,
@@ -781,7 +754,6 @@ export function buildDashboardHtml(anonKey: string): string {
 </div>
 <div class="grid">
   <div class="panel"><h2>部门分布</h2><div id="byDept"><div class="sk"></div></div></div>
-  <div class="panel"><h2>最近注册用户</h2><table id="recentUsers"><thead><tr><th>用户</th><th>注册时间</th></tr></thead><tbody></tbody></table></div>
 </div>
 </div>
 
@@ -996,10 +968,6 @@ function render(o){
     }).join(''):'<tr><td colspan="5" class="muted">暂无数据</td></tr>');
   bars(document.getElementById('byDept'), o.users.byDepartment, '#c084fc');
   bars(document.getElementById('usageTrend'), (o.usage.byPeriod||[]).reduce(function(m,p){m[p.period]=p.used;return m;},{}), '#f472b6');
-  document.getElementById('recentUsers').querySelector('tbody').innerHTML =
-    (o.users.recent||[]).map(function(r){
-      return '<tr><td>'+esc(r.displayName || r.oaAccount)+'</td><td>'+fmtDate(r.createdAt)+'</td></tr>';
-    }).join('') || '<tr><td colspan="2" class="muted">暂无数据</td></tr>';
 }
 
 function basePath(){
