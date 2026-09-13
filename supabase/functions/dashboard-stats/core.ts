@@ -130,6 +130,8 @@ export interface DashboardOverview {
     byRegion: Record<string, number>;
     /** 部门使用情况（窗口内成功任务次数按用户部门汇总） */
     usageByDepartment: Record<string, number>;
+    /** 使用排行（窗口内成功任务次数按用户区域汇总，页面「部门使用排行」用） */
+    usageByRegion: Record<string, number>;
     /** 部门消耗金额（USD，按 tu-zi 价目估算；价目不可用时为空对象） */
     costByDepartment: Record<string, number>;
     staffDirectory: number;
@@ -299,7 +301,7 @@ export function aggregateTasks(rows: TaskRow[]): DashboardOverview['tasks'] {
   };
 }
 
-/** 任务参与统计：使用次数排行（按用户前 10）、部门使用情况与部门消耗金额 */
+/** 任务参与统计：使用次数排行（按用户前 10）、部门/区域使用情况与部门消耗金额 */
 export function aggregateTaskParticipation(
   rows: TaskRow[],
   profileRows: ProfileRow[],
@@ -308,14 +310,17 @@ export function aggregateTaskParticipation(
   priceByModel: Map<string, number> = new Map()
 ): Pick<DashboardOverview['tasks'], 'topUsers'> & {
   usageByDepartment: Record<string, number>;
+  usageByRegion: Record<string, number>;
   costByDepartment: Record<string, number>;
 } {
   const okRows = rows.filter((row) => row.status === 'completed');
   const deptByUser = new Map(profileRows.map((p) => [p.user_id, p.department]));
+  const regionByUser = new Map(profileRows.map((p) => [p.user_id, p.region]));
   const oaByUser = new Map(profileRows.map((p) => [p.user_id, p.oa_account]));
 
   const countByUser = new Map<string, number>();
   const usageByDepartment: Record<string, number> = {};
+  const usageByRegion: Record<string, number> = {};
   const costByDepartment: Record<string, number> = {};
   for (const row of okRows) {
     const userId = row.user_id || '';
@@ -325,6 +330,8 @@ export function aggregateTaskParticipation(
     countByUser.set(userId, (countByUser.get(userId) ?? 0) + 1);
     const dept = deptByUser.get(userId) || '未知部门';
     usageByDepartment[dept] = (usageByDepartment[dept] ?? 0) + 1;
+    const region = regionByUser.get(userId) || '未知区域';
+    usageByRegion[region] = (usageByRegion[region] ?? 0) + 1;
     const price = row.model ? priceByModel.get(row.model) : undefined;
     if (price !== undefined) {
       costByDepartment[dept] =
@@ -345,7 +352,7 @@ export function aggregateTaskParticipation(
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
-  return { topUsers, usageByDepartment, costByDepartment };
+  return { topUsers, usageByDepartment, usageByRegion, costByDepartment };
 }
 
 /** 用量与额度：generation_usage + user_profiles join + 部门配置限额 */
@@ -656,6 +663,7 @@ export async function aggregateOverview(
         departmentRows
       ),
       usageByDepartment: participation.usageByDepartment,
+      usageByRegion: participation.usageByRegion,
       costByDepartment: participation.costByDepartment,
     },
   };
@@ -952,7 +960,7 @@ function rankTable(el, o){
   if(mode==='user'){
     rows = (o.tasks.topUsers||[]).map(function(r){return [r.displayName||'-', r.count];});
   } else {
-    rows = Object.entries(o.users.usageByDepartment||{}).sort(function(a,b){return b[1]-a[1];}).slice(0,10);
+    rows = Object.entries(o.users.usageByRegion||{}).sort(function(a,b){return b[1]-a[1];}).slice(0,10);
   }
   el.innerHTML = '<table><thead><tr><th>排名</th><th>名称</th><th>使用次数</th><th>占比</th></tr></thead><tbody>'+
     (rows.length?rows.map(function(r,i){

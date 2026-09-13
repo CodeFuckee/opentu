@@ -105,6 +105,7 @@ test('aggregateTaskParticipation：使用次数排行（用户前 10）与部门
     { userId: 'u2', displayName: '李四', department: '设计部', count: 1 },
   ]);
   assert.deepEqual(result.usageByDepartment, { 技术部: 2, 设计部: 1 });
+  assert.deepEqual(result.usageByRegion, { 广州: 2, 深圳: 1 });
 });
 
 test('fetchModelPricing：实测均值优先（hot 数据），回退按次/按量估算；不可用返回空映射', async () => {
@@ -285,6 +286,7 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
   assert.equal(overview.users.total, 1);
   assert.equal(overview.users.staffDirectory, 320);
   assert.deepEqual(overview.users.usageByDepartment, { 技术部: 1 });
+  assert.deepEqual(overview.users.usageByRegion, { 广州: 1 });
   assert.deepEqual(overview.users.costByDepartment, { 技术部: 1.25 });
 
   // 所有 REST 请求都应携带 service_role 身份头
