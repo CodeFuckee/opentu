@@ -18,6 +18,7 @@ import {
   readQuotaLimit,
   fetchModelPricing,
   fetchAuthDisplayNames,
+  fetchCanvasUsage,
   aggregateOverview,
   buildDashboardHtml,
   DEFAULT_ANON_KEY,
@@ -348,6 +349,39 @@ test('fetchAuthDisplayNames：主端点 404 时降级内部 auth 服务；全失
 
   const badFetch = routeFetch([], []);
   assert.deepEqual(await fetchAuthDisplayNames(ENV, { fetch: badFetch }), new Map());
+});
+
+test('fetchCanvasUsage：解析共享令牌并分页求和消耗日志；配置缺失返回 null', async () => {
+  const fetchImpl = routeFetch(
+    [
+      { match: (url) => url.includes('/rest/v1/configs?key=eq.NEWAPI_URL'), respond: () => json(200, [{ value: 'http://gw.local' }]) },
+      { match: (url) => url.includes('/rest/v1/configs?key=eq.NEWAPI_TOKEN'), respond: () => json(200, [{ value: 'admintok' }]) },
+      { match: (url) => url.includes('/rest/v1/configs?key=eq.NEWAPI_KEY'), respond: () => json(200, [{ value: 'sk-abcd1234' }]) },
+      {
+        match: (url) => url.includes('/api/token/'),
+        respond: () =>
+          json(200, {
+            data: { items: [{ name: 'other', key: 'zzzz' }, { name: 'huabu', key: 'abcd1234' }] },
+          }),
+      },
+      {
+        match: (url) => url.includes('/api/log/?p=1'),
+        respond: () =>
+          json(200, {
+            data: { items: [{ quota: 100000, username: 'chenkaidi' }, { quota: 50000, username: 'alice' }] },
+          }),
+      },
+    ],
+    []
+  );
+  // 150000 quota ÷ 500000 = $0.3
+  assert.deepEqual(await fetchCanvasUsage(ENV, 30, { fetch: fetchImpl }), {
+    totalUsd: 0.3,
+    quotaByUsername: { chenkaidi: 100000, alice: 50000 },
+  });
+
+  const missing = routeFetch([], []);
+  assert.equal(await fetchCanvasUsage(ENV, 30, { fetch: missing }), null);
 });
 
 test('buildDashboardHtml：自包含页面，内嵌 anon key，无外部脚本依赖', () => {

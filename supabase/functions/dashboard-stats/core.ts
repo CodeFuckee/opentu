@@ -85,6 +85,117 @@ interface StaffRow {
   name: string;
 }
 
+/** 画布共享令牌的真实消耗（New API 网关消耗日志求和） */
+export interface CanvasUsage {
+  totalUsd: number;
+  /** 按网关用户名（=OA 账号）汇总的 quota 原始值 */
+  quotaByUsername: Record<string, number>;
+}
+
+/** 读取 configs 表配置值；读不到返回 null */
+async function readDashboardConfig(
+  env: DashboardEnv,
+  configKey: string,
+  deps: DashboardDeps
+): Promise<string | null> {
+  const doFetch = deps.fetch || fetch;
+  const response = await doFetch(
+    `${baseUrl(env)}/rest/v1/configs?key=eq.${encodeURIComponent(configKey)}&select=value`,
+    { method: 'GET', headers: srkHeaders(env) }
+  );
+  if (!response.ok) {
+    return null;
+  }
+  const body = (await response.json()) as Array<{ value?: unknown }>;
+  const value = Array.isArray(body) ? body[0]?.value : undefined;
+  return typeof value === 'string' && value ? value : null;
+}
+
+/**
+ * 画布共享令牌的真实消耗：从自建 New API 网关（configs 表 NEWAPI_URL/NEWAPI_TOKEN）
+ * 的消耗日志（type=2）按令牌分页求和，USD = quota ÷ NEWAPI_QUOTA_PER_UNIT。
+ * 任一步失败返回 null（调用方回退 tu-zi 价目估算）。
+ */
+export async function fetchCanvasUsage(
+  env: DashboardEnv,
+  days: number,
+  deps: DashboardDeps = {}
+): Promise<CanvasUsage | null> {
+  const doFetch = deps.fetch || fetch;
+  try {
+    const base = ((await readDashboardConfig(env, 'NEWAPI_URL', deps)) || '').replace(/\/+$/, '');
+    const adminToken = await readDashboardConfig(env, 'NEWAPI_TOKEN', deps);
+    const apiKey = await readDashboardConfig(env, 'NEWAPI_KEY', deps);
+    if (!base || !adminToken || !apiKey) {
+      return null;
+    }
+    const headers = { Authorization: `Bearer ${adminToken}` };
+
+    // 1. 解析画布共享令牌名：NEWAPI_KEY 去 sk- 前缀后与令牌 key 匹配
+    const keySuffix = apiKey.replace(/^sk-/, '');
+    let tokenName = '';
+    const tokenRes = await doFetch(`${base}/api/token/?p=1&size=100`, { headers });
+    if (tokenRes.ok) {
+      const tokenBody = (await tokenRes.json()) as {
+        data?: { items?: Array<{ name?: unknown; key?: unknown }> } | Array<{ name?: unknown; key?: unknown }>;
+      };
+      const items = Array.isArray(tokenBody?.data)
+        ? tokenBody.data
+        : Array.isArray(tokenBody?.data?.items)
+          ? tokenBody.data.items
+          : [];
+      const match = items.find(
+        (t) =>
+          (typeof t.key === 'string' && (t.key === keySuffix || `sk-${t.key}` === apiKey)) ||
+          t.key === keySuffix
+      );
+      if (match && typeof match.name === 'string') {
+        tokenName = match.name;
+      }
+    }
+    if (!tokenName) {
+      tokenName = 'huabu'; // 历史约定名，匹配失败时兜底
+    }
+
+    // 2. 分页求和窗口内 type=2 消耗日志（网关把 page_size 静默限制在 100）
+    const PAGE_SIZE = 100;
+    const startSec = Math.floor((Date.now() - days * 86400000) / 1000);
+    const endSec = Math.floor(Date.now() / 1000);
+    let sum = 0;
+    const quotaByUsername: Record<string, number> = {};
+    for (let page = 1; page <= 60; page += 1) {
+      const res = await doFetch(
+        `${base}/api/log/?p=${page}&page_size=${PAGE_SIZE}&type=2&token_name=${encodeURIComponent(tokenName)}&start_timestamp=${startSec}&end_timestamp=${endSec}`,
+        { headers }
+      );
+      if (!res.ok) {
+        return null;
+      }
+      const body = (await res.json()) as {
+        data?: { items?: Array<{ quota?: unknown; username?: unknown }> };
+      };
+      const items = Array.isArray(body?.data?.items) ? body.data.items : [];
+      for (const item of items) {
+        const quota = Number(item?.quota ?? 0);
+        if (!Number.isFinite(quota)) {
+          continue;
+        }
+        sum += quota;
+        const username = typeof item?.username === 'string' ? item.username : '';
+        if (username) {
+          quotaByUsername[username] = (quotaByUsername[username] ?? 0) + quota;
+        }
+      }
+      if (items.length < PAGE_SIZE) {
+        break;
+      }
+    }
+    return { totalUsd: sum / NEWAPI_QUOTA_PER_UNIT, quotaByUsername };
+  } catch {
+    return null;
+  }
+}
+
 /** 聚合的最终返回结构 */
 export interface DashboardOverview {
   generatedAt: string;
@@ -591,7 +702,7 @@ export async function aggregateOverview(
   const from = dateNDaysAgo(safeDays);
 
   // 并行拉取基础数据
-  const [taskResult, usageResult, profileResult, staffResult, deptResult, nameByUser, priceByModel] =
+  const [taskResult, usageResult, profileResult, staffResult, deptResult, nameByUser, priceByModel, canvasUsage] =
     await Promise.all([
       restGet(
         env,
@@ -620,6 +731,7 @@ export async function aggregateOverview(
       ).catch(() => ({ rows: [], total: null })),
       fetchAuthDisplayNames(env, deps),
       fetchModelPricing(deps),
+      fetchCanvasUsage(env, safeDays, deps),
     ]);
 
   const taskRows = taskResult.rows as TaskRow[];
@@ -641,17 +753,21 @@ export async function aggregateOverview(
     nameByUser,
     priceByModel
   );
-  // 消耗金额：成功任务按模型次数 × 单次价目（USD）；价目不可用为 null
+  // 消耗金额：KPI 优先用网关日志的真实消耗（huabu 令牌全部调用，含聊天/轮询）；
+  // 部门金额无法从网关日志区分到人，保留按模型价目的估算口径
   let totalCostUsd: number | null = null;
-  if (priceByModel.size > 0) {
-    totalCostUsd = 0;
+  const costByDepartment = participation.costByDepartment;
+  if (canvasUsage) {
+    totalCostUsd = Math.round(canvasUsage.totalUsd * 100) / 100;
+  } else if (priceByModel.size > 0) {
+    let estimate = 0;
     for (const [model, count] of Object.entries(tasksAgg.byModel)) {
       const price = priceByModel.get(model);
       if (price !== undefined) {
-        totalCostUsd += count * price;
+        estimate += count * price;
       }
     }
-    totalCostUsd = Math.round(totalCostUsd * 100) / 100;
+    totalCostUsd = Math.round(estimate * 100) / 100;
   }
 
   return {
@@ -671,7 +787,7 @@ export async function aggregateOverview(
       ),
       usageByDepartment: participation.usageByDepartment,
       usageByRegion: participation.usageByRegion,
-      costByDepartment: participation.costByDepartment,
+      costByDepartment,
     },
   };
 }
