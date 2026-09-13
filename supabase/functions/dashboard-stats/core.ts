@@ -322,6 +322,13 @@ export function aggregateTaskParticipation(
   const usageByDepartment: Record<string, number> = {};
   const usageByRegion: Record<string, number> = {};
   const costByDepartment: Record<string, number> = {};
+  // 区域排行需展示全部分组：先为所有有用户的区域建立 0 计数
+  for (const p of profileRows) {
+    const region = p.region || '未知区域';
+    if (!(region in usageByRegion)) {
+      usageByRegion[region] = 0;
+    }
+  }
   for (const row of okRows) {
     const userId = row.user_id || '';
     if (!userId) {
@@ -960,7 +967,7 @@ function rankTable(el, o){
   if(mode==='user'){
     rows = (o.tasks.topUsers||[]).map(function(r){return [r.displayName||'-', r.count];});
   } else {
-    rows = Object.entries(o.users.usageByRegion||{}).sort(function(a,b){return b[1]-a[1];}).slice(0,10);
+    rows = Object.entries(o.users.usageByRegion||{}).sort(function(a,b){return b[1]-a[1];});
   }
   el.innerHTML = '<table><thead><tr><th>排名</th><th>名称</th><th>使用次数</th><th>占比</th></tr></thead><tbody>'+
     (rows.length?rows.map(function(r,i){
