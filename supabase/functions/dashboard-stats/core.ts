@@ -45,6 +45,8 @@ interface PricingResponse {
     quota_type?: unknown;
     model_ratio?: unknown;
     model_price?: unknown;
+    hot_call_count?: unknown;
+    hot_quota?: unknown;
   }>;
 }
 
@@ -411,14 +413,19 @@ export function aggregateUsers(
 
 /**
  * tu-zi（new-api 底座）按模型单次调用价目（USD）。
- * 计费口径：quota_type=0 按次计费用 model_price 精确值；quota_type=1 按量（token）
- * 计费无调用侧 token 数据，按「每次调用 ESTIMATED_OUTPUT_TOKENS_PER_CALL 个输出
- * token × model_ratio ÷ NEWAPI_QUOTA_PER_UNIT」估算（new-api 默认 $1 = 500000 quota）。
+ * 口径（按优先级）：
+ * 1. 平台实测均值 hot_quota ÷ hot_call_count ÷ 500000——绘图模型按 token 计费且
+ *    图片输出有额外倍率（image_output_ratio），固定 token 假设会严重低估，实测
+ *    均值最接近真实单价（样本量足够时采用，≥100 次）；
+ * 2. quota_type=0 按次计费：model_price；
+ * 3. quota_type=1 按量计费：model_ratio × ESTIMATED_OUTPUT_TOKENS_PER_CALL ÷
+ *    NEWAPI_QUOTA_PER_UNIT（new-api 默认 $1 = 500000 quota）。
  * 价目不可用时返回空映射（页面金额降级显示 -）。
  */
 export const TUZI_PRICING_URL = 'https://api.tu-zi.com/api/pricing';
 export const ESTIMATED_OUTPUT_TOKENS_PER_CALL = 1500;
 export const NEWAPI_QUOTA_PER_UNIT = 500000;
+const MIN_HOT_CALLS_FOR_EMPIRICAL = 100;
 
 export async function fetchModelPricing(
   deps: DashboardDeps = {},
@@ -438,11 +445,23 @@ export async function fetchModelPricing(
       if (!name) {
         continue;
       }
-      const perCall =
-        item.quota_type === 0
-          ? Number(item.model_price)
-          : (Number(item.model_ratio) * ESTIMATED_OUTPUT_TOKENS_PER_CALL) /
-            NEWAPI_QUOTA_PER_UNIT;
+      let perCall = Number.NaN;
+      const hotCalls = Number(item.hot_call_count);
+      const hotQuota = Number(item.hot_quota);
+      if (
+        Number.isFinite(hotCalls) &&
+        hotCalls >= MIN_HOT_CALLS_FOR_EMPIRICAL &&
+        Number.isFinite(hotQuota) &&
+        hotQuota > 0
+      ) {
+        perCall = hotQuota / hotCalls / NEWAPI_QUOTA_PER_UNIT;
+      } else if (item.quota_type === 0) {
+        perCall = Number(item.model_price);
+      } else if (item.quota_type === 1) {
+        perCall =
+          (Number(item.model_ratio) * ESTIMATED_OUTPUT_TOKENS_PER_CALL) /
+          NEWAPI_QUOTA_PER_UNIT;
+      }
       if (Number.isFinite(perCall) && perCall > 0) {
         prices.set(name, perCall);
       }

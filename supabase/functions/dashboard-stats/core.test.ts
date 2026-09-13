@@ -107,7 +107,7 @@ test('aggregateTaskParticipation：使用次数排行（用户前 10）与部门
   assert.deepEqual(result.usageByDepartment, { 技术部: 2, 设计部: 1 });
 });
 
-test('fetchModelPricing：按次精确价/按量按 1500 token 估算；不可用返回空映射', async () => {
+test('fetchModelPricing：实测均值优先（hot 数据），回退按次/按量估算；不可用返回空映射', async () => {
   const fetchImpl = routeFetch(
     [
       {
@@ -115,22 +115,25 @@ test('fetchModelPricing：按次精确价/按量按 1500 token 估算；不可�
         respond: () =>
           json(200, {
             data: [
-              { model_name: 'p1', quota_type: 0, model_price: 0.04 },
-              { model_name: 'p2', quota_type: 1, model_ratio: 2.5 },
+              // 实测均值：hot_quota/hot_calls/500000 = 300000/1000/500000 = 0.0006
+              { model_name: 'p1', quota_type: 1, model_ratio: 2.5, hot_call_count: 1000, hot_quota: 300000 },
+              // 实测样本不足 → 回退按次价
+              { model_name: 'p2', quota_type: 0, model_price: 0.04, hot_call_count: 10, hot_quota: 9999 },
+              // 无实测 → 回退按量估算：2.5 × 1500 / 500000 = 0.0075
+              { model_name: 'p3', quota_type: 1, model_ratio: 2.5 },
               { model_name: 'free', quota_type: 0, model_price: 0 },
-              { model_name: '匿名', },
             ],
           }),
       },
     ],
     []
   );
-  // p1 = $0.04/次；p2 按量 = 2.5 × 1500 / 500000 = $0.0075/次
   assert.deepEqual(
     await fetchModelPricing({ fetch: fetchImpl }),
     new Map([
-      ['p1', 0.04],
-      ['p2', 0.0075],
+      ['p1', 0.0006],
+      ['p2', 0.04],
+      ['p3', 0.0075],
     ])
   );
 
@@ -257,7 +260,7 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
         match: (url) => url.includes('api.tu-zi.com'),
         respond: () =>
           json(200, {
-            data: [{ model_name: 'm-a', quota_type: 0, model_price: 0.5 }],
+            data: [{ model_name: 'm-a', quota_type: 0, model_price: 0.5, hot_call_count: 400, hot_quota: 250000000 }],
           }),
       },
     ],
@@ -272,8 +275,8 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
   assert.deepEqual(overview.tasks.topUsers, [
     { userId: 'u1', displayName: '王五', department: '技术部', count: 1 },
   ]);
-  // 消耗金额：m-a 按次 $0.5 × 1 次
-  assert.equal(overview.tasks.totalCostUsd, 0.5);
+  // 消耗金额：实测均值 250000000/400/500000 = $1.25/次 × 1 次
+  assert.equal(overview.tasks.totalCostUsd, 1.25);
   assert.equal(overview.usage.latestUsed, 12);
   // 认证表 displayName（王五）优先于花名册姓名（张三）
   assert.deepEqual(overview.usage.topUsers, [
@@ -282,7 +285,7 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
   assert.equal(overview.users.total, 1);
   assert.equal(overview.users.staffDirectory, 320);
   assert.deepEqual(overview.users.usageByDepartment, { 技术部: 1 });
-  assert.deepEqual(overview.users.costByDepartment, { 技术部: 0.5 });
+  assert.deepEqual(overview.users.costByDepartment, { 技术部: 1.25 });
 
   // 所有 REST 请求都应携带 service_role 身份头
   for (const url of calls) {

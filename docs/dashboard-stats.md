@@ -24,7 +24,7 @@
 | 用量与额度 | `generation_usage` + `user_profiles` | 月度用量汇总、最新周期全局用量、Top 用户、限额配置 |
 | 用户与组织 | `user_profiles` / `staff_directory` / `departments` / `auth.users` | 用户总数、部门/区域分布、花名册、可用部门；用户统一显示 Display Name，取值顺序：`auth.users.user_metadata`（displayName → full_name → name，经 GoTrue admin API 按 user_id 关联）→ `staff_directory.name`（按 oa_account join）→ 回退 oa_account。注：自托管网关未放行 `/auth/v1/admin/*`，函数对网关 404 时自动降级直连内部 `http://auth:9999` |
 
-**消耗金额口径**：价目来自 tu-zi（new-api 底座）公开接口 `https://api.tu-zi.com/api/pricing`。按次计费模型（quota_type=0）用 `model_price` 精确单价；按量计费模型（quota_type=1）无调用侧 token 数据，按「每次调用 1500 输出 token × model_ratio ÷ 500000（new-api 默认 $1=500k quota）」估算，估算常数 `ESTIMATED_OUTPUT_TOKENS_PER_CALL` 在 core.ts 顶部可调。价目拉取失败时金额降级显示 `-`。
+**消耗金额口径**：价目来自 tu-zi（new-api 底座）公开接口 `https://api.tu-zi.com/api/pricing`，单次单价按优先级取：① 平台实测均值 `hot_quota ÷ hot_call_count ÷ 500000`（样本 ≥100 次；绘图模型按 token 计费且图片输出有 image_output_ratio 倍率，固定 token 假设会严重低估，实测均值最贴近真实价）；② 按次计费（quota_type=0）用 `model_price`；③ 按量计费（quota_type=1）按 `model_ratio × 1500 token ÷ 500000` 估算（常数 `ESTIMATED_OUTPUT_TOKENS_PER_CALL` 在 core.ts 可调）。价目拉取失败时金额降级显示 `-`。
 
 除特别注明外，任务类统计口径均为**仅成功（completed）任务**。
 
