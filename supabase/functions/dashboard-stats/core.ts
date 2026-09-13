@@ -847,9 +847,12 @@ function sparkline(trend){
   var pts=(trend||[]).slice(-14);
   if(pts.length<2) return '';
   var max=Math.max.apply(null,pts.map(function(p){return p.count;}))||1;
-  var W=92,H=28, step=W/(pts.length-1);
+  var W=100,H=30, step=W/(pts.length-1);
   var poly=pts.map(function(p,i){return (i*step).toFixed(1)+','+(H-3-(p.count/max)*(H-7)).toFixed(1);}).join(' ');
-  return '<svg width="'+W+'" height="'+H+'" style="position:absolute;right:14px;top:16px;opacity:.85"><polyline points="'+poly+'" fill="none" stroke="#22d3ee" stroke-width="1.5"/></svg>';
+  var area=poly+' '+W+','+H+' 0,'+H;
+  return '<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="width:100%;height:30px;margin-top:10px;display:block">'+
+    '<polygon points="'+area+'" fill="rgba(34,211,238,.12)"/>'+
+    '<polyline points="'+poly+'" fill="none" stroke="#22d3ee" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/></svg>';
 }
 
 function kpiCards(o){
