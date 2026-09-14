@@ -2,12 +2,40 @@
 
 ### 🚀 Features
 
+- 新增**云端模型目录**（Supabase `model_catalog` 表驱动，模型统一在表中管理、
+  上架不发版）：应用启动时后台自动拉取启用条目（与登录态无关，未登录 BYOK
+  用户同样生效），另有 10 分钟定时与标签页回前台触发的 TTL 约束刷新，**对用户
+  完全无感、不暴露任何同步入口**（条目由管理员在 Supabase Studio/SQL 维护）；
+  条目经逐行 schema 校验转换为 `ModelConfig` 后合并进模型选择器。**表是唯一
+  事实源**：目录内有生效条目时静态内置目录整体退位（表内停用/删除/改名即刻
+  生效，不会被静态兜底"复活"），用户级运行时发现模型始终保留；目录为空或
+  拉取失败时回退 7 天内 localStorage 缓存，缓存也不可用时保持静态目录行为
+  不变。新增种子脚本 `scripts/generate-model-catalog-seed.ts`（从静态目录生成
+  `supabase/seed/model_catalog_seed.sql`，78 个模型幂等 upsert，管理员执行
+  一次即完成全量入表）；新增迁移 `supabase/migrations/model_catalog.sql`
+  （幂等：建表 + RLS 匿名只读 + updated_at 触发器，触发器使用本迁移私有函数
+  避免共享函数属主冲突）。**部署顺序要求：先执行建表与种子 SQL，再发布前端**，
+  否则目录接管后线上仅剩表内条目。新增 18 个单元测试（行校验/转换、拉取应用、
+  非法行跳过、缓存降级、TTL 与强制刷新、接管/回退语义、目录更新后模型列表
+  响应式重算）。
+
 - 新增钉钉自定义机器人通知脚本 `scripts/dingtalk-notify.mjs`（零依赖，Node 内置
   crypto + fetch）：支持 text / markdown 消息与官方加签（HmacSHA256 + base64 +
   urlEncode，`timestamp\nsecret` 待签串）；配置经 `DINGTALK_WEBHOOK` /
   `DINGTALK_SECRET` 环境变量或根目录 `.env.local`（已被 gitignore，密钥不入库）
-  注入，命令行参数可临时覆盖；发送失败退出码非 0，可直接用于后续 CI 失败通知。
-  已用测试环境机器人实测加签发送成功。
+  注入，命令行参数可临时覆盖；支持 `--at-all`（或 `--at-all=false` 显式关闭）
+  艾特全员；支持 `--image` 发送图片（http(s) URL 直发；本地路径自动择通道：
+  ① media——配置企业内部应用凭证 `DINGTALK_APP_KEY/SECRET` 时经 gettoken +
+  media/upload 换永久有效的 mediaId；② gitee——配置 `GITEE_TOKEN + GITEE_REPO`
+  （gitee.com 私人令牌）上传国内 CDN 图床，raw 直链匿名可访问，仓库不存在自动
+  创建公开仓库；③ smms——配置 `SMMS_TOKEN`（sm.ms 免费
+  注册）上传 SM.MS 图床，单图 ≤5MB；④ gitlab——配置 `IMG_GITLAB_HOST/PROJECT`
+  时上传自建 GitLab 公开项目 `chenkaidi/dingtalk-images`，复用 glab 登录凭证
+  换匿名可访问的 raw 直链；⑤ server——均未配置时回退临时内网静态服务（默认
+  端口 18923、存活 1800 秒）；`--image-port/--image-ttl/--image-host/
+  --image-mode/--image-via` 可调，@全员 + 图片自动走 markdown 图文，纯图模式
+  不带 at 字段）；发送失败退出码非 0，可直接用于后续 CI 失败通知。
+  已用测试环境机器人实测发送成功。
 
 - 数据看板（dashboard-stats 边缘函数）任务统计口径改为**仅统计成功任务**：
   任务总数/按类型分布/每日趋势只计 status=completed，页面移除「任务状态分布」

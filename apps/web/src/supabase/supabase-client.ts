@@ -30,4 +30,4 @@ export function getSupabaseClient(): SupabaseClient {
   return client;
 }
 
-export { SUPABASE_URL };
+export { SUPABASE_URL, SUPABASE_ANON_KEY };

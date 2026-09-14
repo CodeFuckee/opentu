@@ -203,11 +203,15 @@ const BUILT_IN_MODEL_RECOMMENDATION_SCORES: Readonly<Record<string, number>> = {
 
   'gemini-3-pro-image-preview-async': 98,
   'gemini-3-pro-image-preview-2k-async': 97,
+  'gpt-image-2.5-vip': 97,
+  'gpt-image-2.5': 96,
   'gemini-2.5-flash-image-vip': 96,
   'gpt-image-2-vip': 96,
   'gpt-image-2': 95,
   'gemini-2.5-flash-image': 95,
   'doubao-seedream-4-0-250828': 94,
+  'gpt-image-2.5-flare': 93,
+  'gpt-image-2.5-sunburst': 92,
   'gemini-3.1-flash-image-preview': 93,
   'gemini-3-pro-image-preview': 92,
   'gemini-3-pro-image-preview-vip': 90,
@@ -1362,15 +1366,21 @@ export const ALL_MODELS: ModelConfig[] = [
 
 let runtimeModels: ModelConfig[] = [];
 
-function mergeModels(
-  staticModels: ModelConfig[],
-  discoveredModels: ModelConfig[]
-): ModelConfig[] {
-  const merged = [...discoveredModels];
-  const seen = new Set(discoveredModels.map((model) => model.id));
-  for (const model of staticModels) {
-    if (!seen.has(model.id)) {
-      merged.push(model);
+// 云端模型目录（Supabase model_catalog）：表是唯一事实源。
+// 目录里有数据（拉取或缓存注水成功）时静态内置表不再参与合并——
+// 管理员在表里停用/修改模型不会被静态兜底"复活"；
+// 目录为空或拉取失败时回退静态内置，保证产品行为不因后端故障改变。
+let remoteCatalogModels: ModelConfig[] = [];
+
+function mergeModelsByPriority(sources: ModelConfig[][]): ModelConfig[] {
+  const merged: ModelConfig[] = [];
+  const seen = new Set<string>();
+  for (const models of sources) {
+    for (const model of models) {
+      if (!seen.has(model.id)) {
+        seen.add(model.id);
+        merged.push(model);
+      }
     }
   }
   return merged;
@@ -1390,6 +1400,25 @@ export function getRuntimeModelConfigs(type?: ModelType): ModelConfig[] {
     : [...runtimeModels];
 }
 
+/** 云端目录是否已接管（表内有生效条目）。接管后静态内置不再参与合并。 */
+export function isRemoteModelCatalogAuthoritative(): boolean {
+  return remoteCatalogModels.length > 0;
+}
+
+export function setRemoteModelCatalog(models: ModelConfig[]): void {
+  remoteCatalogModels = Array.isArray(models) ? [...models] : [];
+}
+
+export function clearRemoteModelCatalog(): void {
+  remoteCatalogModels = [];
+}
+
+export function getRemoteModelCatalogModels(type?: ModelType): ModelConfig[] {
+  return type
+    ? remoteCatalogModels.filter((model) => model.type === type)
+    : [...remoteCatalogModels];
+}
+
 export function getStaticModelsByType(type: ModelType): ModelConfig[] {
   return ALL_MODELS.filter((model) => model.type === type);
 }
@@ -1406,10 +1435,19 @@ export function getStaticModelConfig(modelId: string): ModelConfig | undefined {
 // ============================================
 
 /**
- * 根据类型获取模型列表
+ * 根据类型获取模型列表。
+ * 优先级：云端目录 > 运行时发现 > 静态内置；目录接管后静态内置不再参与
+ * （表是唯一事实源），仅目录为空/拉取失败时回退静态。
  */
 export function getModelsByType(type: ModelType): ModelConfig[] {
-  return mergeModels(getStaticModelsByType(type), getRuntimeModelConfigs(type));
+  const sources: ModelConfig[][] = [
+    getRemoteModelCatalogModels(type),
+    getRuntimeModelConfigs(type),
+  ];
+  if (!isRemoteModelCatalogAuthoritative()) {
+    sources.push(getStaticModelsByType(type));
+  }
+  return mergeModelsByPriority(sources);
 }
 
 /**
@@ -1417,8 +1455,11 @@ export function getModelsByType(type: ModelType): ModelConfig[] {
  */
 export function getModelConfig(modelId: string): ModelConfig | undefined {
   return (
+    remoteCatalogModels.find((model) => model.id === modelId) ||
     runtimeModels.find((model) => model.id === modelId) ||
-    getStaticModelConfig(modelId)
+    (isRemoteModelCatalogAuthoritative()
+      ? undefined
+      : getStaticModelConfig(modelId))
   );
 }
 
@@ -1435,7 +1476,11 @@ export function getModelType(modelId: string): ModelType | undefined {
 export function getModelIds(type?: ModelType): string[] {
   const models = type
     ? getModelsByType(type)
-    : mergeModels(ALL_MODELS, getRuntimeModelConfigs());
+    : mergeModelsByPriority([
+        getRemoteModelCatalogModels(),
+        getRuntimeModelConfigs(),
+        ...(isRemoteModelCatalogAuthoritative() ? [] : [ALL_MODELS]),
+      ]);
   return models.map((model) => model.id);
 }
 
@@ -1684,7 +1729,16 @@ const SEEDREAM_IMAGE_MODEL_IDS = [
 ];
 
 /** GPT Image 2 模型 ID（支持扩展比例） */
-const GPT_IMAGE_2_MODEL_IDS = ['gpt-image-2-vip', 'gpt-image-2'];
+const GPT_IMAGE_2_MODEL_IDS = [
+  'gpt-image-2-vip',
+  'gpt-image-2',
+  // GPT Image 2.5 家族（目录条目在 model_catalog 表维护，此处仅挂参数兼容）
+  'gpt-image-2.5-vip',
+  'gpt-image-2.5',
+  'gpt-image-2.5-1k',
+  'gpt-image-2.5-sunburst',
+  'gpt-image-2.5-flare',
+];
 
 /** 所有 GPT 图片模型 ID */
 const GPT_IMAGE_MODEL_IDS = [...GPT_IMAGE_2_MODEL_IDS];

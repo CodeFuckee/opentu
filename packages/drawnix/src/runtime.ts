@@ -32,6 +32,11 @@ export {
   type IdlePrefetchGroup,
 } from './utils/startup-prefetch';
 export { configureManagedRouting } from './services/managed-routing/managed-runtime';
+export {
+  configureRemoteModelCatalog,
+  refreshRemoteModelCatalog,
+} from './utils/remote-model-catalog';
+export type { RemoteModelCatalogConfig } from './utils/remote-model-catalog';
 export { configureTaskArchive } from './services/task-supabase-archive/runtime';
 export type { TaskArchiveConfig } from './services/task-supabase-archive/runtime';
 export { configureSupabaseSync } from './services/supabase-sync/runtime';

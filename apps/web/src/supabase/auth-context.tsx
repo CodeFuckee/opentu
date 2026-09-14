@@ -15,11 +15,13 @@ import {
 } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { getSupabaseClient } from './supabase-client';
-import { SUPABASE_URL } from './supabase-client';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-client';
 import { normalizeLoginAccount } from './auth-validation';
 import type { RegisterEligibility } from './auth-validation';
 import {
   configureManagedRouting,
+  configureRemoteModelCatalog,
+  refreshRemoteModelCatalog,
   configureTaskArchive,
   configureSupabaseSync,
 } from '@drawnix/drawnix/runtime';
@@ -120,6 +122,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
+  }, []);
+
+  // 应用启动时装配云端模型目录并后台同步（与登录态无关：未登录 BYOK 用户也需要目录）。
+  // 启动强制拉取一次（绕过 TTL，保证管理员改表后刷新页面即可见）；
+  // 之后定时/回前台刷新仍受 TTL 约束。缓存注水保证拉取期间列表不空白；
+  // 拉取失败回退缓存/静态目录，不阻塞启动
+  useEffect(() => {
+    configureRemoteModelCatalog({
+      supabaseUrl: SUPABASE_URL,
+      anonKey: SUPABASE_ANON_KEY,
+    });
+    void refreshRemoteModelCatalog({ force: true });
+
+    const REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+    const timer = window.setInterval(() => {
+      void refreshRemoteModelCatalog();
+    }, REFRESH_INTERVAL_MS);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshRemoteModelCatalog();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   // 登录态变化时同步托管上游路由：登录 → 流量经 ai-proxy（服务端计量生图额度）；

@@ -8,8 +8,10 @@ import {
   DEFAULT_VIDEO_MODEL_ID,
   DEFAULT_TEXT_MODEL_ID,
   getModelsByType,
+  getRemoteModelCatalogModels,
   getStaticModelsByType,
   getStaticModelConfig,
+  isRemoteModelCatalogAuthoritative,
   setRuntimeModelConfigs,
 } from '../constants/model-config';
 import { normalizeApiBase } from '../services/media-api/utils';
@@ -771,7 +773,7 @@ function inferModelType(model: RemoteModelListItem): ModelType {
   return 'text';
 }
 
-function buildShortCode(modelId: string, type: ModelType): string {
+export function buildShortCode(modelId: string, type: ModelType): string {
   const compact = modelId
     .split(/[^a-zA-Z0-9]+/)
     .filter(Boolean)
@@ -1309,10 +1311,22 @@ class RuntimeModelDiscoveryStore {
         ...state.models.filter((model) => model.type === type)
       );
     }
-    return sortModelsByDisplayPriority([
-      ...runtimeModels,
-      ...decorateStaticModels(getStaticModelsByType(type)),
-    ]);
+    // 云端目录接管后静态内置不再参与（表是唯一事实源），仅保留用户级运行时发现；
+    // 未接管（目录为空/拉取失败）时保留静态内置兜底
+    const remoteModels = decorateStaticModels(
+      getRemoteModelCatalogModels(type)
+    );
+    const remoteIds = new Set(remoteModels.map((model) => model.id));
+    const sources: ModelConfig[][] = [remoteModels];
+    if (isRemoteModelCatalogAuthoritative()) {
+      sources.push(runtimeModels.filter((model) => !remoteIds.has(model.id)));
+    } else {
+      sources.push(
+        runtimeModels,
+        decorateStaticModels(getStaticModelsByType(type))
+      );
+    }
+    return sortModelsByDisplayPriority(sources.flat());
   }
 
   getPinnedSelectableModel(
@@ -1366,9 +1380,21 @@ class RuntimeModelDiscoveryStore {
       return createPinnedRuntimeModel(profileId, modelId, type);
     }
 
-    const staticMatch = getStaticModelConfig(modelId);
-    if (staticMatch && staticMatch.type === type) {
-      return decorateStaticModels([staticMatch])[0];
+    // 云端目录条目优先（接管后静态内置不再参与解析）
+    const remoteMatch = getRemoteModelCatalogModels().find(
+      (model) => model.id === modelId
+    );
+    if (remoteMatch) {
+      return remoteMatch.type === type
+        ? decorateStaticModels([remoteMatch])[0]
+        : null;
+    }
+
+    if (!isRemoteModelCatalogAuthoritative()) {
+      const staticMatch = getStaticModelConfig(modelId);
+      if (staticMatch && staticMatch.type === type) {
+        return decorateStaticModels([staticMatch])[0];
+      }
     }
 
     for (const state of this.catalogStates.values()) {
@@ -1394,6 +1420,9 @@ class RuntimeModelDiscoveryStore {
   ): ModelConfig[] {
     const state = this.getCatalogState(profileId);
     const runtimeModels = state.models.filter((model) => model.type === type);
+    if (isRemoteModelCatalogAuthoritative()) {
+      return mergeModels(getRemoteModelCatalogModels(type), runtimeModels);
+    }
     return mergeModels(getStaticModelsByType(type), runtimeModels);
   }
 
