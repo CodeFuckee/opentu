@@ -335,16 +335,31 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
     if (!deps) {
       return { ...emptyResult, error: '同步未配置' };
     }
-    const result = await runSync({
-      ...deps,
-      user: { id: user.id },
-      lastSyncTime: 0,
-      applyRemote: async () => ({ applied: 0 }),
-      syncMedia: undefined,
-    });
-    setLastSyncTime(Date.now());
-    setSyncStatus(result.success ? 'synced' : 'error');
-    setError(result.error ?? null);
+    // 与 performSync 相同的互斥守卫：防止与 30s 自动同步、visibilitychange
+    // 同步并发运行，交错写本地存储与云端
+    if (syncRef.current.inProgress) {
+      return { ...emptyResult, error: '同步正在进行中' };
+    }
+    syncRef.current.inProgress = true;
+    let result: SupabaseSyncResult;
+    try {
+      result = await runSync({
+        ...deps,
+        user: { id: user.id },
+        lastSyncTime: 0,
+        applyRemote: async () => ({ applied: 0 }),
+        syncMedia: undefined,
+      });
+      // 同步更新 syncRef 基线（buildDeps 从 syncRef 取值），否则下次自动同步
+      // 仍用旧基线比对，制造大量假冲突
+      syncRef.current.last = Date.now();
+      setLastSyncTime(syncRef.current.last);
+      void kvStorageService.set(LAST_SYNC_KEY, syncRef.current.last);
+      setSyncStatus(result.success ? 'synced' : 'error');
+      setError(result.error ?? null);
+    } finally {
+      syncRef.current.inProgress = false;
+    }
     return result;
   }, [buildDeps]);
 
@@ -366,30 +381,42 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
     if (!user) {
       return { ...emptyResult, error: '未能获取登录用户' };
     }
-    const remote = await fetchRemoteEntities(config, user.id);
-    // 拆分：有效实体 → 应用下载；墓碑实体（deleted_at 非空）→ 本地删除，
-    // 保证「下载远程」与「立即同步」的画板数量语义一致（墓碑不复活、生效删除）
-    const activeEntities = remote.entities.filter((e) => !e.deleted_at);
-    const tombstoneKeys = remote.entities
-      .filter((e) => !!e.deleted_at)
-      .map((e) => entityKey(e.entity_type, e.entity_id));
-    const { applied } = await applyRemoteEntities(activeEntities);
-    let deleted = 0;
-    if (tombstoneKeys.length > 0) {
-      const { deleted: tombstoneDeleted } = await deleteLocalEntities(tombstoneKeys);
-      deleted = tombstoneDeleted;
+    // 与 performSync 相同的互斥守卫（同 pushToRemote）
+    if (syncRef.current.inProgress) {
+      return { ...emptyResult, error: '同步正在进行中' };
     }
-    setLastSyncTime(Date.now());
-    setSyncStatus('synced');
-    setError(null);
-    return {
-      success: true,
-      uploaded: 0,
-      downloaded: applied,
-      deleted,
-      conflicts: 0,
-      duration: 0,
-    };
+    syncRef.current.inProgress = true;
+    try {
+      const remote = await fetchRemoteEntities(config, user.id);
+      // 拆分：有效实体 → 应用下载；墓碑实体（deleted_at 非空）→ 本地删除，
+      // 保证「下载远程」与「立即同步」的画板数量语义一致（墓碑不复活、生效删除）
+      const activeEntities = remote.entities.filter((e) => !e.deleted_at);
+      const tombstoneKeys = remote.entities
+        .filter((e) => !!e.deleted_at)
+        .map((e) => entityKey(e.entity_type, e.entity_id));
+      const { applied } = await applyRemoteEntities(activeEntities);
+      let deleted = 0;
+      if (tombstoneKeys.length > 0) {
+        const { deleted: tombstoneDeleted } = await deleteLocalEntities(tombstoneKeys);
+        deleted = tombstoneDeleted;
+      }
+      // 同步更新 syncRef 基线（同 pushToRemote）
+      syncRef.current.last = Date.now();
+      setLastSyncTime(syncRef.current.last);
+      void kvStorageService.set(LAST_SYNC_KEY, syncRef.current.last);
+      setSyncStatus('synced');
+      setError(null);
+      return {
+        success: true,
+        uploaded: 0,
+        downloaded: applied,
+        deleted,
+        conflicts: 0,
+        duration: 0,
+      };
+    } finally {
+      syncRef.current.inProgress = false;
+    }
   }, []);
 
   const value: SupabaseSyncContextValue = {

@@ -529,6 +529,12 @@ export const klingAdapter: VideoModelAdapter = {
       kling_elements: normalizedKlingElements,
     });
 
+    // 网关可能返回 200 + 错误体：不守卫 data 会抛 TypeError 掩盖真实错误
+    if (!submitResponse.data?.task_id) {
+      throw new Error(
+        `可灵任务提交失败: ${JSON.stringify(submitResponse.data).slice(0, 200)}`
+      );
+    }
     const taskId = submitResponse.data.task_id;
     onSubmitted?.(taskId);
     onProgress?.(10, 'processing');

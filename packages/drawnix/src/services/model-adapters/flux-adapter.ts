@@ -245,8 +245,12 @@ export const fluxImageAdapter: ImageModelAdapter = {
       }
 
       if (result.status === 'Error') {
+        // 不能拿 result.prompt（用户提示词）当错误消息，优先读 API 的错误字段
+        const errField =
+          (result as { error?: unknown }).error ??
+          (result.result as { error?: unknown } | undefined)?.error;
         throw new Error(
-          result.result?.prompt || 'Flux 图片生成失败'
+          `Flux 图片生成失败${errField ? `: ${String(errField).slice(0, 200)}` : ''}`
         );
       }
     }

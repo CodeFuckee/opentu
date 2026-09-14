@@ -18,6 +18,9 @@ import { unifiedCacheService } from '../unified-cache-service';
 import { fetchRemoteMedia, upsertRemoteMedia } from './repository';
 import { yieldToMain } from './checksum';
 
+/** 全量同步上传的大小上限（与 media-sync-adapter 保持一致） */
+const MAX_MEDIA_SIZE = 50 * 1024 * 1024;
+
 const DEFAULT_BUCKET = 'yue-sync';
 
 /** 与 task-submissions 一致的 MIME → 扩展名映射（core 自带，这里内联精简版） */
@@ -215,6 +218,10 @@ export async function syncMediaToSupabase(
       // 非媒体本地 blob（如 dev server 的 200 HTML 兜底页被误缓存）不上传，
       // 避免把毒化数据传播到云端
       if (!(await isLikelyMediaBlob(blob))) {
+        continue;
+      }
+      // 超大 blob 跳过上传（必失败刷 failed），与 media-sync-adapter 上限一致
+      if (blob.size > MAX_MEDIA_SIZE) {
         continue;
       }
       const hash = await sha256Hex(await blob.arrayBuffer());

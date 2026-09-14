@@ -213,15 +213,19 @@ export function createLocalCollector(): LocalDataCollector {
     async collectChat() {
       const sessions = await chatStorage.getAllSessions();
       const entities: RawEntity[] = [];
-      for (const session of sessions) {
+      // 并行读取各会话消息（逐个 await 会让大会话数场景的收集耗时线性放大）
+      const messagesBySession = await Promise.all(
+        sessions.map((session) => chatStorage.getMessages(session.id))
+      );
+      for (let i = 0; i < sessions.length; i++) {
+        const session = sessions[i];
         entities.push({
           entityType: 'chat_session',
           entityId: session.id,
           content: session,
           updatedAt: session.updatedAt,
         });
-        const messages = await chatStorage.getMessages(session.id);
-        for (const message of messages) {
+        for (const message of messagesBySession[i]) {
           entities.push({
             entityType: 'chat_message',
             entityId: message.id,

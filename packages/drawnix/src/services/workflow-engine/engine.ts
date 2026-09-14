@@ -226,6 +226,21 @@ export class WorkflowEngine {
         });
       }
     } catch (error: any) {
+      // 取消（signal 已 abort）不算失败：保留 cancelled 状态，
+      // 否则用户主动取消的工作流会被持久化为 failed
+      if (abortController?.signal.aborted) {
+        workflow.status = 'cancelled';
+        workflow.error = error.message || 'Workflow cancelled';
+        workflow.updatedAt = Date.now();
+        await workflowStorageWriter.saveWorkflow(workflow);
+
+        this.emitEvent({
+          type: 'status',
+          workflowId,
+          status: 'cancelled',
+        });
+        return;
+      }
       // 处理执行错误
       workflow.status = 'failed';
       workflow.error = error.message || 'Workflow execution failed';

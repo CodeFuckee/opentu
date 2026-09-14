@@ -371,7 +371,12 @@ export function resolveInvocationPlanFromRoute(
       },
       options
     );
-  } catch {
+  } catch (error) {
+    // 静默降级 legacy 路由会让绑定配置错误完全不可见，至少留告警
+    console.warn(
+      '[settings-repository] resolveInvocationPlanFromRoute failed, fallback to legacy:',
+      error instanceof Error ? error.message : error
+    );
     return null;
   }
 }

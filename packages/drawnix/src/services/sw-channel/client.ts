@@ -354,12 +354,14 @@ export class SWChannelClient {
     timeoutMs: number,
     errorMessage: string
   ): Promise<T> {
-    return Promise.race([
-      promise,
-      new Promise<T>((_, reject) =>
-        setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
-      ),
-    ]);
+    // 先 settle 一方清理定时器，避免每次调用遗留悬挂定时器
+    let timer: ReturnType<typeof setTimeout>;
+    const timeoutPromise = new Promise<T>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
+    });
+    const cleanup = () => clearTimeout(timer);
+    promise.then(cleanup, cleanup);
+    return Promise.race([promise, timeoutPromise]);
   }
 
   /**

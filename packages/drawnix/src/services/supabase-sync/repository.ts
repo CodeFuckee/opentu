@@ -162,24 +162,35 @@ export async function softDeleteRemoteEntities(
           eq: (col: string, val: string) => {
             eq: (col2: string, val2: string) => {
               eq: (col3: string, val3: string) => Promise<{ error: unknown }>;
+              in: (col3: string, vals: string[]) => Promise<{ error: unknown }>;
             };
           };
         };
       };
     };
     const now = new Date().toISOString();
-    // 按 (entity_type, entity_id) 逐条精确匹配，避免同名跨类型误删
+    // 按 entity_type 分组后用 in 批量打墓碑：逐条 update 会让批量删除的
+    // HTTP 往返数随墓碑数线性放大；组内仍按 entity_id 精确匹配，不会跨类型误删
+    const idsByType = new Map<string, string[]>();
     for (const key of keys) {
       const parsed = parseEntityKey(key);
       if (!parsed) {
         continue;
       }
+      const ids = idsByType.get(parsed.entityType);
+      if (ids) {
+        ids.push(parsed.entityId);
+      } else {
+        idsByType.set(parsed.entityType, [parsed.entityId]);
+      }
+    }
+    for (const [entityType, entityIds] of idsByType) {
       const { error } = await client
         .from(SYNC_DATA_TABLE)
         .update({ deleted_at: now, updated_at: now })
         .eq('user_id', userId)
-        .eq('entity_type', parsed.entityType)
-        .eq('entity_id', parsed.entityId);
+        .eq('entity_type', entityType)
+        .in('entity_id', entityIds);
       if (error) {
         return { error };
       }

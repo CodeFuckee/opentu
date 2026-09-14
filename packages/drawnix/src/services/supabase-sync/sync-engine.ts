@@ -217,10 +217,8 @@ export async function runSync(deps: SupabaseSyncDeps): Promise<SupabaseSyncResul
         diff.toTombstoneRemotely
       );
       if (!error) {
-        // 墓碑也算删除（本地已删，云端标记）
-        deleted += diff.toTombstoneRemotely.length - diff.toDeleteLocally.length > 0
-          ? diff.toTombstoneRemotely.length - diff.toDeleteLocally.length
-          : 0;
+        // 墓碑也算删除（本地已删，云端标记）；两个集合不相交，直接累加本组数量
+        deleted += diff.toTombstoneRemotely.length;
       }
     }
 
