@@ -33,6 +33,9 @@ export {
 } from './utils/startup-prefetch';
 export { configureManagedRouting } from './services/managed-routing/managed-runtime';
 export {
+  configureFeedbacklandSso,
+} from './services/feedbackland-sso';
+export {
   configureRemoteModelCatalog,
   refreshRemoteModelCatalog,
 } from './utils/remote-model-catalog';

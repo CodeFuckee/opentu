@@ -9,6 +9,10 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BottomActionsSection } from './bottom-actions-section';
 import { FEEDBACKLAND_URL } from '../../constants';
+import {
+  buildFeedbacklandTransitPageUrl,
+  configureFeedbacklandSso,
+} from '../../services/feedbackland-sso';
 
 const defaultProps = {
   projectDrawerOpen: false,
@@ -41,6 +45,16 @@ vi.mock('../shared/hover', () => ({
   HoverTip: ({ children }: { children: React.ReactNode }) => children,
 }));
 
+vi.mock('../../utils/message-plugin', () => ({
+  MessagePlugin: {
+    warning: vi.fn(),
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
+const messagePlugin = await import('../../utils/message-plugin');
+
 describe('BottomActionsSection Feedbackland 按钮', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -48,6 +62,7 @@ describe('BottomActionsSection Feedbackland 按钮', () => {
 
   afterEach(() => {
     cleanup();
+    configureFeedbacklandSso(null);
   });
 
   it('渲染 Feedbackland 按钮（带正确的 aria-label）', () => {
@@ -57,19 +72,39 @@ describe('BottomActionsSection Feedbackland 按钮', () => {
     expect(button.getAttribute('aria-label')).toBe('Feedbackland 反馈');
   });
 
-  it('点击后以新标签页 + noopener 打开 FEEDBACKLAND_URL', () => {
+  it('已登录（SSO 已配置）时点击打开同源中转页，不再直接跳 FEEDBACKLAND_URL', () => {
+    configureFeedbacklandSso({
+      supabaseUrl: 'http://supabase.local:8021',
+      anonKey: 'anon-key-test',
+      getToken: async () => 'token',
+    });
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     render(<BottomActionsSection {...defaultProps} />);
     fireEvent.click(screen.getByTestId('toolbar-feedbackland'));
     expect(openSpy).toHaveBeenCalledWith(
-      FEEDBACKLAND_URL,
+      buildFeedbacklandTransitPageUrl(),
       '_blank',
       expect.stringContaining('noopener')
     );
+    expect(openSpy.mock.calls[0][0]).not.toBe(FEEDBACKLAND_URL);
+    openSpy.mockRestore();
+  });
+
+  it('SSO 未配置（防御分支）时提示先登录且不开窗', () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    render(<BottomActionsSection {...defaultProps} />);
+    fireEvent.click(screen.getByTestId('toolbar-feedbackland'));
+    expect(openSpy).not.toHaveBeenCalled();
+    expect(messagePlugin.MessagePlugin.warning).toHaveBeenCalled();
     openSpy.mockRestore();
   });
 
   it('window.open 返回 null（弹窗被拦截）时不抛异常', () => {
+    configureFeedbacklandSso({
+      supabaseUrl: 'http://supabase.local:8021',
+      anonKey: 'anon-key-test',
+      getToken: async () => 'token',
+    });
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     render(<BottomActionsSection {...defaultProps} />);
     expect(() =>

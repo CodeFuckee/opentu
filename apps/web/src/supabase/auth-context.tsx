@@ -20,6 +20,7 @@ import { normalizeLoginAccount } from './auth-validation';
 import type { RegisterEligibility } from './auth-validation';
 import {
   configureManagedRouting,
+  configureFeedbacklandSso,
   configureRemoteModelCatalog,
   refreshRemoteModelCatalog,
   configureTaskArchive,
@@ -134,6 +135,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       anonKey: SUPABASE_ANON_KEY,
     });
     void refreshRemoteModelCatalog({ force: true });
+
+    // Feedbackland SSO：中转页通过 postMessage 向本窗口实时索取最新访问令牌
+    // （getToken 会自动续期），再向 feedbackland-sso Edge Function 换一次性
+    // magic link token，实现跳转 Feedbackland 免登。与登录态无关地配置一次；
+    // 未登录时 getToken 返回 null，由中转页提示先登录
+    configureFeedbacklandSso({
+      supabaseUrl: SUPABASE_URL,
+      anonKey: SUPABASE_ANON_KEY,
+      getToken: getAccessToken,
+    });
 
     const REFRESH_INTERVAL_MS = 10 * 60 * 1000;
     const timer = window.setInterval(() => {

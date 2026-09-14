@@ -11,8 +11,12 @@ import { ToolButton } from '../tool-button';
 import { useTaskQueue } from '../../hooks/useTaskQueue';
 import type { Task } from '../../types/task.types';
 import { FolderIcon, ToolboxIcon, TaskIcon, FeedbacklandIcon } from '../icons';
-import { FEEDBACKLAND_URL } from '../../constants';
 import './bottom-actions-section.scss';
+import { MessagePlugin } from '../../utils/message-plugin';
+import {
+  isFeedbacklandSsoConfigured,
+  openFeedbacklandSsoWindow,
+} from '../../services/feedbackland-sso';
 
 const FAILED_TASK_ACK_STORAGE_KEY = 'aitu-task-queue-failed-ack-at';
 
@@ -171,7 +175,7 @@ export const BottomActionsSection: React.FC<BottomActionsSectionProps> = ({
         )}
       </div>
 
-      {/* Feedbackland 反馈按钮 - 新标签页打开自部署反馈平台 */}
+      {/* Feedbackland 反馈按钮 - 新标签页经同源中转页 SSO 免登跳转自部署反馈平台 */}
       <ToolButton
         type="icon"
         icon={<FeedbacklandIcon />}
@@ -185,7 +189,12 @@ export const BottomActionsSection: React.FC<BottomActionsSectionProps> = ({
           e.event.stopPropagation();
         }}
         onClick={() => {
-          window.open(FEEDBACKLAND_URL, '_blank', 'noopener,noreferrer');
+          // 中转页内完成"换一次性 magic link token → Feedbackland 免登"的异步握手；
+          // 未配置（拿不到会话）时做防御提示：正常情况下画布被 AuthGate 保护，
+          // 能点到这里必然已登录且已配置
+          if (!openFeedbacklandSsoWindow()) {
+            MessagePlugin.warning('请先登录 opentu 后再进入反馈平台');
+          }
         }}
       />
     </div>
