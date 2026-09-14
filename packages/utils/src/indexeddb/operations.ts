@@ -196,14 +196,20 @@ export function put<T>(db: IDBDatabase, storeName: string, value: T): Promise<vo
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([storeName], 'readwrite');
     const store = transaction.objectStore(storeName);
-    const request = store.put(value);
+    store.put(value);
 
-    request.onsuccess = () => {
+    // 监听事务完成而非请求成功：request.onsuccess 之后事务仍可能 abort
+    // （如配额超限），提前 resolve 会让调用方误以为已持久化（与 putMany 一致）
+    transaction.oncomplete = () => {
       resolve();
     };
 
-    request.onerror = () => {
-      reject(request.error);
+    transaction.onerror = () => {
+      reject(transaction.error);
+    };
+
+    transaction.onabort = () => {
+      reject(transaction.error);
     };
   });
 }

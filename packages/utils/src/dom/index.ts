@@ -29,8 +29,9 @@ export function download(blob: Blob | MediaSource, filename: string): void {
   a.download = filename;
   document.body.append(a);
   a.click();
-  window.URL.revokeObjectURL(url);
   a.remove();
+  // 立即 revoke 会中断 Safari 等浏览器的下载，延迟释放（与 downloadFromBlob 一致）
+  setTimeout(() => window.URL.revokeObjectURL(url), 1000);
 }
 
 /**

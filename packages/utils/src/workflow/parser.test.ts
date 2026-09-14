@@ -428,3 +428,31 @@ describe('edge cases', () => {
     expect(result?.content.length).toBe(10000);
   });
 });
+
+describe('parseWorkflowJson 回归', () => {
+  it('args 为 null 时应被过滤而非产出 arguments:null', () => {
+    // 修复前：typeof null === 'object' 放行 null，下游 Object.keys(null) 崩溃
+    const input = '{"content": "x", "next": [{"mcp": "toolA", "args": null}, {"mcp": "toolB", "args": {"k": 1}}]}';
+    const result = parseWorkflowJson(input);
+
+    expect(result?.next).toHaveLength(1);
+    expect(result?.next[0].mcp).toBe('toolB');
+    expect(result?.next[0].args).toEqual({ k: 1 });
+  });
+
+  it('字符串值中的 URL 不再被注释剥离规则截断', () => {
+    const input = '{"content": "see https://a.com", "next": [{"mcp": "toolA", "args": {"url": "https://b.com/x"}}]}';
+    const result = parseWorkflowJson(input);
+
+    expect(result?.content).toBe('see https://a.com');
+    expect(result?.next[0].args).toEqual({ url: 'https://b.com/x' });
+  });
+
+  it('字符串外部的行注释仍会被剥离', () => {
+    const input = '{\n// 这是注释\n"content": "ok", "next": []\n}';
+    const result = parseWorkflowJson(input);
+
+    expect(result?.content).toBe('ok');
+    expect(result?.next).toHaveLength(0);
+  });
+});

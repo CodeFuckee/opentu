@@ -358,3 +358,41 @@ describe('LoopDetector', () => {
     });
   });
 });
+
+describe('LoopDetector 回归：嵌套参数哈希', () => {
+  let detector: LoopDetector;
+
+  beforeEach(() => {
+    detector = new LoopDetector({ repeatThreshold: 3 });
+  });
+
+  it('嵌套对象深层键不同的调用不应被误判为循环', () => {
+    // 修复前：hashArgs 用 Object.keys(args) 作为 replacer 白名单，
+    // 嵌套键被丢弃 → {opts:{x:1}} 与 {opts:{x:2}} 哈希相同 → 误报 EXACT_REPEAT
+    detector.recordCall('tool', { opts: { x: 1 } });
+    detector.recordCall('tool', { opts: { x: 2 } });
+    detector.recordCall('tool', { opts: { x: 3 } });
+
+    const result = detector.detect();
+    expect(result.loopDetected).toBe(false);
+  });
+
+  it('嵌套对象完全相同的调用仍应判为循环', () => {
+    detector.recordCall('tool', { opts: { x: 1 } });
+    detector.recordCall('tool', { opts: { x: 1 } });
+    detector.recordCall('tool', { opts: { x: 1 } });
+
+    const result = detector.detect();
+    expect(result.loopDetected).toBe(true);
+    expect(result.loopType).toBe(LoopType.EXACT);
+  });
+
+  it('顶层键序不同但内容相同的调用应判为循环', () => {
+    detector.recordCall('tool', { a: 1, b: 2 });
+    detector.recordCall('tool', { b: 2, a: 1 });
+    detector.recordCall('tool', { a: 1, b: 2 });
+
+    const result = detector.detect();
+    expect(result.loopDetected).toBe(true);
+  });
+});

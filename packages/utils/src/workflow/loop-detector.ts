@@ -9,6 +9,19 @@ import type { LoopDetectorConfig, ToolCallSignature, LoopDetectionResult } from 
 import { LoopType, DEFAULT_LOOP_DETECTOR_CONFIG } from './types';
 
 /**
+ * 递归键排序的 JSON.stringify replacer：保证对象键序稳定，
+ * 且嵌套对象的键不会像 replacer 白名单数组那样被丢弃
+ */
+function sortedKeysReplacer(_key: string, value: unknown): unknown {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const entries = Object.entries(value as Record<string, unknown>);
+    entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+    return Object.fromEntries(entries);
+  }
+  return value;
+}
+
+/**
  * Loop detector class
  */
 export class LoopDetector {
@@ -301,9 +314,13 @@ export class LoopDetector {
 
   /**
    * Calculate arguments hash
+   *
+   * 注意不能直接 JSON.stringify(args, Object.keys(args).sort())：replacer
+   * 白名单数组会递归作用于所有嵌套层级，嵌套对象里不在顶层键列表中的键
+   * 全部被丢弃，导致不同参数哈希相同、误报循环（forceTerminate 会误杀正常任务）。
    */
   private hashArgs(args: Record<string, unknown>): string {
-    const str = JSON.stringify(args, Object.keys(args).sort());
+    const str = JSON.stringify(args, sortedKeysReplacer);
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);

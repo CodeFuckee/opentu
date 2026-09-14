@@ -5,10 +5,15 @@
  */
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 Bytes';
+  if (bytes < 0 || !Number.isFinite(bytes)) return 'Invalid size';
 
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  // 钳制单位索引：0<byte<1024 时 log 为负、超大值超表，都会取到 undefined
+  const i = Math.min(
+    Math.max(Math.floor(Math.log(bytes) / Math.log(k)), 0),
+    sizes.length - 1
+  );
 
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
 }

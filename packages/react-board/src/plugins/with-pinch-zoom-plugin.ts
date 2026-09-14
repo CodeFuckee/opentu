@@ -91,8 +91,9 @@ export const withPinchZoom = (board: PlaitBoard) => {
             ...p1.currentPoint,
             ...p2.currentPoint
           );
-          // zoom 处理
-          const scale = currentDistance / lastDistance;
+          // zoom 处理（lastDistance 为 0 时两指起点重合，直接除会产生
+          // scale=Infinity 使 zoom 跳到上限，此时保持原缩放）
+          const scale = lastDistance > 0 ? currentDistance / lastDistance : 1;
 
           const v1 = [
             p1.currentPoint[0] - p1.lastPoint[0],

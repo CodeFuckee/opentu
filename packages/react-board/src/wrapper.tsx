@@ -196,7 +196,10 @@ export const Wrapper: React.FC<WrapperProps> = ({
       BOARD_TO_ON_CHANGE.delete(board);
       BOARD_TO_AFTER_CHANGE.delete(board);
     };
-  }, [board]);
+    // onContextChange 必须进依赖：父组件传入的内联回调每次渲染都是新引用，
+    // 只在首帧注册会永远调用旧闭包，数据变更通知静默失效（stale closure）。
+    // 清理函数会在回调变化时重新注册，无泄漏。
+  }, [board, onContextChange]);
 
   const isFirstRender = useRef(true);
   const prevViewportRef = useRef<Viewport | undefined>(viewport);

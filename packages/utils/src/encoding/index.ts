@@ -25,8 +25,13 @@
  */
 export function base64ToBlob(base64: string): Blob {
   const arr = base64.split(',');
-  const fileType = arr[0]!.match(/:(.*?);/)![1];
-  const bstr = atob(arr[1]!);
+  // 按文档校验格式：非法输入应抛出明确错误而非无意义的 TypeError
+  const mimeMatch = arr[0]?.match(/:(.*?);/);
+  if (!mimeMatch?.[1] || !arr[1]) {
+    throw new Error('Invalid data URL format');
+  }
+  const fileType = mimeMatch[1];
+  const bstr = atob(arr[1]);
   let l = bstr.length;
   const u8Arr = new Uint8Array(l);
 

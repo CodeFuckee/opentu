@@ -539,6 +539,14 @@ export async function compressImageBlobWithStats(
   blob: Blob
 ): Promise<CompressionResult> {
   const fileSizeMB = blob.size / (1024 * 1024);
+
+  // 必须在 shouldCompress 判断之前：getCompressionStrategy(>25) 返回
+  // shouldCompress:false 的 small 策略，先判断会静默跳过压缩，
+  // 与 compressImageBlob「>25MB 抛错」的约定相悖
+  if (fileSizeMB > 25) {
+    throw new Error('Image size exceeds maximum limit of 25MB');
+  }
+
   const strategy = getCompressionStrategy(fileSizeMB);
 
   if (!strategy.shouldCompress) {
@@ -548,10 +556,6 @@ export async function compressImageBlobWithStats(
       compressedSize: blob.size,
       quality: 1,
     };
-  }
-
-  if (fileSizeMB > 25) {
-    throw new Error('Image size exceeds maximum limit of 25MB');
   }
 
   let minQuality = strategy.minQuality;

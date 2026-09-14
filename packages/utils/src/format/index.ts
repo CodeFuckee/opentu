@@ -22,14 +22,14 @@
  */
 export function formatSize(bytes: number, decimals = 1): string {
   if (bytes === 0) return '0 B';
-  if (bytes < 0) return 'Invalid size';
+  if (bytes < 0 || !Number.isFinite(bytes)) return 'Invalid size';
 
   const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
   const k = 1024;
 
-  // 找到合适的单位
+  // 找到合适的单位（0<byte<1 时 log 为负，需钳制下界避免 units[-1]）
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  const unitIndex = Math.min(i, units.length - 1);
+  const unitIndex = Math.min(Math.max(i, 0), units.length - 1);
 
   if (unitIndex === 0) {
     return `${bytes} ${units[0]}`;

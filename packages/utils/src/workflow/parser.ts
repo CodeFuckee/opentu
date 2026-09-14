@@ -126,6 +126,51 @@ function generateToolCallId(index = 0): string {
 }
 
 /**
+ * 移除 JSON 文本中字符串字面量之外的 // 行注释与 /* 块注释。
+ * 逐字符扫描并跟踪字符串/转义状态，保证 "https://..." 这类
+ * 字符串内的 "//" 不会被误当注释截断。
+ */
+function stripJsonComments(text: string): string {
+  let result = '';
+  let inString = false;
+  let escape = false;
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (inString) {
+      result += char;
+      if (escape) {
+        escape = false;
+      } else if (char === '\\') {
+        escape = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+      result += char;
+      continue;
+    }
+    if (char === '/' && text[i + 1] === '/') {
+      const end = text.indexOf('\n', i);
+      if (end === -1) break;
+      i = end; // 保留换行符本身
+      result += '\n';
+      continue;
+    }
+    if (char === '/' && text[i + 1] === '*') {
+      const end = text.indexOf('*/', i + 2);
+      if (end === -1) break;
+      i = end + 1;
+      continue;
+    }
+    result += char;
+  }
+  return result;
+}
+
+/**
  * Try to parse JSON string, with healing on failure
  */
 function tryParseJson(jsonStr: string): Record<string, unknown> | null {
@@ -182,9 +227,9 @@ function healJson(jsonStr: string): string {
   // Remove duplicate commas
   healed = healed.replace(/,\s*,/g, ',');
 
-  // Remove comments
-  healed = healed.replace(/\/\/[^\n]*/g, '');
-  healed = healed.replace(/\/\*[\s\S]*?\*\//g, '');
+  // Remove comments（仅移除字符串外的注释：
+  // 简单的正则会把字符串值里的 "//" 也当注释，截断 "https://..." 这类 URL）
+  healed = stripJsonComments(healed);
 
   // Fix undefined
   healed = healed.replace(/:\s*undefined\b/g, ': null');
@@ -339,18 +384,21 @@ export function parseWorkflowJson(response: string): WorkflowJsonResponse | null
   }
 
   // Validate next array items
+  // 注意 args 不能只判 typeof === 'object'：typeof null === 'object'，
+  // 放行 null 会产出 arguments:null，下游 Object.keys(null) 直接崩溃
   const validNext = next
     .filter((item: unknown): item is { mcp: string; args: Record<string, unknown> } => {
       return (
         typeof item === 'object' &&
         item !== null &&
         typeof (item as { mcp?: unknown }).mcp === 'string' &&
-        typeof (item as { args?: unknown }).args === 'object'
+        typeof (item as { args?: unknown }).args === 'object' &&
+        (item as { args?: unknown }).args !== null
       );
     })
     .map((item) => ({
       mcp: item.mcp,
-      args: item.args as Record<string, unknown>,
+      args: (item.args ?? {}) as Record<string, unknown>,
     }));
 
   return {

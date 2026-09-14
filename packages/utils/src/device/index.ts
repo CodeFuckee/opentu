@@ -153,11 +153,12 @@ export function getBrowserName(): string {
 
   const userAgent = navigator.userAgent;
 
+  // Opera（OPR/Opera）的 UA 同时含 "Chrome"，必须先于 Chrome 判断
+  if (/Opera|OPR/.test(userAgent)) return 'Opera';
   if (/Edg/.test(userAgent)) return 'Edge';
   if (/Chrome/.test(userAgent)) return 'Chrome';
   if (/Safari/.test(userAgent)) return 'Safari';
   if (/Firefox/.test(userAgent)) return 'Firefox';
-  if (/Opera|OPR/.test(userAgent)) return 'Opera';
 
   return 'Unknown';
 }
