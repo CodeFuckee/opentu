@@ -1363,6 +1363,7 @@ function buildReportText(o, rangeLabel){
   lines.push('3. 热门模型：'+(ms||'—'));
   var ds=Object.entries(u.usageByRegion||{}).sort(function(a,b){return b[1]-a[1];}).slice(0,3).map(function(e){return e[0]+' '+e[1]+' 次';}).join('、');
   lines.push('4. 各部门使用：'+(ds||'—'));
+  lines.push('看板地址：'+location.origin+basePath());
   return lines.join('\\n');
 }
 
