@@ -24,7 +24,7 @@
 | 用量与额度 | `generation_usage` + `user_profiles` | 月度用量汇总、最新周期全局用量、Top 用户、限额配置 |
 | 用户与组织 | `user_profiles` / `staff_directory` / `departments` / `auth.users` | 用户总数、部门/区域分布、花名册、可用部门；用户统一显示 Display Name，取值顺序：`auth.users.user_metadata`（displayName → full_name → name，经 GoTrue admin API 按 user_id 关联）→ `staff_directory.name`（按 oa_account join）→ 回退 oa_account。注：自托管网关未放行 `/auth/v1/admin/*`，函数对网关 404 时自动降级直连内部 `http://auth:9999` |
 
-**消耗金额口径**：KPI 总额为**真实消耗**——自建 New API 网关（configs 表 NEWAPI_URL/NEWAPI_TOKEN/NEWAPI_KEY）消耗日志按 huabu 共享令牌分页求和，USD = quota ÷ 500000，含画布全部网关调用（绘图/聊天/轮询等）；网关日志无法区分到画布用户，「部门使用汇总」的金额列按 tu-zi 价目估算（`https://api.tu-zi.com/api/pricing`，按次用 model_price、按量按 1500 token/次估算）。任一数据源失败逐级降级显示 `-`。
+**消耗金额口径**：KPI 总额为**真实消耗**——自建 New API 网关（configs 表 NEWAPI_URL/NEWAPI_TOKEN/NEWAPI_KEY）消耗日志按 huabu 共享令牌分页求和，USD = quota ÷ 500000，含画布全部网关调用（绘图/聊天/轮询等）；网关日志无法区分到画布用户，「部门使用汇总」的金额列按 tu-zi 价目估算（`https://api.tu-zi.com/api/pricing`，按次用 model_price、按量按 1500 token/次估算）。任一数据源失败逐级降级显示 `-`。美元→人民币展示汇率可在 Supabase `configs` 表配置键 `USD_CNY_RATE`（缺省 0.1，内部结算口径 $10=¥1），改值即时生效。
 
 除特别注明外，任务类统计口径均为**仅成功（completed）任务**。
 

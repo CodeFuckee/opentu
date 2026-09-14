@@ -259,6 +259,10 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
         respond: () => json(200, [{ value: '200' }]),
       },
       {
+        match: (url) => url.includes('/rest/v1/configs?key=eq.USD_CNY_RATE'),
+        respond: () => json(200, [{ value: '7' }]),
+      },
+      {
         match: (url) => url.includes('api.tu-zi.com'),
         respond: () =>
           json(200, {
@@ -272,6 +276,8 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
   const overview = await aggregateOverview(ENV, 30, { fetch: fetchImpl });
 
   assert.equal(overview.tasks.total, 1);
+  // 汇率从 configs 表 USD_CNY_RATE 读取
+  assert.equal(overview.usdCnyRate, 7);
   assert.deepEqual(overview.tasks.byModel, { 'm-a': 1 });
   assert.equal(overview.tasks.activeUsers, 1);
   assert.deepEqual(overview.tasks.topUsers, [

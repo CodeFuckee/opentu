@@ -200,6 +200,8 @@ export async function fetchCanvasUsage(
 export interface DashboardOverview {
   generatedAt: string;
   days: number;
+  /** 美元→人民币展示汇率（configs 表 USD_CNY_RATE，缺省 0.1） */
+  usdCnyRate: number;
   tasks: {
     /** 口径：仅统计成功（status=completed）任务 */
     total: number;
@@ -550,6 +552,8 @@ export function aggregateUsers(
 export const TUZI_PRICING_URL = 'https://api.tu-zi.com/api/pricing';
 export const ESTIMATED_OUTPUT_TOKENS_PER_CALL = 1500;
 export const NEWAPI_QUOTA_PER_UNIT = 500000;
+/** 美元→人民币展示汇率缺省值（configs 表 USD_CNY_RATE 可覆盖） */
+export const DEFAULT_USD_CNY_RATE = 0.1;
 const MIN_HOT_CALLS_FOR_EMPIRICAL = 100;
 
 export async function fetchModelPricing(
@@ -769,10 +773,22 @@ export async function aggregateOverview(
     }
     totalCostUsd = Math.round(estimate * 100) / 100;
   }
+  // 美元→人民币展示汇率：configs 表 USD_CNY_RATE，缺省 0.1（内部结算口径）
+  let usdCnyRate = DEFAULT_USD_CNY_RATE;
+  try {
+    const rawRate = await readDashboardConfig(env, 'USD_CNY_RATE', deps);
+    const parsed = rawRate == null ? Number.NaN : Number(rawRate);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      usdCnyRate = parsed;
+    }
+  } catch {
+    // 配置缺失/查询失败用默认值
+  }
 
   return {
     generatedAt: new Date().toISOString(),
     days: safeDays,
+    usdCnyRate,
     tasks: {
       ...tasksAgg,
       topUsers: participation.topUsers,
@@ -962,7 +978,7 @@ function trendLine(svg, data){
 }
 
 var CHART_COLORS = ['#4f8cff','#34d399','#fbbf24','#f472b6','#c084fc','#f97316','#22d3ee','#a3e635','#fb7185','#60a5fa'];
-var USD_CNY = 0.1; // 内部结算汇率：10 美元 = 1 人民币
+var USD_CNY = 0.1; // 兜底汇率；实际以 overview 返回的 usdCnyRate（configs 表 USD_CNY_RATE）为准
 var LAST_OVERVIEW = null;
 
 function sparkline(trend){
@@ -1076,6 +1092,8 @@ function rankTable(el, o){
 
 function render(o){
   LAST_OVERVIEW = o;
+  var rate = Number(o.usdCnyRate);
+  if(Number.isFinite(rate) && rate>0) USD_CNY = rate;
   document.getElementById('generatedAt').textContent = '生成于 ' + fmtDate(o.generatedAt);
   kpiCards(o);
   donut(document.getElementById('typeDonut'), o.tasks.byType);
