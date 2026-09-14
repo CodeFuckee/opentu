@@ -317,7 +317,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signOut = async () => {
     try {
-      await supabase.auth.signOut();
+      // scope=local：只注销本应用（Feedbackland）的会话。supabase-js 默认
+      // scope=global 会注销该用户在所有应用的会话，连带杀掉 opentu 画布的
+      // 登录态，导致下次从 opentu SSO 跳转握手 401、免登失效
+      await supabase.auth.signOut({ scope: "local" });
 
       destroySession();
 
