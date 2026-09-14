@@ -34,6 +34,10 @@ export const REASONING = {
 
 type EmbeddingTaskType = "RETRIEVAL_DOCUMENT" | "RETRIEVAL_QUERY";
 
+/** OPENROUTER_API_KEY 未配置时，LLM 相关能力降级为非阻塞兜底（自托管场景） */
+export const hasOpenRouterKey = (): boolean =>
+  Boolean(process.env.OPENROUTER_API_KEY);
+
 const generateVector = async (text: string, taskType: EmbeddingTaskType) => {
   try {
     const response = await fetch("https://openrouter.ai/api/v1/embeddings", {
@@ -85,6 +89,10 @@ export const isInappropriateCheck = async ({
   plainText: string;
   imageUrls?: string[];
 }) => {
+  // 未配置 OpenRouter key 时跳过合规检查（自托管内网工具，宁放过勿阻塞）
+  if (!hasOpenRouterKey()) {
+    return false;
+  }
   try {
     const prompt = `
       You are a strict content moderator. Analyze the provided text and images (via URLs) for inappropriate content including spam, nonsensical rambling, violence, sexual material, hate speech, harassment, illegal activities, or anything harmful/unsafe.

@@ -7,12 +7,24 @@ import {
   generateSQLEmbedding,
   getImageUrls,
   getPlainText,
+  hasOpenRouterKey,
   isInappropriateCheck,
   LLM_MODEL,
   REASONING,
 } from "@/lib/utils-server";
 
 const getTitleAndCategory = async ({ plainText }: { plainText: string }) => {
+  // OPENROUTER_API_KEY 未配置或 LLM 调用失败时降级：截断原文作标题、归类
+  // general feedback——反馈提交不因外部 AI 服务不可用而阻塞（自托管场景）
+  const fallback = () => ({
+    title: plainText.replace(/\s+/g, " ").trim().slice(0, 60) || "未命名反馈",
+    category: "general feedback" as FeedbackCategory,
+  });
+
+  if (!hasOpenRouterKey()) {
+    return fallback();
+  }
+
   try {
     const prompt = `
       You are an expert at creating concise, natural-sounding titles and categorizing descriptions.
@@ -88,7 +100,12 @@ const getTitleAndCategory = async ({ plainText }: { plainText: string }) => {
 
     return { title, category };
   } catch (error) {
-    throw error;
+    // LLM 限流/网络/余额等异常不阻塞反馈提交，降级为机械标题
+    console.warn(
+      "[create-feedback-post] LLM 起标题/分类失败，使用降级标题:",
+      error instanceof Error ? error.message : error
+    );
+    return fallback();
   }
 };
 
