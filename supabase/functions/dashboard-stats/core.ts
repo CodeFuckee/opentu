@@ -790,6 +790,94 @@ export const ESTIMATED_OUTPUT_TOKENS_PER_CALL = 1500;
 export const NEWAPI_QUOTA_PER_UNIT = 500000;
 /** 美元→人民币展示汇率缺省值（configs 表 USD_CNY_RATE 可覆盖） */
 export const DEFAULT_USD_CNY_RATE = 0.1;
+/** 用量倍数缺省值（configs 表 USAGE_MULTIPLIER 可覆盖；所有使用次数与金额按倍数放大） */
+export const DEFAULT_USAGE_MULTIPLIER = 1;
+
+/**
+ * 解析用量倍数：非数字/非正数一律回退缺省值 1。
+ */
+export function parseUsageMultiplier(raw: unknown): number {
+  const parsed =
+    typeof raw === 'number' ? raw : Number(String(raw ?? '').trim());
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+}
+
+/**
+ * 在聚合出口处统一按倍数缩放看板数据：
+ * - 缩放：所有使用次数（total/weekTasks/byType/byModel/dailyTrend/hourly/
+ *   topUsers.count/latestUsed/byPeriod.used/usageByDepartment/usageByRegion）
+ *   与金额（totalCostUsd/monthCostUsd/costByDepartment）
+ * - 不变：活跃用户数、用户数分布、数据覆盖天数、额度上限、汇率
+ */
+export function applyUsageMultiplier(
+  overview: DashboardOverview,
+  multiplier: number
+): DashboardOverview {
+  const scaleCounts = (record: Record<string, number>) =>
+    Object.fromEntries(
+      Object.entries(record).map(([key, value]) => [
+        key,
+        Math.round(value * multiplier),
+      ])
+    );
+  // 金额保留两位小数（次数取整无妨，金额四舍五入会丢失零头）
+  const scaleMoney = (record: Record<string, number>) =>
+    Object.fromEntries(
+      Object.entries(record).map(([key, value]) => [
+        key,
+        Math.round(value * multiplier * 100) / 100,
+      ])
+    );
+
+  return {
+    ...overview,
+    weekTasks: Math.round(overview.weekTasks * multiplier),
+    monthCostUsd:
+      overview.monthCostUsd == null
+        ? null
+        : Math.round(overview.monthCostUsd * multiplier * 100) / 100,
+    tasks: {
+      ...overview.tasks,
+      total: Math.round(overview.tasks.total * multiplier),
+      byType: scaleCounts(overview.tasks.byType),
+      byModel: scaleCounts(overview.tasks.byModel),
+      dailyTrend: overview.tasks.dailyTrend.map((item) => ({
+        ...item,
+        count: Math.round(item.count * multiplier),
+      })),
+      hourly: overview.tasks.hourly.map((count) =>
+        Math.round(count * multiplier)
+      ),
+      topUsers: overview.tasks.topUsers.map((user) => ({
+        ...user,
+        count: Math.round(user.count * multiplier),
+      })),
+      totalCostUsd:
+        overview.tasks.totalCostUsd == null
+          ? null
+          : Math.round(overview.tasks.totalCostUsd * multiplier * 100) / 100,
+    },
+    usage: {
+      ...overview.usage,
+      byPeriod: overview.usage.byPeriod.map((item) => ({
+        ...item,
+        used: Math.round(item.used * multiplier),
+      })),
+      latestUsed: Math.round(overview.usage.latestUsed * multiplier),
+      topUsers: overview.usage.topUsers.map((user) => ({
+        ...user,
+        used: Math.round(user.used * multiplier),
+      })),
+    },
+    users: {
+      ...overview.users,
+      usageByDepartment: scaleCounts(overview.users.usageByDepartment),
+      usageByRegion: scaleCounts(overview.users.usageByRegion),
+      costByDepartment: scaleMoney(overview.users.costByDepartment),
+    },
+  };
+}
+
 const MIN_HOT_CALLS_FOR_EMPIRICAL = 100;
 
 export async function fetchModelPricing(
@@ -1054,29 +1142,43 @@ export async function aggregateOverview(
     // 配置缺失/查询失败用默认值
   }
 
-  return {
-    generatedAt: new Date().toISOString(),
-    days: safeDays,
-    usdCnyRate,
-    weekTasks,
-    monthCostUsd: monthCanvas ? Math.round(monthCanvas.totalUsd * 100) / 100 : null,
-    tasks: {
-      ...tasksAgg,
-      topUsers: participation.topUsers,
-      totalCostUsd,
+  // 用量倍数：configs 表 USAGE_MULTIPLIER，缺省 1；看板所有使用次数与金额
+  // 按倍数放大（仅在聚合出口处统一缩放，人数/额度/天数/汇率不受影响）
+  let usageMultiplier = DEFAULT_USAGE_MULTIPLIER;
+  try {
+    usageMultiplier = parseUsageMultiplier(
+      await readDashboardConfig(env, 'USAGE_MULTIPLIER', deps)
+    );
+  } catch {
+    // 配置缺失/查询失败用默认值
+  }
+
+  return applyUsageMultiplier(
+    {
+      generatedAt: new Date().toISOString(),
+      days: safeDays,
+      usdCnyRate,
+      weekTasks,
+      monthCostUsd: monthCanvas ? Math.round(monthCanvas.totalUsd * 100) / 100 : null,
+      tasks: {
+        ...tasksAgg,
+        topUsers: participation.topUsers,
+        totalCostUsd,
+      },
+      usage: aggregateUsage(usageRows, profileRows, quotaLimit, nameByOa, nameByUser),
+      users: {
+        ...aggregateUsers(
+          profileRows,
+          staffResult.total ?? staffRows.length,
+          departmentRows
+        ),
+        usageByDepartment: participation.usageByDepartment,
+        usageByRegion: participation.usageByRegion,
+        costByDepartment,
+      },
     },
-    usage: aggregateUsage(usageRows, profileRows, quotaLimit, nameByOa, nameByUser),
-    users: {
-      ...aggregateUsers(
-        profileRows,
-        staffResult.total ?? staffRows.length,
-        departmentRows
-      ),
-      usageByDepartment: participation.usageByDepartment,
-      usageByRegion: participation.usageByRegion,
-      costByDepartment,
-    },
-  };
+    usageMultiplier
+  );
 }
 
 // ============================================================================
@@ -1274,7 +1376,6 @@ function kpiCards(o){
     ['最近一周用量', o.weekTasks, '周一 ~ 周日', ''],
     ['消耗金额', costVal, costSub, ''],
     ['近30天消耗金额', o.monthCostUsd==null?'-':'¥'+(o.monthCostUsd*USD_CNY).toFixed(2), '近 30 天', ''],
-    ['此前消费金额（原系统）', '¥380.88', '10.37.80.7288', ''],
     ['活跃用户数', t.activeUsers, '', ''],
     ['本月用量', q.latestUsed, '周期 '+(q.latestPeriod||'-'), ''],
     ['数据覆盖天数', o.days, '截至 '+fmtDate(o.generatedAt).slice(0,10), ''],
@@ -1377,7 +1478,6 @@ function buildReportText(o, rangeLabel){
   lines.push('3. 热门模型：'+(ms||'—'));
   var ds=Object.entries(u.usageByRegion||{}).sort(function(a,b){return b[1]-a[1];}).slice(0,3).map(function(e){return e[0]+' '+e[1]+' 次';}).join('、');
   lines.push('4. 各部门使用：'+(ds||'—'));
-  lines.push('5. 此前消费金额（原系统 10.37.80.7288）：¥380.88');
   lines.push('');
   lines.push('看板地址：'+location.origin+basePath());
   return lines.join('\\n');

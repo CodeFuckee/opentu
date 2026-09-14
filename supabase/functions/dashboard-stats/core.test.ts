@@ -495,3 +495,108 @@ test('buildDashboardHtml：自包含页面，内嵌 anon key，无外部脚本�
   // 推送按钮（钉钉机器人）
   assert.ok(html.includes('id="pushBtn"'));
 });
+
+// ============================================================
+// 用量倍数（configs 表 USAGE_MULTIPLIER，缺省 1）
+// ============================================================
+import {
+  parseUsageMultiplier,
+  applyUsageMultiplier,
+} from './core.ts';
+
+test('parseUsageMultiplier：合法值解析，非法/非正数回退 1', () => {
+  assert.equal(parseUsageMultiplier('2'), 2);
+  assert.equal(parseUsageMultiplier('1.5'), 1.5);
+  assert.equal(parseUsageMultiplier(3), 3);
+  assert.equal(parseUsageMultiplier('abc'), 1);
+  assert.equal(parseUsageMultiplier('0'), 1);
+  assert.equal(parseUsageMultiplier('-3'), 1);
+  assert.equal(parseUsageMultiplier(null), 1);
+  assert.equal(parseUsageMultiplier(undefined), 1);
+  assert.equal(parseUsageMultiplier(''), 1);
+});
+
+function makeOverviewFixture() {
+  return {
+    generatedAt: '2026-09-14T00:00:00Z',
+    days: 7,
+    usdCnyRate: 0.1,
+    weekTasks: 10,
+    monthCostUsd: 12.5,
+    tasks: {
+      total: 10,
+      byType: { image: 8, chat: 2 },
+      byModel: { 'gpt-image-2': 10 },
+      activeUsers: 3,
+      avgDurationMs: 5000,
+      dailyTrend: [
+        { date: '2026-09-13', count: 6 },
+        { date: '2026-09-14', count: 4 },
+      ],
+      hourly: [1, 2, 3],
+      topUsers: [
+        { userId: 'u1', displayName: '张三', department: '职能部门', count: 6 },
+      ],
+      totalCostUsd: 5,
+    },
+    usage: {
+      quotaLimit: 100,
+      byPeriod: [{ period: '2026-09', used: 10 }],
+      latestPeriod: '2026-09',
+      latestUsed: 10,
+      topUsers: [
+        { oaAccount: 'a', displayName: '张三', department: '职能部门', used: 10 },
+      ],
+    },
+    users: {
+      total: 3,
+      byDepartment: { 职能部门: 1 },
+      byRegion: { 深圳: 3 },
+      usageByDepartment: { 职能部门: 10 },
+      usageByRegion: { 深圳: 10 },
+      costByDepartment: { 职能部门: 1.5 },
+      staffDirectory: 20,
+      enabledDepartments: 5,
+    },
+  } as never;
+}
+
+test('applyUsageMultiplier：次数与金额按倍数缩放，人数/额度/天数/汇率不受影响', () => {
+  const scaled = applyUsageMultiplier(makeOverviewFixture() as never, 2);
+
+  assert.equal(scaled.weekTasks, 20);
+  assert.equal(scaled.tasks.total, 20);
+  assert.deepEqual(scaled.tasks.byType, { image: 16, chat: 4 });
+  assert.deepEqual(scaled.tasks.byModel, { 'gpt-image-2': 20 });
+  assert.deepEqual(scaled.tasks.dailyTrend, [
+    { date: '2026-09-13', count: 12 },
+    { date: '2026-09-14', count: 8 },
+  ]);
+  assert.deepEqual(scaled.tasks.hourly, [2, 4, 6]);
+  assert.equal(scaled.tasks.topUsers[0].count, 12);
+  assert.equal(scaled.tasks.totalCostUsd, 10);
+
+  assert.equal(scaled.usage.latestUsed, 20);
+  assert.deepEqual(scaled.usage.byPeriod, [{ period: '2026-09', used: 20 }]);
+  assert.equal(scaled.usage.topUsers[0].used, 20);
+
+  // 不应被倍数影响的字段
+  assert.equal(scaled.tasks.activeUsers, 3);
+  assert.equal(scaled.tasks.avgDurationMs, 5000);
+  assert.equal(scaled.users.total, 3);
+  assert.deepEqual(scaled.users.byDepartment, { 职能部门: 1 });
+  assert.equal(scaled.usage.quotaLimit, 100);
+  assert.equal(scaled.usdCnyRate, 0.1);
+});
+
+test('applyUsageMultiplier：null 金额保留 null；倍数为 1 时数值不变', () => {
+  const base = makeOverviewFixture();
+  base.tasks.totalCostUsd = null;
+  base.monthCostUsd = null;
+
+  const scaled = applyUsageMultiplier(base as never, 2);
+  assert.equal(scaled.tasks.totalCostUsd, null);
+  assert.equal(scaled.monthCostUsd, null);
+  assert.equal(scaled.weekTasks, 20);
+  assert.deepEqual(scaled.tasks.hourly, [2, 4, 6]);
+});
