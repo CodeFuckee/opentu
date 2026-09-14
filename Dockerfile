@@ -20,4 +20,6 @@ COPY --from=builder /builder/dist/apps/web/ /home/static
 
 EXPOSE 80
 
-CMD ["/busybox-httpd", "-f", "-v", "-p", "80", "-c", "httpd.conf"]
+# -c httpd.conf 移除：仓库与构建产物中均无该文件（busybox 实际以默认配置运行，
+# 引用不存在的配置只具误导性）
+CMD ["/busybox-httpd", "-f", "-v", "-p", "80"]

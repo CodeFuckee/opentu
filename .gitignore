@@ -66,3 +66,7 @@ feedbackland/
 
 # ZCode 本地会话产物
 .zcode/
+test-files/test.png
+
+# 本地凭据笔记（评审后下架，勿再提交）
+secret.md
