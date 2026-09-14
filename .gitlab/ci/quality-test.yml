@@ -108,7 +108,8 @@ test:e2e:
         kill -9 "${pid}" 2>/dev/null || true
       done
       sleep 1
-    - corepack enable
+    - corepack enable --install-directory "$HOME/.local/bin" || corepack enable
+    - export PATH="$HOME/.local/bin:$PATH"
     - corepack prepare pnpm@${PNPM_VERSION} --activate
     - pnpm config set store-dir .pnpm-store
     - pnpm install --frozen-lockfile
