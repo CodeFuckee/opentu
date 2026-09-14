@@ -91,7 +91,7 @@ export function handleVideoElementClick(element: any, event: MouseEvent) {
     
     // 在新窗口打开视频
     if (element.url) {
-      window.open(element.url, '_blank');
+      window.open(element.url, '_blank', 'noopener');
       return true;
     }
   }

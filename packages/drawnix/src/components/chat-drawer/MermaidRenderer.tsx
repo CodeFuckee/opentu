@@ -74,6 +74,44 @@ function preprocessMermaidCode(code: string): string {
   return processed;
 }
 
+/**
+ * 清理 mermaid 输出的 SVG：移除脚本/嵌入节点、on* 事件属性与危险协议链接。
+ * mermaid 以 securityLevel 'loose' 渲染（保留标签内 HTML 与交互），
+ * 图表代码可能来自被注入的模型输出，结果会进 innerHTML，必须先消毒。
+ */
+function sanitizeMermaidSvg(svg: string): string {
+  try {
+    const doc = new DOMParser().parseFromString(svg, 'image/svg+xml');
+    const root = doc.documentElement;
+    if (!root || root.nodeName === 'parsererror' || doc.querySelector('parsererror')) {
+      return '';
+    }
+
+    for (const node of Array.from(root.querySelectorAll('script, iframe, object, embed'))) {
+      node.remove();
+    }
+
+    for (const el of Array.from(root.querySelectorAll('*'))) {
+      for (const attr of Array.from(el.attributes)) {
+        const name = attr.name.toLowerCase();
+        const value = attr.value.trim().toLowerCase();
+        if (name.startsWith('on')) {
+          el.removeAttribute(attr.name);
+        } else if (
+          (name === 'href' || name === 'xlink:href' || name === 'src') &&
+          (value.startsWith('javascript:') || value.startsWith('vbscript:'))
+        ) {
+          el.removeAttribute(attr.name);
+        }
+      }
+    }
+
+    return new XMLSerializer().serializeToString(root);
+  } catch {
+    return '';
+  }
+}
+
 export const MermaidRenderer: React.FC<MermaidRendererProps> = ({
   code,
   className = '',
@@ -117,8 +155,12 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({
         const { svg } = await mermaid.render(id, processed);
 
         if (!cancelled && containerRef.current) {
-          containerRef.current.innerHTML = svg;
-          setSvgContent(svg);
+          const safeSvg = sanitizeMermaidSvg(svg);
+          if (!safeSvg) {
+            throw new Error('图表渲染结果未通过安全检查');
+          }
+          containerRef.current.innerHTML = safeSvg;
+          setSvgContent(safeSvg);
           setIsLoading(false);
         }
       } catch (err: any) {

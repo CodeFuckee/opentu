@@ -26,7 +26,7 @@ import {
   ToolTransforms,
 } from '../components/tool-element/tool.transforms';
 import { PlaitTool } from '../types/toolbox.types';
-import { ToolCommunicationService, ToolCommunicationHelper } from '../services/tool-communication-service';
+import { ToolCommunicationService, ToolCommunicationHelper, getToolIframeTargetOrigin } from '../services/tool-communication-service';
 import { ToolMessageType, GenerateImagePayload, GenerateImageResponse, InsertImagePayload } from '../types/tool-communication.types';
 import { taskQueueService } from '../services/task-queue';
 import { TaskType } from '../types/task.types';
@@ -229,7 +229,7 @@ function setupCommunicationHandlers(
             },
           };
 
-          iframe.contentWindow?.postMessage(response, '*');
+          iframe.contentWindow?.postMessage(response, getToolIframeTargetOrigin(iframe));
           // console.log(`[ToolCommunication] Image generation success sent to ${message.toolId}`);
           subscription.unsubscribe();
         }
@@ -241,8 +241,12 @@ function setupCommunicationHandlers(
             error: event.task.error?.message || '图片生成失败',
           };
 
-          iframe.contentWindow?.postMessage(response, '*');
+          iframe.contentWindow?.postMessage(response, getToolIframeTargetOrigin(iframe));
           // console.log(`[ToolCommunication] Image generation error sent to ${message.toolId}`);
+          subscription.unsubscribe();
+        }
+        // 任务被取消：不会再有 completed/failed 终态，退订避免订阅泄漏
+        else if (event.type === 'taskUpdated' && event.task.status === 'cancelled') {
           subscription.unsubscribe();
         }
       });

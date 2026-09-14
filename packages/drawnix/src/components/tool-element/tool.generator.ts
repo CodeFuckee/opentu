@@ -297,7 +297,11 @@ export class ToolGenerator {
     const Component = toolRegistry.resolveInternalComponent(element.component);
     if (!Component) {
       if (container) {
-        container.innerHTML = `<div style="padding: 20px; color: #f5222d;">未找到组件: ${element.component}</div>`;
+        // element.component 来自画板数据，不能用 innerHTML 拼接（存储型 XSS）
+        const missing = document.createElement('div');
+        missing.style.cssText = 'padding: 20px; color: #f5222d;';
+        missing.textContent = `未找到组件: ${element.component}`;
+        container.replaceChildren(missing);
       }
       return;
     }
@@ -579,8 +583,23 @@ export class ToolGenerator {
       console.warn(`[ToolGenerator] URL contains missing variables: ${missingVariables.join(', ')}`);
     }
 
+    // 仅接受 http(s) 工具地址：element.url 随画板数据流转（粘贴/导入），
+    // javascript: 等协议的 iframe 会在继承父源的文档中执行脚本
+    let url: URL;
+    try {
+      url = new URL(processedUrl, window.location.origin);
+    } catch {
+      console.error('[ToolGenerator] Invalid tool URL');
+      this.handleLoadError(element.id, ToolErrorType.LOAD_FAILED);
+      return iframe;
+    }
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+      console.error('[ToolGenerator] Blocked non-http(s) tool URL protocol');
+      this.handleLoadError(element.id, ToolErrorType.LOAD_FAILED);
+      return iframe;
+    }
+
     // 设置 iframe URL，添加 toolId 参数用于通信
-    const url = new URL(processedUrl, window.location.origin);
     url.searchParams.set('toolId', element.id);
     iframe.src = url.toString();
     

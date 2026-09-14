@@ -62,7 +62,7 @@ export const Video: React.FC<VideoProps> = (props: VideoProps) => {
       e.stopPropagation();
       // 在只读模式下，点击视频在新窗口打开
       e.preventDefault();
-      window.open(url, '_blank');
+      window.open(url, '_blank', 'noopener');
     }
   };
 
