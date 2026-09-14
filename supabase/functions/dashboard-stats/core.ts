@@ -905,15 +905,12 @@ export function buildDashboardHtml(anonKey: string): string {
     </select>
     <button id="refreshBtn">刷新</button>
     <button id="exportBtn">导出图片</button>
+    <button id="copyReportBtn">复制报告</button>
   </div>
 </header>
 <div class="wrap">
 
 <div class="cards" id="kpiCards"><div class="sk"></div></div>
-
-<div class="grid">
-  <div class="panel"><h2>每周使用报告<span class="muted" id="reportRange" style="margin-left:8px;font-weight:400"></span><button id="copyReportBtn" style="margin-left:auto">复制报告</button></h2><textarea id="reportText" readonly style="width:100%;min-height:150px;background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:10px;font-family:inherit;font-size:12px;line-height:1.7"></textarea></div>
-</div>
 
 <div class="grid">
   <div class="panel"><h2>操作类型分布</h2><div id="typeDonut"><div class="sk"></div></div></div>
@@ -1130,8 +1127,6 @@ function render(o){
   var rate = Number(o.usdCnyRate);
   if(Number.isFinite(rate) && rate>0) USD_CNY = rate;
   document.getElementById('generatedAt').textContent = '统计周期 '+CURRENT_RANGE_LABEL+' · 生成于 ' + fmtDate(o.generatedAt);
-  document.getElementById('reportRange').textContent = CURRENT_RANGE_LABEL;
-  document.getElementById('reportText').value = buildReportText(o, CURRENT_RANGE_LABEL);
   kpiCards(o);
   donut(document.getElementById('typeDonut'), o.tasks.byType);
   donut(document.getElementById('modelDonut'), o.tasks.byModel);
@@ -1203,20 +1198,29 @@ function load(){
 document.getElementById('refreshBtn').addEventListener('click', load);
 document.getElementById('daysSel').addEventListener('change', load);
 document.getElementById('copyReportBtn').addEventListener('click', function(){
-  var ta=document.getElementById('reportText');
+  var btn=this;
+  var text = LAST_OVERVIEW ? buildReportText(LAST_OVERVIEW, CURRENT_RANGE_LABEL) : '';
+  if(!text){ alert('报告数据尚未加载'); return; }
+  var done=function(){
+    btn.textContent='已复制';
+    setTimeout(function(){ btn.textContent='复制报告'; },1500);
+  };
+  // 临时 textarea 兼容 http 环境的复制
+  var ta=document.createElement('textarea');
+  ta.value=text;
+  ta.style.position='fixed';
+  ta.style.opacity='0';
+  document.body.appendChild(ta);
   ta.select();
   var ok=false;
   try{ ok=document.execCommand('copy'); }catch(e){ ok=false; }
-  if(!ok && navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(ta.value).then(done,function(){});
+  ta.remove();
+  if(ok){ done(); return; }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done,function(){ alert('复制失败，请手动选择文本复制'); });
     return;
   }
-  function done(){
-    var b=document.getElementById('copyReportBtn');
-    b.textContent='已复制';
-    setTimeout(function(){ b.textContent='复制报告'; },1500);
-  }
-  if(ok) done();
+  alert('复制失败，请手动选择文本复制');
 });
 
 // 导出图片：整页 DOM 序列化进 SVG foreignObject，栅格化为 PNG 下载（零依赖）
