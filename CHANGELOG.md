@@ -2,6 +2,17 @@
 
 ### 🚀 Features
 
+- 新增 **Feedbackland 反馈按钮跨应用 SSO 免登**：点击画布左下角反馈按钮，经同源
+  中转页（`apps/web/public/feedback-sso.html`）postMessage 索取最新访问令牌，调新增
+  `feedbackland-sso` Edge Function（校验 JWT → 按令牌内 email 以 service role 生成
+  一次性 magic link token），Feedbackland 新增回调页（`/[orgSubdomain]/auth/sso`）
+  verifyOtp 建立会话并自动建档，落地组织主页，全程零密码、零长期凭据跨域；一次性
+  token 短时效、用后即焚（复用返回 otp_expired 已实测）。握手任一环节失败（未登录/
+  token 过期/网络异常/直接访问中转页）一律静默直落 Feedbackland 组织主页（自带登录页
+  接住），不停留错误中间页。反馈平台与主应用共用同一 Supabase Auth，首次 SSO 自动
+  建档无需预先注册。新增 25 个用例（opentu 服务 9 + 按钮 6 + edge function 10，覆盖
+  JWT 无效/无 email/generate_link 失败/token 解析/CORS 等边界）。
+
 - 新增**云端模型目录**（Supabase `model_catalog` 表驱动，模型统一在表中管理、
   上架不发版）：应用启动时后台自动拉取启用条目（与登录态无关，未登录 BYOK
   用户同样生效），另有 10 分钟定时与标签页回前台触发的 TTL 约束刷新，**对用户

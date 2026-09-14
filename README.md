@@ -35,8 +35,11 @@
   角色、素材、设置同步到私有云端，换浏览器/设备登录同一账号即可看到之前的记录。
 - **工具箱与扩展**：支持内部 React 工具、iframe 工具、Skill/Agent 和插件化运行时。
 - **PPT 与内容工作流**：支持 Frame 幻灯片、PPT 导出、Markdown/Mermaid 转换和多媒体编辑。
-- **用户反馈（Feedbackland）**：侧边栏一键直达自部署的 Feedbackland 反馈平台（跳转地址
-  配置于 `FEEDBACKLAND_URL` 常量）。
+- **用户反馈（Feedbackland）**：侧边栏一键直达自部署的 Feedbackland 反馈平台，跨应用
+  SSO 免登——点击按钮经同源中转页与 `feedbackland-sso` Edge Function 换取一次性
+  magic link token 自动建立 Feedbackland 会话（首次使用自动建档），无需重复登录；
+  免登链路任一环节失败时静默回退到 Feedbackland 常规登录页（跳转地址配置于
+  `FEEDBACKLAND_URL` 常量）。
 
 ## 本地开发
 
