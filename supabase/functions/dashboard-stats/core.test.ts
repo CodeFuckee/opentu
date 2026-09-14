@@ -90,10 +90,12 @@ test('aggregateTaskParticipation：使用次数排行（用户前 10）与部门
     { user_id: 'u1', status: 'completed', created_at: '2026-08-02T01:00:00Z' },
     { user_id: 'u2', status: 'completed', created_at: '2026-08-02T02:00:00Z' },
     { user_id: 'u3', status: 'failed', created_at: '2026-08-02T03:00:00Z' },
+    { user_id: 'u4', status: 'completed', created_at: '2026-08-03T03:00:00Z' },
   ] as never;
   const profiles = [
-    { user_id: 'u1', department: '技术部', region: '广州', oa_account: 'a', created_at: '2026-08-01T00:00:00Z' },
+    { user_id: 'u1', department: '人力资源部', region: '广州', oa_account: 'a', created_at: '2026-08-01T00:00:00Z' },
     { user_id: 'u2', department: '设计部', region: '深圳', oa_account: 'b', created_at: '2026-08-02T00:00:00Z' },
+    { user_id: 'u4', department: '未知名称部', region: '深圳', oa_account: 'd', created_at: '2026-08-03T00:00:00Z' },
   ];
 
   const result = aggregateTaskParticipation(
@@ -103,12 +105,18 @@ test('aggregateTaskParticipation：使用次数排行（用户前 10）与部门
     new Map([['u1', '王五']])
   );
   // 认证表姓名优先（u1→王五），无认证姓名回退花名册（u2→李四）；failed 不计入
+  // 人力资源部在看板展示名映射为「职能部门」；未命中映射的部门保持原名
   assert.deepEqual(result.topUsers, [
-    { userId: 'u1', displayName: '王五', department: '技术部', count: 2 },
+    { userId: 'u1', displayName: '王五', department: '职能部门', count: 2 },
     { userId: 'u2', displayName: '李四', department: '设计部', count: 1 },
+    { userId: 'u4', displayName: null, department: '未知名称部', count: 1 },
   ]);
-  assert.deepEqual(result.usageByDepartment, { 技术部: 2, 设计部: 1 });
-  assert.deepEqual(result.usageByRegion, { 广州: 2, 深圳: 1 });
+  assert.deepEqual(result.usageByDepartment, {
+    职能部门: 2,
+    设计部: 1,
+    未知名称部: 1,
+  });
+  assert.deepEqual(result.usageByRegion, { 广州: 2, 深圳: 2 });
 });
 
 test('fetchModelPricing：实测均值优先（hot 数据），回退按次/按量估算；不可用返回空映射', async () => {
@@ -473,8 +481,13 @@ test('buildDashboardHtml：自包含页面，内嵌 anon key，无外部脚本�
   for (const block of ['总操作次数', '消耗金额', '活跃用户数', '数据覆盖天数', '复制报告', '操作类型分布', '模型使用分布', '日历使用热力', '24小时使用分布', '部门使用排行', '部门使用汇总', '部门分布']) {
     assert.ok(html.includes(block), `页面缺少统计块：${block}`);
   }
-  // 用户统一用 Display Name 渲染（缺失回退 oaAccount）
-  assert.ok(html.includes('displayName || r.oaAccount'));
+  // 使用次数排行与月度用量 Top 用户面板已按需求下线
+  assert.ok(!html.includes('使用次数排行'));
+  assert.ok(!html.includes('月度用量 Top 用户'));
+  // 导出图片按钮与 foreignObject 栅格化实现（导出时禁用动画，避免渐入面板不可见）
+  assert.ok(html.includes('导出图片'));
+  assert.ok(html.includes('foreignObject'));
+  assert.ok(html.includes('animation:none!important'));
   // 导出图片按钮与 foreignObject 栅格化实现（导出时禁用动画，避免渐入面板不可见）
   assert.ok(html.includes('导出图片'));
   assert.ok(html.includes('foreignObject'));

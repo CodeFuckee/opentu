@@ -635,6 +635,15 @@ export function aggregateTasks(rows: TaskRow[]): DashboardOverview['tasks'] {
   };
 }
 
+/** 部门在看板上的展示名映射（仅展示层；底层数据保持原部门名） */
+const DEPARTMENT_DISPLAY_NAMES: Record<string, string> = {
+  人力资源部: '职能部门',
+};
+
+export function displayDepartmentName(department: string): string {
+  return DEPARTMENT_DISPLAY_NAMES[department] ?? department;
+}
+
 /** 任务参与统计：使用次数排行（按用户前 10）、部门/区域使用情况与部门消耗金额 */
 export function aggregateTaskParticipation(
   rows: TaskRow[],
@@ -648,7 +657,9 @@ export function aggregateTaskParticipation(
   costByDepartment: Record<string, number>;
 } {
   const okRows = rows.filter((row) => row.status === 'completed');
-  const deptByUser = new Map(profileRows.map((p) => [p.user_id, p.department]));
+  const deptByUser = new Map(
+    profileRows.map((p) => [p.user_id, displayDepartmentName(p.department)])
+  );
   const regionByUser = new Map(profileRows.map((p) => [p.user_id, p.region]));
   const oaByUser = new Map(profileRows.map((p) => [p.user_id, p.oa_account]));
 
@@ -752,7 +763,11 @@ export function aggregateUsers(
 ): DashboardOverview['users'] {
   return {
     total: profileRows.length,
-    byDepartment: countOccurrences(profileRows, 'department'),
+    byDepartment: Object.fromEntries(
+      Object.entries(countOccurrences(profileRows, 'department')).map(
+        ([dept, count]) => [displayDepartmentName(dept), count]
+      )
+    ),
     byRegion: countOccurrences(profileRows, 'region'),
     staffDirectory: staffDirectoryTotal,
     enabledDepartments: departmentRows.filter((d) => d.enabled).length,
@@ -1166,7 +1181,6 @@ export function buildDashboardHtml(anonKey: string): string {
 </div>
 <div class="grid">
   <div class="panel"><h2>每日成功任务趋势（近 <span id="trendDays"></span> 天）</h2><svg id="trendChart" viewBox="0 0 680 220"></svg></div>
-  <div class="panel"><h2>月度用量 Top 用户（当前周期）</h2><table id="topUsers"><thead><tr><th>用户</th><th>部门</th><th>用量</th></tr></thead><tbody></tbody></table></div>
 </div>
 <div class="grid">
   <div class="panel"><h2>部门使用排行</h2><div id="rankTable"><div class="sk"></div></div></div>
@@ -1381,10 +1395,6 @@ function render(o){
   hourlyBars(document.getElementById('hourlyChart'), o.tasks.hourly);
   document.getElementById('trendDays').textContent = o.days;
   trendLine(document.getElementById('trendChart'), o.tasks.dailyTrend);
-  document.getElementById('topUsers').querySelector('tbody').innerHTML =
-    (o.usage.topUsers||[]).map(function(r){
-      return '<tr><td>'+esc(r.displayName || r.oaAccount)+'</td><td>'+esc(r.department)+'</td><td>'+r.used+'</td></tr>';
-    }).join('') || '<tr><td colspan="3" class="muted">暂无数据</td></tr>';
   rankTable(document.getElementById('rankTable'), o);
   var summaryRows = Object.entries(o.users.usageByDepartment||{}).sort(function(a,b){return b[1]-a[1];});
   var usersByDept = o.users.byDepartment||{};
