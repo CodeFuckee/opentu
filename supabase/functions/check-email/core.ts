@@ -10,9 +10,15 @@ export interface CheckEmailDeps {
   fetch?: typeof fetch;
 }
 
-export function buildAdminUrl(supabaseUrl: string): string {
+/** 单页条数（GoTrue admin users 每页上限） */
+const ADMIN_USERS_PER_PAGE = 1000;
+
+/** 分页遍历的安全上限（50000 用户），防止异常响应导致死循环 */
+const ADMIN_USERS_MAX_PAGES = 50;
+
+export function buildAdminUrl(supabaseUrl: string, page = 1): string {
   const base = `${(supabaseUrl || '').replace(/\/$/, '')}/auth/v1/admin`;
-  return `${base}/users?per_page=1000`;
+  return `${base}/users?per_page=${ADMIN_USERS_PER_PAGE}&page=${page}`;
 }
 
 export function isValidEmail(email: string): boolean {
@@ -26,37 +32,48 @@ export async function isEmailRegistered(
   deps: CheckEmailDeps = {}
 ): Promise<boolean> {
   const doFetch = deps.fetch || fetch;
-  const url = buildAdminUrl(supabaseUrl);
-
-  const response = await doFetch(url, {
-    method: 'GET',
-    headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
-      Accept: 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(
-      `Admin API request failed: ${response.status} ${body.slice(0, 300)}`
-    );
-  }
-
-  // GoTrue admin users endpoint returns { users: Array<{ email, id, ... }> }.
-  // Note: the self-hosted instance ignores the `filter` param, so we fetch the
-  // full list and match the email locally.
-  const payload = (await response.json()) as {
-    users?: Array<{ email?: string }>;
-  };
-  const users = Array.isArray(payload.users) ? payload.users : [];
   const target = email.trim().toLowerCase();
-  return users.some(
-    (user) =>
-      typeof user.email === 'string' &&
-      user.email.toLowerCase() === target
-  );
+
+  // 自托管 GoTrue 会忽略过滤参数，只能翻页拉取后本地匹配。
+  // 必须遍历全部分页：只拉第一页时，用户数超过一页后已注册邮箱会被误判为未注册。
+  for (let page = 1; page <= ADMIN_USERS_MAX_PAGES; page++) {
+    const response = await doFetch(buildAdminUrl(supabaseUrl, page), {
+      method: 'GET',
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
+        Accept: 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(
+        `Admin API request failed: ${response.status} ${body.slice(0, 300)}`
+      );
+    }
+
+    // GoTrue admin users endpoint returns { users: Array<{ email, id, ... }> }.
+    const payload = (await response.json()) as {
+      users?: Array<{ email?: string }>;
+    };
+    const users = Array.isArray(payload.users) ? payload.users : [];
+    if (
+      users.some(
+        (user) =>
+          typeof user.email === 'string' &&
+          user.email.toLowerCase() === target
+      )
+    ) {
+      return true;
+    }
+
+    // 不满一页说明已到最后一页
+    if (users.length < ADMIN_USERS_PER_PAGE) {
+      return false;
+    }
+  }
+  return false;
 }
 
 /** Handles one check-email request (used by index.ts and tests) */

@@ -14,6 +14,9 @@ import {
   generateRandomPassword,
   readConfigValue,
   readProfileValue,
+  verifyCallerUserId,
+  isValidUuid,
+  CallerAuthError,
 } from './core.ts';
 
 const SUPABASE_URL = 'http://supabase.local';
@@ -439,4 +442,53 @@ test('复现：库中残留与平台不一致的脏密码 → 应重新生成并
 
   assert.match(result.apikey, /^sk-[0-9a-f]{48}$/);
   assert.equal(sim.getSavedSyncedPassword(), sim.getPlatformPassword());
+});
+
+// ---------------------------------------------------------------------------
+// 回归：鉴权与 userId 归属校验（修复「凭 userId 冒领他人 apikey」的 IDOR）
+// ---------------------------------------------------------------------------
+
+test('verifyCallerUserId：token 有效时返回 auth 用户 id', async () => {
+  const fetchMock = jsonFetchMock((url, init) => {
+    assert.ok(url.includes('/auth/v1/user'));
+    const headers = new Headers(init?.headers);
+    assert.equal(headers.get('authorization'), 'Bearer user-jwt');
+    assert.equal(headers.get('apikey'), SRK);
+    return { status: 200, body: { id: 'u-1', email: 'a@b.com' } };
+  });
+  const id = await verifyCallerUserId(SUPABASE_URL, 'user-jwt', SRK, { fetch: fetchMock });
+  assert.equal(id, 'u-1');
+});
+
+test('verifyCallerUserId：无效 token 抛 CallerAuthError', async () => {
+  const fetchMock = jsonFetchMock(() => ({ status: 401, body: { message: 'nope' } }));
+  await assert.rejects(
+    () => verifyCallerUserId(SUPABASE_URL, 'bad-jwt', SRK, { fetch: fetchMock }),
+    CallerAuthError
+  );
+});
+
+test('verifyCallerUserId：auth 响应缺 id 抛 CallerAuthError', async () => {
+  const fetchMock = jsonFetchMock(() => ({ status: 200, body: { email: 'a@b.com' } }));
+  await assert.rejects(
+    () => verifyCallerUserId(SUPABASE_URL, 'user-jwt', SRK, { fetch: fetchMock }),
+    CallerAuthError
+  );
+});
+
+test('isValidUuid：标准 UUID 通过，其他拒绝', () => {
+  assert.equal(isValidUuid('d2b7f4a2-1c33-4b8e-9f2a-6f5d8e7c1a01'), true);
+  assert.equal(isValidUuid('user-1'), false);
+  assert.equal(isValidUuid(''), false);
+});
+
+test('readProfileValue：userId 注入 PostgREST 查询串应被编码隔离', async () => {
+  const seen: string[] = [];
+  const fetchMock = jsonFetchMock((url) => {
+    seen.push(url);
+    return { status: 200, body: [] };
+  });
+  await readProfileValue(SUPABASE_URL, SRK, 'x)&select=apikey', 'apikey', { fetch: fetchMock });
+  assert.ok(seen[0].includes('user_id=eq.x)%26select%3Dapikey'), seen[0]);
+  assert.ok(!seen[0].includes('user_id=eq.x)&select=apikey'), seen[0]);
 });

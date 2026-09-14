@@ -402,18 +402,18 @@ export async function handleAiProxyRequest({
       asyncImagePattern = pattern;
     }
   } catch (error) {
-    return jsonResponse(503, {
-      error: `config unavailable: ${(error as Error).message.slice(0, 120)}`,
-    });
+    console.warn('[ai-proxy] config unavailable:',
+      error instanceof Error ? error.message : error);
+    return jsonResponse(503, { error: 'config unavailable' });
   }
 
   let apiKey: string | null = null;
   try {
     apiKey = await ensureUserApiKey(env, userId, deps);
   } catch (error) {
-    return jsonResponse(503, {
-      error: `upstream key unavailable: ${(error as Error).message.slice(0, 160)}`,
-    });
+    console.warn('[ai-proxy] upstream key unavailable:',
+      error instanceof Error ? error.message : error);
+    return jsonResponse(503, { error: 'upstream key unavailable' });
   }
   if (!apiKey) {
     return jsonResponse(503, { error: 'upstream key unavailable: profile has no apikey' });
@@ -472,9 +472,32 @@ export async function handleAiProxyRequest({
         });
       }
     } catch (error) {
-      return jsonResponse(503, {
-        error: `quota service error: ${(error as Error).message.slice(0, 160)}`,
-      });
+      console.warn('[ai-proxy] quota service error:',
+        error instanceof Error ? error.message : error);
+      return jsonResponse(503, { error: 'quota service error' });
+    }
+  }
+
+  // 同步图片生成：把转发 body 的 n 收敛到与计费一致的上限，
+  // 避免“按 10 张计费、上游实际产出 n>10 张”的脱钩
+  if (
+    classification.billable &&
+    classification.mode === 'sync' &&
+    /\/images\/generations$/.test(pathOnly.toLowerCase()) &&
+    body
+  ) {
+    try {
+      const parsed = JSON.parse(
+        new TextDecoder().decode(new Uint8Array(body))
+      ) as { n?: unknown };
+      const clamped = clampImageCount(parsed.n);
+      if (parsed.n !== undefined && parsed.n !== clamped) {
+        parsed.n = clamped;
+        body = new TextEncoder().encode(JSON.stringify(parsed))
+          .buffer as ArrayBuffer;
+      }
+    } catch {
+      // 非 JSON body 保持原样
     }
   }
 
@@ -520,8 +543,27 @@ export async function handleAiProxyRequest({
       }
       upstreamResponse = rebuildResponse(buffer);
       respondBuffered = true;
-    } catch {
-      // 记账失败不影响主流程
+    } catch (error) {
+      // 记账失败不影响主流程，但需重试一次并告警：
+      // 账单行缺失会导致后续终态失败时无据可退（用户预扣额度无法退回）
+      console.warn('[ai-proxy] record_task_bill failed:',
+        error instanceof Error ? error.message : error);
+      try {
+        const retryBuffer = await consumeResponseText(upstreamResponse.clone());
+        const retryJson = tryParseJson(retryBuffer.text);
+        const retryId = extractUpstreamId(pathOnly, retryJson);
+        if (retryId) {
+          await callVoidRpc(
+            env,
+            'record_task_bill',
+            { p_user_id: userId, p_upstream_id: retryId, p_count: classification.count || 1 },
+            deps
+          );
+        }
+      } catch (retryError) {
+        console.warn('[ai-proxy] record_task_bill retry failed:',
+          retryError instanceof Error ? retryError.message : retryError);
+      }
     }
   }
 
@@ -577,9 +619,9 @@ async function handleQuotaQuery({
     );
     return jsonResponse(200, { quota });
   } catch (error) {
-    return jsonResponse(503, {
-      error: `quota service error: ${(error as Error).message.slice(0, 160)}`,
-    });
+    console.warn('[ai-proxy] quota service error:',
+      error instanceof Error ? error.message : error);
+    return jsonResponse(503, { error: 'quota service error' });
   }
 }
 

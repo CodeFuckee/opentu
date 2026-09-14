@@ -15,6 +15,10 @@ import {
   handleCheckEmail,
 } from './core.ts';
 
+function makeUsers(n: number, emailPrefix = 'u'): Array<{ id: string; email: string }> {
+  return Array.from({ length: n }, (_, i) => ({ id: `id-${i}`, email: `${emailPrefix}${i}@b.com` }));
+}
+
 function jsonFetchMock(
   handler: (url: string, init?: RequestInit) => { status: number; body: unknown }
 ) {
@@ -151,4 +155,46 @@ test('invalid request: missing/invalid email -> 400', async () => {
     });
     assert.equal(response.status, 400);
   }
+});
+
+// ---------------------------------------------------------------------------
+// 回归：用户数超过一页（per_page=1000）后，已注册邮箱曾被误判为未注册
+// ---------------------------------------------------------------------------
+
+test('超过一页：第一页未命中且满页 → 继续翻页并在第二页命中', async () => {
+  const pagesFetched: string[] = [];
+  const fetchMock = jsonFetchMock((url) => {
+    pagesFetched.push(url);
+    if (new URL(url).searchParams.get('page') === '1') {
+      return { status: 200, body: { users: makeUsers(1000) } };
+    }
+    return { status: 200, body: { users: [{ id: 'target', email: 'a@b.com' }] } };
+  });
+
+  const response = await handleCheckEmail(postRequest({ email: 'a@b.com' }), ENV, {
+    fetch: fetchMock,
+  });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { registered: true });
+  assert.equal(pagesFetched.length, 2);
+  assert.ok(pagesFetched[0].includes('page=1'));
+  assert.ok(pagesFetched[1].includes('page=2'));
+});
+
+test('未注册：遍历到不满一页的末页 → registered=false', async () => {
+  const pagesFetched: string[] = [];
+  const fetchMock = jsonFetchMock((url) => {
+    pagesFetched.push(url);
+    if (new URL(url).searchParams.get('page') === '1') {
+      return { status: 200, body: { users: makeUsers(1000) } };
+    }
+    return { status: 200, body: { users: makeUsers(3) } };
+  });
+
+  const response = await handleCheckEmail(postRequest({ email: 'zz@b.com' }), ENV, {
+    fetch: fetchMock,
+  });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { registered: false });
+  assert.equal(pagesFetched.length, 2);
 });

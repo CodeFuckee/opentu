@@ -7,7 +7,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { syncStaffProfile } from './core.ts';
+import { syncStaffProfile, verifyCallerUserId, CallerAuthError } from './core.ts';
 
 const SUPABASE_URL = 'http://supabase.local';
 const SRK = 'service-role-key';
@@ -120,5 +120,28 @@ test('用户信息缺失（staff_directory 查询失败）→ 抛错', async () 
         fetch: fetchMock,
       }),
     /request failed/
+  );
+});
+
+// ---------------------------------------------------------------------------
+// 回归：鉴权校验（修复「凭 userId 篡改任意用户资料」的 IDOR）
+// ---------------------------------------------------------------------------
+
+test('verifyCallerUserId：token 有效时返回 auth 用户 id', async () => {
+  const fetchMock = jsonFetchMock((url, init) => {
+    assert.ok(url.includes('/auth/v1/user'));
+    const headers = new Headers(init?.headers);
+    assert.equal(headers.get('authorization'), 'Bearer user-jwt');
+    return { status: 200, body: { id: 'u-9' } };
+  });
+  const id = await verifyCallerUserId(SUPABASE_URL, 'user-jwt', SRK, { fetch: fetchMock });
+  assert.equal(id, 'u-9');
+});
+
+test('verifyCallerUserId：无效 token 抛 CallerAuthError', async () => {
+  const fetchMock = jsonFetchMock(() => ({ status: 401, body: { message: 'nope' } }));
+  await assert.rejects(
+    () => verifyCallerUserId(SUPABASE_URL, 'bad-jwt', SRK, { fetch: fetchMock }),
+    CallerAuthError
   );
 });

@@ -367,6 +367,8 @@ async function countCompletedSince(
       { method: 'GET', headers: { ...srkHeaders(env), Prefer: 'count=exact' } }
     );
     if (!response.ok) {
+      // 静默返回 0 会让周报口径失真，至少留下告警日志
+      console.error('[dashboard-stats] countCompletedSince failed:', response.status);
       return 0;
     }
     const match = /^\d+-\d+\/(\d+)$/.exec(

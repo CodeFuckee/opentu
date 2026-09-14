@@ -32,6 +32,56 @@ interface SyncResult {
   staff?: StaffRow;
 }
 
+/** 调用者身份校验失败（无效/过期 token） */
+export class CallerAuthError extends Error {}
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isValidUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
+/**
+ * 校验调用者 Bearer JWT 并返回其用户 id。
+ * 与 feedbackland-sso 相同的模式：GET /auth/v1/user 以 token 自证身份，
+ * 杜绝凭请求体 userId 篡改任意用户资料（IDOR）。
+ */
+export async function verifyCallerUserId(
+  supabaseUrl: string,
+  accessToken: string,
+  serviceRoleKey: string,
+  deps: SyncStaffProfileDeps = {}
+): Promise<string> {
+  const doFetch = deps.fetch || fetch;
+  const response = await doFetch(
+    `${(supabaseUrl || '').replace(/\/$/, '')}/auth/v1/user`,
+    {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        apikey: serviceRoleKey,
+        Accept: 'application/json',
+      },
+    }
+  );
+  if (!response.ok) {
+    throw new CallerAuthError('invalid or expired token');
+  }
+  const user = (await response.json()) as { id?: string; sub?: string };
+  const userId = user.id || user.sub || '';
+  if (!userId) {
+    throw new CallerAuthError('auth response missing user id');
+  }
+  return userId;
+}
+
+export function extractBearerToken(request: Request): string | null {
+  const header = request.headers.get('Authorization') || '';
+  const match = /^Bearer\s+(.+)$/i.exec(header.trim());
+  return match ? match[1].trim() || null : null;
+}
+
 async function requestJson(
   url: string,
   serviceRoleKey: string,

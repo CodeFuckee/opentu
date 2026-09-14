@@ -47,9 +47,10 @@ Deno.serve(async (request: Request) => {
     );
     return jsonResponse(200, result);
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Unknown upstream error';
-    return jsonResponse(500, { error: message });
+    // 上游细节只进日志，避免向客户端泄漏内部实现
+    console.error('[check-register] check failed:',
+      error instanceof Error ? error.message : error);
+    return jsonResponse(500, { error: 'internal error' });
   }
 });
 

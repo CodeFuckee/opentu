@@ -29,6 +29,56 @@ export interface DbRow {
   value: string;
 }
 
+/** 调用者身份校验失败（无效/过期 token，或 body.userId 与 token 归属不一致） */
+export class CallerAuthError extends Error {}
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isValidUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
+/**
+ * 校验调用者 Bearer JWT 并返回其用户 id。
+ * 与 feedbackland-sso 相同的模式：GET /auth/v1/user 以 token 自证身份，
+ * 杜绝凭请求体 userId 冒领他人 apikey（IDOR）。
+ */
+export async function verifyCallerUserId(
+  supabaseUrl: string,
+  accessToken: string,
+  serviceRoleKey: string,
+  deps: NewapiKeyDeps = {}
+): Promise<string> {
+  const doFetch = deps.fetch || fetch;
+  const response = await doFetch(
+    `${(supabaseUrl || '').replace(/\/$/, '')}/auth/v1/user`,
+    {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        apikey: serviceRoleKey,
+        Accept: 'application/json',
+      },
+    }
+  );
+  if (!response.ok) {
+    throw new CallerAuthError('invalid or expired token');
+  }
+  const user = (await response.json()) as { id?: string; sub?: string };
+  const userId = user.id || user.sub || '';
+  if (!userId) {
+    throw new CallerAuthError('auth response missing user id');
+  }
+  return userId;
+}
+
+export function extractBearerToken(request: Request): string | null {
+  const header = request.headers.get('Authorization') || '';
+  const match = /^Bearer\s+(.+)$/i.exec(header.trim());
+  return match ? match[1].trim() || null : null;
+}
+
 /** 从 configs 表按 key 读取 value（走 PostgREST，service_role 可读任意行） */
 export async function readConfigValue(
   supabaseUrl: string,
@@ -65,7 +115,7 @@ export async function readProfileValue(
   deps: NewapiKeyDeps = {}
 ): Promise<string | null> {
   const doFetch = deps.fetch || fetch;
-  const url = `${(supabaseUrl || '').replace(/\/$/, '')}/rest/v1/user_profiles?user_id=eq.${userId}&select=${field}`;
+  const url = `${(supabaseUrl || '').replace(/\/$/, '')}/rest/v1/user_profiles?user_id=eq.${encodeURIComponent(userId)}&select=${encodeURIComponent(field)}`;
   const response = await doFetch(url, {
     method: 'GET',
     headers: {

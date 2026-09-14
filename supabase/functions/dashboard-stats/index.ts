@@ -118,8 +118,10 @@ Deno.serve(async (request: Request) => {
 
     return jsonError(405, 'Method not allowed');
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'unknown error';
-    return jsonError(500, message.slice(0, 200));
+    // 内部细节（表名/RPC/PostgREST 报文）只进日志，不回传客户端
+    console.error('[dashboard-stats] unhandled error:',
+      error instanceof Error ? error.message : error);
+    return jsonError(500, 'internal error');
   }
 });
 

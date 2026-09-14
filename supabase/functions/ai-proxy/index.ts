@@ -61,9 +61,10 @@ Deno.serve(async (request: Request) => {
       pathSuffix: suffix,
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'unknown proxy error';
-    return jsonError(500, message.slice(0, 200));
+    // 内部细节只进日志，避免向客户端泄漏实现
+    console.error('[ai-proxy] unhandled error:',
+      error instanceof Error ? error.message : error);
+    return jsonError(500, 'internal error');
   }
 });
 
