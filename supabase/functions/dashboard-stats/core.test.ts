@@ -219,6 +219,10 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
   const fetchImpl = routeFetch(
     [
       {
+        match: (url) => url.includes('/rest/v1/task_submissions') && url.includes('status=eq.completed'),
+        respond: () => json(200, [], { 'Content-Range': '0-0/5' }),
+      },
+      {
         match: (url) => url.includes('/rest/v1/task_submissions'),
         respond: () =>
           json(200, [
@@ -280,6 +284,8 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
   assert.equal(overview.tasks.total, 1);
   // 汇率从 configs 表 USD_CNY_RATE 读取
   assert.equal(overview.usdCnyRate, 7);
+  // 本周用量（按 Content-Range 计数）
+  assert.equal(overview.weekTasks, 5);
   assert.deepEqual(overview.tasks.byModel, { 'm-a': 1 });
   assert.equal(overview.tasks.activeUsers, 1);
   assert.deepEqual(overview.tasks.topUsers, [

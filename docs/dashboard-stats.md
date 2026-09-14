@@ -13,7 +13,7 @@
 
 | 区块 | 数据源 | 内容 |
 | --- | --- | --- |
-| KPI 五卡 | `task_submissions` + tu-zi 价目 | 总操作次数（成功任务）、消耗金额（USD，tu-zi 价目折算）、活跃用户数、本月用量（**全局用量，不含个人额度**）、数据覆盖天数 |
+| KPI 七卡 | `task_submissions` + tu-zi 价目 | 总操作次数（成功任务）、消耗金额（USD，tu-zi 价目折算）、活跃用户数、本月用量（**全局用量，不含个人额度**）、数据覆盖天数 |
 | 操作类型分布 | `task_submissions.type` | 成功任务按 type 环图 |
 | 模型使用分布 | `task_submissions.params->>model` | 成功任务按模型环图 |
 | 使用次数排行 | `task_submissions.user_id` + Display Name | 用户前 10（头像=姓名首字） |
@@ -77,6 +77,6 @@ curl -s -H "Authorization: Bearer $ANON_KEY" \
 ## 验收清单
 
 - [ ] `curl` 页面返回 200 text/html；浏览器打开渲染全部统计块
-- [ ] `curl` overview 返回 200 JSON，`tasks/usage/users/storage` 四区块均有数据
+- [ ] `curl` overview 返回 200 JSON（含 weekTasks/monthCostUsd/usdCnyRate），`tasks/usage/users/storage` 四区块均有数据
 - [ ] 修改 `days=7/90` 后任务趋势与过滤窗口随之变化
 - [ ] `node --test supabase/functions/*/core.test.ts` 全绿

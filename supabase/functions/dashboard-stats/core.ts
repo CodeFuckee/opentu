@@ -352,12 +352,40 @@ export async function pushReport(
   return sent.ok ? { ok: true, imageUrl } : sent;
 }
 
+/** 统计某时间起成功任务次数（Content-Range 计数，失败返回 0） */
+async function countCompletedSince(
+  env: DashboardEnv,
+  fromIso: string,
+  deps: DashboardDeps
+): Promise<number> {
+  const doFetch = deps.fetch || fetch;
+  try {
+    const response = await doFetch(
+      `${baseUrl(env)}/rest/v1/task_submissions?select=id&status=eq.completed&created_at=gte.${encodeURIComponent(fromIso)}&limit=1`,
+      { method: 'GET', headers: { ...srkHeaders(env), Prefer: 'count=exact' } }
+    );
+    if (!response.ok) {
+      return 0;
+    }
+    const match = /^\d+-\d+\/(\d+)$/.exec(
+      (response.headers.get('content-range') || '').trim()
+    );
+    return match ? Number(match[1]) : 0;
+  } catch {
+    return 0;
+  }
+}
+
 /** 聚合的最终返回结构 */
 export interface DashboardOverview {
   generatedAt: string;
   days: number;
   /** 美元→人民币展示汇率（configs 表 USD_CNY_RATE，缺省 0.1） */
   usdCnyRate: number;
+  /** 本周（本周一 00:00 至今，东八区）成功任务次数 */
+  weekTasks: number;
+  /** 本月消耗金额（USD，网关日志自然月求和；不可用为 null） */
+  monthCostUsd: number | null;
   tasks: {
     /** 口径：仅统计成功（status=completed）任务 */
     total: number;
@@ -910,8 +938,24 @@ export async function aggregateOverview(
     ? Math.floor(Date.parse(`${range!.end}T23:59:59+08:00`) / 1000) + 1
     : Math.floor(Date.now() / 1000);
 
+  // 本周（本周一 00:00 东八区至今）与本月（自然月）的日历窗口
+  const now8 = new Date(Date.now() + TZ_OFFSET_MS);
+  const weekDow = (now8.getUTCDay() + 6) % 7;
+  const weekStartIso = new Date(
+    Date.UTC(now8.getUTCFullYear(), now8.getUTCMonth(), now8.getUTCDate()) -
+      weekDow * 86400000 -
+      TZ_OFFSET_MS
+  ).toISOString();
+  const monthStartSec = Math.floor(
+    Date.parse(
+      new Date(Date.UTC(now8.getUTCFullYear(), now8.getUTCMonth(), 1) - TZ_OFFSET_MS)
+        .toISOString()
+        .slice(0, 10) + 'T00:00:00+08:00'
+    ) / 1000
+  );
+
   // 并行拉取基础数据
-  const [taskResult, usageResult, profileResult, staffResult, deptResult, nameByUser, priceByModel, canvasUsage] =
+  const [taskResult, usageResult, profileResult, staffResult, deptResult, nameByUser, priceByModel, canvasUsage, weekTasks, monthCanvas] =
     await Promise.all([
       restGet(
         env,
@@ -941,6 +985,8 @@ export async function aggregateOverview(
       fetchAuthDisplayNames(env, deps),
       fetchModelPricing(deps),
       fetchCanvasUsage(env, deps, usageStartSec, usageEndSec),
+      countCompletedSince(env, weekStartIso, deps),
+      fetchCanvasUsage(env, deps, monthStartSec, Math.floor(Date.now() / 1000)),
     ]);
 
   const taskRows = taskResult.rows as TaskRow[];
@@ -995,6 +1041,8 @@ export async function aggregateOverview(
     generatedAt: new Date().toISOString(),
     days: safeDays,
     usdCnyRate,
+    weekTasks,
+    monthCostUsd: monthCanvas ? Math.round(monthCanvas.totalUsd * 100) / 100 : null,
     tasks: {
       ...tasksAgg,
       topUsers: participation.topUsers,
@@ -1208,7 +1256,9 @@ function kpiCards(o){
   var costSub = t.totalCostUsd == null ? '暂无计费数据源' : '';
   var big = [
     ['总操作次数（近 '+o.days+' 天）', t.total, '日均 '+(t.total/Math.max(1,o.days)).toFixed(1)+' · 平均耗时 '+fmtDur(t.avgDurationMs), sparkline(t.dailyTrend)],
+    ['本周用量', o.weekTasks, '本周一至今', ''],
     ['消耗金额', costVal, costSub, ''],
+    ['本月消耗金额', o.monthCostUsd==null?'-':'¥'+(o.monthCostUsd*USD_CNY).toFixed(2), '自然月 1 日至今', ''],
     ['活跃用户数', t.activeUsers, '', ''],
     ['本月用量', q.latestUsed, '周期 '+(q.latestPeriod||'-'), ''],
     ['数据覆盖天数', o.days, '截至 '+fmtDate(o.generatedAt).slice(0,10), ''],
