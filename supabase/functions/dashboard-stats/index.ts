@@ -70,9 +70,25 @@ Deno.serve(async (request: Request) => {
         });
       }
       if (route.kind === 'overview') {
-        const daysParam = new URL(request.url).searchParams.get('days');
+        const params = new URL(request.url).searchParams;
+        const daysParam = params.get('days');
         const days = typeof daysParam === 'string' ? Number(daysParam) : 30;
-        const overview = await aggregateOverview(env, Number.isFinite(days) ? days : 30);
+        const startParam = params.get('start');
+        const endParam = params.get('end');
+        const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+        const range =
+          typeof startParam === 'string' &&
+          typeof endParam === 'string' &&
+          dateRe.test(startParam) &&
+          dateRe.test(endParam)
+            ? { start: startParam, end: endParam }
+            : undefined;
+        const overview = await aggregateOverview(
+          env,
+          Number.isFinite(days) ? days : 30,
+          {},
+          range
+        );
         return new Response(JSON.stringify(overview), {
           status: 200,
           headers: {

@@ -315,6 +315,17 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
   );
   // 认证用户姓名查询也应发出（Display Name 优先来源）
   assert.ok(calls.some((url) => url.includes('/auth/v1/admin/users')));
+
+  // 周窗口：range 日期转换为东八区 ISO 后作为任务过滤上下界
+  await aggregateOverview(ENV, 7, { fetch: fetchImpl }, { start: '2026-08-25', end: '2026-08-31' });
+  assert.ok(
+    calls.some((url) => url.includes('created_at=gte.2026-08-25T00%3A00%3A00%2B08%3A00')),
+    'range 模式应按东八区起始时间过滤任务'
+  );
+  assert.ok(
+    calls.some((url) => url.includes('created_at=lt.2026-08-31T23%3A59%3A59%2B08%3A00')),
+    'range 模式应按东八区结束时间截断任务'
+  );
 });
 
 test('fetchAuthDisplayNames：主端点 404 时降级内部 auth 服务；全失败返回空映射', async () => {
@@ -381,13 +392,13 @@ test('fetchCanvasUsage：解析共享令牌并分页求和消耗日志；配置�
     []
   );
   // 150000 quota ÷ 500000 = $0.3
-  assert.deepEqual(await fetchCanvasUsage(ENV, 30, { fetch: fetchImpl }), {
+  assert.deepEqual(await fetchCanvasUsage(ENV, { fetch: fetchImpl }), {
     totalUsd: 0.3,
     quotaByUsername: { chenkaidi: 100000, alice: 50000 },
   });
 
   const missing = routeFetch([], []);
-  assert.equal(await fetchCanvasUsage(ENV, 30, { fetch: missing }), null);
+  assert.equal(await fetchCanvasUsage(ENV, { fetch: missing }), null);
 });
 
 test('buildDashboardHtml：自包含页面，内嵌 anon key，无外部脚本依赖', () => {
@@ -404,7 +415,7 @@ test('buildDashboardHtml：自包含页面，内嵌 anon key，无外部脚本�
   assert.ok(!html.includes('任务状态分布'), '页面不得展示任务状态分布');
   assert.ok(!html.includes('成功率'), '页面不得展示成功率');
   // 图片看板要求的全部统计块
-  for (const block of ['总操作次数', '消耗金额', '活跃用户数', '数据覆盖天数', '操作类型分布', '模型使用分布', '使用次数排行', '日历使用热力', '24小时使用分布', '部门使用排行', '部门使用汇总', '部门分布']) {
+  for (const block of ['总操作次数', '消耗金额', '活跃用户数', '数据覆盖天数', '每周使用报告', '复制报告', '操作类型分布', '模型使用分布', '使用次数排行', '日历使用热力', '24小时使用分布', '部门使用排行', '部门使用汇总', '部门分布']) {
     assert.ok(html.includes(block), `页面缺少统计块：${block}`);
   }
   // 用户统一用 Display Name 渲染（缺失回退 oaAccount）

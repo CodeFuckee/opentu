@@ -118,8 +118,9 @@ async function readDashboardConfig(
  */
 export async function fetchCanvasUsage(
   env: DashboardEnv,
-  days: number,
-  deps: DashboardDeps = {}
+  deps: DashboardDeps = {},
+  startSec = Math.floor((Date.now() - 30 * 86400000) / 1000),
+  endSec = Math.floor(Date.now() / 1000)
 ): Promise<CanvasUsage | null> {
   const doFetch = deps.fetch || fetch;
   try {
@@ -159,8 +160,6 @@ export async function fetchCanvasUsage(
 
     // 2. 分页求和窗口内 type=2 消耗日志（网关把 page_size 静默限制在 100）
     const PAGE_SIZE = 100;
-    const startSec = Math.floor((Date.now() - days * 86400000) / 1000);
-    const endSec = Math.floor(Date.now() / 1000);
     let sum = 0;
     const quotaByUsername: Record<string, number> = {};
     for (let page = 1; page <= 60; page += 1) {
@@ -696,21 +695,35 @@ export async function readQuotaLimit(
 // 主聚合入口
 // ============================================================================
 
-/** 聚合全量看板数据（days 为任务趋势/过滤窗口天数） */
+/** 聚合全量看板数据（days 为过滤窗口天数；range 给定时按精确日期窗口过滤） */
 export async function aggregateOverview(
   env: DashboardEnv,
   days: number,
-  deps: DashboardDeps = {}
+  deps: DashboardDeps = {},
+  range?: { start: string; end: string }
 ): Promise<DashboardOverview> {
   const safeDays = clampDays(days);
-  const from = dateNDaysAgo(safeDays);
+  // range（YYYY-MM-DD，东八区语义）优先于 days 窗口
+  const useRange = Boolean(range && range.start && range.end);
+  const taskFrom = useRange
+    ? encodeURIComponent(`${range!.start}T00:00:00+08:00`)
+    : dateNDaysAgo(safeDays);
+  const taskTo = useRange
+    ? encodeURIComponent(`${range!.end}T23:59:59+08:00`)
+    : null;
+  const usageStartSec = useRange
+    ? Math.floor(Date.parse(`${range!.start}T00:00:00+08:00`) / 1000)
+    : Math.floor((Date.now() - safeDays * 86400000) / 1000);
+  const usageEndSec = useRange
+    ? Math.floor(Date.parse(`${range!.end}T23:59:59+08:00`) / 1000) + 1
+    : Math.floor(Date.now() / 1000);
 
   // 并行拉取基础数据
   const [taskResult, usageResult, profileResult, staffResult, deptResult, nameByUser, priceByModel, canvasUsage] =
     await Promise.all([
       restGet(
         env,
-        `/rest/v1/task_submissions?select=id,user_id,type,status,created_at,completed_at,file_paths,response_file_paths,model:params-%3E%3Emodel&created_at=gte.${from}&order=created_at.asc&limit=50000`,
+        `/rest/v1/task_submissions?select=id,user_id,type,status,created_at,completed_at,file_paths,response_file_paths,model:params-%3E%3Emodel&created_at=gte.${taskFrom}${taskTo ? `&created_at=lt.${taskTo}` : ''}&order=created_at.asc&limit=50000`,
         deps
       ),
       restGet(
@@ -735,7 +748,7 @@ export async function aggregateOverview(
       ).catch(() => ({ rows: [], total: null })),
       fetchAuthDisplayNames(env, deps),
       fetchModelPricing(deps),
-      fetchCanvasUsage(env, safeDays, deps),
+      fetchCanvasUsage(env, deps, usageStartSec, usageEndSec),
     ]);
 
   const taskRows = taskResult.rows as TaskRow[];
@@ -886,8 +899,8 @@ export function buildDashboardHtml(anonKey: string): string {
   <div class="controls">
     <span class="meta" id="generatedAt"></span>
     <select id="daysSel">
-      <option value="7">近 7 天</option>
-      <option value="30" selected>近 30 天</option>
+      <option value="week" selected>最近一周（周一~周日）</option>
+      <option value="30">近 30 天</option>
       <option value="90">近 90 天</option>
     </select>
     <button id="refreshBtn">刷新</button>
@@ -897,6 +910,10 @@ export function buildDashboardHtml(anonKey: string): string {
 <div class="wrap">
 
 <div class="cards" id="kpiCards"><div class="sk"></div></div>
+
+<div class="grid">
+  <div class="panel"><h2>每周使用报告<span class="muted" id="reportRange" style="margin-left:8px;font-weight:400"></span><button id="copyReportBtn" style="margin-left:auto">复制报告</button></h2><textarea id="reportText" readonly style="width:100%;min-height:150px;background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:10px;font-family:inherit;font-size:12px;line-height:1.7"></textarea></div>
+</div>
 
 <div class="grid">
   <div class="panel"><h2>操作类型分布</h2><div id="typeDonut"><div class="sk"></div></div></div>
@@ -1091,11 +1108,30 @@ function rankTable(el, o){
     }).join(''):'<tr><td colspan="4" class="muted">暂无数据</td></tr>')+'</tbody></table>';
 }
 
+function buildReportText(o, rangeLabel){
+  var t=o.tasks, u=o.users;
+  var cost=(t.totalCostUsd==null)?'—':'¥'+(t.totalCostUsd*USD_CNY).toFixed(2);
+  var lines=[];
+  lines.push('【YUE 画布使用周报】');
+  lines.push('统计周期：'+rangeLabel);
+  lines.push('1. 总操作次数：'+t.total+' 次（日均 '+(t.total/Math.max(1,o.days)).toFixed(1)+' 次），活跃用户 '+t.activeUsers+' 人');
+  lines.push('2. 消耗金额：'+cost+'（按内部结算汇率折算）');
+  var top=(t.topUsers||[]).slice(0,3).map(function(r){return (r.displayName||'-')+' '+r.count+' 次';}).join('、');
+  lines.push('3. 使用排行前 3：'+(top||'—'));
+  var ms=Object.entries(t.byModel||{}).sort(function(a,b){return b[1]-a[1];}).slice(0,2).map(function(e){return e[0]+' '+e[1]+' 次';}).join('、');
+  lines.push('4. 热门模型：'+(ms||'—'));
+  var ds=Object.entries(u.usageByRegion||{}).sort(function(a,b){return b[1]-a[1];}).slice(0,3).map(function(e){return e[0]+' '+e[1]+' 次';}).join('、');
+  lines.push('5. 各部门使用：'+(ds||'—'));
+  return lines.join('\\n');
+}
+
 function render(o){
   LAST_OVERVIEW = o;
   var rate = Number(o.usdCnyRate);
   if(Number.isFinite(rate) && rate>0) USD_CNY = rate;
-  document.getElementById('generatedAt').textContent = '生成于 ' + fmtDate(o.generatedAt);
+  document.getElementById('generatedAt').textContent = '统计周期 '+CURRENT_RANGE_LABEL+' · 生成于 ' + fmtDate(o.generatedAt);
+  document.getElementById('reportRange').textContent = CURRENT_RANGE_LABEL;
+  document.getElementById('reportText').value = buildReportText(o, CURRENT_RANGE_LABEL);
   kpiCards(o);
   donut(document.getElementById('typeDonut'), o.tasks.byType);
   donut(document.getElementById('modelDonut'), o.tasks.byModel);
@@ -1128,10 +1164,32 @@ function basePath(){
   return p + '/';
 }
 
+var CURRENT_RANGE_LABEL = '';
+
+function weekRange(){
+  var now=new Date();
+  var dow=(now.getDay()+6)%7; // 周一=0
+  var mon=new Date(now.getFullYear(),now.getMonth(),now.getDate()-7-dow); // 上周一（完整周期）
+  var sun=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+6);
+  var p=function(x){return String(x).padStart(2,'0');};
+  var f=function(d){return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());};
+  return {start:f(mon),end:f(sun),label:f(mon)+' ~ '+f(sun)};
+}
+
 function load(){
-  var daysVal = document.getElementById('daysSel').value;
-  days = Number(daysVal) || 30;
-  fetch(basePath() + 'overview?days=' + days, {
+  var mode = document.getElementById('daysSel').value;
+  var qs;
+  if(mode==='week'){
+    var r=weekRange();
+    CURRENT_RANGE_LABEL=r.label+'（周一~周日）';
+    days=7;
+    qs='overview?start='+r.start+'&end='+r.end+'&days=7';
+  } else {
+    days=Number(mode)||30;
+    CURRENT_RANGE_LABEL='近 '+days+' 天';
+    qs='overview?days='+days;
+  }
+  fetch(basePath() + qs, {
     headers: { 'Authorization': 'Bearer ' + ANON_KEY }
   })
     .then(function(res){ if(!res.ok){ throw new Error('HTTP ' + res.status); } return res.json(); })
@@ -1144,6 +1202,22 @@ function load(){
 
 document.getElementById('refreshBtn').addEventListener('click', load);
 document.getElementById('daysSel').addEventListener('change', load);
+document.getElementById('copyReportBtn').addEventListener('click', function(){
+  var ta=document.getElementById('reportText');
+  ta.select();
+  var ok=false;
+  try{ ok=document.execCommand('copy'); }catch(e){ ok=false; }
+  if(!ok && navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(ta.value).then(done,function(){});
+    return;
+  }
+  function done(){
+    var b=document.getElementById('copyReportBtn');
+    b.textContent='已复制';
+    setTimeout(function(){ b.textContent='复制报告'; },1500);
+  }
+  if(ok) done();
+});
 
 // 导出图片：整页 DOM 序列化进 SVG foreignObject，栅格化为 PNG 下载（零依赖）
 document.getElementById('exportBtn').addEventListener('click', function(){
