@@ -1159,7 +1159,6 @@ export function buildDashboardHtml(anonKey: string): string {
 <div class="grid">
   <div class="panel"><h2>操作类型分布</h2><div id="typeDonut"><div class="sk"></div></div></div>
   <div class="panel"><h2>模型使用分布</h2><div id="modelDonut"><div class="sk"></div></div></div>
-  <div class="panel"><h2>使用次数排行（前 10）</h2><div id="rankChips"><div class="sk"></div></div></div>
 </div>
 <div class="grid">
   <div class="panel"><h2>日历使用热力（当月）</h2><div id="calendarHeat"><div class="sk"></div></div></div>
@@ -1378,7 +1377,6 @@ function render(o){
   kpiCards(o);
   donut(document.getElementById('typeDonut'), o.tasks.byType);
   donut(document.getElementById('modelDonut'), o.tasks.byModel);
-  rankChips(document.getElementById('rankChips'), o.tasks.topUsers);
   calendarHeat(document.getElementById('calendarHeat'), o.tasks.dailyTrend);
   hourlyBars(document.getElementById('hourlyChart'), o.tasks.hourly);
   document.getElementById('trendDays').textContent = o.days;
