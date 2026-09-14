@@ -891,6 +891,7 @@ export function buildDashboardHtml(anonKey: string): string {
       <option value="90">近 90 天</option>
     </select>
     <button id="refreshBtn">刷新</button>
+    <button id="exportBtn">导出图片</button>
   </div>
 </header>
 <div class="wrap">
@@ -1143,6 +1144,62 @@ function load(){
 
 document.getElementById('refreshBtn').addEventListener('click', load);
 document.getElementById('daysSel').addEventListener('change', load);
+
+// 导出图片：整页 DOM 序列化进 SVG foreignObject，栅格化为 PNG 下载（零依赖）
+document.getElementById('exportBtn').addEventListener('click', function(){
+  var btn = this;
+  btn.disabled = true;
+  var oldText = btn.textContent;
+  btn.textContent = '导出中…';
+  try{
+    var w = Math.max(document.body.scrollWidth, document.documentElement.scrollWidth);
+    var h = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+    var clone = document.documentElement.cloneNode(true);
+    clone.style.width = w + 'px';
+    var cb = clone.querySelector('body');
+    if (cb) { cb.style.width = w + 'px'; }
+    var htmlString = new XMLSerializer().serializeToString(clone);
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'">'+
+      '<foreignObject width="100%" height="100%">'+htmlString+'</foreignObject></svg>';
+    var img = new Image();
+    img.onload = function(){
+      try{
+        var scale = 2;
+        var canvas = document.createElement('canvas');
+        canvas.width = w*scale;
+        canvas.height = h*scale;
+        var ctx = canvas.getContext('2d');
+        ctx.scale(scale, scale);
+        ctx.drawImage(img, 0, 0);
+        var a = document.createElement('a');
+        var ts = new Date();
+        var p=function(x){return String(x).padStart(2,'0');};
+        a.download = '数据看板-'+ts.getFullYear()+p(ts.getMonth()+1)+p(ts.getDate())+'-'+p(ts.getHours())+p(ts.getMinutes())+'.png';
+        a.href = canvas.toDataURL('image/png');
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        btn.disabled = false;
+        btn.textContent = oldText;
+      }catch(e){
+        btn.disabled = false;
+        btn.textContent = oldText;
+        alert('导出失败：'+(e && e.message ? e.message : e));
+      }
+    };
+    img.onerror = function(){
+      btn.disabled = false;
+      btn.textContent = oldText;
+      alert('导出失败：页面渲染为图片时出错');
+    };
+    img.src = 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+  }catch(e){
+    btn.disabled = false;
+    btn.textContent = oldText;
+    alert('导出失败：'+(e && e.message ? e.message : e));
+  }
+});
+
 load();
 </script>
 </div>
