@@ -190,8 +190,6 @@ export function App() {
   const localDirtyRef = useRef<boolean>(false);
   // 标记当前标签页是否还有未落盘的本地变更（含元素与 viewport）
   const hasPendingPersistenceRef = useRef<boolean>(false);
-  // 画布全量保存的 trailing 防抖定时器（change 事件高频触发，逐次写 IndexedDB 会形成写风暴）
-  const boardSaveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 使用 useDocumentTitle hook 管理页面标题
   useDocumentTitle(currentBoardId);
@@ -237,11 +235,15 @@ export function App() {
 
       const workspaceService = WorkspaceService.getInstance();
       workspaceService
-        .saveCurrentBoard({
-          children: snapshot.children,
-          viewport: snapshot.viewport,
-          theme: snapshot.theme,
-        })
+        .saveCurrentBoard(
+          {
+            children: snapshot.children,
+            viewport: snapshot.viewport,
+            theme: snapshot.theme,
+          },
+          // 关页时机不留防抖窗口，立即落盘
+          { immediate: true }
+        )
         .catch((error: Error) => {
           console.warn(`[App] Failed to flush board on ${reason}:`, error);
         });
@@ -727,25 +729,19 @@ export function App() {
 
       updateLatestBoardData(currentBoard.id, data);
 
-      // IndexedDB 全量保存走 trailing 防抖（每次 change 事件带最新 data 重置定时器，
-      // 定时器触发时保存的即最新数据）；标签页关闭场景由 close snapshot 兜底
-      if (boardSaveDebounceRef.current) {
-        clearTimeout(boardSaveDebounceRef.current);
-      }
-      boardSaveDebounceRef.current = setTimeout(() => {
-        boardSaveDebounceRef.current = null;
-        workspaceService
-          .saveCurrentBoard(data)
-          .then(() => {
-            hasPendingPersistenceRef.current = false;
-            clearBoardCloseSnapshot(currentBoard.id);
-            // 通知其他标签页数据已更新
-            markTabSyncVersion(currentBoard.id);
-          })
-          .catch((err: Error) => {
-            console.error('[App] Failed to save board:', err);
-          });
-      }, 400);
+      // 全量保存走 WorkspaceService 内部的 400ms trailing 防抖（Promise 在真正
+      // 落盘后 resolve）；同步上传前会 flush，关闭场景由 close snapshot 兜底
+      workspaceService
+        .saveCurrentBoard(data)
+        .then(() => {
+          hasPendingPersistenceRef.current = false;
+          clearBoardCloseSnapshot(currentBoard.id);
+          // 通知其他标签页数据已更新
+          markTabSyncVersion(currentBoard.id);
+        })
+        .catch((err: Error) => {
+          console.error('[App] Failed to save board:', err);
+        });
     },
     [updateLatestBoardData]
   );

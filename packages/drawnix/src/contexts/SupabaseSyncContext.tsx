@@ -158,6 +158,10 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
       setSyncStatus('syncing');
 
       try {
+        // 画布全量保存走防抖：上传前先把挂起保存落盘，否则收集到旧快照
+        await workspaceService
+          .flushPendingCurrentBoardSave()
+          .catch(() => {});
         // 获取当前用户
         const client = config.client as {
           auth: {
@@ -343,6 +347,8 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
     syncRef.current.inProgress = true;
     let result: SupabaseSyncResult;
     try {
+      // 上传前落盘挂起的画布保存（同 performSync）
+      await workspaceService.flushPendingCurrentBoardSave().catch(() => {});
       result = await runSync({
         ...deps,
         user: { id: user.id },
@@ -387,6 +393,7 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
     }
     syncRef.current.inProgress = true;
     try {
+      await workspaceService.flushPendingCurrentBoardSave().catch(() => {});
       const remote = await fetchRemoteEntities(config, user.id);
       // 拆分：有效实体 → 应用下载；墓碑实体（deleted_at 非空）→ 本地删除，
       // 保证「下载远程」与「立即同步」的画板数量语义一致（墓碑不复活、生效删除）

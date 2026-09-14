@@ -52,6 +52,13 @@ class WorkspaceService {
   private events$: Subject<WorkspaceEvent> = new Subject();
   private initialized = false;
   private initializationPromise: Promise<void> | null = null;
+  /** 当前画布全量保存的防抖定时器与挂起保存（见 saveCurrentBoard） */
+  private currentBoardSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingCurrentBoardSave: {
+    boardId: string;
+    data: BoardChangeData;
+    resolve: () => void;
+  } | null = null;
 
   private constructor() {
     this.state = {
@@ -956,14 +963,78 @@ class WorkspaceService {
 
   /**
    * Save data to the current board (convenience method)
+   *
+   * 默认走 400ms trailing 防抖：change 事件高频触发，逐次全量写 IndexedDB
+   * 会形成写风暴；闭包持有最新 data，触发时保存的即最新数据，Promise 在真正
+   * 落盘后 resolve。关键路径（同步上传前、关页 flush）可用 immediate 旁路，
+   * 或用 flushPendingCurrentBoardSave() 把挂起的保存立刻落盘。
    */
-  async saveCurrentBoard(data: BoardChangeData): Promise<void> {
+  async saveCurrentBoard(
+    data: BoardChangeData,
+    opts?: { immediate?: boolean }
+  ): Promise<void> {
     const currentBoardId = this.state.currentBoardId;
     if (!currentBoardId) {
       console.warn('[WorkspaceService] No current board to save');
       return;
     }
-    await this.saveBoard(currentBoardId, data);
+
+    if (opts?.immediate) {
+      // 挂起的防抖保存被本次更新数据取代，直接落盘
+      this.cancelPendingCurrentBoardSave();
+      await this.saveBoard(currentBoardId, data);
+      return;
+    }
+
+    this.cancelPendingCurrentBoardSave();
+
+    let resolvePending!: () => void;
+    const pendingPromise = new Promise<void>((resolve) => {
+      resolvePending = resolve;
+    });
+    this.pendingCurrentBoardSave = {
+      boardId: currentBoardId,
+      data,
+      resolve: resolvePending,
+    };
+    this.currentBoardSaveTimer = setTimeout(() => {
+      void this.flushPendingCurrentBoardSave();
+    }, 400);
+
+    await pendingPromise;
+  }
+
+  /**
+   * 把挂起的画布防抖保存立刻落盘（同步上传等读取 IndexedDB 的关键路径先调用）。
+   * 无挂起时是空操作。
+   */
+  async flushPendingCurrentBoardSave(): Promise<void> {
+    const pending = this.pendingCurrentBoardSave;
+    if (!pending) {
+      return;
+    }
+    if (this.currentBoardSaveTimer) {
+      clearTimeout(this.currentBoardSaveTimer);
+      this.currentBoardSaveTimer = null;
+    }
+    this.pendingCurrentBoardSave = null;
+    try {
+      await this.saveBoard(pending.boardId, pending.data);
+    } finally {
+      pending.resolve();
+    }
+  }
+
+  /** 丢弃挂起的防抖保存（不落盘），等待中的 Promise 立即放行 */
+  private cancelPendingCurrentBoardSave(): void {
+    if (this.currentBoardSaveTimer) {
+      clearTimeout(this.currentBoardSaveTimer);
+      this.currentBoardSaveTimer = null;
+    }
+    if (this.pendingCurrentBoardSave) {
+      this.pendingCurrentBoardSave.resolve();
+      this.pendingCurrentBoardSave = null;
+    }
   }
 
   // ========== Getters ==========
