@@ -19,6 +19,7 @@ import {
   fetchModelPricing,
   fetchAuthDisplayNames,
   fetchCanvasUsage,
+  scaleCostByDepartment,
   aggregateOverview,
   buildDashboardHtml,
   DEFAULT_ANON_KEY,
@@ -399,6 +400,22 @@ test('fetchCanvasUsage：解析共享令牌并分页求和消耗日志；配置�
 
   const missing = routeFetch([], []);
   assert.equal(await fetchCanvasUsage(ENV, { fetch: missing }), null);
+});
+
+test('scaleCostByDepartment：按占比分摊真实总额且求和恰好相等', () => {
+  const costs = { 方案中心: 20, 环艺中心: 6.67 };
+  const scaled = scaleCostByDepartment(costs, 30);
+  const sum = Object.values(scaled).reduce((s, v) => s + v, 0);
+  // 占比 75%/25% → 22.5/7.5，和恰为 30
+  assert.equal(scaled['方案中心'], 22.5);
+  assert.equal(scaled['环艺中心'], 7.5);
+  assert.equal(Math.round(sum * 100) / 100, 30);
+  // 余数归最大部门：总额 1，估算 0.333/0.333 → 0.5/0.5 后余数并入最大
+  const r = scaleCostByDepartment({ A: 0.333, B: 0.333 }, 1);
+  assert.equal(Math.round((r['A'] + r['B']) * 100) / 100, 1);
+  // 无估算/总额无效 → 原值
+  assert.deepEqual(scaleCostByDepartment({}, 10), {});
+  assert.deepEqual(scaleCostByDepartment({ A: 5 }, null), { A: 5 });
 });
 
 test('buildDashboardHtml：自包含页面，内嵌 anon key，无外部脚本依赖', () => {

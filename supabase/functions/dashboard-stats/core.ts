@@ -328,6 +328,41 @@ function resolveDisplayName(
   );
 }
 
+/**
+ * 把真实消耗总额按各部门估算金额的占比分摊，使求和恰好等于总额
+ * （估算价与真实计费口径不同，但占比反映各部门真实用量结构）；
+ * 四舍五入产生的余数计入最大部门。无法分摊（无估算/总额无效）返回原值。
+ */
+export function scaleCostByDepartment(
+  costs: Record<string, number>,
+  targetTotal: number | null
+): Record<string, number> {
+  const entries = Object.entries(costs);
+  const estimateTotal = entries.reduce((s, e) => s + e[1], 0);
+  if (
+    targetTotal == null ||
+    !Number.isFinite(targetTotal) ||
+    estimateTotal <= 0 ||
+    !Number.isFinite(estimateTotal)
+  ) {
+    return { ...costs };
+  }
+  const scaled = entries.map(
+    ([dept, cost]) => [dept, (cost / estimateTotal) * targetTotal] as [string, number]
+  );
+  scaled.sort((a, b) => b[1] - a[1]);
+  const scaledSum = scaled.reduce((s, e) => s + e[1], 0);
+  const residual = Math.round((targetTotal - scaledSum) * 100) / 100;
+  if (scaled.length > 0 && residual !== 0) {
+    scaled[0][1] = Math.round((scaled[0][1] + residual) * 100) / 100;
+  }
+  const out: Record<string, number> = {};
+  for (const [dept, cost] of scaled) {
+    out[dept] = Math.round(cost * 100) / 100;
+  }
+  return out;
+}
+
 function clampDays(days: unknown): number {
   const n = typeof days === 'string' ? Number(days) : Number(days) || 30;
   if (!Number.isFinite(n)) {
@@ -771,11 +806,12 @@ export async function aggregateOverview(
     priceByModel
   );
   // 消耗金额：KPI 优先用网关日志的真实消耗（huabu 令牌全部调用，含聊天/轮询）；
-  // 部门金额无法从网关日志区分到人，保留按模型价目的估算口径
+  // 部门金额无法从网关日志区分到人，按各部门估算占比分摊真实总额
   let totalCostUsd: number | null = null;
-  const costByDepartment = participation.costByDepartment;
+  let costByDepartment = participation.costByDepartment;
   if (canvasUsage) {
     totalCostUsd = Math.round(canvasUsage.totalUsd * 100) / 100;
+    costByDepartment = scaleCostByDepartment(costByDepartment, totalCostUsd);
   } else if (priceByModel.size > 0) {
     let estimate = 0;
     for (const [model, count] of Object.entries(tasksAgg.byModel)) {
