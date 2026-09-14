@@ -1358,13 +1358,11 @@ function buildReportText(o, rangeLabel){
   lines.push('【YUE 画布使用周报】');
   lines.push('统计周期：'+rangeLabel);
   lines.push('1. 总操作次数：'+t.total+' 次（日均 '+(t.total/Math.max(1,o.days)).toFixed(1)+' 次），活跃用户 '+t.activeUsers+' 人');
-  lines.push('2. 消耗金额：'+cost+'（按内部结算汇率折算）');
-  var top=(t.topUsers||[]).slice(0,3).map(function(r){return (r.displayName||'-')+' '+r.count+' 次';}).join('、');
-  lines.push('3. 使用排行前 3：'+(top||'—'));
+  lines.push('2. 消耗金额：'+cost);
   var ms=Object.entries(t.byModel||{}).sort(function(a,b){return b[1]-a[1];}).slice(0,2).map(function(e){return e[0]+' '+e[1]+' 次';}).join('、');
-  lines.push('4. 热门模型：'+(ms||'—'));
+  lines.push('3. 热门模型：'+(ms||'—'));
   var ds=Object.entries(u.usageByRegion||{}).sort(function(a,b){return b[1]-a[1];}).slice(0,3).map(function(e){return e[0]+' '+e[1]+' 次';}).join('、');
-  lines.push('5. 各部门使用：'+(ds||'—'));
+  lines.push('4. 各部门使用：'+(ds||'—'));
   return lines.join('\\n');
 }
 
