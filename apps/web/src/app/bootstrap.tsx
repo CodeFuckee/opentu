@@ -276,6 +276,11 @@ updateBootStatus({
 if (typeof window !== 'undefined') {
   initPreventPinchZoom();
 
+  // posthog 等待重试上限（300ms × 40 ≈ 12s，足够覆盖正常加载）
+  const POSTHOG_INIT_MAX_ATTEMPTS = 40;
+  let postHogInitAttempts = 0;
+  let monitorInitAttempts = 0;
+
   const initPostHogContext = () => {
     if (window.posthog) {
       registerAnalyticsSuperProperties(RELEASE_CONTEXT);
@@ -283,6 +288,11 @@ if (typeof window !== 'undefined') {
       return;
     }
 
+    // 广告拦截等场景下 posthog 永远不会出现：重试上限避免定时器常驻
+    if (postHogInitAttempts >= POSTHOG_INIT_MAX_ATTEMPTS) {
+      return;
+    }
+    postHogInitAttempts += 1;
     setTimeout(initPostHogContext, 300);
   };
 
@@ -330,9 +340,14 @@ if (typeof window !== 'undefined') {
   const initMonitoring = () => {
     if (window.posthog) {
       initWebVitals();
-    } else {
-      setTimeout(initMonitoring, 500);
+      return;
     }
+    // 同样设置重试上限，避免被墙/拦截时定时器无限轮询
+    if (monitorInitAttempts >= POSTHOG_INIT_MAX_ATTEMPTS) {
+      return;
+    }
+    monitorInitAttempts += 1;
+    setTimeout(initMonitoring, 500);
   };
 
   scheduleAfterFirstFrameIdle(initMonitoring, {

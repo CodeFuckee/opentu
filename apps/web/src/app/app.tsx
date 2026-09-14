@@ -190,6 +190,8 @@ export function App() {
   const localDirtyRef = useRef<boolean>(false);
   // 标记当前标签页是否还有未落盘的本地变更（含元素与 viewport）
   const hasPendingPersistenceRef = useRef<boolean>(false);
+  // 画布全量保存的 trailing 防抖定时器（change 事件高频触发，逐次写 IndexedDB 会形成写风暴）
+  const boardSaveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 使用 useDocumentTitle hook 管理页面标题
   useDocumentTitle(currentBoardId);
@@ -725,17 +727,25 @@ export function App() {
 
       updateLatestBoardData(currentBoard.id, data);
 
-      workspaceService
-        .saveCurrentBoard(data)
-        .then(() => {
-          hasPendingPersistenceRef.current = false;
-          clearBoardCloseSnapshot(currentBoard.id);
-          // 通知其他标签页数据已更新
-          markTabSyncVersion(currentBoard.id);
-        })
-        .catch((err: Error) => {
-          console.error('[App] Failed to save board:', err);
-        });
+      // IndexedDB 全量保存走 trailing 防抖（每次 change 事件带最新 data 重置定时器，
+      // 定时器触发时保存的即最新数据）；标签页关闭场景由 close snapshot 兜底
+      if (boardSaveDebounceRef.current) {
+        clearTimeout(boardSaveDebounceRef.current);
+      }
+      boardSaveDebounceRef.current = setTimeout(() => {
+        boardSaveDebounceRef.current = null;
+        workspaceService
+          .saveCurrentBoard(data)
+          .then(() => {
+            hasPendingPersistenceRef.current = false;
+            clearBoardCloseSnapshot(currentBoard.id);
+            // 通知其他标签页数据已更新
+            markTabSyncVersion(currentBoard.id);
+          })
+          .catch((err: Error) => {
+            console.error('[App] Failed to save board:', err);
+          });
+      }, 400);
     },
     [updateLatestBoardData]
   );
@@ -978,7 +988,8 @@ const addDebugLog = async (board: PlaitBoard, value: string) => {
     container.append(consoleContainer);
   }
   const div = document.createElement('div');
-  div.innerHTML = value;
+  // 调试值可能包含页面数据，按纯文本显示，避免注入 HTML
+  div.textContent = value;
   consoleContainer.append(div);
 };
 

@@ -339,7 +339,7 @@ export class TaskQueueStorage {
   private batchSaveTimer: ReturnType<typeof setTimeout> | null = null;
   private batchSavePromises: Map<
     string,
-    { resolve: () => void; reject: (err: unknown) => void }
+    Array<{ resolve: () => void; reject: (err: unknown) => void }>
   > = new Map();
   private readonly BATCH_SAVE_DELAY = 50; // ms - batch saves within this window
 
@@ -383,18 +383,24 @@ export class TaskQueueStorage {
 
         transaction.oncomplete = () => {
           // Resolve all pending promises
-          promisesToResolve.forEach(({ resolve }) => resolve());
+          promisesToResolve.forEach((waiters) =>
+            waiters.forEach(({ resolve }) => resolve())
+          );
           resolve();
         };
         transaction.onerror = () => {
           const error = transaction.error;
-          promisesToResolve.forEach(({ reject }) => reject(error));
+          promisesToResolve.forEach((waiters) =>
+            waiters.forEach(({ reject }) => reject(error))
+          );
           reject(error);
         };
       });
     } catch (error) {
       console.error('[SWStorage] Failed to batch save tasks:', error);
-      promisesToResolve.forEach(({ reject }) => reject(error));
+      promisesToResolve.forEach((waiters) =>
+        waiters.forEach(({ reject }) => reject(error))
+      );
     }
   }
 
@@ -405,7 +411,14 @@ export class TaskQueueStorage {
     return new Promise((resolve, reject) => {
       // Add to pending saves
       this.pendingTaskSaves.set(task.id, task);
-      this.batchSavePromises.set(task.id, { resolve, reject });
+      // 同一 task 在批次窗口内可能被多次保存：waiter 用数组保存，
+      // 覆盖会让先到的 Promise 永远 pending（挂到 RPC 超时）
+      const waiters = this.batchSavePromises.get(task.id);
+      if (waiters) {
+        waiters.push({ resolve, reject });
+      } else {
+        this.batchSavePromises.set(task.id, [{ resolve, reject }]);
+      }
 
       // Schedule batch save
       if (!this.batchSaveTimer) {
@@ -422,8 +435,8 @@ export class TaskQueueStorage {
   async saveTaskImmediate(task: SWTask): Promise<void> {
     // First, remove from pending batch if present
     this.pendingTaskSaves.delete(task.id);
-    const pendingPromise = this.batchSavePromises.get(task.id);
-    if (pendingPromise) {
+    const pendingPromises = this.batchSavePromises.get(task.id);
+    if (pendingPromises) {
       this.batchSavePromises.delete(task.id);
     }
 
@@ -438,14 +451,14 @@ export class TaskQueueStorage {
         request.onsuccess = () => resolve();
       });
 
-      // Resolve the pending promise if it existed
-      if (pendingPromise) {
-        pendingPromise.resolve();
+      // Resolve the pending promises if they existed
+      if (pendingPromises) {
+        pendingPromises.forEach(({ resolve }) => resolve());
       }
     } catch (error) {
       console.error('[SWStorage] Failed to save task:', error);
-      if (pendingPromise) {
-        pendingPromise.reject(error);
+      if (pendingPromises) {
+        pendingPromises.forEach(({ reject }) => reject(error));
       }
       throw error;
     }

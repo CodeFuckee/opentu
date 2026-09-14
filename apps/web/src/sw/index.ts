@@ -35,7 +35,11 @@ import {
   performHealthCheck,
   setCDNPreference,
 } from './cdn-fallback';
-import { getSafeErrorMessage } from './task-queue/utils/sanitize-utils';
+import {
+  getSafeErrorMessage,
+  sanitizeObject,
+  sanitizeRequestBody,
+} from './task-queue/utils/sanitize-utils';
 import {
   shouldBypassAppShellCacheForLazyChunkRecovery,
   shouldUseCDNFirstPreload,
@@ -4726,7 +4730,8 @@ sw.addEventListener('fetch', (event: FetchEvent) => {
                 event.request.headers.get('content-type') || '';
               if (contentType.includes('application/json')) {
                 requestBody = await requestClone.text();
-                // 限制长度，避免日志过大
+                // 先脱敏（可能含 API Key/token），再限制长度避免日志过大
+                requestBody = sanitizeRequestBody(requestBody);
                 if (requestBody.length > 2000) {
                   requestBody =
                     requestBody.substring(0, 2000) + '... (truncated)';
@@ -4735,6 +4740,7 @@ sw.addEventListener('fetch', (event: FetchEvent) => {
                 contentType.includes('application/x-www-form-urlencoded')
               ) {
                 requestBody = await requestClone.text();
+                requestBody = sanitizeRequestBody(requestBody);
                 if (requestBody.length > 2000) {
                   requestBody =
                     requestBody.substring(0, 2000) + '... (truncated)';
@@ -4747,9 +4753,9 @@ sw.addEventListener('fetch', (event: FetchEvent) => {
             }
           }
 
-          // 更新日志添加请求信息
+          // 更新日志添加请求信息（headers 可能含 Authorization/Cookie，先脱敏）
           updateDebugLog(debugId, {
-            headers: requestHeaders,
+            headers: sanitizeObject(requestHeaders) as Record<string, string>,
             details: requestBody
               ? `XHR/API request (${event.request.method})\n\nRequest Body:\n${requestBody}`
               : `XHR/API request (${event.request.method})`,
@@ -4790,13 +4796,15 @@ sw.addEventListener('fetch', (event: FetchEvent) => {
             responseBody = '[unable to read response body]';
           }
 
-          // 更新日志添加响应信息
+          // 更新日志添加响应信息（响应头同样可能携带敏感值，先脱敏）
           updateDebugLog(debugId, {
             status: response.status,
             statusText: response.statusText,
             responseType: response.type,
             duration: Date.now() - startTime,
-            responseHeaders,
+            responseHeaders: sanitizeObject(
+              responseHeaders
+            ) as Record<string, string>,
             size: parseInt(response.headers.get('content-length') || '0'),
             details: requestBody
               ? `XHR/API request (${event.request.method})\n\nRequest Body:\n${requestBody}\n\nResponse Body:\n${responseBody}`
@@ -5213,7 +5221,9 @@ async function handleAudioRequest(request: Request): Promise<Response> {
 
     const requestHeaders = new Headers(request.headers);
     requestHeaders.delete('range');
-    const response = await fetch(dedupeKey, {
+    // 网络请求必须用原始 URL：dedupeKey 剥离了 token/signature 等参数，
+    // 拿去下载会导致签名 URL 必然 403
+    const response = await fetch(request.url, {
       method: 'GET',
       headers: requestHeaders,
       mode: request.mode,
@@ -5443,7 +5453,9 @@ async function handleVideoRequest(request: Request): Promise<Response> {
         };
 
         // 获取视频响应（不带Range header，获取完整视频）
-        const fetchUrl = new URL(dedupeUrl);
+        // 用原始 URL 下载：dedupeUrl 剥离了 token/signature 等参数，
+        // 拿去下载会导致签名 URL 必然 403（dedupeKey 仅作缓存键）
+        const fetchUrl = new URL(url.toString());
         const response = await fetch(fetchUrl, fetchOptions);
 
         if (!response.ok) {
@@ -6049,12 +6061,14 @@ function withTimeout<T>(
   timeoutMs: number,
   timeoutMessage: string
 ): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => {
-      setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
-    }),
-  ]);
+  // 先 settle 时清理定时器，避免每个请求遗留最长 timeoutMs 的悬挂定时器
+  let timer: ReturnType<typeof setTimeout>;
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+  });
+  const cleanup = () => clearTimeout(timer);
+  promise.then(cleanup, cleanup);
+  return Promise.race([promise, timeoutPromise]);
 }
 
 // 清理过期的视频 Blob 缓存
