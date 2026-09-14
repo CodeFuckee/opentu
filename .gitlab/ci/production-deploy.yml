@@ -1,0 +1,68 @@
+# =============================================================================
+# 生产环境手动部署（与 feedbackland:redeploy 同类的手动作业）
+# -----------------------------------------------------------------------------
+# deploy:production：main 分支 push 流水线（流水线 A）中，quality / test:backend /
+# test:frontend / test:e2e / build 全部成功后，可手动点击把当前 main 部署到
+# 生产环境（宿主机 8088，容器 yue-huabu）。
+#
+# 与流水线 B（web/api 手动发版）的分工：
+# - 本作业：零发布副作用——不 bump 版本、不修改 CHANGELOG、不提交推送、不打 tag，
+#   直接把当前 main 构建并部署到 8088，适合测试全绿后快速上线当前提交；
+#   站点 version.json 仍显示上次发版号（版本号升级走流水线 B）
+# - 流水线 B：完整发版（自增版本号 → CHANGELOG 归档 → 构建推送打 tag → 部署
+#   生产 + Feedbackland）
+#
+# 隔离与安全（与 release.yml deploy 作业完全同参）：
+# - 仅操作生产容器 yue-huabu / 端口 publish=8088 / 生产 compose 项目（deploy），
+#   绝不触碰预览环境（yue-huabu-preview, 8089）与 Feedbackland（8090）
+# - 端口清理过滤范围不含 8089 / 8090，与预览/Feedbackland 互不影响
+# =============================================================================
+
+deploy:production:
+  stage: deploy
+  tags:
+    - yx
+    # yx 已非服务器独占（24 号 runner 同带 yx），叠加 deploy 取交集钉死越秀服务器，
+    # 防止生产环境被部署到错误机器
+    - deploy
+  needs:
+    - quality
+    - test:backend
+    - test:frontend
+    - test:e2e
+    - build
+  # docker build 在慢速宿主上（含 pnpm install + 全量构建）可能超过默认 1h 超时
+  timeout: 2 hours
+  environment:
+    name: production
+    url: http://10.37.80.25:8088
+  rules:
+    # 仅 main 分支的 push 流水线提供手动生产部署入口；
+    # 流水线 B（web/api 手动发版）不出现本作业，正式发版流程照旧
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"'
+      when: manual
+    - when: never
+  script:
+    - 'echo "生产部署 commit ${CI_COMMIT_SHORT_SHA}（分支 ${CI_COMMIT_BRANCH}）→ 宿主机 :${HOST_PORT}（零发布副作用：不 bump 版本/不改 CHANGELOG/不打 tag）"'
+
+    # 从当前 main 提交构建生产镜像（与发版同名 yue-huabu:*，latest 即生产在用标签，
+    # 另以 commit SHA 留档便于回溯）
+    - docker build -t "${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}" -t "${IMAGE_NAME}:latest" .
+
+    # 释放 8088 端口：与 release.yml deploy 相同的清理范围——同名容器 + 所有发布到
+    # 8088 端口的容器（含手动启动的实例），再 down 掉生产 compose 项目（deploy）；
+    # publish 过滤范围不含 8089（预览）/ 8090（Feedbackland），绝不误删
+    - docker rm -f "${CONTAINER_NAME}" 2>/dev/null || true
+    - |
+      for cid in $(docker ps -q --filter "publish=${HOST_PORT}" 2>/dev/null); do
+        docker rm -f "${cid}" 2>/dev/null || true
+      done
+    - docker compose -f deploy/docker-compose.yml down --remove-orphans || true
+    - docker compose -f deploy/docker-compose.yml up -d --force-recreate
+
+    # 健康检查：容器运行中 + 站点可访问（busybox 镜像自带 wget）
+    - sleep 5
+    - docker ps --filter "name=^${CONTAINER_NAME}$" --filter "status=running" --format "{{.Names}} -> {{.Ports}}"
+    - docker exec "${CONTAINER_NAME}" wget -q -O /dev/null http://127.0.0.1:80/ && echo "生产站点可访问 ✓"
+    - docker image prune -f --filter "until=24h" || true
+    - 'echo "生产环境部署完成：容器 ${CONTAINER_NAME} @ 宿主机 :${HOST_PORT}（commit ${CI_COMMIT_SHORT_SHA}）"'
