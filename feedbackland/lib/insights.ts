@@ -28,9 +28,9 @@ export const STATUS_DOT_CLASS: Record<NonNullable<FeedbackStatus>, string> = {
 };
 
 export const EFFORT_LABEL: Record<NonNullable<InsightEffort>, string> = {
-  s: "Small",
-  m: "Medium",
-  l: "Large",
+  s: "小",
+  m: "中",
+  l: "大",
 };
 
 /** How the priority score is weighted. Shown to the admin in the score popover. */
@@ -108,8 +108,6 @@ export const getSignalDriver = (insight: Insight): string | null => {
   return top.value - restMean >= DRIVER_MARGIN ? DRIVER_LABEL[top.key] : null;
 };
 
-export const formatReach = (reach: number) =>
-  `${reach} ${reach === 1 ? "person" : "people"}`;
+export const formatReach = (reach: number) => `${reach} 人`;
 
-export const formatPostCount = (count: number) =>
-  `${count} ${count === 1 ? "post" : "posts"}`;
+export const formatPostCount = (count: number) => `${count} 条反馈`;

@@ -41,7 +41,7 @@ const bootScript = `(function(){try{var s=new URLSearchParams(window.location.se
 
 export const metadata: Metadata = {
   title: "Feedbackland",
-  description: "User Feedback Platform",
+  description: "用户反馈平台",
   robots: {
     index: false,
     follow: false,
@@ -82,7 +82,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="zh-CN"
       suppressHydrationWarning
       className={`${inter.variable} ${roboto_mono.variable}`}
     >

@@ -1,6 +1,6 @@
 import TimeAgo from "javascript-time-ago";
-import en from "javascript-time-ago/locale/en";
+import zh from "javascript-time-ago/locale/zh";
 
-TimeAgo.addDefaultLocale(en);
+TimeAgo.addDefaultLocale(zh);
 
-export const timeAgo = new TimeAgo("en-US");
+export const timeAgo = new TimeAgo("zh-CN");
