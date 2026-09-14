@@ -8,7 +8,7 @@
 export function PlatformHeaderDrawer() {
   return (
     <div className="pb-5">
-      <h1 className="text-xl font-bold tracking-tight">Share your feedback</h1>
+      <h1 className="text-xl font-bold tracking-tight">分享你的反馈</h1>
     </div>
   );
 }

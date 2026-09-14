@@ -16,9 +16,17 @@ import {
   FEEDBACK_STATUSES,
   STATUS_DOT_CLASS,
   STATUS_TEXT_CLASS,
-  formatPostCount,
 } from "@/lib/insights";
 import type { FeedbackStatus } from "@/lib/typings";
+
+/** 数据库中的状态枚举原值，仅在展示时映射为中文。 */
+const STATUS_LABELS: Record<string, string> = {
+  "under consideration": "考虑中",
+  planned: "已列入计划",
+  "in progress": "进行中",
+  done: "已完成",
+  declined: "已拒绝",
+};
 
 /**
  * The insights's only action: once an insight has been dealt with, set the status
@@ -38,7 +46,11 @@ export function InsightStatusControl({
   onChange: (next: FeedbackStatus) => void;
   disabled?: boolean;
 }) {
-  const label = status ?? (isMixed ? "Mixed" : "Set status");
+  const label = status
+    ? STATUS_LABELS[status]
+    : isMixed
+      ? "混合状态"
+      : "设置状态";
 
   return (
     <DropdownMenu>
@@ -47,7 +59,7 @@ export function InsightStatusControl({
           variant="outline"
           size="sm"
           disabled={disabled}
-          aria-label={`Status of the ${formatPostCount(postCount)} behind this insight: ${label}`}
+          aria-label={`该洞察背后 ${postCount} 条反馈的状态：${label}`}
           className="h-7 shrink-0 gap-1.5 px-2 text-xs font-normal"
         >
           <span
@@ -74,7 +86,7 @@ export function InsightStatusControl({
 
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
-          Applies to all {formatPostCount(postCount)}
+          应用于全部 {postCount} 条反馈
         </DropdownMenuLabel>
         <DropdownMenuRadioGroup
           value={status ?? "none"}
@@ -88,11 +100,11 @@ export function InsightStatusControl({
               value={option}
               className={cn("capitalize", `${STATUS_TEXT_CLASS[option]}!`)}
             >
-              {option}
+              {STATUS_LABELS[option]}
             </DropdownMenuRadioItem>
           ))}
           <DropdownMenuSeparator />
-          <DropdownMenuRadioItem value="none">No status</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="none">无状态</DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>

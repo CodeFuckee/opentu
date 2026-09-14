@@ -32,7 +32,7 @@ export function CommentFooter({
         onClick={onReplyClicked}
         className="text-muted-foreground hover:text-primary h-auto px-1 py-0.5 text-xs"
       >
-        Reply
+        回复
       </Button>
     </div>
   );

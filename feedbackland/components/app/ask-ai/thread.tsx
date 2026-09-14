@@ -135,7 +135,7 @@ const ScrollToBottom: FC = () => {
   return (
     <ThreadPrimitive.ScrollToBottom asChild>
       <TooltipIconButton
-        tooltip="Scroll to bottom"
+        tooltip="滚动到底部"
         side="top"
         variant="outline"
         className="bg-background hover:bg-accent absolute -top-10 z-10 size-8 self-center rounded-full shadow-sm disabled:invisible"
@@ -153,13 +153,13 @@ const Composer: FC = () => {
     <ComposerPrimitive.Root className="aui-composer-root bg-background focus-within:ring-ring/30 border-border relative flex w-full flex-col overflow-hidden rounded-2xl border shadow-sm transition-shadow focus-within:shadow-md focus-within:ring-1">
       <div className="flex items-end">
         <ComposerPrimitive.Input
-          placeholder="Ask about your feedback…"
+          placeholder="就你的反馈提问…"
           className="aui-composer-input text-foreground placeholder:text-muted-foreground/60 max-h-40 min-h-12 flex-1 resize-none bg-transparent px-4 py-3.5 text-sm leading-relaxed outline-none"
           rows={1}
           // Only on a fresh thread. Focusing a restored one would scroll the
           // viewport away from where it was left.
           autoFocus={isEmpty}
-          aria-label="Ask a question about your feedback"
+          aria-label="就你的反馈提出问题"
         />
         <ComposerAction />
       </div>
@@ -176,7 +176,7 @@ const ComposerAction: FC = () => {
             type="submit"
             size="icon"
             className="size-8 rounded-lg"
-            aria-label="Send"
+            aria-label="发送"
           >
             <ArrowUpIcon className="size-4" />
           </Button>
@@ -190,7 +190,7 @@ const ComposerAction: FC = () => {
             size="icon"
             variant="outline"
             className="size-8 rounded-lg"
-            aria-label="Stop"
+            aria-label="停止"
           >
             <Square className="size-3.5 fill-current" />
           </Button>
@@ -210,13 +210,13 @@ const MessageError: FC = () => {
     <MessagePrimitive.Error>
       <ErrorPrimitive.Root className="border-destructive/40 bg-destructive/5 mt-3 flex flex-col items-start gap-2 rounded-lg border p-3">
         <p className="text-destructive text-sm font-medium">
-          That answer didn&apos;t come through.
+          这条回答未能生成。
         </p>
         <ErrorPrimitive.Message className="text-muted-foreground line-clamp-3 text-xs" />
         <ActionBarPrimitive.Reload asChild>
           <Button variant="outline" size="sm">
             <RefreshCwIcon className="size-3.5" />
-            Try again
+            重试
           </Button>
         </ActionBarPrimitive.Reload>
       </ErrorPrimitive.Root>
@@ -240,7 +240,7 @@ const Thinking: FC = () => {
           />
         ))}
       </span>
-      Reading your feedback
+      正在读取你的反馈
     </div>
   );
 };
@@ -309,7 +309,7 @@ const CopyAnswer: FC = () => {
 
   return (
     <TooltipIconButton
-      tooltip="Copy"
+      tooltip="复制"
       onClick={copy}
       className="hover:bg-accent/60 text-muted-foreground size-7 rounded-lg"
     >
@@ -333,7 +333,7 @@ const AssistantActionBar: FC = () => {
       <CopyAnswer />
       <ActionBarPrimitive.Reload asChild>
         <TooltipIconButton
-          tooltip="Ask again"
+          tooltip="重新提问"
           className="hover:bg-accent/60 text-muted-foreground size-7 rounded-lg"
         >
           <RefreshCwIcon className="size-3.5" />
@@ -377,7 +377,7 @@ const UserActionBar: FC = () => {
     >
       <ActionBarPrimitive.Edit asChild>
         <TooltipIconButton
-          tooltip="Edit"
+          tooltip="编辑"
           className="hover:bg-accent/60 text-muted-foreground size-7 rounded-lg"
         >
           <PencilIcon className="size-3.5" />
@@ -399,11 +399,11 @@ const EditComposer: FC = () => {
         <div className="mx-3 mb-3 flex items-center gap-2 self-end">
           <ComposerPrimitive.Cancel asChild>
             <Button variant="ghost" size="sm">
-              Cancel
+              取消
             </Button>
           </ComposerPrimitive.Cancel>
           <ComposerPrimitive.Send asChild>
-            <Button size="sm">Ask again</Button>
+            <Button size="sm">重新提问</Button>
           </ComposerPrimitive.Send>
         </div>
       </ComposerPrimitive.Root>
@@ -425,7 +425,7 @@ const BranchPicker: FC<BranchPickerPrimitive.Root.Props> = ({
       {...rest}
     >
       <BranchPickerPrimitive.Previous asChild>
-        <TooltipIconButton tooltip="Previous" className="size-6">
+        <TooltipIconButton tooltip="上一个" className="size-6">
           <ChevronLeftIcon className="size-3.5" />
         </TooltipIconButton>
       </BranchPickerPrimitive.Previous>
@@ -433,7 +433,7 @@ const BranchPicker: FC<BranchPickerPrimitive.Root.Props> = ({
         <BranchPickerPrimitive.Number /> / <BranchPickerPrimitive.Count />
       </span>
       <BranchPickerPrimitive.Next asChild>
-        <TooltipIconButton tooltip="Next" className="size-6">
+        <TooltipIconButton tooltip="下一个" className="size-6">
           <ChevronRightIcon className="size-3.5" />
         </TooltipIconButton>
       </BranchPickerPrimitive.Next>

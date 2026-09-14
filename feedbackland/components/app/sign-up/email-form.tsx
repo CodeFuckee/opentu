@@ -19,13 +19,13 @@ import { useAuth } from "@/hooks/use-auth";
 import { Session } from "@/hooks/use-auth";
 
 export const signUpSchema = z.object({
-  name: z.string().min(1, "please provide a name"),
-  email: z.email().min(1, "Please type your email address"),
+  name: z.string().min(1, "请输入用户名"),
+  email: z.email().min(1, "请输入邮箱地址"),
   password: z
     .string()
     .trim()
-    .min(8, "Password must be at least 8 characters long")
-    .max(128, "Password must be no more than 128 characters long"),
+    .min(8, "密码长度至少为 8 个字符")
+    .max(128, "密码长度不能超过 128 个字符"),
 });
 
 type FormData = z.infer<typeof signUpSchema>;
@@ -73,10 +73,10 @@ export function SignUpEmailForm({
       });
       onSuccess(session);
     } catch (error: any) {
-      let message = "An error occured. Please try again";
+      let message = "发生错误，请重试";
 
       if (error?.message?.includes("email-already-in-use")) {
-        message = "This email is already in use. Please sign in instead.";
+        message = "该邮箱已被使用，请直接登录。";
       }
 
       setError("root.serverError", {
@@ -96,7 +96,7 @@ export function SignUpEmailForm({
         className="mb-4"
       >
         <ArrowLeft className="size-4" />
-        Go back
+        返回
       </Button>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -110,11 +110,11 @@ export function SignUpEmailForm({
             name="name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Username</FormLabel>
+                <FormLabel>用户名</FormLabel>
                 <FormControl>
                   <Input
                     autoFocus
-                    placeholder="Username"
+                    placeholder="用户名"
                     {...field}
                     type="text"
                   />
@@ -128,9 +128,9 @@ export function SignUpEmailForm({
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Email</FormLabel>
+                <FormLabel>邮箱</FormLabel>
                 <FormControl>
-                  <Input placeholder="Email" {...field} type="email" />
+                  <Input placeholder="邮箱" {...field} type="email" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -141,16 +141,16 @@ export function SignUpEmailForm({
             name="password"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Password</FormLabel>
+                <FormLabel>密码</FormLabel>
                 <FormControl>
-                  <Input placeholder="Password" {...field} type="password" />
+                  <Input placeholder="密码" {...field} type="password" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
           <Button type="submit" className="w-full" loading={isPending}>
-            Sign up
+            注册
           </Button>
         </form>
       </Form>

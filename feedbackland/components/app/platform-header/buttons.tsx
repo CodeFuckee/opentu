@@ -71,7 +71,7 @@ export function PlatformHeaderButtons() {
               ) : (
                 <ShieldIcon className="size-3.5!" />
               )}
-              {isAdminPage ? "Home" : "Admin Panel"}
+              {isAdminPage ? "首页" : "管理后台"}
             </Button>
           </Link>
         )}
@@ -88,7 +88,7 @@ export function PlatformHeaderButtons() {
                 <LogInIcon className="size-4!" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Sign in</TooltipContent>
+            <TooltipContent>登录</TooltipContent>
           </Tooltip>
         )}
 
@@ -105,7 +105,7 @@ export function PlatformHeaderButtons() {
                     <Avatar className="size-6!">
                       <AvatarImage
                         src={session?.user?.photoURL || undefined}
-                        alt="User avatar image"
+                        alt="用户头像"
                       />
                       <AvatarFallback className="text-xs">
                         {session?.user?.name?.charAt(0) || (
@@ -116,7 +116,7 @@ export function PlatformHeaderButtons() {
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
-              <TooltipContent>Account</TooltipContent>
+              <TooltipContent>账户</TooltipContent>
             </Tooltip>
 
             <DropdownMenuContent
@@ -129,7 +129,7 @@ export function PlatformHeaderButtons() {
                 onClick={() => setIsAccountSettingsDialogOpen(true)}
               >
                 <div className="flex items-center gap-1 font-semibold">
-                  <span>{session?.user?.name || "Unnamed user"}</span>
+                  <span>{session?.user?.name || "未命名用户"}</span>
                 </div>
                 {session?.user?.email && (
                   <div className="text-muted-foreground -mt-1 text-xs">
@@ -145,13 +145,13 @@ export function PlatformHeaderButtons() {
                     className="flex items-center gap-2"
                   >
                     <ShieldIcon className="size-3.5!" />
-                    Admin Panel
+                    管理后台
                   </Link>
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem onClick={handleSignOut} className="text-sm">
                 <LogOutIcon className="size-3.5!" />
-                Sign out
+                退出登录
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

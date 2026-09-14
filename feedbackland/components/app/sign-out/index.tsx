@@ -10,5 +10,5 @@ export function SignOutButton() {
     await signOut();
   };
 
-  return <Button onClick={handleSignOut}>Sign out</Button>;
+  return <Button onClick={handleSignOut}>退出登录</Button>;
 }

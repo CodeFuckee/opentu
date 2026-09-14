@@ -82,11 +82,11 @@ export function CreateOrgForm() {
       router.push(`${platformUrl}/claim`);
     } else if (response?.data?.message === "duplicate subdomain") {
       setError("orgSubdomain", {
-        message: "Sorry, this subdomain is already taken",
+        message: "抱歉，该子域名已被占用",
       });
     } else {
       setError("root.serverError", {
-        message: "An error occured. Please try again.",
+        message: "发生错误，请重试。",
       });
     }
   };
@@ -96,7 +96,7 @@ export function CreateOrgForm() {
       <Card className="w-full max-w-[420px]">
         <CardHeader>
           <CardTitle className="h3 mt-1 mb-3 text-center font-bold">
-            Create your platform
+            创建你的平台
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -112,11 +112,11 @@ export function CreateOrgForm() {
                 name="orgName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>The name of your product</FormLabel>
+                    <FormLabel>你的产品名称</FormLabel>
                     <FormControl>
                       <Input
                         autoFocus={true}
-                        placeholder="Product name"
+                        placeholder="产品名称"
                         {...field}
                       />
                     </FormControl>
@@ -129,7 +129,7 @@ export function CreateOrgForm() {
                 name="orgSubdomain"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Platform URL</FormLabel>
+                    <FormLabel>平台 URL</FormLabel>
                     <FormControl>
                       <div className="tems-center flex">
                         {isSelfHosted && vercelUrl && (
@@ -143,7 +143,7 @@ export function CreateOrgForm() {
                             "rounded-r-none": !isSelfHosted,
                             "rounded-l-none": isSelfHosted,
                           })}
-                          placeholder="subdomain"
+                          placeholder="子域名"
                           {...field}
                         />
                         {!isSelfHosted && (
@@ -158,7 +158,7 @@ export function CreateOrgForm() {
                 )}
               />
               <Button type="submit" loading={isPending} className="w-full">
-                Create platform
+                创建平台
               </Button>
             </form>
           </Form>

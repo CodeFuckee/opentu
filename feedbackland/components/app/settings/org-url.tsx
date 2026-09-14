@@ -54,7 +54,7 @@ export function OrgUrl({
       setIsEditing(false);
     } catch {
       form.setError("orgUrl", {
-        message: "An error occured. Please try again.",
+        message: "出现错误，请重试。",
       });
     }
   }
@@ -76,17 +76,16 @@ export function OrgUrl({
                 name="orgUrl"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Company or product website</FormLabel>
+                    <FormLabel>公司或产品网站</FormLabel>
                     <FormDescription className="">
-                      The website of the company or product this feedback
-                      platform is used for
+                      此反馈平台所服务的公司或产品的网站
                     </FormDescription>
                     <FormControl>
                       {isEditing ? (
                         <Input
                           autoFocus={true}
                           className="w-full max-w-[450px] text-sm"
-                          placeholder="Company or product website URL"
+                          placeholder="公司或产品网站地址"
                           {...field}
                         />
                       ) : (
@@ -95,7 +94,7 @@ export function OrgUrl({
                             "text-muted-foreground": !data?.orgUrl,
                           })}
                         >
-                          {data?.orgUrl || "No website added"}
+                          {data?.orgUrl || "未填写网站"}
                         </div>
                       )}
                     </FormControl>
@@ -106,14 +105,14 @@ export function OrgUrl({
               {isEditing && (
                 <div className="mt-3 flex items-center gap-2">
                   <Button type="submit" size="sm" loading={updateOrg.isPending}>
-                    Save
+                    保存
                   </Button>
                   <Button
                     size="sm"
                     variant="secondary"
                     onClick={handleOnCancel}
                   >
-                    Cancel
+                    取消
                   </Button>
                 </div>
               )}
@@ -129,7 +128,7 @@ export function OrgUrl({
               onClick={handleOnCancel}
             >
               <XIcon className="size-3.5" />
-              Cancel
+              取消
             </Button>
           ) : (
             <Button
@@ -139,7 +138,7 @@ export function OrgUrl({
               onClick={() => setIsEditing(true)}
             >
               <PenIcon className="size-3" />
-              Edit
+              编辑
             </Button>
           )}
         </div>

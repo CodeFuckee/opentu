@@ -52,7 +52,7 @@ export const FeedbackPostsSidebarSearch = ({
       <Input
         ref={inputRef}
         type="text"
-        placeholder="Search..."
+        placeholder="搜索…"
         value={inputValue}
         onChange={handleChange}
         className={cn("bg-background! relative px-9 text-sm")}
@@ -71,7 +71,7 @@ export const FeedbackPostsSidebarSearch = ({
         }}
       >
         <XIcon className="size-4" />
-        <span className="sr-only">Close search</span>
+        <span className="sr-only">关闭搜索</span>
       </Button>
     </div>
   );

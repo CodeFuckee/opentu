@@ -27,8 +27,8 @@ export function AdminsTable() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="">Admin</TableHead>
-                <TableHead className="">Status</TableHead>
+                <TableHead className="">管理员</TableHead>
+                <TableHead className="">状态</TableHead>
                 <TableHead className="text-right"></TableHead>
               </TableRow>
             </TableHeader>

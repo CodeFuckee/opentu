@@ -60,7 +60,7 @@ export function PlatformDescription({
       setIsEditing(false);
     } catch {
       form.setError("platformDescription", {
-        message: "An error occured. Please try again.",
+        message: "出现错误，请重试。",
       });
     }
   }
@@ -82,17 +82,16 @@ export function PlatformDescription({
                 name="platformDescription"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Platform description</FormLabel>
+                    <FormLabel>平台描述</FormLabel>
                     <FormDescription className="">
-                      Description of your feedback platform, displayed at the
-                      top of the page underneath the title
+                      反馈平台的描述，显示在页面顶部标题下方
                     </FormDescription>
                     <FormControl>
                       {isEditing ? (
                         <Textarea
                           autoFocus={true}
                           className="w-full max-w-[450px] text-sm"
-                          placeholder="Description of your feedback platform"
+                          placeholder="反馈平台的描述"
                           {...field}
                         />
                       ) : (
@@ -101,7 +100,7 @@ export function PlatformDescription({
                             "text-muted-foreground": !data?.platformDescription,
                           })}
                         >
-                          {data?.platformDescription || "No description added"}
+                          {data?.platformDescription || "未填写描述"}
                         </div>
                       )}
                     </FormControl>
@@ -112,14 +111,14 @@ export function PlatformDescription({
               {isEditing && (
                 <div className="mt-3 flex items-center gap-2">
                   <Button type="submit" size="sm" loading={updateOrg.isPending}>
-                    Save
+                    保存
                   </Button>
                   <Button
                     size="sm"
                     variant="secondary"
                     onClick={handleOnCancel}
                   >
-                    Cancel
+                    取消
                   </Button>
                 </div>
               )}
@@ -135,7 +134,7 @@ export function PlatformDescription({
               onClick={handleOnCancel}
             >
               <XIcon className="size-3.5" />
-              Cancel
+              取消
             </Button>
           ) : (
             <Button
@@ -145,7 +144,7 @@ export function PlatformDescription({
               onClick={() => setIsEditing(true)}
             >
               <PenIcon className="size-3" />
-              Edit
+              编辑
             </Button>
           )}
         </div>

@@ -12,6 +12,15 @@ import { Button } from "@/components/ui/button";
 import { ArrowUpDown, ChevronDown } from "lucide-react";
 import { capitalizeFirstLetter, cn } from "@/lib/utils";
 
+// 数据库枚举值的展示用中文标签（仅用于显示，不改变原值）
+const STATUS_LABELS: Record<string, string> = {
+  "under consideration": "考虑中",
+  planned: "已列入计划",
+  "in progress": "进行中",
+  done: "已完成",
+  declined: "已拒绝",
+};
+
 export function SortingFilteringDropdown({
   orderBy,
   status,
@@ -32,12 +41,12 @@ export function SortingFilteringDropdown({
   className?: string;
 }) {
   const getDropdownName = () => {
-    let orderByName = "Newest";
+    let orderByName = "最新";
 
     if (orderBy === "upvotes") {
-      orderByName = "Most upvoted";
+      orderByName = "点赞最多";
     } else if (orderBy === "comments") {
-      orderByName = "Most commented";
+      orderByName = "评论最多";
     }
 
     return (
@@ -46,7 +55,7 @@ export function SortingFilteringDropdown({
         {status && ", "}
         {status && (
           <span className={cn(`text-${status.replace(" ", "-")}`)}>
-            {capitalizeFirstLetter(status)}
+            {STATUS_LABELS[status] ?? capitalizeFirstLetter(status)}
           </span>
         )}
       </>
@@ -88,12 +97,12 @@ export function SortingFilteringDropdown({
           }
           className="border-border border-r pr-2"
         >
-          <DropdownMenuRadioItem value="newest">Newest</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="newest">最新</DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="upvotes">
-            Most upvoted
+            点赞最多
           </DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="comments">
-            Most commented
+            评论最多
           </DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
 
@@ -107,28 +116,28 @@ export function SortingFilteringDropdown({
           className="px-1"
         >
           <DropdownMenuRadioItem value="all">
-            All statuses
+            全部状态
           </DropdownMenuRadioItem>
           <DropdownMenuRadioItem
             value="under consideration"
             className="text-under-consideration!"
           >
-            Under consideration
+            考虑中
           </DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="planned" className="text-planned!">
-            Planned
+            已列入计划
           </DropdownMenuRadioItem>
           <DropdownMenuRadioItem
             value="in progress"
             className="text-in-progress!"
           >
-            In progress
+            进行中
           </DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="done" className="text-done!">
-            Done
+            已完成
           </DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="declined" className="text-declined!">
-            Declined
+            已拒绝
           </DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>

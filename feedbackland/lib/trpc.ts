@@ -94,7 +94,7 @@ const publicProcedureMiddleware = t.middleware((opts) => {
   if (!ctx?.orgId) {
     throw new TRPCError({
       code: "BAD_REQUEST",
-      message: "No orgId was found",
+      message: "未找到组织信息",
     });
   }
 
@@ -114,7 +114,7 @@ const userProcedureMiddleware = publicProcedureMiddleware.unstable_pipe(
     if (!ctx.userId) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
-        message: "No userId was found",
+        message: "用户未登录",
       });
     }
 
@@ -135,7 +135,7 @@ const adminProcedureMiddleware = userProcedureMiddleware.unstable_pipe(
     if (ctx.userRole !== "admin") {
       throw new TRPCError({
         code: "UNAUTHORIZED",
-        message: "User does not have admin role",
+        message: "没有管理员权限",
       });
     }
 

@@ -37,7 +37,7 @@ export function PlatformHeaderTitle({
                 className="size-[30px] rounded-sm object-contain"
               />
             )}
-            <span>{orgData?.platformTitle || "Feedback board"}</span>
+            <span>{orgData?.platformTitle || "反馈看板"}</span>
           </Link>
         </h1>
       )}

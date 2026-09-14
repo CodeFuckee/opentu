@@ -145,7 +145,7 @@ export function Citation({ postId }: { postId: string }) {
     <PostLink
       platformUrl={citations.platformUrl}
       postId={postId}
-      aria-label={title ? `Source ${number}: ${title}` : `Source ${number}`}
+      aria-label={title ? `来源 ${number}：${title}` : `来源 ${number}`}
       className="text-muted-foreground hover:bg-muted hover:text-foreground rounded-sm px-1 align-super text-[10px] font-medium tabular-nums no-underline transition-colors"
     >
       {number}
@@ -177,7 +177,7 @@ export function CitationSources() {
   return (
     <div className="border-border mt-4 border-t pt-3">
       <p className="text-muted-foreground mb-1.5 text-xs font-medium">
-        Sources
+        来源
       </p>
       <ol className="space-y-1">
         {citations.order.map((id, index) => (

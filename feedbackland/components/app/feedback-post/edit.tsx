@@ -73,7 +73,7 @@ export function FeedbackPostEdit({
           queryKey: trpc.getFeedbackPosts.queryKey().slice(0, 1),
         });
 
-        toast.success("Feedback updated", {
+        toast.success("反馈已更新", {
           position: "top-right",
         });
 
@@ -102,7 +102,7 @@ export function FeedbackPostEdit({
         className={cn("w-full space-y-6", className)}
       >
         <FormItem>
-          <FormLabel>Title</FormLabel>
+          <FormLabel>标题</FormLabel>
           <FormField
             control={control}
             name="title"
@@ -112,7 +112,7 @@ export function FeedbackPostEdit({
                   <Input
                     autoFocus={true}
                     type="text"
-                    placeholder="Title"
+                    placeholder="标题"
                     {...field}
                     className="text-sm"
                   />
@@ -124,7 +124,7 @@ export function FeedbackPostEdit({
         </FormItem>
 
         <FormItem>
-          <FormLabel>Description</FormLabel>
+          <FormLabel>描述</FormLabel>
           <FormField
             control={control}
             name="description"
@@ -144,18 +144,18 @@ export function FeedbackPostEdit({
 
         <div className="flex items-center space-x-2">
           <Button type="submit" loading={formState === "pending"} size="sm">
-            Save
+            保存
           </Button>
 
           <Button onClick={onClose} variant="outline" size="sm">
-            Cancel
+            取消
           </Button>
         </div>
 
         {formState === "error" && (
           <Error
-            title="Could not save changes"
-            description="An error occured while trying to save your changes. Please try again."
+            title="无法保存更改"
+            description="保存更改时发生错误，请重试。"
           />
         )}
       </form>

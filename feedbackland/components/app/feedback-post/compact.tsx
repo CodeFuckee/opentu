@@ -13,6 +13,21 @@ import { useRouter } from "next/navigation";
 import { FeedbackPostOptionsMenu } from "./options-menu";
 import { useAuth } from "@/hooks/use-auth";
 
+// 数据库枚举值的展示用中文标签（仅用于显示，不改变原值）
+const STATUS_LABELS: Record<string, string> = {
+  "under consideration": "考虑中",
+  planned: "已列入计划",
+  "in progress": "进行中",
+  done: "已完成",
+  declined: "已拒绝",
+};
+
+const CATEGORY_LABELS: Record<string, string> = {
+  issue: "问题",
+  idea: "建议",
+  "general feedback": "一般反馈",
+};
+
 function Inner({
   postId,
   authorId,
@@ -67,14 +82,16 @@ function Inner({
               <div className="text-muted-foreground flex items-center gap-1 text-xs font-normal">
                 <span>{timeAgo.format(createdAt, "mini-now")}</span>
                 <span className="text-[8px]">•</span>
-                <span className="capitalize">{category}</span>
+                <span className="capitalize">
+                  {category ? (CATEGORY_LABELS[category] ?? category) : category}
+                </span>
                 {status && (
                   <>
                     <span className="text-[8px]">•</span>
                     <span
                       className={cn("", `text-${status.replace(" ", "-")}`)}
                     >
-                      {status}
+                      {STATUS_LABELS[status] ?? status}
                     </span>
                   </>
                 )}

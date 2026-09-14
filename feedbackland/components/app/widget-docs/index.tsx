@@ -32,22 +32,22 @@ import {
 } from "@/lib/widget-snippets";
 
 const VARIANT_OPTIONS: { value: Variant; label: string }[] = [
-  { value: "default", label: "Default" },
-  { value: "secondary", label: "Secondary" },
-  { value: "outline", label: "Outline" },
-  { value: "ghost", label: "Ghost" },
-  { value: "link", label: "Link" },
-  { value: "destructive", label: "Destructive" },
-  { value: "unstyled", label: "Unstyled" },
+  { value: "default", label: "默认" },
+  { value: "secondary", label: "次要" },
+  { value: "outline", label: "描边" },
+  { value: "ghost", label: "幽灵" },
+  { value: "link", label: "链接" },
+  { value: "destructive", label: "危险" },
+  { value: "unstyled", label: "无样式" },
 ];
 
 const SIZE_OPTIONS: { value: Size; label: string }[] = [
-  { value: "default", label: "Default" },
-  { value: "sm", label: "Small" },
-  { value: "lg", label: "Large" },
-  { value: "icon", label: "Icon" },
-  { value: "icon-sm", label: "Icon (small)" },
-  { value: "icon-lg", label: "Icon (large)" },
+  { value: "default", label: "默认" },
+  { value: "sm", label: "小" },
+  { value: "lg", label: "大" },
+  { value: "icon", label: "图标" },
+  { value: "icon-sm", label: "图标（小）" },
+  { value: "icon-lg", label: "图标（大）" },
 ];
 
 export function WidgetDocs({
@@ -116,18 +116,18 @@ export function WidgetDocs({
       <div className="lg:sticky lg:top-8 lg:col-span-4">
         <Card className="bg-background">
           <CardHeader>
-            <CardTitle>Configuration</CardTitle>
+            <CardTitle>配置</CardTitle>
             <CardDescription>
-              Tweak the props; preview and code update live.
+              调整各项属性，预览和代码会实时更新。
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             <Field
-              label="Widget"
+              label="组件类型"
               hint={
                 widget === "drawer"
-                  ? "Slide-in side panel with the full board"
-                  : "Anchored inline form; user stays in flow"
+                  ? "侧边滑入面板，展示完整看板"
+                  : "锚定在页面内的表单，用户不离开当前流程"
               }
               htmlFor="widget-flavor"
             >
@@ -136,13 +136,13 @@ export function WidgetDocs({
                 onValueChange={(v) => setWidget(v as Widget)}
               >
                 <TabsList id="widget-flavor" className="grid w-full grid-cols-2">
-                  <TabsTrigger value="drawer">Drawer</TabsTrigger>
-                  <TabsTrigger value="popover">Popover</TabsTrigger>
+                  <TabsTrigger value="drawer">抽屉</TabsTrigger>
+                  <TabsTrigger value="popover">弹窗</TabsTrigger>
                 </TabsList>
               </Tabs>
             </Field>
 
-            <Field label="Label" hint="Button text" htmlFor="widget-text">
+            <Field label="按钮文字" hint="按钮上显示的文字" htmlFor="widget-text">
               <Input
                 id="widget-text"
                 value={text}
@@ -152,11 +152,11 @@ export function WidgetDocs({
             </Field>
 
             <Field
-              label="Variant"
+              label="样式变体"
               hint={
                 variant === "unstyled"
-                  ? "Strips internal classes — pair with className"
-                  : "Visual style preset"
+                  ? "移除内部样式类——请配合 className 使用"
+                  : "预设的视觉样式"
               }
               htmlFor="widget-variant"
             >
@@ -177,7 +177,7 @@ export function WidgetDocs({
               </Select>
             </Field>
 
-            <Field label="Size" hint="Size preset" htmlFor="widget-size">
+            <Field label="尺寸" hint="预设尺寸" htmlFor="widget-size">
               <Select
                 value={size}
                 onValueChange={(v) => setSize(v as Size)}
@@ -197,7 +197,7 @@ export function WidgetDocs({
 
             <Field
               label="Tailwind className"
-              hint="Optional override — your classes win conflicts"
+              hint="可选覆盖——类名冲突时以你的为准"
               htmlFor="widget-classname"
             >
               <Input
@@ -209,11 +209,11 @@ export function WidgetDocs({
             </Field>
 
             <p className="text-muted-foreground border-border border-t pt-4 text-xs">
-              Want to bring your own button instead? Use the{" "}
+              想使用自己的按钮？可以使用{" "}
               <code className="bg-muted/40 rounded px-1 py-0.5 font-mono text-[11px]">
                 asChild
               </code>{" "}
-              prop —{" "}
+              属性——参见{" "}
               <a
                 href="https://github.com/feedbackland/feedbackland/tree/main/feedbackland-react#readme"
                 target="_blank"
@@ -223,7 +223,7 @@ export function WidgetDocs({
                 README
                 <ExternalLink className="size-3" aria-hidden="true" />
               </a>
-              .
+              。
             </p>
           </CardContent>
         </Card>
@@ -234,7 +234,7 @@ export function WidgetDocs({
         <div className="bg-background overflow-hidden rounded-xl border shadow-xs">
           <div className="bg-muted/20 flex items-center border-b px-4 py-2">
             <span className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-              Preview
+              预览
             </span>
           </div>
           <div className="relative flex min-h-[140px] w-full items-center justify-center px-4 py-8">
@@ -251,7 +251,7 @@ export function WidgetDocs({
 
           <div className="bg-muted/20 flex items-center border-y px-4 py-2">
             <span className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-              Installation
+              安装
             </span>
           </div>
           <Code
@@ -262,7 +262,7 @@ export function WidgetDocs({
 
           <div className="bg-muted/20 flex items-center border-b px-4 py-2">
             <span className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-              Usage
+              用法
             </span>
           </div>
           <Code

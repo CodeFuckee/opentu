@@ -34,18 +34,18 @@ export function SignUp({
             onClick={() => setIsEmailSelected(true)}
           >
             <Mail className="size-5" />
-            Sign up with Email
+            使用邮箱注册
           </Button>
           <div className="m-auto mt-8 flex items-center">
             <span className="text-foreground mr-1 text-sm">
-              Already have an account?
+              已有账号？
             </span>
             <Button
               variant="link"
               onClick={() => onSelectedMethodChange?.("sign-in")}
               className="p-0 underline"
             >
-              Sign in
+              登录
             </Button>
           </div>
         </div>

@@ -16,12 +16,20 @@ import {
 } from "@/components/ui/tooltip";
 import { expandedInsightsAtom } from "@/lib/atoms";
 import { cn } from "@/lib/utils";
-import { formatPostCount, formatReach, getReachDelta } from "@/lib/insights";
+import { getReachDelta } from "@/lib/insights";
 import { useSetInsightStatus } from "@/hooks/use-set-insight-status";
 import type { FeedbackStatus, Insight } from "@/lib/typings";
 import { InsightSignal } from "./signal";
 import { InsightStatusControl } from "./status-control";
 import { InsightEvidence } from "./evidence";
+
+const STATUS_LABELS: Record<string, string> = {
+  "under consideration": "考虑中",
+  planned: "已列入计划",
+  "in progress": "进行中",
+  done: "已完成",
+  declined: "已拒绝",
+};
 
 export function InsightRow({ insight }: { insight: Insight }) {
   const [expanded, setExpanded] = useAtom(expandedInsightsAtom);
@@ -38,12 +46,12 @@ export function InsightRow({ insight }: { insight: Insight }) {
         onSuccess: () =>
           toast.success(
             next
-              ? `${formatPostCount(postCount)} marked "${next}"`
-              : `Status cleared on ${formatPostCount(postCount)}`,
+              ? `${postCount} 条反馈已标记为“${STATUS_LABELS[next] ?? next}”`
+              : `已清除 ${postCount} 条反馈的状态`,
             { position: "top-right" },
           ),
         onError: () =>
-          toast.error("That status didn't save. Try again.", {
+          toast.error("状态保存失败，请重试。", {
             position: "top-right",
           }),
       },
@@ -68,7 +76,7 @@ export function InsightRow({ insight }: { insight: Insight }) {
                   variant="secondary"
                   className="ml-2 -translate-y-px px-1.5 py-0 align-middle text-[10px] tracking-wide uppercase"
                 >
-                  New
+                  新
                 </Badge>
               )}
             </h3>
@@ -87,7 +95,7 @@ export function InsightRow({ insight }: { insight: Insight }) {
             {/* Reach and its change are one fact, so they sit closer to each
                 other than to anything else on the line. */}
             <span className="flex items-center gap-1.5">
-              <span className="tabular-nums">{formatReach(insight.reach)}</span>
+              <span className="tabular-nums">{insight.reach} 人</span>
 
               {reachDelta !== null && (
                 <Tooltip>
@@ -97,8 +105,7 @@ export function InsightRow({ insight }: { insight: Insight }) {
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>
-                    {reachDelta} more {reachDelta === 1 ? "person" : "people"}{" "}
-                    since the last run
+                    自上次分析以来新增 {reachDelta} 人
                   </TooltipContent>
                 </Tooltip>
               )}
@@ -109,7 +116,7 @@ export function InsightRow({ insight }: { insight: Insight }) {
                 button's padding and hover so it reads as one, which is also
                 what separates it from the reach beside it — no bullet needed. */}
             <CollapsibleTrigger className="hover:bg-muted hover:text-foreground focus-visible:ring-ring -my-0.5 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 tabular-nums transition-colors focus-visible:ring-2 focus-visible:outline-none">
-              {formatPostCount(postCount)}
+              {postCount} 条反馈
               <ChevronDown
                 aria-hidden
                 className={cn(

@@ -36,17 +36,16 @@ export function ApiDocs({ orgId }: { orgId: string }) {
   return (
     <div className="space-y-8">
       <p className="text-muted-foreground max-w-prose text-sm">
-        Submit feedback to your platform programmatically from any service or
-        client. The endpoint is public — no authentication required.
+        可通过任何服务或客户端以编程方式向你的平台提交反馈。该端点是公开的——无需身份验证。
       </p>
 
-      <Section title="Endpoint">
+      <Section title="端点">
         <EndpointCard url={endpointUrl} />
       </Section>
 
-      <Section title="Your organization ID">
+      <Section title="你的组织 ID">
         <p className="text-muted-foreground max-w-prose text-sm">
-          Pass this value as <Mono>orgId</Mono> in the request body.
+          请在请求体中将此值作为 <Mono>orgId</Mono> 传入。
         </p>
         <div className="bg-background border-border flex items-center gap-2 rounded-lg border px-3 py-2 shadow-xs">
           <code className="text-foreground flex-1 truncate font-mono text-sm">
@@ -56,41 +55,40 @@ export function ApiDocs({ orgId }: { orgId: string }) {
         </div>
       </Section>
 
-      <Section title="Example request">
+      <Section title="请求示例">
         <CodeExamples url={endpointUrl} orgId={orgId} />
       </Section>
 
-      <Section title="Request body">
+      <Section title="请求体">
         <ParamTable
           rows={[
             {
               field: "orgId",
               type: "string (uuid)",
-              description: "Your organization ID, shown above.",
+              description: "你的组织 ID，即上方展示的值。",
               required: true,
             },
             {
               field: "description",
               type: "string",
               description:
-                "The feedback content. 1–10,000 characters. Plain text or HTML accepted.",
+                "反馈内容。1–10,000 个字符。支持纯文本或 HTML。",
               required: true,
             },
           ]}
         />
       </Section>
 
-      <Section title="Response">
+      <Section title="响应">
         <p className="text-muted-foreground max-w-prose text-sm">
-          A <Mono>200</Mono> response returns the created feedback post.
+          返回 <Mono>200</Mono> 表示成功创建反馈帖。
         </p>
         <Code code={EXAMPLE_RESPONSE} lang="json" />
       </Section>
 
-      <Section title="Errors">
+      <Section title="错误">
         <p className="text-muted-foreground max-w-prose text-sm">
-          Validation failures and server errors return <Mono>500</Mono> with a
-          JSON body:
+          校验失败和服务器错误会返回 <Mono>500</Mono> 及如下 JSON 响应体：
         </p>
         <Code code={ERROR_RESPONSE} lang="json" />
       </Section>
@@ -137,13 +135,13 @@ function ParamTable({ rows }: { rows: ParamRow[] }) {
         <thead className="bg-muted/30 text-muted-foreground">
           <tr className="text-left">
             <th scope="col" className="px-4 py-2 font-medium">
-              Field
+              字段
             </th>
             <th scope="col" className="px-4 py-2 font-medium">
-              Type
+              类型
             </th>
             <th scope="col" className="px-4 py-2 font-medium">
-              Description
+              描述
             </th>
           </tr>
         </thead>
@@ -157,7 +155,7 @@ function ParamTable({ rows }: { rows: ParamRow[] }) {
                   </code>
                   {row.required && (
                     <span className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
-                      required
+                      必填
                     </span>
                   )}
                 </div>

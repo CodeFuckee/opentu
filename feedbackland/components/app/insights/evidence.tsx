@@ -11,6 +11,20 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FeedbackPostOptionsMenu } from "../feedback-post/options-menu";
 import type { Insight } from "@/lib/typings";
 
+const CATEGORY_LABELS: Record<string, string> = {
+  idea: "建议",
+  issue: "问题",
+  "general feedback": "一般反馈",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  "under consideration": "考虑中",
+  planned: "已列入计划",
+  "in progress": "进行中",
+  done: "已完成",
+  declined: "已拒绝",
+};
+
 function EvidenceLoading() {
   return (
     <div className="space-y-3">
@@ -55,7 +69,7 @@ export function InsightEvidence({ insight }: { insight: Insight }) {
 
       <div className="space-y-2">
         <div className="text-xs font-medium">
-          The feedback behind this insight
+          该洞察背后的反馈
         </div>
 
         {isPending && <EvidenceLoading />}
@@ -88,7 +102,11 @@ export function InsightEvidence({ insight }: { insight: Insight }) {
               <div className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-1.5 text-xs">
                 <span>{timeAgo.format(post.createdAt, "mini-now")}</span>
                 <span className="text-[8px]">&middot;</span>
-                <span className="capitalize">{post.category}</span>
+                <span className="capitalize">
+                  {post.category
+                    ? (CATEGORY_LABELS[post.category] ?? post.category)
+                    : null}
+                </span>
                 {post.status && (
                   <>
                     <span className="text-[8px]">&middot;</span>
@@ -98,7 +116,7 @@ export function InsightEvidence({ insight }: { insight: Insight }) {
                         STATUS_TEXT_CLASS[post.status],
                       )}
                     >
-                      {post.status}
+                      {STATUS_LABELS[post.status] ?? post.status}
                     </span>
                   </>
                 )}
@@ -109,8 +127,7 @@ export function InsightEvidence({ insight }: { insight: Insight }) {
 
         {!isPending && sorted.length === 0 && (
           <p className="text-muted-foreground text-xs">
-            The posts behind this insight are no longer available. Regenerate to
-            refresh the insights.
+            该洞察背后的反馈已不存在。请重新生成以刷新洞察。
           </p>
         )}
       </div>

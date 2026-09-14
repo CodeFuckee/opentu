@@ -14,15 +14,15 @@ export default function FormPage() {
         <FieldGroup>
           <Field>
             <FieldLabel htmlFor="feedback" className="sr-only">
-              Feedback
+              反馈
             </FieldLabel>
             <Textarea
               id="feedback"
-              placeholder="Your feedback helps us improve..."
+              placeholder="你的反馈能帮助我们改进…"
               rows={4}
             />
             <FieldDescription>
-              Share your thoughts about our service.
+              分享你对我们服务的想法。
             </FieldDescription>
           </Field>
         </FieldGroup>

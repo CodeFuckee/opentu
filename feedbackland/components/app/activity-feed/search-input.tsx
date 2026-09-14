@@ -37,7 +37,7 @@ export const ActivityFeedSearchInput = ({
       </InputGroupAddon>
       <InputGroupInput
         type="text"
-        placeholder="Search activity..."
+        placeholder="搜索动态…"
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
         onKeyDown={(e) => {
@@ -46,13 +46,13 @@ export const ActivityFeedSearchInput = ({
             e.currentTarget.blur();
           }
         }}
-        aria-label="Search activity feed"
+        aria-label="搜索动态"
       />
       {inputValue.length > 0 && (
         <InputGroupAddon align="inline-end">
           <InputGroupButton
             size="icon-xs"
-            aria-label="Clear search"
+            aria-label="清除搜索"
             onClick={(e) => {
               setInputValue("");
               (

@@ -22,12 +22,12 @@ import { Session } from "@/hooks/use-auth";
 export const signInSchema = z.object({
   email: z.email()
         .trim()
-        .min(1, "Please enter your email"),
+        .min(1, "请输入邮箱"),
   password: z
     .string()
     .trim()
-    .min(8, "Password must be at least 8 characters long")
-    .max(128, "Password must be no more than 128 characters long"),
+    .min(8, "密码长度至少为 8 个字符")
+    .max(128, "密码长度不能超过 128 个字符"),
 });
 
 type FormData = z.infer<typeof signInSchema>;
@@ -72,7 +72,7 @@ export function SignInEmailForm({
       onSuccess(session);
     } catch (error: any) {
       setError("root.serverError", {
-        message: error?.message || "An error occured. Please try again.",
+        message: error?.message || "发生错误，请重试。",
       });
     } finally {
       setIsPending(false);
@@ -92,7 +92,7 @@ export function SignInEmailForm({
         className="mb-4"
       >
         <ArrowLeft className="size-4" />
-        Go back
+        返回
       </Button>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
@@ -106,11 +106,11 @@ export function SignInEmailForm({
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Email</FormLabel>
+                <FormLabel>邮箱</FormLabel>
                 <FormControl>
                   <Input
                     autoFocus
-                    placeholder="Email"
+                    placeholder="邮箱"
                     {...field}
                     type="email"
                   />
@@ -125,7 +125,7 @@ export function SignInEmailForm({
             render={({ field }) => (
               <FormItem>
                 <div className="flex items-center justify-between">
-                  <FormLabel>Password</FormLabel>
+                  <FormLabel>密码</FormLabel>
                   <Button
                     variant="link"
                     size="sm"
@@ -134,18 +134,18 @@ export function SignInEmailForm({
                       handleOnSelectedMethodChange("forgot-password")
                     }
                   >
-                    Forgot password?
+                    忘记密码？
                   </Button>
                 </div>
                 <FormControl>
-                  <Input placeholder="Password" {...field} type="password" />
+                  <Input placeholder="密码" {...field} type="password" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
           <Button type="submit" className="w-full" loading={isPending}>
-            Sign in
+            登录
           </Button>
         </form>
       </Form>

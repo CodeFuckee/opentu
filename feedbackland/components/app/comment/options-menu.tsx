@@ -68,7 +68,7 @@ export function CommentsOptionsMenu({
           queryKey: trpc.getActivityFeedMetaData.queryKey(),
         });
 
-        toast.success("Comment deleted", {
+        toast.success("评论已删除", {
           position: "top-right",
         });
       },
@@ -95,18 +95,18 @@ export function CommentsOptionsMenu({
             <Button
               variant={variant}
               size="icon"
-              aria-label="Open options menu"
+              aria-label="打开选项菜单"
               className="text-muted-foreground hover:text-primary h-fit w-fit px-1.5 py-1.5 hover:no-underline"
             >
               <MoreHorizontal className="size-4" />
-              <span className="sr-only">Options</span>
+              <span className="sr-only">选项</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {onEdit !== undefined && (
               <>
                 <DropdownMenuItem onClick={() => onEdit?.()}>
-                  Edit comment
+                  编辑评论
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
               </>
@@ -115,7 +115,7 @@ export function CommentsOptionsMenu({
               onClick={() => setIsDeleteConfirmationOpen(true)}
               className="text-destructive focus:text-destructive focus:bg-destructive/10"
             >
-              Delete comment
+              删除评论
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -124,11 +124,10 @@ export function CommentsOptionsMenu({
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
-                Are you sure you want to delete this comment?
+                确定要删除这条评论吗？
               </AlertDialogTitle>
               <AlertDialogDescription>
-                This action cannot be undone. The comment will be permanently
-                deleted.
+                此操作无法撤销，评论将被永久删除。
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -136,14 +135,14 @@ export function CommentsOptionsMenu({
                 onClick={() => setIsDeleteConfirmationOpen(false)}
                 disabled={deleteComment.isPending}
               >
-                Cancel
+                取消
               </AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleDelete}
                 disabled={deleteComment.isPending}
                 className={buttonVariants({ variant: "destructive" })}
               >
-                Delete
+                删除
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

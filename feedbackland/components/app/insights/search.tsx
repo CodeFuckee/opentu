@@ -32,7 +32,7 @@ export function InsightsSearch({
         <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
         <Input
           ref={inputRef}
-          placeholder="Search insights"
+          placeholder="搜索洞察"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
@@ -47,7 +47,7 @@ export function InsightsSearch({
           <button
             type="button"
             tabIndex={-1}
-            aria-label="Clear search"
+            aria-label="清除搜索"
             onClick={() => {
               clear();
               inputRef.current?.focus();
@@ -67,7 +67,7 @@ export function InsightsSearch({
           aria-live="polite"
           className="text-muted-foreground text-xs tabular-nums"
         >
-          Showing {matchCount} of {total}
+          共 {total} 条，显示 {matchCount} 条
         </p>
       )}
     </div>

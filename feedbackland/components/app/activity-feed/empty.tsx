@@ -27,28 +27,27 @@ export function ActivityFeedEmpty({
   const config = {
     platform: {
       icon: <Inbox />,
-      title: "No activity yet",
-      description:
-        "Feedback and comments from your users will show up here as they come in.",
+      title: "暂无动态",
+      description: "用户提交的反馈和评论会实时显示在这里。",
       actionLabel: null as string | null,
     },
     "caught-up": {
       icon: <CheckCheck />,
-      title: "You're all caught up",
-      description: "There's nothing new to review right now.",
-      actionLabel: "Show all activity",
+      title: "已全部看完",
+      description: "现在没有需要查看的新内容。",
+      actionLabel: "显示全部动态",
     },
     search: {
       icon: <SearchX />,
-      title: "No matches found",
-      description: "No activity matches your search.",
-      actionLabel: "Clear search",
+      title: "没有找到匹配项",
+      description: "没有与你的搜索匹配的动态。",
+      actionLabel: "清除搜索",
     },
     filter: {
       icon: <ListFilter />,
-      title: "Nothing here",
-      description: "No activity matches the current filters.",
-      actionLabel: "Reset filters",
+      title: "这里没有内容",
+      description: "没有符合当前筛选条件的动态。",
+      actionLabel: "重置筛选",
     },
   }[variant];
 

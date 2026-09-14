@@ -51,7 +51,7 @@ export function Comments({
     <div className={cn("", className)}>
       {isPending && <CommentsLoading />}
 
-      {isError && <Error title="Error loading comments" />}
+      {isError && <Error title="评论加载失败" />}
 
       {!!(!isPending && !isError && comments.length === 0) && (
         <Empty className="md:py-4">
@@ -59,9 +59,9 @@ export function Comments({
             <EmptyMedia variant="icon">
               <MessageSquareDashed className="size-5!" />
             </EmptyMedia>
-            <EmptyTitle>No comments yet</EmptyTitle>
+            <EmptyTitle>还没有评论</EmptyTitle>
             <EmptyDescription>
-              Kick things off. Leave a comment!
+              快来抢首条评论吧！
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -70,7 +70,7 @@ export function Comments({
       {!!(!isPending && !isError && comments.length > 0) && (
         <div>
           <h3 className="text-sm font-semibold mb-4">
-            Comments <span className="text-muted-foreground">({parentComments.length})</span>
+            评论 <span className="text-muted-foreground">({parentComments.length})</span>
           </h3>
           <div className="divide-y divide-border">
             {parentComments.map((comment) => {
@@ -93,7 +93,7 @@ export function Comments({
           {isFetchingNextPage && (
             <div className="flex items-center justify-start py-5">
               <Spinner />
-              <span className="ml-2 text-sm">Loading more...</span>
+              <span className="ml-2 text-sm">正在加载更多…</span>
             </div>
           )}
 

@@ -33,9 +33,9 @@ export function Insights() {
   const handleGenerate = () => {
     generate.mutate(undefined, {
       onSuccess: () =>
-        toast.success("Insights updated", { position: "top-right" }),
+        toast.success("洞察已更新", { position: "top-right" }),
       onError: (error) =>
-        toast.error(error.message || "The analysis didn't finish.", {
+        toast.error(error.message || "分析未能完成。", {
           position: "top-right",
         }),
     });
@@ -60,10 +60,10 @@ export function Insights() {
   if (isError) {
     return (
       <div>
-        <h2 className="h5 mb-4">Insights</h2>
+        <h2 className="h5 mb-4">洞察</h2>
         <Error
-          title="Could not load your insights"
-          description="Something went wrong reading them. Reload the page to try again."
+          title="无法加载你的洞察"
+          description="读取洞察时出现问题，请刷新页面重试。"
         />
       </div>
     );
@@ -108,8 +108,7 @@ export function Insights() {
         >
           <Spinner className="size-4 shrink-0" />
           <span>
-            Reading your feedback. What&apos;s below stays put until the new
-            insights are ready.
+            正在读取你的反馈。在新洞察就绪之前，下方内容会保持不变。
           </span>
         </div>
       )}

@@ -24,7 +24,7 @@ export function SSOButtonGoogle({
   return (
     <Button variant="outline" className="w-full" onClick={continueWithGoogle}>
       <GoogleLogo className="size-5" />
-      <span>Continue with Google</span>
+      <span>使用 Google 登录</span>
     </Button>
   );
 }

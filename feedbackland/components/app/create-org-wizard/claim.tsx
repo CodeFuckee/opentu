@@ -19,7 +19,7 @@ export function CreateOrgClaim({ onSuccess }: { onSuccess: () => void }) {
       <Card className="w-full max-w-[420px]">
         <CardHeader>
           <CardTitle className="h3 mt-1 mb-3 text-center font-bold">
-            Create your account
+            创建你的账号
           </CardTitle>
         </CardHeader>
         <CardContent>

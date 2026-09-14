@@ -56,24 +56,24 @@ export function ForgotPasswordForm({ onGoBack }: { onGoBack: () => void }) {
       setFormState({ type: "success" });
       reset();
     } catch (error: any) {
-      let errorMessage = "An error occurred. Please try again.";
+      let errorMessage = "发生错误，请重试。";
 
       // Handle common Supabase auth errors
       if (
         /user not found|user-not-found/i.test(error?.message ?? "") ||
         error?.code === "user_not_found"
       ) {
-        errorMessage = "No user found with this email address.";
+        errorMessage = "未找到使用该邮箱地址的用户。";
       } else if (
         /invalid email/i.test(error?.message ?? "") ||
         error?.code === "invalid_email"
       ) {
-        errorMessage = "Invalid email address format.";
+        errorMessage = "邮箱地址格式无效。";
       } else if (
         /too many/i.test(error?.message ?? "") ||
         error?.code === "over_request_rate_limit"
       ) {
-        errorMessage = "Too many attempts. Please try again later.";
+        errorMessage = "尝试次数过多，请稍后再试。";
       }
 
       setFormState({ type: "error", message: errorMessage });
@@ -84,12 +84,12 @@ export function ForgotPasswordForm({ onGoBack }: { onGoBack: () => void }) {
     <div>
       <Button variant="secondary" size="sm" onClick={onGoBack} className="mb-4">
         <ArrowLeft className="size-4" />
-        Go back
+        返回
       </Button>
       <Form {...form}>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <FormItem>
-            <FormLabel>Email</FormLabel>
+            <FormLabel>邮箱</FormLabel>
             <FormField
               control={control}
               name="email"
@@ -99,7 +99,7 @@ export function ForgotPasswordForm({ onGoBack }: { onGoBack: () => void }) {
                     <Input
                       autoFocus={true}
                       type="email"
-                      placeholder="Email"
+                      placeholder="邮箱"
                       {...field}
                     />
                   </FormControl>
@@ -114,22 +114,22 @@ export function ForgotPasswordForm({ onGoBack }: { onGoBack: () => void }) {
             className="w-full"
             loading={formState.type === "pending"}
           >
-            Send reset link
+            发送重置链接
           </Button>
         </form>
       </Form>
 
       {formState.type === "success" && (
         <Success
-          title="Password reset email sent"
-          description="Please check your email for the password reset link."
+          title="密码重置邮件已发送"
+          description="请查收邮箱中的密码重置链接。"
           className="mt-4"
         />
       )}
 
       {formState.type === "error" && formState.message && (
         <Error
-          title="Could not sent password reset email"
+          title="密码重置邮件发送失败"
           description={formState.message}
           className="mt-4"
         />

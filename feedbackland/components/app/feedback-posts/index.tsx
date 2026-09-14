@@ -16,6 +16,15 @@ import { useEffect, useState } from "react";
 import { FeedbackPostsEmpty } from "./empty";
 import { Separator } from "@/components/ui/separator";
 
+// 数据库枚举值的展示用中文标签（仅用于显示，不改变原值）
+const STATUS_LABELS: Record<string, string> = {
+  "under consideration": "考虑中",
+  planned: "已列入计划",
+  "in progress": "进行中",
+  done: "已完成",
+  declined: "已拒绝",
+};
+
 function isInViewport(el: Element) {
   if (!(el instanceof HTMLElement)) return false;
 
@@ -147,7 +156,7 @@ export function FeedbackPosts() {
 
       {isError && (
         <div className="text-destructive py-4 text-center">
-          Error loading posts
+          加载反馈失败
         </div>
       )}
 
@@ -155,13 +164,13 @@ export function FeedbackPosts() {
 
       {isSearchEmpty && (
         <div className="text-muted-foreground py-5 text-center text-sm font-normal">
-          No feedback found that matches your search
+          没有符合搜索条件的反馈
         </div>
       )}
 
       {hasNoPosts && (
         <div className="text-muted-foreground py-5 text-center text-sm font-normal">
-          No feedback found that is marked as {status}
+          没有找到{status ? (STATUS_LABELS[status] ?? status) : status}的反馈
         </div>
       )}
 
@@ -190,7 +199,7 @@ export function FeedbackPosts() {
             <div className="border-border flex items-center justify-start border-t p-5">
               <Spinner />
               <span className="ml-2 text-sm">
-                Loading more feedback submissions...
+                正在加载更多反馈…
               </span>
             </div>
           )}

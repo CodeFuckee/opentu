@@ -19,7 +19,7 @@ export function ActivityFeedHeader({ unseenCount }: { unseenCount: number }) {
 
   return (
     <div className="mb-4 flex items-center justify-between gap-4">
-      <h2 className="h5">Activity</h2>
+      <h2 className="h5">动态</h2>
 
       <Button
         variant="outline"
@@ -31,11 +31,11 @@ export function ActivityFeedHeader({ unseenCount }: { unseenCount: number }) {
       >
         {isDone ? (
           <>
-            <Check className="size-4" /> Done
+            <Check className="size-4" /> 完成
           </>
         ) : (
           <>
-            <CheckCheck className="size-4" /> Mark all as read
+            <CheckCheck className="size-4" /> 全部标为已读
           </>
         )}
       </Button>

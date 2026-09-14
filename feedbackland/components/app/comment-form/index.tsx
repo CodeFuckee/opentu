@@ -99,14 +99,14 @@ export function CommentForm({
         onSuccess?.();
       },
       onError: () => {
-        setErrormessage("Something went wrong. Please try again.");
+        setErrormessage("出错了，请重试。");
       },
     }),
   );
 
   const onSubmit = async (session: Session) => {
     if (!value || value.trim().length === 0) {
-      setErrormessage("Please enter a comment");
+      setErrormessage("请输入评论内容");
       return;
     }
 
@@ -161,12 +161,12 @@ export function CommentForm({
               className="text-muted-foreground hover:text-primary absolute! top-0.5 right-1.5 z-10! size-8!"
             >
               <XIcon className="size-3.5!" />
-              <span className="sr-only">Close comment form</span>
+              <span className="sr-only">关闭评论框</span>
             </Button>
           )}
 
           <Tiptap
-            placeholder={`Add a comment...`}
+            placeholder={`添加评论…`}
             value={value}
             onChange={onChange}
             editorClassName={cn("", showCloseButton && "mr-7")}
@@ -185,10 +185,10 @@ export function CommentForm({
                   className="size-8!"
                 >
                   <SendIcon className="size-4!" />
-                  <span className="sr-only">Submit comment</span>
+                  <span className="sr-only">提交评论</span>
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Submit comment</TooltipContent>
+              <TooltipContent>提交评论</TooltipContent>
             </Tooltip>
           </div>
         </div>

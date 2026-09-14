@@ -7,14 +7,25 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import {
-  EFFORT_LABEL,
   SCORE_WEIGHTS,
   clamp,
-  formatReach,
   getPriorityDelta,
   getSignalDriver,
 } from "@/lib/insights";
 import type { Insight } from "@/lib/typings";
+
+/** lib 里 driver / effort 标签为英文，这里只做展示层映射。 */
+const DRIVER_LABELS_CN: Record<string, string> = {
+  "Widely asked": "涉及面广",
+  Surging: "热度上升",
+  Severe: "问题严重",
+};
+
+const EFFORT_LABELS_CN: Record<string, string> = {
+  s: "小",
+  m: "中",
+  l: "大",
+};
 
 /**
  * One component of the score. A single hue across all three bars: they measure
@@ -92,7 +103,7 @@ export function InsightSignal({ insight }: { insight: Insight }) {
     <>
       {driver && (
         <span className="text-muted-foreground xs:inline hidden text-xs font-medium whitespace-nowrap select-none">
-          {driver}
+          {DRIVER_LABELS_CN[driver] ?? driver}
         </span>
       )}
       <span aria-hidden className="flex shrink-0 items-end gap-[3px]">
@@ -125,8 +136,8 @@ export function InsightSignal({ insight }: { insight: Insight }) {
     return (
       <span
         className={shell}
-        title={`Priority ${insight.priority} of 100`}
-        aria-label={`Priority ${insight.priority} of 100`}
+        title={`优先级 ${insight.priority} / 100`}
+        aria-label={`优先级 ${insight.priority} / 100`}
       >
         {meter}
       </span>
@@ -138,7 +149,7 @@ export function InsightSignal({ insight }: { insight: Insight }) {
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label={`Priority ${insight.priority} of 100. Show how it was calculated.`}
+          aria-label={`优先级 ${insight.priority} / 100。查看计算方式。`}
           className={cn(
             shell,
             "group/signal hover:bg-muted focus-visible:ring-ring transition-colors focus-visible:ring-2 focus-visible:outline-none",
@@ -151,50 +162,47 @@ export function InsightSignal({ insight }: { insight: Insight }) {
       <PopoverContent align="end" className="w-80 space-y-3">
         <div className="flex items-baseline justify-between gap-2">
           <span className="text-sm font-semibold">
-            Priority {insight.priority}
+            优先级 {insight.priority}
           </span>
           {delta !== null && (
             <span className="text-muted-foreground text-xs tabular-nums">
-              {delta > 0 ? "+" : ""}
-              {delta} since the last run
+              较上次分析{delta > 0 ? "+" : ""}
+              {delta}
             </span>
           )}
         </div>
 
         <div className="space-y-2.5">
           <ScoreBar
-            label="Reach"
-            detail={formatReach(signals.reach)}
+            label="触达"
+            detail={`${signals.reach} 人`}
             value={signals.reachScore}
             weight={SCORE_WEIGHTS.reach}
           />
           <ScoreBar
-            label="Momentum"
-            detail={`${signals.recentUpvotes + signals.recentCommentCount} in 30 days`}
+            label="势头"
+            detail={`30 天内 ${signals.recentUpvotes + signals.recentCommentCount} 次互动`}
             value={signals.momentumScore}
             weight={SCORE_WEIGHTS.momentum}
           />
           <ScoreBar
-            label="Severity"
-            detail="Impact per user"
+            label="严重程度"
+            detail="对单个用户的影响"
             value={signals.severityScore}
             weight={SCORE_WEIGHTS.severity}
           />
         </div>
 
         <p className="text-muted-foreground border-t pt-2.5 text-[11px] leading-relaxed">
-          Reach and momentum are scored against the strongest insight in this
-          run. Reach counts distinct people, so one person upvoting duplicates
-          counts once. Severity is the model&apos;s read of the problem, not of
-          demand.
+          触达和势头都是与本次分析中最强的洞察对比打分。触达按独立用户计数，同一人重复顶帖只计一次。严重程度是模型对问题本身的判断，而非对需求量的判断。
           {insight.effort && signals.effortMultiplier !== 1 && (
             <>
               {" "}
-              {EFFORT_LABEL[insight.effort]} effort applies a{" "}
+              工作量为“{EFFORT_LABELS_CN[insight.effort]}”的洞察会应用{" "}
               <span className="tabular-nums">
                 ×{signals.effortMultiplier.toFixed(2)}
               </span>{" "}
-              adjustment.
+              的调整系数。
             </>
           )}
         </p>

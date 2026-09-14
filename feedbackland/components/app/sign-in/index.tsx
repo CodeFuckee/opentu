@@ -42,7 +42,7 @@ export function SignIn({
             onClick={() => setIsEmailSelected(true)}
           >
             <Mail className="size-5" />
-            Sign in with Email
+            使用邮箱登录
           </Button>
 
           {includeAnonymous && (
@@ -52,20 +52,20 @@ export function SignIn({
               onClick={() => handleOnSuccess(null)}
             >
               <VenetianMaskIcon className="size-5" />
-              Submit Anonymously
+              匿名提交
             </Button>
           )}
 
           <div className="m-auto mt-8 flex items-center">
             <span className="text-foreground mr-1 text-sm">
-              No account yet?
+              还没有账号？
             </span>
             <Button
               variant="link"
               onClick={() => handleOnSelectedMethodChange("sign-up")}
               className="p-0 underline"
             >
-              Sign up
+              注册
             </Button>
           </div>
         </div>

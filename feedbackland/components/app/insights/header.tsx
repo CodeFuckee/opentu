@@ -32,10 +32,9 @@ export function InsightsHeader({
   return (
     <div className="mb-5 flex items-start justify-between gap-4">
       <div className="min-w-0">
-        <h2 className="h5">Insights</h2>
+        <h2 className="h5">洞察</h2>
         <p className="text-muted-foreground mt-1.5 max-w-xl text-sm leading-normal">
-          The themes that keep coming up across your feedback, ranked by what to
-          build or fix next.
+          从你的反馈中反复出现的主题，按接下来应当构建或修复的优先级排序。
         </p>
       </div>
 
@@ -47,7 +46,7 @@ export function InsightsHeader({
           className="shrink-0"
         >
           <Icon className="size-4" />
-          {hasRun ? "Regenerate" : "Generate"}
+          {hasRun ? "重新生成" : "生成"}
         </Button>
       )}
     </div>

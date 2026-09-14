@@ -27,7 +27,7 @@ export function AccountSettings({
       <DialogContent className="max-w-[420px]!">
         <DialogHeader>
           <DialogTitle className="h3 mb-5 text-center">
-            Account Settings
+            账户设置
           </DialogTitle>
         </DialogHeader>
         <Username onSaved={onClose} />

@@ -5,7 +5,7 @@ export const createOrgSchema = z.object({
   orgName: z
     .string()
     .trim()
-    .min(1, "Please provide an organization or product name")
-    .max(200, "Organization or product name must be at most 200 characters"),
+    .min(1, "请输入组织或产品名称")
+    .max(200, "组织或产品名称不能超过 200 个字符"),
   orgSubdomain: orgSubdomainSchema,
 });

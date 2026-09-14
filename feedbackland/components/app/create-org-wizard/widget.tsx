@@ -24,17 +24,17 @@ export function CreateOrgWidget({ onSuccess }: { onSuccess: () => void }) {
         <Card className="w-full max-w-[750px]">
           <CardHeader>
             <CardTitle className="h3 mt-1 mb-3 text-center font-bold">
-              Add the feedback button to your app
+              为你的应用添加反馈按钮
             </CardTitle>
             <CardDescription className="text-primary mx-auto max-w-lg text-center">
-              Start collecting in-app feedback
+              开始收集应用内反馈
             </CardDescription>
           </CardHeader>
           <CardContent>
             <WidgetDocs orgId={org.id} orgSubdomain={org.orgSubdomain} />
             <div className="mt-9">
               <Button onClick={() => onSuccess()} className="w-full">
-                Proceed to your platform
+                前往你的平台
                 <ArrowRight />
               </Button>
             </div>

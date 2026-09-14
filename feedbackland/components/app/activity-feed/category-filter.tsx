@@ -23,11 +23,11 @@ const SEGMENTS: {
   trigger: string;
   item: string;
 }[] = [
-  { value: "all", trigger: "All types", item: "All activity" },
-  { value: "idea", trigger: "Ideas", item: "Ideas" },
-  { value: "issue", trigger: "Issues", item: "Issues" },
-  { value: "general feedback", trigger: "General", item: "General" },
-  { value: "comments", trigger: "Comments", item: "Comments" },
+  { value: "all", trigger: "全部类型", item: "全部动态" },
+  { value: "idea", trigger: "建议", item: "建议" },
+  { value: "issue", trigger: "问题", item: "问题" },
+  { value: "general feedback", trigger: "一般反馈", item: "一般反馈" },
+  { value: "comments", trigger: "评论", item: "评论" },
 ];
 
 export function ActivityCategoryFilter({
@@ -67,12 +67,12 @@ export function ActivityCategoryFilter({
                 key={seg.value}
                 value={seg.value}
                 disabled={disabled}
-                aria-label={`${seg.item}${count > 0 ? `, ${count} new` : ""}`}
+                aria-label={`${seg.item}${count > 0 ? `，${count} 条新内容` : ""}`}
               >
                 <span>{seg.item}</span>
                 {count > 0 && (
                   <span className="ml-auto inline-flex h-5 items-center rounded-full border border-blue-100 bg-blue-50 px-1.5 text-[10px] font-medium tabular-nums text-blue-700 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300">
-                    {count} new
+                    {count} 条新
                   </span>
                 )}
               </DropdownMenuRadioItem>

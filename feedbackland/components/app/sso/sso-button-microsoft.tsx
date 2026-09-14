@@ -28,7 +28,7 @@ export function SSOButtonMicrosoft({
       onClick={continueWithMicrosoft}
     >
       <MicrosoftLogo className="size-5" />
-      <span>Continue with Microsoft</span>
+      <span>使用 Microsoft 登录</span>
     </Button>
   );
 }

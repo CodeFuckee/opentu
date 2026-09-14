@@ -73,7 +73,7 @@ export const GoBackButton = ({
   return (
     <Tooltip>
       <TooltipTrigger asChild>{button}</TooltipTrigger>
-      <TooltipContent>Go back</TooltipContent>
+      <TooltipContent>返回</TooltipContent>
     </Tooltip>
   );
 };

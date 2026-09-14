@@ -24,7 +24,7 @@ export default function FeedbackPostsSidebarOrder({
 
   return (
     <div className={cn("flex flex-col items-stretch gap-1", className)}>
-      <Label className="text-muted-foreground mb-1">Order by</Label>
+      <Label className="text-muted-foreground mb-1">排序方式</Label>
       <Button
         onClick={() => handleOrderBy("newest")}
         size="sm"
@@ -33,7 +33,7 @@ export default function FeedbackPostsSidebarOrder({
         }
         className="justify-start"
       >
-        Newest
+        最新
       </Button>
       <Button
         onClick={() => handleOrderBy("upvotes")}
@@ -43,7 +43,7 @@ export default function FeedbackPostsSidebarOrder({
         }
         className="justify-start"
       >
-        Most upvoted
+        点赞最多
       </Button>
       <Button
         onClick={() => handleOrderBy("comments")}
@@ -53,7 +53,7 @@ export default function FeedbackPostsSidebarOrder({
         }
         className="justify-start"
       >
-        Most commented
+        评论最多
       </Button>
     </div>
   );

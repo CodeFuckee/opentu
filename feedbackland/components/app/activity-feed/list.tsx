@@ -77,8 +77,8 @@ export function ActivityFeedList() {
       {isError && (
         <div className="p-4">
           <Error
-            title="Could not load activity"
-            description="Something went wrong while loading the activity feed. Please try again."
+            title="无法加载动态"
+            description="加载动态时出现问题，请重试。"
           />
         </div>
       )}
@@ -100,12 +100,12 @@ export function ActivityFeedList() {
         <>
           <ActivityFeedListItems items={items} />
           <span className="sr-only" aria-live="polite">
-            {isFetchingNextPage ? "Loading more activity" : ""}
+            {isFetchingNextPage ? "正在加载更多动态" : ""}
           </span>
           {isFetchingNextPage && (
             <div className="border-border text-muted-foreground flex items-center justify-start gap-2 border-t p-4">
               <Spinner />
-              <span className="text-sm">Loading more activity...</span>
+              <span className="text-sm">正在加载更多动态…</span>
             </div>
           )}
           <div ref={ref} className="h-1 w-full" />

@@ -32,14 +32,14 @@ export default function FeedbackPostsSidebarFilter({
 
   return (
     <div className={cn("flex flex-col items-stretch gap-1", className)}>
-      <Label className="text-muted-foreground mb-1">Status</Label>
+      <Label className="text-muted-foreground mb-1">状态</Label>
       <Button
         onClick={() => handleFilterBy(null)}
         size="sm"
         variant={feedbackPostsState?.status === null ? "secondary" : "ghost"}
         className="justify-start"
       >
-        All
+        全部
       </Button>
       <Button
         onClick={() => handleFilterBy("under consideration")}
@@ -51,7 +51,7 @@ export default function FeedbackPostsSidebarFilter({
         }
         className="text-under-consideration! justify-start"
       >
-        Under consideration
+        考虑中
       </Button>
       <Button
         onClick={() => handleFilterBy("planned")}
@@ -61,7 +61,7 @@ export default function FeedbackPostsSidebarFilter({
         }
         className="text-planned! justify-start"
       >
-        Planned
+        已列入计划
       </Button>
       <Button
         onClick={() => handleFilterBy("in progress")}
@@ -71,7 +71,7 @@ export default function FeedbackPostsSidebarFilter({
         }
         className="text-in-progress! justify-start"
       >
-        In progress
+        进行中
       </Button>
       <Button
         onClick={() => handleFilterBy("done")}
@@ -79,7 +79,7 @@ export default function FeedbackPostsSidebarFilter({
         variant={feedbackPostsState?.status === "done" ? "secondary" : "ghost"}
         className="text-done! justify-start"
       >
-        Done
+        已完成
       </Button>
       <Button
         onClick={() => handleFilterBy("declined")}
@@ -89,7 +89,7 @@ export default function FeedbackPostsSidebarFilter({
         }
         className="text-declined! justify-start"
       >
-        Declined
+        已拒绝
       </Button>
     </div>
   );

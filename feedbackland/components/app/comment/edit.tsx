@@ -92,7 +92,7 @@ export function CommentEdit({
         className={cn("w-full space-y-4", className)}
       >
         <FormItem>
-          <FormLabel className="sr-only">Edit comment</FormLabel>
+          <FormLabel className="sr-only">编辑评论</FormLabel>
           <FormField
             control={control}
             name="content"
@@ -112,18 +112,18 @@ export function CommentEdit({
 
         <div className="flex items-center space-x-2">
           <Button type="submit" loading={formState === "pending"} size="sm">
-            Save
+            保存
           </Button>
 
           <Button onClick={onClose} variant="outline" size="sm">
-            Cancel
+            取消
           </Button>
         </div>
 
         {formState === "error" && (
           <Error
-            title="Could not save changes"
-            description="An error occured while trying to save your changes. Please try again."
+            title="无法保存更改"
+            description="保存更改时发生错误，请重试。"
           />
         )}
       </form>

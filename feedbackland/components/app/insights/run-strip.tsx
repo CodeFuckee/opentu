@@ -49,16 +49,14 @@ export function InsightsRunStrip({ run }: { run: InsightsRun }) {
       <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
         <span className="flex items-center gap-2 whitespace-nowrap">
           <span className="tabular-nums">
-            <span className="font-medium">{run.postsAnalyzed}</span>{" "}
-            {run.postsAnalyzed === 1 ? "post" : "posts"}
+            <span className="font-medium">{run.postsAnalyzed}</span> 条反馈
           </span>
           <ArrowRight
             aria-hidden
             className="text-muted-foreground/70 size-3.5 shrink-0"
           />
           <span className="tabular-nums">
-            <span className="font-medium">{run.insightCount}</span>{" "}
-            {run.insightCount === 1 ? "insight" : "insights"}
+            <span className="font-medium">{run.insightCount}</span> 条洞察
           </span>
         </span>
 
@@ -66,11 +64,11 @@ export function InsightsRunStrip({ run }: { run: InsightsRun }) {
           <span className="text-muted-foreground flex items-center gap-1.5 text-xs whitespace-nowrap">
             <Dot />
             {run.newInsightCount > 0 && (
-              <span className="tabular-nums">{run.newInsightCount} new</span>
+              <span className="tabular-nums">{run.newInsightCount} 条新增</span>
             )}
             {run.newInsightCount > 0 && ungrouped > 0 && <Dot />}
             {ungrouped > 0 && (
-              <span className="tabular-nums">{ungrouped} not grouped</span>
+              <span className="tabular-nums">{ungrouped} 条未分组</span>
             )}
           </span>
         )}
@@ -84,44 +82,42 @@ export function InsightsRunStrip({ run }: { run: InsightsRun }) {
           >
             {timeAgo.format(run.createdAt, "round")}
             <Info aria-hidden className="size-3.5" />
-            <span className="sr-only">Show what this analysis did</span>
+            <span className="sr-only">查看本次分析的详情</span>
           </button>
         </PopoverTrigger>
 
         <PopoverContent align="end" className="w-80 space-y-2.5">
-          <div className="text-sm font-semibold">Last analysis</div>
+          <div className="text-sm font-semibold">上次分析</div>
 
           <div className="space-y-1.5">
             <Line
-              label="Ran"
+              label="分析时间"
               value={new Date(run.createdAt).toLocaleString(undefined, {
                 dateStyle: "medium",
                 timeStyle: "short",
               })}
             />
             <Line
-              label="Posts read"
-              value={`${run.postsAnalyzed} of ${run.postsTotal}`}
+              label="已读取反馈"
+              value={`${run.postsAnalyzed} / ${run.postsTotal}`}
             />
-            <Line label="Insights found" value={`${run.insightCount}`} />
-            <Line label="No clear grouping" value={`${ungrouped} posts`} />
-            <Line label="New this run" value={`${run.newInsightCount}`} />
-            <Line label="Dropped off" value={`${run.archivedInsightCount}`} />
+            <Line label="发现洞察" value={`${run.insightCount}`} />
+            <Line label="未明确分组" value={`${ungrouped} 条`} />
+            <Line label="本次新增" value={`${run.newInsightCount}`} />
+            <Line label="已移出" value={`${run.archivedInsightCount}`} />
           </div>
 
           <p className="text-muted-foreground border-t pt-2.5 text-[11px] leading-relaxed">
             {skipped > 0 ? (
               <>
-                {skipped} closed or lower-signal posts were left out of this
-                run.{" "}
+                {skipped} 条已关闭或低信号的反馈未纳入本次分析。{" "}
               </>
             ) : null}
-            An insight drops off once the feedback behind it is marked done or
-            declined.
+            一旦洞察背后的反馈被标记为已完成或已拒绝，该洞察即被移出。
             {run.model && (
               <>
                 {" "}
-                Analysed by <span className="font-mono">{run.model}</span>.
+                由 <span className="font-mono">{run.model}</span> 分析。
               </>
             )}
           </p>

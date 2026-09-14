@@ -17,9 +17,9 @@ export function FeedbackPostsEmpty() {
         <EmptyMedia variant="icon">
           <TextSelect />
         </EmptyMedia>
-        <EmptyTitle>No Feedback Yet</EmptyTitle>
+        <EmptyTitle>还没有反馈</EmptyTitle>
         <EmptyDescription>
-          Be the first to share your thoughts!
+          快来分享你的第一个想法吧！
         </EmptyDescription>
       </EmptyHeader>
     </Empty>

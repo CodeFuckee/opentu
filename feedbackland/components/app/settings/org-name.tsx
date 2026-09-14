@@ -54,7 +54,7 @@ export function OrgName({
       setIsEditing(false);
     } catch {
       form.setError("orgName", {
-        message: "An error occured. Please try again.",
+        message: "出现错误，请重试。",
       });
     }
   }
@@ -76,17 +76,16 @@ export function OrgName({
                 name="orgName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Company or product name</FormLabel>
+                    <FormLabel>公司或产品名称</FormLabel>
                     <FormDescription className="">
-                      The name of the company or product this feedback platform
-                      is used for
+                      此反馈平台所服务的公司或产品的名称
                     </FormDescription>
                     <FormControl>
                       {isEditing ? (
                         <Input
                           autoFocus={true}
                           className="w-full max-w-[450px] text-sm"
-                          placeholder="Company or product name"
+                          placeholder="公司或产品名称"
                           {...field}
                         />
                       ) : (
@@ -95,7 +94,7 @@ export function OrgName({
                             "text-muted-foreground": !data?.orgName,
                           })}
                         >
-                          {data?.orgName || "No name added"}
+                          {data?.orgName || "未填写名称"}
                         </div>
                       )}
                     </FormControl>
@@ -106,14 +105,14 @@ export function OrgName({
               {isEditing && (
                 <div className="mt-3 flex items-center gap-2">
                   <Button type="submit" size="sm" loading={updateOrg.isPending}>
-                    Save
+                    保存
                   </Button>
                   <Button
                     size="sm"
                     variant="secondary"
                     onClick={handleOnCancel}
                   >
-                    Cancel
+                    取消
                   </Button>
                 </div>
               )}
@@ -129,7 +128,7 @@ export function OrgName({
               onClick={handleOnCancel}
             >
               <XIcon className="size-3.5" />
-              Cancel
+              取消
             </Button>
           ) : (
             <Button
@@ -139,7 +138,7 @@ export function OrgName({
               onClick={() => setIsEditing(true)}
             >
               <PenIcon className="size-3" />
-              Edit
+              编辑
             </Button>
           )}
         </div>

@@ -130,7 +130,7 @@ export function Logo({
                 onClick={onRemove}
               >
                 <TrashIcon className="size-3" />
-                Remove
+                移除
               </Button>
             )}
             <Button
@@ -141,7 +141,7 @@ export function Logo({
               {...getRootProps()}
             >
               <PenIcon className="size-3" />
-              Edit
+              编辑
               <input {...getInputProps()} />
             </Button>
           </div>

@@ -16,6 +16,21 @@ import { Badge } from "@/components/ui/badge";
 
 import { Skeleton } from "@/components/ui/skeleton";
 
+// 数据库枚举值的展示用中文标签（仅用于显示，不改变原值）
+const STATUS_LABELS: Record<string, string> = {
+  "under consideration": "考虑中",
+  planned: "已列入计划",
+  "in progress": "进行中",
+  done: "已完成",
+  declined: "已拒绝",
+};
+
+const CATEGORY_LABELS: Record<string, string> = {
+  issue: "问题",
+  idea: "建议",
+  "general feedback": "一般反馈",
+};
+
 export function FeedbackPostFull({
   postId,
   className,
@@ -114,7 +129,9 @@ export function FeedbackPostFull({
                 </div>
                 {!isDesktop && (
                   <div className="text-muted-foreground flex flex-wrap items-center gap-1 text-xs font-normal">
-                    <span>Posted by {authorName || "Anonymous user"}</span>
+                    <span>
+                      由 {authorName || "匿名用户"} 发布
+                    </span>
                     <span className="text-muted-foreground/50">·</span>
                     <span>{timeAgo.format(createdAt, "mini-now")}</span>
                     <span className="text-muted-foreground/50">·</span>
@@ -122,7 +139,7 @@ export function FeedbackPostFull({
                       variant="secondary"
                       className="px-1.5 py-0 text-xs capitalize"
                     >
-                      {category}
+                      {category ? (CATEGORY_LABELS[category] ?? category) : category}
                     </Badge>
                     {status && (
                       <>
@@ -134,7 +151,7 @@ export function FeedbackPostFull({
                             `text-${status.replace(" ", "-")}`,
                           )}
                         >
-                          {status}
+                          {STATUS_LABELS[status] ?? status}
                         </Badge>
                       </>
                     )}

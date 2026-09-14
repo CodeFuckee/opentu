@@ -22,17 +22,16 @@ export function AskAiHeader({ onNewChat }: { onNewChat: () => void }) {
   return (
     <div className="mb-5 flex items-start justify-between gap-4">
       <div className="min-w-0">
-        <h2 className="h5">Ask AI</h2>
+        <h2 className="h5">问问 AI</h2>
         <p className="text-muted-foreground mt-1.5 max-w-xl text-sm leading-normal">
-          Ask anything about your feedback. Every answer links back to the posts
-          behind it.
+          就你的反馈提出任何问题。每个回答都会附上其依据的反馈帖链接。
         </p>
       </div>
 
       {hasMessages && (
         <Button variant="outline" onClick={onNewChat} className="shrink-0">
           <MessageSquarePlus className="size-4" />
-          New chat
+          新对话
         </Button>
       )}
     </div>

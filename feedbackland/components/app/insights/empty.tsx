@@ -19,10 +19,9 @@ export function InsightsNoFeedback() {
         <EmptyMedia variant="icon">
           <MessageSquarePlus />
         </EmptyMedia>
-        <EmptyTitle>No feedback to work with yet</EmptyTitle>
+        <EmptyTitle>还没有可分析的反馈</EmptyTitle>
         <EmptyDescription>
-          Once people start posting, what they say gets grouped here into the
-          handful of themes worth doing something about.
+          一旦有人发布反馈，他们的意见就会被归集到这里，凝聚成少数值得行动的主题。
         </EmptyDescription>
       </EmptyHeader>
     </Empty>
@@ -52,19 +51,16 @@ export function InsightsFirstRun({
         <EmptyMedia variant="icon">
           <Layers />
         </EmptyMedia>
-        <EmptyTitle>See what your feedback adds up to</EmptyTitle>
+        <EmptyTitle>看看你的反馈汇聚成了什么</EmptyTitle>
         <EmptyDescription>
-          All {postCount} open {postCount === 1 ? "post" : "posts"} get read and
-          grouped with the ones asking for the same thing, then ranked by how
-          many people are behind each theme, how fast it is growing, and how
-          much the problem hurts.
+          将读取全部 {postCount} 条公开反馈，把诉求相同的归为一组，再按每个主题的支持人数、增长速度以及问题的严重程度进行排序。
         </EmptyDescription>
       </EmptyHeader>
 
       <EmptyContent>
         <Button size="lg" onClick={onGenerate} loading={isGenerating}>
           <Sparkles className="size-4" />
-          Generate insights
+          生成洞察
         </Button>
       </EmptyContent>
     </Empty>
@@ -79,11 +75,11 @@ export function InsightsNoMatches({ onClear }: { onClear: () => void }) {
         <EmptyMedia variant="icon">
           <SearchX />
         </EmptyMedia>
-        <EmptyTitle>No insights match your search</EmptyTitle>
+        <EmptyTitle>没有与你搜索匹配的洞察</EmptyTitle>
       </EmptyHeader>
       <EmptyContent>
         <Button variant="outline" size="sm" onClick={onClear}>
-          Clear search
+          清除搜索
         </Button>
       </EmptyContent>
     </Empty>

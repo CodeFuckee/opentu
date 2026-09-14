@@ -57,17 +57,17 @@ export function FeedbackForm() {
 
         setValue(htmlValue);
 
-        toast.success("Feedback improved", {
+        toast.success("反馈已优化", {
           position: "top-right",
           description:
-            "AI polished your feedback. You can undo if you prefer the original.",
+            "AI 已润色你的反馈。如果你更喜欢原文，可以撤销。",
           action: {
-            label: "Undo",
+            label: "撤销",
             onClick: () => {
               if (originalValueRef.current !== null) {
                 setValue(originalValueRef.current);
                 originalValueRef.current = null;
-                toast.info("Reverted to original", {
+                toast.info("已恢复为原文", {
                   position: "top-right",
                 });
               }
@@ -78,7 +78,7 @@ export function FeedbackForm() {
       },
       onError: () => {
         originalValueRef.current = null;
-        setErrormessage("Could not improve feedback. Please try again.");
+        setErrormessage("无法优化反馈，请重试。");
       },
     }),
   );
@@ -104,10 +104,10 @@ export function FeedbackForm() {
         setValue("");
         originalValueRef.current = null;
 
-        toast.success("Feedback submitted", {
+        toast.success("反馈已提交", {
           position: "top-right",
           action: {
-            label: "View your feedback",
+            label: "查看你的反馈",
             onClick: () => router.push(`${platformUrl}/${id}`),
           },
         });
@@ -127,10 +127,10 @@ export function FeedbackForm() {
       onError: (error) => {
         if (error?.message?.includes("inappropriate-content")) {
           setErrormessage(
-            "Your post could not be published because it appears to violate our community guidelines.",
+            "你的内容似乎违反了社区准则，因此无法发布。",
           );
         } else {
-          setErrormessage("Something went wrong. Please try again.");
+          setErrormessage("出错了，请重试。");
         }
       },
       onSettled: () => {
@@ -150,7 +150,7 @@ export function FeedbackForm() {
 
   const handleOnSubmitClick = async () => {
     if (!value || value.trim().length === 0) {
-      setErrormessage("Please enter some feedback");
+      setErrormessage("请输入一些反馈内容");
       return;
     }
 
@@ -179,7 +179,7 @@ export function FeedbackForm() {
       <div className="bg-background border-border focus-within:ring-ring overflow-hidden rounded-lg border shadow-xs transition-shadow duration-200 focus-within:shadow-sm focus-within:ring-1">
         <div className="relative">
           <Tiptap
-            placeholder="Share any feedback..."
+            placeholder="分享你的任何反馈…"
             value={value}
             onChange={onChange}
             autofocus={false}
@@ -201,18 +201,18 @@ export function FeedbackForm() {
                     {isRewriting ? (
                       <>
                         <SparklesIcon className="size-3 animate-pulse" />
-                        <span>Improving…</span>
+                        <span>优化中…</span>
                       </>
                     ) : (
                       <>
                         <SparklesIcon className="size-3" />
-                        <span>Improve</span>
+                        <span>优化</span>
                       </>
                     )}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="top" sideOffset={6}>
-                  <p>Let AI polish your feedback</p>
+                  <p>让 AI 润色你的反馈</p>
                 </TooltipContent>
               </Tooltip>
             )}
@@ -225,7 +225,7 @@ export function FeedbackForm() {
               disabled={!!(!hasText || isPending || isRewriting)}
               className="transition-all duration-200"
             >
-              Submit feedback
+              提交反馈
               <SendIcon className="size-3.5!" />
             </Button>
           </div>

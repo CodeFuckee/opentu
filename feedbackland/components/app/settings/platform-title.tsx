@@ -54,7 +54,7 @@ export function PlatformTitle({
       setIsEditing(false);
     } catch {
       form.setError("platformTitle", {
-        message: "An error occured. Please try again.",
+        message: "出现错误，请重试。",
       });
     }
   }
@@ -76,17 +76,16 @@ export function PlatformTitle({
                 name="platformTitle"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Platform title</FormLabel>
+                    <FormLabel>平台标题</FormLabel>
                     <FormDescription className="">
-                      The title of your feedback platform, displayed at the top
-                      of the page
+                      反馈平台的标题，显示在页面顶部
                     </FormDescription>
                     <FormControl>
                       {isEditing ? (
                         <Input
                           autoFocus={true}
                           className="w-full max-w-[450px] text-sm"
-                          placeholder="Title of your feedback platform"
+                          placeholder="反馈平台的标题"
                           {...field}
                         />
                       ) : (
@@ -102,14 +101,14 @@ export function PlatformTitle({
               {isEditing && (
                 <div className="mt-3 flex items-center gap-2">
                   <Button type="submit" size="sm" loading={updateOrg.isPending}>
-                    Save
+                    保存
                   </Button>
                   <Button
                     size="sm"
                     variant="secondary"
                     onClick={handleOnCancel}
                   >
-                    Cancel
+                    取消
                   </Button>
                 </div>
               )}
@@ -125,7 +124,7 @@ export function PlatformTitle({
               onClick={handleOnCancel}
             >
               <XIcon className="size-3.5" />
-              Cancel
+              取消
             </Button>
           ) : (
             <Button
@@ -135,7 +134,7 @@ export function PlatformTitle({
               onClick={() => setIsEditing(true)}
             >
               <PenIcon className="size-3" />
-              Edit
+              编辑
             </Button>
           )}
         </div>

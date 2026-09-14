@@ -66,11 +66,11 @@ export function PlatformUrl({
     } catch (error) {
       if (error instanceof Error && error?.message?.includes("duplicate key")) {
         form.setError("orgSubdomain", {
-          message: "Sorry, this subdomain is already taken",
+          message: "抱歉，该子域名已被占用",
         });
       } else {
         form.setError("orgSubdomain", {
-          message: "An error occured. Please try again.",
+          message: "出现错误，请重试。",
         });
       }
     }
@@ -93,9 +93,9 @@ export function PlatformUrl({
                 name="orgSubdomain"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Platform URL</FormLabel>
+                    <FormLabel>平台地址</FormLabel>
                     <FormDescription className="">
-                      The full URL for your feedback platform
+                      反馈平台的完整地址
                     </FormDescription>
                     <FormControl>
                       {isEditing ? (
@@ -111,7 +111,7 @@ export function PlatformUrl({
                               "rounded-r-none": !isSelfHosted,
                               "rounded-l-none": isSelfHosted,
                             })}
-                            placeholder="subdomain"
+                            placeholder="子域名"
                             {...field}
                           />
                           {!isSelfHosted && (
@@ -133,14 +133,14 @@ export function PlatformUrl({
               {isEditing && (
                 <div className="mt-3 flex items-center gap-2">
                   <Button type="submit" size="sm" loading={updateOrg.isPending}>
-                    Save
+                    保存
                   </Button>
                   <Button
                     size="sm"
                     variant="secondary"
                     onClick={handleOnCancel}
                   >
-                    Cancel
+                    取消
                   </Button>
                 </div>
               )}
@@ -156,7 +156,7 @@ export function PlatformUrl({
               onClick={handleOnCancel}
             >
               <XIcon className="size-3.5" />
-              Cancel
+              取消
             </Button>
           ) : (
             <Button
@@ -166,7 +166,7 @@ export function PlatformUrl({
               onClick={() => setIsEditing(true)}
             >
               <PenIcon className="size-3" />
-              Edit
+              编辑
             </Button>
           )}
         </div>

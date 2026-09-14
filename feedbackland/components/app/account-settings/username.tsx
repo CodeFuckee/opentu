@@ -58,11 +58,11 @@ export function Username({
             name="username"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Your username</FormLabel>
+                <FormLabel>用户名</FormLabel>
                 <FormControl>
                   <Input
                     className="w-full max-w-[450px] text-sm"
-                    placeholder="Your username"
+                    placeholder="用户名"
                     {...field}
                   />
                 </FormControl>
@@ -76,7 +76,7 @@ export function Username({
             className="mt-3"
             loading={updateUser.isPending}
           >
-            Save
+            保存
           </Button>
         </form>
       </Form>

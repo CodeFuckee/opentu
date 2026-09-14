@@ -136,7 +136,7 @@ const CodeHeader: FC<CodeHeaderProps> = ({ language, code }) => {
   return (
     <div className="aui-code-header-root bg-muted text-muted-foreground mt-3 flex items-center justify-between gap-4 rounded-t-lg border-b px-3 py-1.5 text-xs font-medium">
       <span className="aui-code-header-language lowercase">{language}</span>
-      <TooltipIconButton tooltip="Copy" onClick={onCopy} className="size-6">
+      <TooltipIconButton tooltip="复制" onClick={onCopy} className="size-6">
         {!isCopied && <CopyIcon className="size-3.5" />}
         {isCopied && <CheckIcon className="size-3.5" />}
       </TooltipIconButton>

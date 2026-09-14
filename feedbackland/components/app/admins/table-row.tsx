@@ -59,7 +59,7 @@ export function AdminsTableRow({ admin }: { admin: Admin }) {
         return currentUrl;
       });
 
-      toast.success("Invitation successfully revoked", {
+      toast.success("已成功撤销邀请", {
         position: "top-right",
       });
     }
@@ -67,7 +67,7 @@ export function AdminsTableRow({ admin }: { admin: Admin }) {
     if (admin.status === "admin" && admin.userId) {
       await deleteAdmin.mutateAsync({ adminId: admin.userId });
 
-      toast.success("Admin successfully removed", {
+      toast.success("已成功移除管理员", {
         position: "top-right",
       });
     }
@@ -83,7 +83,7 @@ export function AdminsTableRow({ admin }: { admin: Admin }) {
           </span>
         </TableCell>
         <TableCell className="">
-          {admin.status === "invited" ? "Invite pending" : "Active"}
+          {admin.status === "invited" ? "待接受邀请" : "已激活"}
         </TableCell>
         <TableCell className="text-right">
           {session?.user.id !== admin.userId && (
@@ -96,13 +96,11 @@ export function AdminsTableRow({ admin }: { admin: Admin }) {
                   onClick={() => setIsDeleteConfirmationOpen(true)}
                 >
                   <Trash2Icon className="text-destructive! size-3.5!" />
-                  <span className="sr-only">Remove admin</span>
+                  <span className="sr-only">移除管理员</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                {admin.status === "invited"
-                  ? "Revoke invitation"
-                  : "Remove admin"}
+                {admin.status === "invited" ? "撤销邀请" : "移除管理员"}
               </TooltipContent>
             </Tooltip>
           )}
@@ -113,14 +111,12 @@ export function AdminsTableRow({ admin }: { admin: Admin }) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {admin.status === "invited"
-                ? "Revoke invitation"
-                : "Remove admin"}
+              {admin.status === "invited" ? "撤销邀请" : "移除管理员"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {admin.status === "invited"
-                ? `Are you sure you want to revoke the admin invitation for ${admin.name || admin.email} ?`
-                : `Are you sure you want to remove admin privileges for ${admin.name || admin.email}?`}
+                ? `确定要撤销发给 ${admin.name || admin.email} 的管理员邀请吗？`
+                : `确定要移除 ${admin.name || admin.email} 的管理员权限吗？`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -132,7 +128,7 @@ export function AdminsTableRow({ admin }: { admin: Admin }) {
                   : deleteAdminInvite.isPending
               }
             >
-              Cancel
+              取消
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
@@ -144,7 +140,7 @@ export function AdminsTableRow({ admin }: { admin: Admin }) {
                   : deleteAdminInvite.isPending
               }
             >
-              Remove
+              移除
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

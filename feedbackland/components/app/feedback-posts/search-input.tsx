@@ -74,10 +74,10 @@ export const FeedbackPostsSearchInput = ({
             onClick={() => setIsFocused(true)}
           >
             <SearchIcon className="size-4" />
-            <span className="sr-only">Search feedback</span>
+            <span className="sr-only">搜索反馈</span>
           </Button>
         </TooltipTrigger>
-        <TooltipContent>Search feedback</TooltipContent>
+        <TooltipContent>搜索反馈</TooltipContent>
       </Tooltip>
     );
   }
@@ -95,7 +95,7 @@ export const FeedbackPostsSearchInput = ({
       <Input
         ref={inputRef}
         type="text"
-        placeholder="Search..."
+        placeholder="搜索…"
         value={inputValue}
         onChange={handleChange}
         className={cn("bg-background! relative px-9 text-sm")}
@@ -114,7 +114,7 @@ export const FeedbackPostsSearchInput = ({
         }}
       >
         <XIcon className="size-4" />
-        <span className="sr-only">Close search</span>
+        <span className="sr-only">关闭搜索</span>
       </Button>
     </div>
   );

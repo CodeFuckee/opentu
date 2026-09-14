@@ -57,27 +57,27 @@ export default function AdminRoot({ children }: { children: ReactNode }) {
         >
           <TabsList className="w-max">
             <TabsTrigger value="activity" asChild>
-              <Link href={`${adminBasePath}/activity`}>Activity</Link>
+              <Link href={`${adminBasePath}/activity`}>动态</Link>
             </TabsTrigger>
 
             <TabsTrigger value="insights" asChild>
-              <Link href={`${adminBasePath}/insights`}>Insights</Link>
+              <Link href={`${adminBasePath}/insights`}>洞察</Link>
             </TabsTrigger>
 
             <TabsTrigger value="ask-ai" asChild>
-              <Link href={`${adminBasePath}/ask-ai`}>Ask AI</Link>
+              <Link href={`${adminBasePath}/ask-ai`}>问问 AI</Link>
             </TabsTrigger>
 
             <TabsTrigger value="settings" asChild>
-              <Link href={`${adminBasePath}/settings`}>Settings</Link>
+              <Link href={`${adminBasePath}/settings`}>设置</Link>
             </TabsTrigger>
 
             <TabsTrigger value="admins" asChild>
-              <Link href={`${adminBasePath}/admins`}>Admins</Link>
+              <Link href={`${adminBasePath}/admins`}>管理员</Link>
             </TabsTrigger>
 
             <TabsTrigger value="widget" asChild>
-              <Link href={`${adminBasePath}/widget`}>Widget</Link>
+              <Link href={`${adminBasePath}/widget`}>小组件</Link>
             </TabsTrigger>
 
             <TabsTrigger value="api" asChild>

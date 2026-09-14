@@ -20,7 +20,7 @@ export const createOrgAction = actionClient
       if (getIsSelfHosted("server") && (await hasClaimedOrgQuery())) {
         return {
           success: false,
-          message: "Organization creation is disabled on this instance.",
+          message: "此实例已禁用创建组织。",
         };
       }
 
@@ -32,7 +32,7 @@ export const createOrgAction = actionClient
         message:
           error instanceof Error
             ? error?.message
-            : "An unknown error occured trying to create the org",
+            : "创建组织时发生未知错误",
       };
     }
   });
@@ -47,7 +47,7 @@ export const claimOrgAction = actionClient
       const { data, error } = await getSupabaseAdmin().auth.getUser(idToken);
 
       if (error || !data.user) {
-        throw new Error("Invalid session token");
+        throw new Error("会话令牌无效");
       }
 
       const org = await claimOrgQuery({ userId: data.user.id, orgId });
@@ -59,7 +59,7 @@ export const claimOrgAction = actionClient
         message:
           error instanceof Error
             ? error?.message
-            : "An unknown error occured trying to claim the org",
+            : "认领组织时发生未知错误",
       };
     }
   });

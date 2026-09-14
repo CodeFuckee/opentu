@@ -31,6 +31,14 @@ function CategoryIcon({ item }: { item: ActivityFeedItem }) {
   return <NotebookText className={className} />;
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  "under consideration": "考虑中",
+  planned: "已列入计划",
+  "in progress": "进行中",
+  done: "已完成",
+  declined: "已拒绝",
+};
+
 export function ActivityFeedListItem({
   item,
   className,
@@ -91,13 +99,13 @@ export function ActivityFeedListItem({
             {isComment && (
               <>
                 <span className="min-w-0 truncate">
-                  on <span className="text-foreground/70">"{title}"</span>
+                  评论于 <span className="text-foreground/70">“{title}”</span>
                 </span>
                 <span className="shrink-0 text-[8px]">•</span>
               </>
             )}
             <span className={cn(!isComment && "min-w-0 truncate", isComment && "shrink-0")}>
-              {authorName || "Anonymous"}
+              {authorName || "匿名"}
             </span>
             <span className="shrink-0 text-[8px]">•</span>
             <span className="shrink-0">{timeAgo.format(createdAt, "mini-now")}</span>
@@ -110,7 +118,7 @@ export function ActivityFeedListItem({
                     `text-${status.replace(" ", "-")}`,
                   )}
                 >
-                  {status}
+                  {STATUS_LABELS[status] ?? status}
                 </span>
               </>
             )}
@@ -125,14 +133,14 @@ export function ActivityFeedListItem({
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label="Mark as read"
+                aria-label="标为已读"
                 onClick={markSeen}
                 className="text-muted-foreground hover:text-primary h-fit w-fit px-1.5 py-1.5 opacity-0 transition-opacity group-hover/item:opacity-100 focus-visible:opacity-100"
               >
                 <Check className="size-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Mark as read</TooltipContent>
+            <TooltipContent>标为已读</TooltipContent>
           </Tooltip>
         )}
         {isComment ? (

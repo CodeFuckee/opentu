@@ -22,9 +22,9 @@ import { ASK_AI_MAX_POSTS } from "@/lib/ask-ai";
  * and every one of them is a question the board's own UI cannot answer.
  */
 const QUESTIONS = [
-  "What's the most common complaint?",
-  "What came in over the last two weeks?",
-  "Which requests are already planned or in progress?",
+  "大家最常抱怨什么？",
+  "最近两周收到了哪些反馈？",
+  "哪些请求已列入计划或正在进行中？",
 ];
 
 /**
@@ -60,23 +60,23 @@ function ScopeText({ postCount }: { postCount: number | null }) {
   // The count could not be read. Still true, still worth saying — and better
   // than a skeleton that pulses forever.
   if (postCount === null) {
-    return <>Answers come from the feedback posts on your board.</>;
+    return <>回答来自你看板上的反馈帖。</>;
   }
 
   if (postCount > ASK_AI_MAX_POSTS) {
     return (
       <>
-        Reading the {ASK_AI_MAX_POSTS} most recent of{" "}
-        {postCount.toLocaleString()} posts on your board.
+        正在读取你看板上共 {postCount.toLocaleString()} 条反馈中最近的{" "}
+        {ASK_AI_MAX_POSTS} 条。
       </>
     );
   }
 
   if (postCount === 1) {
-    return <>Reading the one post on your board.</>;
+    return <>正在读取你看板上的唯一一条反馈。</>;
   }
 
-  return <>Reading all {postCount.toLocaleString()} posts on your board.</>;
+  return <>正在读取你看板上的全部 {postCount.toLocaleString()} 条反馈。</>;
 }
 
 export function AskAiWelcome({
@@ -87,7 +87,7 @@ export function AskAiWelcome({
   return (
     <div className="mb-6 flex flex-col items-center text-center">
       <h2 className="text-foreground text-lg font-medium tracking-tight">
-        What do you want to know?
+        你想了解什么？
       </h2>
       <Scope postCount={postCount} />
     </div>
@@ -104,7 +104,7 @@ export function AskAiSuggestions() {
     <div
       className="flex w-full flex-col gap-2"
       role="group"
-      aria-label="Example questions"
+      aria-label="示例问题"
     >
       {QUESTIONS.map((question) => (
         <ThreadPrimitive.Suggestion
@@ -136,10 +136,9 @@ export function AskAiNoFeedback() {
         <EmptyMedia variant="icon">
           <MessageSquarePlus />
         </EmptyMedia>
-        <EmptyTitle>No feedback to ask about yet</EmptyTitle>
+        <EmptyTitle>还没有可提问的反馈</EmptyTitle>
         <EmptyDescription>
-          Once people start posting, you can ask anything about what they said
-          and get an answer that links back to the posts behind it.
+          一旦有人发布反馈，你就可以就他们的发言提出任何问题，并获得附有依据链接的回答。
         </EmptyDescription>
       </EmptyHeader>
     </Empty>

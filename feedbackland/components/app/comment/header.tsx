@@ -26,7 +26,7 @@ export function CommentHeader({
       <Avatar className={cn("size-7", !isExpanded && "invisible")}>
         <AvatarImage
           src={authorPhotoURL || undefined}
-          alt="User avatar image"
+          alt="用户头像"
         />
         <AvatarFallback>
           {authorName?.charAt(0) || <UserIcon className="size-4" />}
@@ -37,7 +37,7 @@ export function CommentHeader({
           {authorName}
           {authorRole === "admin" && (
             <Badge variant="outline" className="border-primary/30 ml-1 text-[10px] px-1 py-0 font-normal">
-              Admin
+              管理员
             </Badge>
           )}
         </div>

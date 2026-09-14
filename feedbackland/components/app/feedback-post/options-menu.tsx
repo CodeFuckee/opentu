@@ -81,7 +81,7 @@ export function FeedbackPostOptionsMenu({
       },
       {
         onSuccess: () => {
-          toast.success("Feedback deleted", {
+          toast.success("反馈已删除", {
             position: "top-right",
           });
 
@@ -108,25 +108,25 @@ export function FeedbackPostOptionsMenu({
             <Button
               variant={variant}
               size="icon"
-              aria-label="Open options menu"
+              aria-label="打开选项菜单"
               className={cn(
                 "text-muted-foreground hover:text-primary h-fit w-fit px-1.5 py-1.5 hover:no-underline",
                 className,
               )}
             >
               <MoreHorizontal className="size-4" />
-              <span className="sr-only">Options</span>
+              <span className="sr-only">选项</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuGroup>
               {onEdit !== undefined && (
                 <DropdownMenuItem onClick={() => onEdit?.()}>
-                  Edit post
+                  编辑反馈
                 </DropdownMenuItem>
               )}
               <DropdownMenuSub>
-                <DropdownMenuSubTrigger>Set status</DropdownMenuSubTrigger>
+                <DropdownMenuSubTrigger>设置状态</DropdownMenuSubTrigger>
                 <DropdownMenuPortal>
                   <DropdownMenuSubContent className="w-48">
                     <DropdownMenuRadioGroup
@@ -142,34 +142,34 @@ export function FeedbackPostOptionsMenu({
                       }
                     >
                       <DropdownMenuRadioItem value="none">
-                        No status
+                        无状态
                       </DropdownMenuRadioItem>
                       <DropdownMenuRadioItem
                         value="under consideration"
                         className="text-under-consideration!"
                       >
-                        Under consideration
+                        考虑中
                       </DropdownMenuRadioItem>
                       <DropdownMenuRadioItem
                         value="planned"
                         className="text-planned!"
                       >
-                        Planned
+                        已列入计划
                       </DropdownMenuRadioItem>
                       <DropdownMenuRadioItem
                         value="in progress"
                         className="text-in-progress!"
                       >
-                        In progress
+                        进行中
                       </DropdownMenuRadioItem>
                       <DropdownMenuRadioItem value="done" className="text-done!">
-                        Done
+                        已完成
                       </DropdownMenuRadioItem>
                       <DropdownMenuRadioItem
                         value="declined"
                         className="text-declined!"
                       >
-                        Declined
+                        已拒绝
                       </DropdownMenuRadioItem>
                     </DropdownMenuRadioGroup>
                   </DropdownMenuSubContent>
@@ -182,7 +182,7 @@ export function FeedbackPostOptionsMenu({
                 onClick={() => setIsDeleteConfirmationOpen(true)}
                 className="text-destructive focus:text-destructive focus:bg-destructive/10"
               >
-                Delete post
+                删除反馈
               </DropdownMenuItem>
             </DropdownMenuGroup>
           </DropdownMenuContent>
@@ -192,11 +192,10 @@ export function FeedbackPostOptionsMenu({
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
-                Are you sure you want to delete this feedback post?
+                确定要删除这条反馈吗？
               </AlertDialogTitle>
               <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete this
-                feedback post.
+                此操作无法撤销，该反馈将被永久删除。
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -204,14 +203,14 @@ export function FeedbackPostOptionsMenu({
                 onClick={() => setIsDeleteConfirmationOpen(false)}
                 disabled={deletePost.isPending}
               >
-                Cancel
+                取消
               </AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleDelete}
                 disabled={deletePost.isPending}
                 className={buttonVariants({ variant: "destructive" })}
               >
-                Delete
+                删除
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

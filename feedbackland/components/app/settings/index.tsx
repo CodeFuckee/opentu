@@ -18,7 +18,7 @@ export default function Settings() {
 
   return (
     <div className="">
-      <h2 className="h5 mb-6">Settings</h2>
+      <h2 className="h5 mb-6">设置</h2>
       {isPending ? (
         <SettingsLoading />
       ) : (
