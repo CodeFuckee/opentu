@@ -15,6 +15,9 @@ export default defineConfig({
       // 门禁：test 运行即收集覆盖率并执行阈值校验（跌破阈值测试即失败）
       enabled: true,
       provider: 'v8',
+      // text：日志逐文件表格；text-summary：供 CI 正则提取总覆盖率；
+      // html/lcov：覆盖率报告制品（GitLab job artifacts 归档）
+      reporter: ['text', 'text-summary', 'html', 'lcov'],
       reportsDirectory: '../../coverage/packages/drawnix',
       // 覆盖率口径限定为工作流执行引擎（核心链路零测试专项，2026-09）
       include: ['src/engine/**/*.ts'],
