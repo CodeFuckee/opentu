@@ -31,8 +31,9 @@ test:frontend:
     - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
   script:
     - pnpm exec nx run-many -t=test --parallel=1
-  # 流水线 UI 显示前端覆盖率（从 vitest text-summary 输出提取 Lines 总覆盖率）
-  coverage: '/^Lines\s*:\s*([\d\.]+)%/m'
+  # 流水线 UI 显示前端覆盖率（从 vitest text-summary 输出提取 Lines 总覆盖率；
+  # 不用 ^ 行首锚点——runner 日志前缀/ANSI 颜色码会导致 ^ 永远匹配失败）
+  coverage: '/Lines\s*:\s*([\d\.]+)%/'
   artifacts:
     when: always
     expire_in: 1 week
