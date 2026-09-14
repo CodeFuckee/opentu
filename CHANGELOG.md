@@ -1,5 +1,14 @@
 ## Unreleased
 
+### 🐛 Bug Fixes
+
+- 修复 **Feedbackland 提交反馈 500**：提反馈链路（AI 起标题/分类、合规检查）依赖
+  OpenRouter LLM，自托管实例未配置 `OPENROUTER_API_KEY` 时 `JSON.parse("")` 抛异常
+  导致 tRPC 500，且合规检查失败会误判"不当内容"。改为无 key 时降级：标题截取原文
+  前 60 字、归类 general feedback、合规检查跳过（宁放过勿阻塞），embedding 已有
+  null 兜底；key 在但 LLM 调用失败（限流/网络/余额）同样降级不阻塞。后续配置
+  `FL_OPENROUTER_API_KEY`（GitLab CI/CD 变量）+ 重新部署即可恢复 AI 全量能力。
+
 ### 🚀 Features
 
 - 新增 **Feedbackland 反馈按钮跨应用 SSO 免登**：点击画布左下角反馈按钮，经同源
