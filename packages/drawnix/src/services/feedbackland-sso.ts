@@ -69,6 +69,8 @@ export function buildFeedbacklandTransitPageUrl(): string {
 
 /**
  * 同步打开中转页（用户手势上下文内调用，不会被弹窗拦截）。
+ * 注意：不能带 noopener/noreferrer——中转页需要 window.opener 与画布
+ * postMessage 握手换取令牌；被打开页面是自家同源静态页，无 tab-nabbing 风险。
  * 未配置（理论上不会发生：画布被 AuthGate 保护，进得来必然已登录且已配置）
  * 时返回 false，由调用方做"请先登录"的防御提示。
  */
@@ -76,7 +78,7 @@ export function openFeedbacklandSsoWindow(): boolean {
   if (!ssoConfig) {
     return false;
   }
-  window.open(buildFeedbacklandTransitPageUrl(), '_blank', 'noopener,noreferrer');
+  window.open(buildFeedbacklandTransitPageUrl(), '_blank');
   return true;
 }
 

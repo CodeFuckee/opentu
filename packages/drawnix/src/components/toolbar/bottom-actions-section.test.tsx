@@ -83,8 +83,7 @@ describe('BottomActionsSection Feedbackland 按钮', () => {
     fireEvent.click(screen.getByTestId('toolbar-feedbackland'));
     expect(openSpy).toHaveBeenCalledWith(
       buildFeedbacklandTransitPageUrl(),
-      '_blank',
-      expect.stringContaining('noopener')
+      '_blank'
     );
     expect(openSpy.mock.calls[0][0]).not.toBe(FEEDBACKLAND_URL);
     openSpy.mockRestore();

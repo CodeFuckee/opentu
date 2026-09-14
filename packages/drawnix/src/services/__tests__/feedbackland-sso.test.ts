@@ -45,7 +45,7 @@ describe('feedbackland-sso 服务', () => {
     expect(window.open).not.toHaveBeenCalled();
   });
 
-  it('配置后打开中转页：新标签页 + noopener，URL 携带 to/su/ak 参数', () => {
+  it('配置后打开中转页：新标签页且保留 opener（不带 noopener），URL 携带 to/su/ak 参数', () => {
     configureFeedbacklandSso(CONFIG);
     expect(isFeedbacklandSsoConfigured()).toBe(true);
 
@@ -55,7 +55,9 @@ describe('feedbackland-sso 服务', () => {
       .mock.calls[0];
     expect(url).toBe(buildFeedbacklandTransitPageUrl());
     expect(target).toBe('_blank');
-    expect(features).toContain('noopener');
+    // 中转页需要 window.opener 与画布 postMessage 握手，绝不能带 noopener
+    expect(features).toBeUndefined();
+    expect(String(url)).not.toContain('noopener');
 
     const parsed = new URL(url as string, window.location.origin);
     expect(parsed.pathname).toBe('/feedback-sso.html');
