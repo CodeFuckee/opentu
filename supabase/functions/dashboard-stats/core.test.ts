@@ -409,7 +409,8 @@ test('buildDashboardHtml：自包含页面，内嵌 anon key，无外部脚本�
   }
   // 用户统一用 Display Name 渲染（缺失回退 oaAccount）
   assert.ok(html.includes('displayName || r.oaAccount'));
-  // 导出图片按钮与 foreignObject 栅格化实现
+  // 导出图片按钮与 foreignObject 栅格化实现（导出时禁用动画，避免渐入面板不可见）
   assert.ok(html.includes('导出图片'));
   assert.ok(html.includes('foreignObject'));
+  assert.ok(html.includes('animation:none!important'));
 });

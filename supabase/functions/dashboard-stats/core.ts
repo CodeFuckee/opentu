@@ -1158,6 +1158,13 @@ document.getElementById('exportBtn').addEventListener('click', function(){
     clone.style.width = w + 'px';
     var cb = clone.querySelector('body');
     if (cb) { cb.style.width = w + 'px'; }
+    // 禁用动画/过渡：栅格化时动画停在 t=0 会让带渐入动画的面板不可见
+    var fixStyle = document.createElement('style');
+    fixStyle.textContent = '*,*::before,*::after{animation:none!important;transition:none!important;backdrop-filter:none!important}';
+    var headEl = clone.querySelector('head');
+    (headEl || clone).appendChild(fixStyle);
+    var ceb = clone.querySelector('#exportBtn');
+    if (ceb) { ceb.textContent = '导出图片'; }
     var htmlString = new XMLSerializer().serializeToString(clone);
     var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'">'+
       '<foreignObject width="100%" height="100%">'+htmlString+'</foreignObject></svg>';
