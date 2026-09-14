@@ -80,6 +80,12 @@
   部门使用汇总新增金额列，价目拉取失败降级显示 `-`；本月用量与消耗金额并列
   进 KPI 行。
 
+- 数据看板新增「推送」按钮：把当前看板整页截图上传 Gitee 仓库
+  （tju-kdj_admin/dingding-talk-images）中转出直链，连同自动生成的周报文字经
+  钉钉群机器人（markdown + 加签）发送到群。依赖 configs 表新增的四个配置键：
+  DINGTALK_WEBHOOK / DINGTALK_SECRET / GITEE_TOKEN / GITEE_REPO（已预置空值，
+  需在 Supabase 填写真实值）；未配置时推送返回明确错误不崩溃。
+
 ### 🩹 Fixes
 
 - CI 加固：`build` / `deploy` / `deploy:preview` / `feedbackland:redeploy` 的 runner

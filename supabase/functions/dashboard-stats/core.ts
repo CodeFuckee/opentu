@@ -195,6 +195,163 @@ export async function fetchCanvasUsage(
   }
 }
 
+/** 钉钉机器人与 Gitee 图片中转的 configs 键 */
+export const DING_WEBHOOK_CONFIG_KEY = 'DINGTALK_WEBHOOK';
+export const DING_SECRET_CONFIG_KEY = 'DINGTALK_SECRET';
+export const GITEE_TOKEN_CONFIG_KEY = 'GITEE_TOKEN';
+export const GITEE_REPO_CONFIG_KEY = 'GITEE_REPO';
+export const DEFAULT_GITEE_REPO = 'tju-kdj_admin/dingding-talk-images';
+
+export interface DingPushResult {
+  ok: boolean;
+  imageUrl?: string;
+  error?: string;
+}
+
+/** 钉钉加签：HmacSHA256(`${timestamp}\n${secret}`) 的 base64 */
+export async function dingSign(secret: string, timestamp: number): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(`${timestamp}\n${secret}`));
+  let bin = '';
+  for (const b of new Uint8Array(sig)) {
+    bin += String.fromCharCode(b);
+  }
+  return btoa(bin);
+}
+
+/** 上传 PNG（base64，可含 dataURL 前缀）到 Gitee 仓库，返回可公开访问的图片 URL */
+export async function uploadGiteeImage(
+  env: DashboardEnv,
+  deps: DashboardDeps,
+  imageBase64: string,
+  filename: string
+): Promise<string | null> {
+  const doFetch = deps.fetch || fetch;
+  try {
+    const token = await readDashboardConfig(env, GITEE_TOKEN_CONFIG_KEY, deps);
+    if (!token) {
+      return null;
+    }
+    const repo =
+      (await readDashboardConfig(env, GITEE_REPO_CONFIG_KEY, deps)) ||
+      DEFAULT_GITEE_REPO;
+    const base64 = imageBase64.includes(',')
+      ? imageBase64.slice(imageBase64.indexOf(',') + 1)
+      : imageBase64;
+    const apiPath = `dashboard-stats/${filename}`;
+    const branchRes = await doFetch(
+      `https://gitee.com/api/v5/repos/${repo}?access_token=${encodeURIComponent(token)}`,
+      { method: 'GET' }
+    );
+    let branch = 'master';
+    if (branchRes.ok) {
+      const info = (await branchRes.json()) as { default_branch?: unknown };
+      if (typeof info?.default_branch === 'string' && info.default_branch) {
+        branch = info.default_branch;
+      }
+    }
+    const res = await doFetch(
+      `https://gitee.com/api/v5/repos/${repo}/contents/${apiPath}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          access_token: token,
+          branch,
+          content: base64,
+          message: `dashboard export ${filename}`,
+        }),
+      }
+    );
+    if (!res.ok) {
+      return null;
+    }
+    const body = (await res.json()) as {
+      content?: { download_url?: unknown };
+    };
+    const url =
+      typeof body?.content?.download_url === 'string'
+        ? body.content.download_url
+        : `https://gitee.com/${repo}/raw/${branch}/${apiPath}`;
+    return url;
+  } catch {
+    return null;
+  }
+}
+
+/** 发送钉钉 markdown 消息（加签），返回是否成功 */
+export async function sendDingTalkMarkdown(
+  env: DashboardEnv,
+  deps: DashboardDeps,
+  text: string,
+  imageUrl?: string
+): Promise<{ ok: boolean; error?: string }> {
+  const doFetch = deps.fetch || fetch;
+  try {
+    const webhook = await readDashboardConfig(env, DING_WEBHOOK_CONFIG_KEY, deps);
+    const secret = await readDashboardConfig(env, DING_SECRET_CONFIG_KEY, deps);
+    if (!webhook) {
+      return { ok: false, error: 'configs 缺少 DINGTALK_WEBHOOK 配置' };
+    }
+    let url = webhook;
+    if (secret) {
+      const ts = Date.now();
+      const sign = await dingSign(secret, ts);
+      url += (webhook.includes('?') ? '&' : '?') + `timestamp=${ts}&sign=${encodeURIComponent(sign)}`;
+    }
+    const content = imageUrl ? `${text}\n\n![dashboard](${imageUrl})` : text;
+    const res = await doFetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        msgtype: 'markdown',
+        markdown: { title: 'YUE 画布使用周报', text: content },
+      }),
+    });
+    if (!res.ok) {
+      return { ok: false, error: `钉钉接口 HTTP ${res.status}` };
+    }
+    const body = (await res.json()) as { errcode?: unknown; errmsg?: unknown };
+    if (Number(body?.errcode ?? -1) !== 0) {
+      return { ok: false, error: `钉钉返回错误: ${String(body?.errmsg ?? 'unknown')}` };
+    }
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+/** 推送周报：图片上传 Gitee 中转 → 钉钉机器人发送 markdown（文字 + 图片） */
+export async function pushReport(
+  env: DashboardEnv,
+  deps: DashboardDeps,
+  imageBase64: string,
+  text: string
+): Promise<DingPushResult> {
+  let imageUrl: string | undefined;
+  if (imageBase64) {
+    const ts = new Date();
+    const p = (x: number) => String(x).padStart(2, '0');
+    const filename = `dashboard-${ts.getFullYear()}${p(ts.getMonth() + 1)}${p(ts.getDate())}-${p(ts.getHours())}${p(ts.getMinutes())}${p(ts.getSeconds())}.png`;
+    imageUrl = (await uploadGiteeImage(env, deps, imageBase64, filename)) || undefined;
+    if (!imageUrl) {
+      return { ok: false, error: '图片上传 Gitee 失败（检查 GITEE_TOKEN/GITEE_REPO 配置）' };
+    }
+  }
+  if (!text) {
+    return { ok: false, error: '报告内容为空' };
+  }
+  const sent = await sendDingTalkMarkdown(env, deps, text, imageUrl);
+  return sent.ok ? { ok: true, imageUrl } : sent;
+}
+
 /** 聚合的最终返回结构 */
 export interface DashboardOverview {
   generatedAt: string;
@@ -941,6 +1098,7 @@ export function buildDashboardHtml(anonKey: string): string {
     </select>
     <button id="refreshBtn">刷新</button>
     <button id="exportBtn">导出图片</button>
+    <button id="pushBtn">推送</button>
     <button id="copyReportBtn">复制报告</button>
   </div>
 </header>
@@ -1259,66 +1417,98 @@ document.getElementById('copyReportBtn').addEventListener('click', function(){
   alert('复制失败，请手动选择文本复制');
 });
 
-// 导出图片：整页 DOM 序列化进 SVG foreignObject，栅格化为 PNG 下载（零依赖）
+// 整页栅格化：DOM 序列化进 SVG foreignObject 再经 canvas 采样（禁用动画保证终态）
+function buildExportCanvas(scale){
+  var w = Math.max(document.body.scrollWidth, document.documentElement.scrollWidth);
+  var h = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+  var clone = document.documentElement.cloneNode(true);
+  clone.style.width = w + 'px';
+  var cb = clone.querySelector('body');
+  if (cb) { cb.style.width = w + 'px'; }
+  // 禁用动画/过渡：栅格化时动画停在 t=0 会让带渐入动画的面板不可见
+  var fixStyle = document.createElement('style');
+  fixStyle.textContent = '*,*::before,*::after{animation:none!important;transition:none!important;backdrop-filter:none!important}';
+  var headEl = clone.querySelector('head');
+  (headEl || clone).appendChild(fixStyle);
+  var ceb = clone.querySelector('#exportBtn');
+  if (ceb) { ceb.textContent = '导出图片'; }
+  var cpb = clone.querySelector('#copyReportBtn');
+  if (cpb) { cpb.textContent = '复制报告'; }
+  var psh = clone.querySelector('#pushBtn');
+  if (psh) { psh.textContent = '推送'; }
+  var htmlString = new XMLSerializer().serializeToString(clone);
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'">'+
+    '<foreignObject width="100%" height="100%">'+htmlString+'</foreignObject></svg>';
+  var img = new Image();
+  return new Promise(function(resolve, reject){
+    img.onload = function(){
+      var canvas = document.createElement('canvas');
+      canvas.width = w*scale;
+      canvas.height = h*scale;
+      var ctx = canvas.getContext('2d');
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, 0, 0);
+      resolve(canvas);
+    };
+    img.onerror = function(){ reject(new Error('页面渲染为图片时出错')); };
+    img.src = 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+  });
+}
+
+// 导出图片：整页栅格化为 PNG 下载（零依赖）
 document.getElementById('exportBtn').addEventListener('click', function(){
   var btn = this;
   btn.disabled = true;
-  var oldText = btn.textContent;
   btn.textContent = '导出中…';
-  try{
-    var w = Math.max(document.body.scrollWidth, document.documentElement.scrollWidth);
-    var h = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
-    var clone = document.documentElement.cloneNode(true);
-    clone.style.width = w + 'px';
-    var cb = clone.querySelector('body');
-    if (cb) { cb.style.width = w + 'px'; }
-    // 禁用动画/过渡：栅格化时动画停在 t=0 会让带渐入动画的面板不可见
-    var fixStyle = document.createElement('style');
-    fixStyle.textContent = '*,*::before,*::after{animation:none!important;transition:none!important;backdrop-filter:none!important}';
-    var headEl = clone.querySelector('head');
-    (headEl || clone).appendChild(fixStyle);
-    var ceb = clone.querySelector('#exportBtn');
-    if (ceb) { ceb.textContent = '导出图片'; }
-    var htmlString = new XMLSerializer().serializeToString(clone);
-    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'">'+
-      '<foreignObject width="100%" height="100%">'+htmlString+'</foreignObject></svg>';
-    var img = new Image();
-    img.onload = function(){
-      try{
-        var scale = 2;
-        var canvas = document.createElement('canvas');
-        canvas.width = w*scale;
-        canvas.height = h*scale;
-        var ctx = canvas.getContext('2d');
-        ctx.scale(scale, scale);
-        ctx.drawImage(img, 0, 0);
-        var a = document.createElement('a');
-        var ts = new Date();
-        var p=function(x){return String(x).padStart(2,'0');};
-        a.download = '数据看板-'+ts.getFullYear()+p(ts.getMonth()+1)+p(ts.getDate())+'-'+p(ts.getHours())+p(ts.getMinutes())+'.png';
-        a.href = canvas.toDataURL('image/png');
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        btn.disabled = false;
-        btn.textContent = oldText;
-      }catch(e){
-        btn.disabled = false;
-        btn.textContent = oldText;
-        alert('导出失败：'+(e && e.message ? e.message : e));
-      }
-    };
-    img.onerror = function(){
-      btn.disabled = false;
-      btn.textContent = oldText;
-      alert('导出失败：页面渲染为图片时出错');
-    };
-    img.src = 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
-  }catch(e){
+  buildExportCanvas(2).then(function(canvas){
+    var a = document.createElement('a');
+    var ts = new Date();
+    var p=function(x){return String(x).padStart(2,'0');};
+    a.download = '数据看板-'+ts.getFullYear()+p(ts.getMonth()+1)+p(ts.getDate())+'-'+p(ts.getHours())+p(ts.getMinutes())+'.png';
+    a.href = canvas.toDataURL('image/png');
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
     btn.disabled = false;
-    btn.textContent = oldText;
+    btn.textContent = '导出图片';
+  }).catch(function(e){
+    btn.disabled = false;
+    btn.textContent = '导出图片';
     alert('导出失败：'+(e && e.message ? e.message : e));
-  }
+  });
+});
+
+// 推送：看板截图上传 Gitee 中转，连同周报文字经钉钉机器人发送
+document.getElementById('pushBtn').addEventListener('click', function(){
+  var btn = this;
+  btn.disabled = true;
+  btn.textContent = '推送中…';
+  (async function(){
+    if(!LAST_OVERVIEW) throw new Error('数据尚未加载');
+    var text = buildReportText(LAST_OVERVIEW, CURRENT_RANGE_LABEL);
+    var canvas = await buildExportCanvas(2);
+    var dataUrl = canvas.toDataURL('image/png');
+    // Gitee 单文件上限 1MB，超限改用 1 倍采样
+    if(dataUrl.length > 1200000){
+      canvas = await buildExportCanvas(1);
+      dataUrl = canvas.toDataURL('image/png');
+    }
+    var res = await fetch(basePath() + 'push-report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageBase64: dataUrl, text: text })
+    });
+    var j = await res.json();
+    if(!(j && j.ok)) throw new Error((j && j.error) || ('HTTP ' + res.status));
+  })().then(function(){
+    btn.disabled = false;
+    btn.textContent = '已推送';
+    setTimeout(function(){ btn.textContent = '推送'; }, 2000);
+  }).catch(function(e){
+    btn.disabled = false;
+    btn.textContent = '推送';
+    alert('推送失败：'+(e && e.message ? e.message : e));
+  });
 });
 
 load();

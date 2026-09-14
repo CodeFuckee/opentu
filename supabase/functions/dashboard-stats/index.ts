@@ -15,6 +15,7 @@
 import {
   aggregateOverview,
   buildDashboardHtml,
+  pushReport,
   DEFAULT_ANON_KEY,
   type DashboardEnv,
 } from './core.ts';
@@ -23,7 +24,7 @@ const BASE = '/dashboard-stats';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, apikey, content-type',
 };
 
@@ -101,6 +102,20 @@ Deno.serve(async (request: Request) => {
       return jsonError(404, `unknown dashboard-stats path: ${urlPath}`);
     }
 
+    if (route.kind === 'push' && request.method === 'POST') {
+      const body = (await request.json().catch(() => ({}))) as {
+        imageBase64?: unknown;
+        text?: unknown;
+      };
+      const imageBase64 = typeof body.imageBase64 === 'string' ? body.imageBase64 : '';
+      const text = typeof body.text === 'string' ? body.text : '';
+      const result = await pushReport(env, {}, imageBase64, text);
+      return new Response(JSON.stringify(result), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+      });
+    }
+
     return jsonError(405, 'Method not allowed');
   } catch (error) {
     const message = error instanceof Error ? error.message : 'unknown error';
@@ -111,7 +126,7 @@ Deno.serve(async (request: Request) => {
 /** 解析路径：页面（BASE 本身 / index.html / 尾部斜杠）或数据接口（overview） */
 function parseRoute(
   urlPath: string
-): { kind: 'page' } | { kind: 'overview' } | { kind: 'unknown' } {
+): { kind: 'page' } | { kind: 'overview' } | { kind: 'push' } | { kind: 'unknown' } {
   const suffix = urlPath.startsWith('/functions/v1' + BASE)
     ? urlPath.slice(('/functions/v1' + BASE).length)
     : urlPath.startsWith(BASE)
@@ -127,6 +142,9 @@ function parseRoute(
   }
   if (clean === '/overview') {
     return { kind: 'overview' };
+  }
+  if (clean === '/push-report') {
+    return { kind: 'push' };
   }
   return { kind: 'unknown' };
 }

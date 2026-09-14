@@ -26,6 +26,8 @@
 
 **消耗金额口径**：KPI 总额为**真实消耗**——自建 New API 网关（configs 表 NEWAPI_URL/NEWAPI_TOKEN/NEWAPI_KEY）消耗日志按 huabu 共享令牌分页求和，USD = quota ÷ 500000，含画布全部网关调用（绘图/聊天/轮询等）；网关日志无法区分到画布用户，「部门使用汇总」的金额列按 tu-zi 价目估算（`https://api.tu-zi.com/api/pricing`，按次用 model_price、按量按 1500 token/次估算）。任一数据源失败逐级降级显示 `-`。美元→人民币展示汇率可在 Supabase `configs` 表配置键 `USD_CNY_RATE`（缺省 0.1，内部结算口径 $10=¥1），改值即时生效。
 
+**推送到钉钉**：页面右上角「推送」按钮把当前看板截图 + 周报文字经钉钉群机器人发送。图片先上传 Gitee 仓库中转（raw 直链放入 markdown），机器人用加签方式调用。依赖 `configs` 表四个键（已预置，值需填写）：`DINGTALK_WEBHOOK`（机器人 Webhook）、`DINGTALK_SECRET`（加签密钥）、`GITEE_TOKEN`（Gitee 私人令牌，需仓库写权限）、`GITEE_REPO`（中转仓库，默认 tju-kdj_admin/dingding-talk-images）。未填 webhook 时推送返回明确错误。
+
 除特别注明外，任务类统计口径均为**仅成功（completed）任务**。
 
 ## 实现

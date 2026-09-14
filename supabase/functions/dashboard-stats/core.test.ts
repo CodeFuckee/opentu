@@ -20,6 +20,7 @@ import {
   fetchAuthDisplayNames,
   fetchCanvasUsage,
   scaleCostByDepartment,
+  pushReport,
   aggregateOverview,
   buildDashboardHtml,
   DEFAULT_ANON_KEY,
@@ -418,6 +419,37 @@ test('scaleCostByDepartment：按占比分摊真实总额且求和恰好相等',
   assert.deepEqual(scaleCostByDepartment({ A: 5 }, null), { A: 5 });
 });
 
+test('pushReport：gitee 上传后钉钉加签发送；缺 webhook 报错', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = [];
+  const fetchImpl = (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    calls.push({ url, init });
+    if (url.includes('/rest/v1/configs?key=eq.GITEE_TOKEN')) return Promise.resolve(json(200, [{ value: 'gtok' }]));
+    if (url.includes('/rest/v1/configs?key=eq.GITEE_REPO')) return Promise.resolve(json(200, [{ value: 'tju-kdj_admin/dingding-talk-images' }]));
+    if (url.includes('/rest/v1/configs?key=eq.DINGTALK_WEBHOOK')) return Promise.resolve(json(200, [{ value: 'https://oapi.dingtalk.com/robot/send?access_token=abc' }]));
+    if (url.includes('/rest/v1/configs?key=eq.DINGTALK_SECRET')) return Promise.resolve(json(200, [{ value: 'SEC123' }]));
+    if (url.includes('/repos/tju-kdj_admin/dingding-talk-images?')) return Promise.resolve(json(200, { default_branch: 'master' }));
+    if (url.includes('/contents/dashboard-stats/')) return Promise.resolve(json(200, { content: { download_url: 'https://gitee.com/tju-kdj_admin/dingding-talk-images/raw/master/dashboard-stats/x.png' } }));
+    if (url.includes('oapi.dingtalk.com/robot/send')) return Promise.resolve(json(200, { errcode: 0, errmsg: 'ok' }));
+    return Promise.reject(new Error('unrouted: ' + url));
+  };
+  const res = await pushReport(ENV, { fetch: fetchImpl }, 'data:image/png;base64,AAAA', '周报内容');
+  assert.equal(res.ok, true);
+  assert.equal(res.imageUrl, 'https://gitee.com/tju-kdj_admin/dingding-talk-images/raw/master/dashboard-stats/x.png');
+  const ding = calls.find((c) => c.url.includes('oapi.dingtalk.com/robot/send'));
+  assert.ok(ding, '应调用钉钉接口');
+  assert.ok(ding.url.includes('timestamp=') && ding.url.includes('sign='), '应携带加签参数');
+  const body = JSON.parse(String(ding.init?.body));
+  assert.equal(body.msgtype, 'markdown');
+  assert.ok(body.markdown.text.includes('周报内容'));
+  assert.ok(body.markdown.text.includes('![dashboard]('));
+
+  const noCfg = routeFetch([], []);
+  const r2 = await pushReport(ENV, { fetch: noCfg }, '', '文字');
+  assert.equal(r2.ok, false);
+  assert.ok((r2.error || '').includes('DINGTALK_WEBHOOK'));
+});
+
 test('buildDashboardHtml：自包含页面，内嵌 anon key，无外部脚本依赖', () => {
   const html = buildDashboardHtml(DEFAULT_ANON_KEY);
   assert.ok(html.includes('<!DOCTYPE html>'));
@@ -441,4 +473,6 @@ test('buildDashboardHtml：自包含页面，内嵌 anon key，无外部脚本�
   assert.ok(html.includes('导出图片'));
   assert.ok(html.includes('foreignObject'));
   assert.ok(html.includes('animation:none!important'));
+  // 推送按钮（钉钉机器人）
+  assert.ok(html.includes('id="pushBtn"'));
 });
