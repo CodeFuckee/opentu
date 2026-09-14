@@ -2,6 +2,11 @@
 
 ### 🐛 Bug Fixes
 
+- 修复 **Feedbackland 帖子图片不显示**：图片经 next/image 优化代理（`/_next/image`）
+  展示时，Next 的 SSRF 防护默认拒绝解析到私网 IP 的上游地址（Storage 在 10.37.80.x），
+  返回 400 "url parameter is not allowed"。`next.config.ts` 开启
+  `images.dangerouslyAllowLocalIP`（remotePatterns 已白名单限定 Supabase Storage
+  主机，内网部署安全），图片上传流程不受影响。
 - 修复 **Feedbackland 提交反馈 500**：提反馈链路（AI 起标题/分类、合规检查）依赖
   OpenRouter LLM，自托管实例未配置 `OPENROUTER_API_KEY` 时 `JSON.parse("")` 抛异常
   导致 tRPC 500，且合规检查失败会误判"不当内容"。改为无 key 时降级：标题截取原文
