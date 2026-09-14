@@ -1469,10 +1469,14 @@ document.getElementById('copyReportBtn').addEventListener('click', function(){
 
 // 整页栅格化：DOM 序列化进 SVG foreignObject 再经 canvas 采样（禁用动画保证终态）
 function buildExportCanvas(scale){
-  var w = Math.max(document.body.scrollWidth, document.documentElement.scrollWidth);
+  // 以内容区宽度为画布宽度，避免导出图两侧出现大黑边
+  var wrapEl = document.querySelector('.wrap');
+  var w = wrapEl ? Math.ceil(wrapEl.getBoundingClientRect().width) : Math.max(document.body.scrollWidth, document.documentElement.scrollWidth);
   var h = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
   var clone = document.documentElement.cloneNode(true);
   clone.style.width = w + 'px';
+  var hdr = clone.querySelector('header');
+  if (hdr) { hdr.style.width = w + 'px'; hdr.style.position = 'static'; }
   var cb = clone.querySelector('body');
   if (cb) { cb.style.width = w + 'px'; }
   // 禁用动画/过渡：栅格化时动画停在 t=0 会让带渐入动画的面板不可见
