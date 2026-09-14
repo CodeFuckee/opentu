@@ -1,5 +1,95 @@
 ## Unreleased
 
+### 🔒 Security
+
+> 本节由一次全仓库代码评审（code-review-skill 五维度：架构/性能/安全/反模式/常见 bug）产出，
+> 均为行为保持或安全加固型修复；需产品决策的行为变更项见评审报告「待确认」清单。
+
+- **[P0] 工具 iframe 同源 XSS**：工具卡片 `src` 直接取自画板元素 `element.url`
+  （粘贴/导入画板数据即可注入），`javascript:` URL 会在继承父源的 iframe 中执行。
+  `tool.generator.ts` 现仅接受 http(s) 协议（非法协议进入加载失败态）。
+- **[P1] 工具 iframe postMessage 双向加固**：出站消息 targetOrigin 由 `'*'` 改为
+  iframe src 的源（`tool-communication-service.ts` / `with-tool.ts`）；入站消息校验
+  `event.source === iframe.contentWindow` 且 origin 与 iframe src 一致，页面内任意
+  第三方 iframe 无法再伪造 INSERT_IMAGE / GENERATE_IMAGE 等消息。
+- **[P1] 工具 iframe 内部组件错误文案 XSS**：`element.component`（画板数据）此前经
+  `innerHTML` 拼接渲染，改为 `textContent`。
+- **[P1] Mermaid 渲染消毒**：聊天面板 mermaid（securityLevel loose，允许标签内 HTML）
+  的输出 SVG 在进 `innerHTML`/预览弹窗前先剥离 script/iframe/object/embed 节点、
+  `on*` 事件属性与 javascript:/vbscript: 链接。
+- **[P0] newapi-key / sync-staff-profile 边缘函数补鉴权（IDOR）**：两函数此前无任何
+  鉴权，凭请求体 `userId` 即可冒领他人上游 apikey / 覆盖任意用户 `user_metadata`。
+  现要求 Bearer 用户 JWT（GET /auth/v1/user 自证）且 `body.userId` 必须等于认证身份；
+  前端本就经 `supabase.functions.invoke` 自动携带 JWT，合法调用不受影响。另修复
+  `user_id=eq.${userId}` 未编码的 PostgREST 参数注入并加 UUID 校验。
+- **[P1] check-email 正确性**：此前只拉第一页（1000 条）auth 用户本地匹配，用户数
+  超页后已注册邮箱被误判为未注册；改为分页遍历（50 页安全上限），不满一页即止。
+- **[P1] SW 视频/音频下载改用原始 URL**：`handleVideoRequest`/`handleAudioRequest`
+  此前用剥离 token/signature 参数的归一化 URL 发起下载，签名 URL 必然 403；
+  归一化 URL 现仅作缓存键。
+- **[P1] SW 调试日志脱敏**：XHR 调试拦截将请求/响应头（含 Authorization）与 JSON
+  请求体原样写入 debugLogs，现复用 `sanitizeObject`/`sanitizeRequestBody` 脱敏。
+- **[P0] secret.md 下架**：含 Supabase 凭据的 `secret.md` 移出 git 跟踪并加入
+  .gitignore（历史与凭据轮换需另行处理）。
+- 调试控制台 `addDebugLog` 由 `innerHTML` 改 `textContent`（全局可达 XSS sink）；
+  视频点击 `window.open` 显式传 `noopener`。
+
+### 🐛 Bug Fixes
+
+- **工具任务取消泄漏**：`with-tool.ts` GENERATE_IMAGE 订阅在任务 cancelled 时退订
+  （此前仅 completed/failed，取消任务会让订阅永久泄漏）；工具通信服务的清理定时器
+  句柄保存并在 `destroy()` 清理。
+- **SW 任务批量保存 Promise 丢失**：同一 task 在 50ms 批量窗口内二次 `saveTask`
+  会覆盖前一 waiter，调用方 Promise 永远 pending（挂到 120s RPC 超时）；改为
+  按 id 保存 waiter 数组，flush 时全部 settle。
+- **画布自动保存防抖**：`handleBoardChange` 此前每次 change 事件全量写 IndexedDB
+  （拖拽期间写风暴），现 400ms trailing 防抖（关闭场景由 close snapshot 兜底）。
+- **SW withTimeout 定时器清理**：`sw/index.ts` 与 `sw-channel/client.ts` 的超时包装
+  在先 settle 一方 clearTimeout，不再每请求遗留悬挂定时器。
+- **posthog 等待轮询上限**：`bootstrap.tsx` 两处无限轮询 `window.posthog` 加 40 次
+  重试上限（广告拦截场景不再常驻定时器）。
+- **工作流循环检测误报**：`loop-detector` 的参数哈希此前用顶层键列表作
+  JSON.stringify replacer 白名单，嵌套对象键全被丢弃（不同参数同哈希），
+  `forceTerminate` 会误杀正常任务；改为递归键排序。
+- **工作流 JSON 解析崩溃**：`parser` 对 `args: null` 放行导致下游 `Object.keys(null)`
+  崩溃；注释剥离正则会截断字符串里的 URL（"https://a.com"），改为字符串感知扫描。
+- **react-board stale closure**：`wrapper.tsx` 的 `BOARD_TO_AFTER_CHANGE` 仅首帧注册，
+  父组件后续传入的内联 `onContextChange` 永不生效（数据变更通知静默失效）；回调进
+  effect 依赖并复用既有清理函数重注册。
+- **图片压缩 >25MB 死代码**：`compressImageBlobWithStats` 的超限抛错不可达
+  （>25MB 落入 small 策略被提前返回静默跳过压缩），检查移至 shouldCompress 之前，
+  与 `compressImageBlob` 的「>25MB 抛错」约定对齐。
+- **双指缩放除零**：`with-pinch-zoom` 两指起点重合（lastDistance=0）时 zoom 跳满，
+  现保持原缩放。
+- **IndexedDB put 提前 resolve**：`utils/indexeddb` 的 `put` 在 request.onsuccess 即
+  resolve，事务其后 abort（配额超限）会谎报持久化成功；与 `putMany` 一致改监听
+  transaction.oncomplete/onabort。
+- **编码/格式化边界**：`base64ToBlob` 非法 data URL 抛明确错误（原双非空断言抛
+  TypeError）；`formatSize`/`formatFileSize` 单位索引钳制（0<byte<1 与超大值原输出
+  "undefined" 单位）；`getBrowserName` Opera（OPR UA 含 Chrome）误报 Chrome，调整
+  判断顺序；`dom.download` 延迟 revoke ObjectURL（Safari 立即 revoke 会中断下载）。
+- **Supabase 同步**：`pushToRemote`/`pullFromRemote` 补 `inProgress` 互斥守卫（防与
+  自动同步交错写）；push/pull 后同步 `syncRef.current.last` 基线并持久化（否则下轮
+  自动同步用旧基线制造假冲突）；`softDeleteRemoteEntities` 按 entity_type 分组
+  `.in()` 批量打墓碑（原逐条串行 HTTP）；`collectChat` 消息并行读取（原 N+1 串行）；
+  全量媒体同步补 50MB 上限（与 adapter 一致，超大 blob 不再必失败刷 failed）；
+  同步 `deleted` 统计修正（原把两个不相交集合相减）。
+- **工作流引擎取消状态**：取消工作流不再被 catch 无条件改写为 failed 持久化；
+  kling 提交响应缺 `data.task_id` 时抛业务错误而非 TypeError；flux 失败消息不再
+  把用户提示词当错误展示；`resolveInvocationPlanFromRoute` 空 catch 补告警日志。
+- **服务端错误信息收敛**：ai-proxy / newapi-key / sync-staff-profile / check-register /
+  dashboard-stats 的对外错误不再携带上游报文（表名/RPC/PostgREST 响应），细节进
+  服务端日志；ai-proxy `record_task_bill` 失败补重试与告警（原空 catch 吞掉会导致
+  预扣额度无据可退）；同步图片生成的转发体 `n` 收敛到与计费一致（原按 10 计费但
+  原样转发 n>10）；`countCompletedSince` 失败补日志（原静默返回 0 使周报口径失真）。
+
+### 🧪 Tests
+
+- 新增后端回归测试：newapi-key 鉴权与 UUID/编码、check-email 分页遍历、
+  sync-staff-profile 鉴权（node:test，79 条全绿）。
+- 新增 utils 回归测试：loop-detector 嵌套参数哈希、parser null args 与 URL 注释剥离
+  （vitest，utils 488 条全绿）。
+
 ### ✨ Changes
 
 - 数据看板新增**用量倍数**配置：`configs` 表新增 `USAGE_MULTIPLIER` 键（缺省 1），
