@@ -22,6 +22,11 @@ const nextConfig: NextConfig = {
   output: "standalone",
   images: {
     remotePatterns: [supabaseRemotePattern],
+    // 自托管内网部署：Storage 图片地址是私网 IP（10.37.80.x），Next 的 SSRF
+    // 防护默认拒绝私网上游（/_next/image 返回 400 "url parameter is not
+    // allowed"）。remotePatterns 已白名单限定 Supabase Storage 主机，
+    // 此处放开私网限制是安全的。
+    dangerouslyAllowLocalIP: true,
   },
 };
 
