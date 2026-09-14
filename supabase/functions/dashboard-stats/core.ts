@@ -1261,6 +1261,7 @@ function kpiCards(o){
     ['最近一周用量', o.weekTasks, '周一 ~ 周日', ''],
     ['消耗金额', costVal, costSub, ''],
     ['近30天消耗金额', o.monthCostUsd==null?'-':'¥'+(o.monthCostUsd*USD_CNY).toFixed(2), '近 30 天', ''],
+    ['此前消费金额（原系统）', '¥380.88', '10.37.80.7288', ''],
     ['活跃用户数', t.activeUsers, '', ''],
     ['本月用量', q.latestUsed, '周期 '+(q.latestPeriod||'-'), ''],
     ['数据覆盖天数', o.days, '截至 '+fmtDate(o.generatedAt).slice(0,10), ''],
