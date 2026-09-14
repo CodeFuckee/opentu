@@ -10,8 +10,7 @@
   统一显示为「**职能部门**」（新增 `DEPARTMENT_DISPLAY_NAMES` 展示映射，仅展示层，
   底层 staff_directory/user_profiles 数据不变）。
 - 数据看板**移除「使用次数排行（前 10）」面板**（按需求下线）：页面不再输出该面板
-  结构与渲染脚本，overview 接口的 `tasks.topUsers` 数据字段保留（月度用量 Top 用户
-  面板仍使用）。
+  结构与渲染脚本，overview 接口的 `tasks.topUsers` 数据字段保留。
 - 修复 **Feedbackland 帖子图片不显示**：图片经 next/image 优化代理（`/_next/image`）
   展示时，Next 的 SSRF 防护默认拒绝解析到私网 IP 的上游地址（Storage 在 10.37.80.x），
   返回 400 "url parameter is not allowed"。`next.config.ts` 开启
