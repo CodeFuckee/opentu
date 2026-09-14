@@ -108,6 +108,7 @@ test:e2e:
         kill -9 "${pid}" 2>/dev/null || true
       done
       sleep 1
+    - mkdir -p "$HOME/.local/bin"
     - corepack enable --install-directory "$HOME/.local/bin" || corepack enable
     - export PATH="$HOME/.local/bin:$PATH"
     - corepack prepare pnpm@${PNPM_VERSION} --activate
