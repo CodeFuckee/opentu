@@ -103,6 +103,16 @@
 - 新增 utils 回归测试：loop-detector 嵌套参数哈希、parser null args 与 URL 注释剥离
   （vitest，utils 488 条全绿）。
 
+### 🚀 Features
+
+- **新边缘函数 `task-monitor`**：监控 `task_submissions` 生图任务是否仍会在 60s 被
+  edge-runtime 杀死（WorkerRequestCancelled 特征识别自 `error`/`upstream_response`，
+  以 `FIX_DEPLOYED_AT` 为界统计修复前后被杀数），并给出修复生效的正面证据
+  （>60s 成功完成任务计数与最慢样本）。`GET ?hours=N` 或 `POST {"hours":N}`
+  （缺省 24，上限 168），需 Bearer 用户 JWT；只读聚合，不落库不写表。
+  实现见 `supabase/functions/task-monitor/`（core 单测 18 条），
+  用法见 `docs/task-monitor.md`。
+
 ### ✨ Changes
 
 - 数据看板新增**用量倍数**配置：`configs` 表新增 `USAGE_MULTIPLIER` 键（缺省 1），
