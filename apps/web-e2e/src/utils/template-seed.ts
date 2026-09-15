@@ -31,7 +31,7 @@ export const TEMPLATE_B = {
   category: '分析图',
   catalogs: [['分析图', '场地分析']],
   prompt: 'E2E 种子提示词 B：绘制一幅滨水场地分析图，包含交通与视线分析。',
-  base_images: ['data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='],
+  base_images: [],
   status: 'active',
   usage_count: 1,
   likes: 3,

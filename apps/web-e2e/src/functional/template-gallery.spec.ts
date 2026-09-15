@@ -155,6 +155,60 @@ test.describe('模板中心', () => {
     );
   });
 
+  test('E2E-012 带参考图模板去创作后参考图进入输入框', async ({ page }) => {
+    // 初始无参考图预览
+    await expect(
+      page.locator('.ai-input-bar__content-preview img')
+    ).toHaveCount(0);
+
+    await cardByTitle(page, TEMPLATE_A.title).click();
+    const detail = page.locator('.template-gallery__detail');
+    await expect(detail).toBeVisible();
+    // 详情内展示原图/参考图缩略图
+    await expect(
+      detail.locator('.template-gallery__detail-base-images img')
+    ).toHaveCount(1);
+    await page.getByTestId('template-gallery-use').click();
+
+    // 抽屉关闭、提示词填充，且参考图作为输入框附件出现
+    await expect(overlay(page)).toBeHidden({ timeout: 8000 });
+    await expect(aiTextarea(page)).toHaveValue(TEMPLATE_A.prompt);
+    // 预览组件对每张参考图渲染多个 img 元素，断言至少一张可见的参考图缩略图
+    const previewImg = page.locator('.ai-input-bar__content-preview img').first();
+    await expect(previewImg).toBeVisible({ timeout: 10000 });
+    await expect
+      .poll(async () =>
+        page.evaluate(() => {
+          const imgs = [
+            ...document.querySelectorAll('.ai-input-bar__content-preview img'),
+          ];
+          return imgs.filter(
+            (img) =>
+              !!img.getAttribute('src') &&
+              img.complete &&
+              img.naturalWidth > 0
+          ).length;
+        })
+      )
+      .toBeGreaterThanOrEqual(1);
+  });
+
+  test('E2E-013 无参考图模板去创作不产生预览图', async ({ page }) => {
+    await cardByTitle(page, TEMPLATE_B.title).click();
+    const detail = page.locator('.template-gallery__detail');
+    await expect(detail).toBeVisible();
+    await expect(
+      detail.locator('.template-gallery__detail-base-images')
+    ).toHaveCount(0);
+    await page.getByTestId('template-gallery-use').click();
+
+    await expect(overlay(page)).toBeHidden({ timeout: 8000 });
+    await expect(aiTextarea(page)).toHaveValue(TEMPLATE_B.prompt);
+    await expect(
+      page.locator('.ai-input-bar__content-preview img')
+    ).toHaveCount(0, { timeout: 8000 });
+  });
+
   test('E2E-010 回归：AI 输入条原功能不受影响', async ({ page }) => {
     await page.locator('.template-gallery__close').click();
     await expect(overlay(page)).toBeHidden({ timeout: 8000 });

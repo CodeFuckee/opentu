@@ -131,6 +131,7 @@ import {
 import classNames from 'classnames';
 import { InspirationBoard } from '../inspiration-board';
 import { TemplateGallery } from '../template-gallery/TemplateGallery';
+import type { AiTemplate } from '../template-gallery/template-service';
 import { AIInputComposerShell } from './AIInputComposerShell';
 import { GenerationTypeDropdown } from './GenerationTypeDropdown';
 import { CountDropdown } from './CountDropdown';
@@ -2557,6 +2558,36 @@ export const AIInputBar: React.FC<AIInputBarProps> = React.memo(
       [importLocalImages]
     );
 
+    // 模板「去创作」：把模板自带的原图/参考图拉取后走本地图导入链路，
+    // 与手动上传一致地出现在输入框参考图区（随生成一起发送）
+    const handleUseTemplateReferences = useCallback(
+      async (template: Pick<AiTemplate, 'base_images'>) => {
+        const urls = template.base_images ?? [];
+        if (urls.length === 0) return;
+        const files: File[] = [];
+        for (const [index, url] of urls.entries()) {
+          try {
+            const resp = await fetch(url);
+            if (!resp.ok) continue;
+            const blob = await resp.blob();
+            if (!blob.type.startsWith('image/')) continue;
+            const ext = blob.type.split('/')[1] || 'png';
+            files.push(
+              new File([blob], `template-reference-${index + 1}.${ext}`, {
+                type: blob.type,
+              })
+            );
+          } catch (error) {
+            console.warn('[template-gallery] 参考图拉取失败:', url, error);
+          }
+        }
+        if (files.length > 0) {
+          await importLocalImages(files);
+        }
+      },
+      [importLocalImages]
+    );
+
     // 处理选择变化的回调（由 SelectionWatcher 调用）
     const handleSelectionChange = useCallback((content: SelectedContent[]) => {
       const suppressedUrls = suppressSelectionContentUrlsRef.current;
@@ -4810,6 +4841,7 @@ export const AIInputBar: React.FC<AIInputBarProps> = React.memo(
               if (template.prompt) {
                 setPrompt(template.prompt);
               }
+              void handleUseTemplateReferences(template);
             }}
             language={language}
           />

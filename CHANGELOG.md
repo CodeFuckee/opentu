@@ -126,6 +126,9 @@
   修复两处缺陷：①CSP `img-src` 未放行 http 自托管存储导致模板封面全部被拦
   （补 `http:`）；②模板抽屉挂在 AI 输入条组件树被画布 SVG 拦截点击（改
   `createPortal` 渲染到 body）。前端 typecheck/lint/test 全绿，已过用户过目。
+  「去创作」同时把模板自带原图/参考图拉取后走本地图导入链路带入输入框
+  （`handleUseTemplateReferences`，与手动上传一致随生成发送）。E2E 增至 13 条
+  （E2E-012 参考图进输入框 / E2E-013 无参考图对照）。
 
 - **新增模板中心 E2E 测试**：`apps/web-e2e/src/functional/template-gallery.spec.ts`
   11 条用例（入口/热度/最新/分类/搜索/详情/复制提示词/去创作计数/未登录门禁/
