@@ -224,9 +224,20 @@ test.describe('模板中心', () => {
 test.describe('模板中心（复制提示词，Chromium）', () => {
   test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
 
+  let seedFailed = false;
+
   test.beforeAll(async () => {
-    await cleanupE2eTemplates();
-    await seedE2eTemplates();
+    try {
+      await cleanupE2eTemplates();
+      await seedE2eTemplates();
+    } catch (error) {
+      seedFailed = true;
+      console.error('[template-gallery] 种子数据准备失败:', error);
+    }
+  });
+
+  test.beforeEach(async () => {
+    test.skip(seedFailed, '种子数据准备失败（缺 service key 或数据库不可达）');
   });
 
   test.afterAll(async () => {
