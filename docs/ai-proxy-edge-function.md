@@ -130,6 +130,35 @@ user_quota_configs（用户级，优先级最高）
 - `user_quota_configs` / `user_quota_overview` 均不授予 anon/authenticated，
   只能经 Dashboard（表属主）或 service_role 访问，普通用户无法读取他人配额。
 
+## 超时配置（2026-09-15 调整，服务器侧）
+
+同步生图经 ai-proxy 在 edge-runtime 内等待上游完成（可达数分钟），链路上有三个
+超时闸门，均已按 15 分钟对齐（与前端 `IMAGE_GENERATION_TIMEOUT_MS` 一致）：
+
+| 层 | 文件（服务器） | 参数 | 原值 → 新值 |
+|---|---|---|---|
+| edge-runtime user worker | `volumes/functions/main/index.ts` | `workerTimeoutMs` | `60_000` → `900_000` |
+| Envoy 路由总超时 | `volumes/api/envoy/lds.template.yaml` | functions-v1-all `route.timeout` | `150s` → `920s` |
+| Envoy 流空闲超时 | 同上 | functions-v1-all `route.stream_idle_timeout` | 默认 300s → `0s` 禁用 |
+
+背景：生图任务曾「超 1 分钟必失败」——user worker 60s 被 supervisor 终止，客户端收到
+`500 {"msg":"WorkerRequestCancelled: request has been cancelled by supervisor"}`
+（`msg` 键不被前端 `readErrorMessage` 的 `error`/`error.message`/`message` 三重判断
+识别，显示为兜底文案「Tuzi GPT Image request failed: 500」），而上游 tuzi 侧生成
+照常完成并计费；且 worker 被杀时 ai-proxy 走不到「上游 ≥400 退回额度」分支，月度
+生图额度被白扣（补偿待办）。
+
+运维要点：
+
+- 改 `lds.template.yaml` 后必须重启 `supabase-envoy`（容器入口脚本用 envsubst 由
+  模板生成实际生效的 `/etc/envoy/lds.yaml`）；
+- 改 `main/index.ts` 后重启 `supabase-edge-functions`；
+- 同日变更前的文件备份为同目录 `*.bak-20260915`，回滚即恢复备份 + 重启对应容器；
+- 验证方法：部署临时 sleep 函数（如 120s 后返回 200）curl
+  `/functions/v1/<name>`，修复前必死于 60s；另可用 ai-proxy `/v1/models`
+  （免费、不计生图额度）冒烟整条代理链路；
+- 待办：前端 `readErrorMessage` 增补对 `msg` 键的识别，把真实取消原因透到任务表。
+
 ## 部署
 
 与现有函数一致（热加载，无需重启容器）：

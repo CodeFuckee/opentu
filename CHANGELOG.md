@@ -36,6 +36,19 @@
 
 ### 🐛 Bug Fixes
 
+- **生图任务超 1 分钟必失败（WorkerRequestCancelled，服务器侧修复）**：自托管 Supabase
+  主 worker 脚本（服务器 `volumes/functions/main/index.ts`）创建 user worker 时硬编码
+  `workerTimeoutMs = 60_000`，同步生图在上游等待超 60 秒即被 supervisor 终止，客户端收到
+  `500 {"msg":"WorkerRequestCancelled: request has been cancelled by supervisor"}`
+  （`msg` 键不被前端 `readErrorMessage` 识别，任务表折叠为
+  「Tuzi GPT Image request failed: 500」），而上游 tuzi 侧生成本身照常完成并计费
+  （ai-proxy 预扣额度因走不到「上游 ≥400 退回」分支被白扣）。服务器侧已改为
+  **15 分钟**（与前端 `IMAGE_GENERATION_TIMEOUT_MS` 对齐），并同步放宽 Envoy
+  `/functions/v1/` 路由 `timeout: 150s→920s`、显式 `stream_idle_timeout: 0s`
+  （Envoy 默认 300s 流空闲超时会在无字节流动的生图等待期先杀连接）。
+  已验证：120s sleep 测试函数修复前必死于 60s、修复后 200 返回；ai-proxy
+  `/v1/models` 冒烟 200。本仓库无代码改动，变更记录见
+  `docs/ai-proxy-edge-function.md`「超时配置」；服务器两文件备份 `*.bak-20260915`。
 - **工具任务取消泄漏**：`with-tool.ts` GENERATE_IMAGE 订阅在任务 cancelled 时退订
   （此前仅 completed/failed，取消任务会让订阅永久泄漏）；工具通信服务的清理定时器
   句柄保存并在 `destroy()` 清理。
