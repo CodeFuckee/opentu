@@ -45,6 +45,8 @@ export interface TemplateCrawlerDeps {
 export interface TemplateCrawlerEnv {
   SERVICE_ROLE_KEY?: string;
   SUPABASE_URL?: string;
+  /** 公网可达地址（容器内 SUPABASE_URL 指向内部网关 api-gw，公开 URL 必须用它） */
+  SUPABASE_PUBLIC_URL?: string;
 }
 
 // ==================== MD5（纯 TS，供 Deno 与 node:test 共用） ====================
@@ -335,6 +337,8 @@ export interface CrawlOptions {
   pageDelayMs?: number;
   detailDelayMs?: number;
   withCovers?: boolean;
+  /** 强制重爬：忽略 content_hash 增量判定（用于回填/重试封面等） */
+  force?: boolean;
 }
 
 export interface CrawlSummary {
@@ -351,6 +355,8 @@ export interface CrawlSummary {
 export interface TemplateCrawlerServiceEnv {
   SERVICE_ROLE_KEY: string;
   SUPABASE_URL: string;
+  /** 公网可达地址：构建封面公开 URL 用（缺省回退 SUPABASE_URL） */
+  PUBLIC_BASE_URL: string;
 }
 
 function serviceHeaders(env: TemplateCrawlerServiceEnv): Record<string, string> {
@@ -397,23 +403,24 @@ async function fetchExistingHash(
   return Array.isArray(rows) && rows[0]?.content_hash ? rows[0].content_hash : null;
 }
 
-/** 封面转存 huabu bucket（失败静默：返回 null，靠 source_url 兜底展示） */
+/** 封面转存公开桶 images（公开读策略现成，前端直接用 getPublicUrl 直链）；失败静默 */
 async function uploadCover(
   env: TemplateCrawlerServiceEnv,
   templateId: string,
   coverUrl: string,
   deps: TemplateCrawlerDeps
-): Promise<string | null> {
+): Promise<{ path: string; publicUrl: string } | null> {
   const doFetch = deps.fetch || fetch;
   const extMatch = coverUrl.split('?')[0].match(/\.(png|jpe?g|webp|gif)$/i);
   const ext = extMatch ? extMatch[1].toLowerCase() : 'png';
   const mime = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
   const path = `templates/${SOURCE}/${templateId}-cover.${ext}`;
+  const base = (env.PUBLIC_BASE_URL || env.SUPABASE_URL || '').replace(/\/$/, '');
   try {
     const response = await doFetch(coverUrl, { method: 'GET' });
     if (!response.ok) return null;
     const buffer = await response.arrayBuffer();
-    const uploadUrl = `${(env.SUPABASE_URL || '').replace(/\/$/, '')}/storage/v1/object/huabu/${path}`;
+    const uploadUrl = `${base}/storage/v1/object/images/${path}`;
     const upload = await doFetch(uploadUrl, {
       method: 'POST',
       headers: {
@@ -425,7 +432,7 @@ async function uploadCover(
       body: buffer,
     });
     if (!upload.ok) return null;
-    return path;
+    return { path, publicUrl: `${base}/storage/v1/object/public/images/${path}` };
   } catch {
     return null;
   }
@@ -477,16 +484,17 @@ export async function syncTemplateType(
       row.content_hash = contentHashOf(row);
 
       const existingHash = await fetchExistingHash(env, sourceId, deps);
-      if (existingHash && existingHash === row.content_hash) {
+      if (!options.force && existingHash && existingHash === row.content_hash) {
         summary.skipped++;
         continue;
       }
 
       try {
         if (options.withCovers && row.source_url) {
-          const path = await uploadCover(env, sourceId, row.source_url as string, deps);
-          if (path) {
-            row.cover_storage_path = path;
+          const cover = await uploadCover(env, sourceId, row.source_url as string, deps);
+          if (cover) {
+            row.cover_storage_path = cover.path;
+            row.cover_public_url = cover.publicUrl;
             summary.coverUploaded++;
           }
         }
@@ -566,6 +574,7 @@ export async function handleTemplateCrawler(
     maxPages?: unknown;
     pageSize?: unknown;
     withCovers?: unknown;
+    force?: unknown;
   } = {};
   try {
     body = (await request.json()) as typeof body;
@@ -573,7 +582,12 @@ export async function handleTemplateCrawler(
     body = {};
   }
   const action = typeof body.action === 'string' ? body.action : 'crawl';
-  const serviceEnv: TemplateCrawlerServiceEnv = { SERVICE_ROLE_KEY: serviceRoleKey, SUPABASE_URL: supabaseUrl };
+  const publicBase = (env.SUPABASE_PUBLIC_URL || supabaseUrl || '').replace(/\/$/, '');
+  const serviceEnv: TemplateCrawlerServiceEnv = {
+    SERVICE_ROLE_KEY: serviceRoleKey,
+    SUPABASE_URL: supabaseUrl,
+    PUBLIC_BASE_URL: publicBase,
+  };
 
   try {
     if (action === 'stats') {
@@ -593,6 +607,7 @@ export async function handleTemplateCrawler(
       summaries.push(
         await syncTemplateType(serviceEnv, deps, templateType, {
           maxPages, pageSize, pageDelayMs: PAGE_DELAY_MS, detailDelayMs: DETAIL_DELAY_MS, withCovers,
+          force: body.force === true,
         })
       );
     }

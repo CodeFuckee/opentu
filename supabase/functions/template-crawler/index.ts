@@ -14,5 +14,6 @@ Deno.serve(async (request: Request) => {
   return handleTemplateCrawler(request, {
     SERVICE_ROLE_KEY: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
     SUPABASE_URL: Deno.env.get('SUPABASE_URL') || '',
+    SUPABASE_PUBLIC_URL: Deno.env.get('SUPABASE_PUBLIC_URL') || '',
   });
 });

@@ -114,7 +114,25 @@
   详见 `openspec/changes/add-template-gallery/design.md` 附录。触发端点仅限管理员
   （JWT + configs.TEMPLATE_CRAWLER_ADMINS 白名单）；迁移 `ai_templates.sql`
   （模板表 + 使用记录表 + RLS + `use_template` RPC）。实测单页 30 条全量入库
-  （30 prompt + 30 封面，19.8s，0 失败）。单测 14 条。前端模板中心后续提交。
+  （30 prompt + 30 封面，19.8s，0 失败）。单测 14 条。封面改存公开桶 `images`
+  并记录 `cover_public_url`（爬虫经 SUPABASE_PUBLIC_URL 构建公网地址，容器内
+  SUPABASE_URL 指向 api-gw 不可达）；新增 `force` 参数忽略增量强制重爬。
+
+- **AI 模板中心前端（阶段二）**：新增 `components/template-gallery/`
+  （分类 tab + 热度/最新 + 搜索 + 瀑布流卡片 + 详情弹层：复制提示词/去创作/
+  使用计数 RPC）与运行时注册（宿主登录后 `configureTemplateGallery` 注入
+  supabase 客户端）；AI 输入条新增模板入口按钮，「去创作」填充提示词。
+  修复两处缺陷：①CSP `img-src` 未放行 http 自托管存储导致模板封面全部被拦
+  （补 `http:`）；②模板抽屉挂在 AI 输入条组件树被画布 SVG 拦截点击（改
+  `createPortal` 渲染到 body）。前端 typecheck/lint/test 全绿，已过用户过目。
+
+- **新增模板中心 E2E 测试**：`apps/web-e2e/src/functional/template-gallery.spec.ts`
+  11 条用例（入口/热度/最新/分类/搜索/详情/复制提示词/去创作计数/未登录门禁/
+  输入条回归/封面图片加载），配套 `template-seed.ts` 种子数据工具（source='e2e'
+  隔离、幂等播种与清理，service key 经 .env.e2e.local 注入）。封面加载用例
+  揪出 CSP 缺陷（见上）。运行：`cd apps/web-e2e && npx playwright test
+  template-gallery --project=functional --workers=1`（加 --headed 有头观看），
+  报告见 `apps/web-e2e/reports/`。
 
 - **新边缘函数 `task-monitor`**：监控 `task_submissions` 生图任务是否仍会在 60s 被
   edge-runtime 杀死（WorkerRequestCancelled 特征识别自 `error`/`upstream_response`，

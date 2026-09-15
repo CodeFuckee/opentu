@@ -159,7 +159,7 @@ describe('syncTemplateType', () => {
         { match: /\/templates\/6aa8/, handler: () => ({ status: 200, body: JSON.stringify(DETAIL_FIXTURE) }) },
         { match: /ai_templates\?select=content_hash/, handler: () => ({ status: 200, body: '[]' }) },
         { match: /image-assets\.soutushenqi\.com/, handler: () => ({ status: 200, body: 'fake-image-bytes' }) },
-        { match: /storage\/v1\/object\/huabu\//, handler: () => ({ status: 200, body: '{"Key":"x"}' }) },
+        { match: /storage\/v1\/object\/images\//, handler: () => ({ status: 200, body: '{"Key":"x"}' }) },
         { match: /ai_templates\?on_conflict=/, handler: () => ({ status: 201, body: '[]' }) },
       ],
       captures

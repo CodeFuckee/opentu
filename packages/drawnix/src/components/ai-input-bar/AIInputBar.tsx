@@ -27,7 +27,7 @@ import React, {
 import { Maximize2, Minimize2, Send } from 'lucide-react';
 import { MessagePlugin } from 'tdesign-react';
 import { useConfirmDialog } from '../dialog/ConfirmDialog';
-import { ImageUploadIcon, MediaLibraryIcon } from '../icons';
+import { ImageUploadIcon, MediaLibraryIcon, TemplateGalleryIcon } from '../icons';
 import { useBoard } from '@plait-board/react-board';
 import { SelectedContentPreview } from '../shared/SelectedContentPreview';
 import { PromptOptimizeButton } from '../shared/PromptOptimizeButton';
@@ -130,6 +130,7 @@ import {
 } from '../../utils/posthog-analytics';
 import classNames from 'classnames';
 import { InspirationBoard } from '../inspiration-board';
+import { TemplateGallery } from '../template-gallery/TemplateGallery';
 import { AIInputComposerShell } from './AIInputComposerShell';
 import { GenerationTypeDropdown } from './GenerationTypeDropdown';
 import { CountDropdown } from './CountDropdown';
@@ -1354,6 +1355,7 @@ export const AIInputBar: React.FC<AIInputBarProps> = React.memo(
 
     // 素材库弹窗状态
     const [showMediaLibrary, setShowMediaLibrary] = useState(false);
+    const [showTemplateGallery, setShowTemplateGallery] = useState(false);
 
     // 合并画布选中内容和用户上传内容
     const allContent = useMemo(() => {
@@ -4801,6 +4803,17 @@ export const AIInputBar: React.FC<AIInputBarProps> = React.memo(
             onOpenPromptTool={handleOpenPromptToolFromInspiration}
           />
 
+          <TemplateGallery
+            open={showTemplateGallery}
+            onClose={() => setShowTemplateGallery(false)}
+            onUseTemplate={(template) => {
+              if (template.prompt) {
+                setPrompt(template.prompt);
+              }
+            }}
+            language={language}
+          />
+
           <AIInputComposerShell
             variant="canvas"
             expanded={shouldKeepExpanded}
@@ -4850,6 +4863,23 @@ export const AIInputBar: React.FC<AIInputBarProps> = React.memo(
                     data-track="ai_input_click_library"
                   >
                     <MediaLibraryIcon size={18} />
+                  </button>
+                </HoverTip>
+
+                <HoverTip
+                  content={language === 'zh' ? 'AI 模板' : 'AI Templates'}
+                  showArrow={false}
+                >
+                  <button
+                    className="ai-input-bar__template-btn"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onClick={() => setShowTemplateGallery(true)}
+                    data-track="ai_input_click_template_gallery"
+                  >
+                    <TemplateGalleryIcon size={18} />
                   </button>
                 </HoverTip>
 

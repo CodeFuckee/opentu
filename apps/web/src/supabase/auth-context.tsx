@@ -25,6 +25,7 @@ import {
   refreshRemoteModelCatalog,
   configureTaskArchive,
   configureSupabaseSync,
+  configureTemplateGallery,
 } from '@drawnix/drawnix/runtime';
 
 export type AuthStatus =
@@ -174,10 +175,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       configureTaskArchive({ client: getSupabaseClient() });
       // 登录后注册云同步（本地数据 → user_sync_data / yue-sync bucket）
       configureSupabaseSync({ client: getSupabaseClient() });
+      // 登录后注册模板中心（读 ai_templates + use_template RPC）
+      configureTemplateGallery({ client: getSupabaseClient() });
     } else {
       configureManagedRouting(null);
       configureTaskArchive(null);
       configureSupabaseSync(null);
+      configureTemplateGallery(null);
     }
   }, [status]);
 

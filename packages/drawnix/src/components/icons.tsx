@@ -872,6 +872,24 @@ export const VideoFrameIcon: React.FC<React.SVGProps<SVGSVGElement> & { size?: n
 );
 
 // 素材库图标 - 宫格 + 圆圈风格
+export const TemplateGalleryIcon: React.FC<React.SVGProps<SVGSVGElement> & { size?: number }> = ({ size = 24, ...props }) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    width={size}
+    height={size}
+    {...props}
+  >
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <path d="M3 9h18" />
+    <path d="M9 21V9" />
+  </svg>
+);
+
 export const MediaLibraryIcon: React.FC<React.SVGProps<SVGSVGElement> & { size?: number }> = ({ size = 24, ...props }) => (
   <svg
     viewBox="0 0 24 24"

@@ -79,3 +79,6 @@ $$;
 grant all on ai_templates to service_role;
 grant all on template_usage_log to service_role;
 grant execute on function use_template(uuid) to authenticated;
+
+-- ============ 2026-09-15 追加：封面公开 URL（images 公开桶） ============
+alter table ai_templates add column if not exists cover_public_url text;

@@ -78,6 +78,12 @@ export const SUPABASE = {
     process.env.E2E_SUPABASE_ANON_KEY ||
     envFile.VITE_SUPABASE_ANON_KEY ||
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg4MTAyMzUyLCJleHAiOjIxMDM0NjIzNTJ9.nQP_hdmnIbCgVfsxlq6TTuRo_FKVYdrRaIDmKViiEBc',
+  /**
+   * service_role key（仅模板中心种子数据播种/清理使用，gitignored 配置注入）。
+   * 来源：环境变量 E2E_SUPABASE_SERVICE_ROLE_KEY 或 apps/web-e2e/.env.e2e.local。
+   * 缺省为空串：需要播种的用例（模板中心）在 beforeAll 里显式跳过并提示。
+   */
+  serviceRoleKey: process.env.E2E_SUPABASE_SERVICE_ROLE_KEY || localE2eEnv.E2E_SUPABASE_SERVICE_ROLE_KEY || '',
 } as const;
 
 // ---------------------------------------------------------------- 测试账号池
