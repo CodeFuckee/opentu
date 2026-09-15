@@ -102,8 +102,19 @@
   sync-staff-profile 鉴权（node:test，79 条全绿）。
 - 新增 utils 回归测试：loop-detector 嵌套参数哈希、parser null args 与 URL 注释剥离
   （vitest，utils 488 条全绿）。
+- 新增 task-monitor 与 template-crawler 边缘函数单测（node:test 18+14 条，
+  全函数套件 111 条全绿）。
 
 ### 🚀 Features
+
+- **AI 模板中心（阶段一：数据管道，OpenSpec `add-template-gallery`）**：新增边缘函数
+  `template-crawler` 从建筑学长同步模板——列表+详情两阶段、content_hash 增量、封面转存
+  `huabu` bucket（`templates/jzxz/` 前缀）；上游反爬参数已逆向并验证（sign=MD5(排序参数
+  +"&key=d9fd3ec394") 大写；timestamp 头为「秒+3位异或校验码」，形似毫秒实为校验串），
+  详见 `openspec/changes/add-template-gallery/design.md` 附录。触发端点仅限管理员
+  （JWT + configs.TEMPLATE_CRAWLER_ADMINS 白名单）；迁移 `ai_templates.sql`
+  （模板表 + 使用记录表 + RLS + `use_template` RPC）。实测单页 30 条全量入库
+  （30 prompt + 30 封面，19.8s，0 失败）。单测 14 条。前端模板中心后续提交。
 
 - **新边缘函数 `task-monitor`**：监控 `task_submissions` 生图任务是否仍会在 60s 被
   edge-runtime 杀死（WorkerRequestCancelled 特征识别自 `error`/`upstream_response`，
