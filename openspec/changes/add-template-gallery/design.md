@@ -248,10 +248,22 @@ Headers: 同列表（Product-Type / lang / timestamp；URL 无 sign 参数）
 注意：`POST /templates/latest`（最近常用）需要登录（401 TOKEN_NOT_EXISTED），
 爬虫主流程不使用。登录态仅后续「每日自动登录续 cookie」需求才涉及。
 
-### 已知 templateType
+### 已知 templateType（2026-09-15 全量爬取后确认）
 
-- `BANANA_CASE`（模板抽屉默认列表）。抽屉内子分类（效果渲染/总平填色/…）对应
-  其余 templateType 取值，待点击枚举补全（附录持续更新）。
+- **`BANANA_CASE` 是唯一列表类型**：抽屉内子分类（效果渲染/总平填色/…）为
+  **客户端过滤**（基于详情/列表的 `catalogs` 字段），点击子分类不产生新请求。
+- 深层分页在 30 页（900 条）后返回末页重复数据（服务端 offset 封顶），
+  全量 = 900 条已全部入库（2026-09-15 实测）。
+
+### 全量同步的工程约束（实测确立）
+
+- edge-runtime 有 CPU 时间软/硬限制（1s/2s），单次调用处理页数过多会被杀
+  （WorkerRequestCancelled）→ `template-crawler` 支持 `startPage` 分批调用，
+  服务器脚本 `crawl-templates.sh` 逐页循环调用（每页一次调用）；
+- 增量：列表哈希（`extra.list_hash`）与库中一致 → 免拉详情直接跳过，
+  每日增量只需处理新增/变更条目；
+- 服务器触发脚本：`/home/mdc/codes/supabase/crawl-templates.sh`（仓库副本
+  `scripts/crawl-templates.sh`），每日 02:00 由 ZCode 定时任务经 SSH 调用。
 
 ### 待补（Phase 0.5，需登录态）
 

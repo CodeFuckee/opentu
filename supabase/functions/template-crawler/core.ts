@@ -225,6 +225,18 @@ export function mapDetailToRow(
   };
 }
 
+/** 列表哈希：列表阶段即可判定是否变化的轻量哈希（免拉详情） */
+export function listHashOf(listRow: UpstreamListRow): string {
+  return md5(JSON.stringify({
+    title: listRow.title,
+    coverUrl: listRow.coverUrl,
+    templateVersion: listRow.templateVersion,
+    collectCount: listRow.collectCount,
+    viewCount: listRow.viewCount,
+    useCount: listRow.useCount,
+  }));
+}
+
 /** 内容哈希：用于增量判定（仅计入易变业务字段） */
 export function contentHashOf(row: Record<string, unknown>): string {
   const material = JSON.stringify({
@@ -339,6 +351,8 @@ export interface CrawlOptions {
   withCovers?: boolean;
   /** 强制重爬：忽略 content_hash 增量判定（用于回填/重试封面等） */
   force?: boolean;
+  /** 起始页码（默认 0）。CPU 时间限制下单次调用不宜处理过多页，调用方可分批 */
+  startPage?: number;
 }
 
 export interface CrawlSummary {
@@ -387,20 +401,27 @@ async function postgrestUpsert(
   }
 }
 
-async function fetchExistingHash(
+async function fetchExistingState(
   env: TemplateCrawlerServiceEnv,
   sourceId: string,
   deps: TemplateCrawlerDeps
-): Promise<string | null> {
+): Promise<{ contentHash: string | null; listHash: string | null }> {
   const doFetch = deps.fetch || fetch;
-  const url = `${(env.SUPABASE_URL || '').replace(/\/$/, '')}/rest/v1/ai_templates?select=content_hash&source=eq.${SOURCE}&source_id=eq.${sourceId}`;
+  const url = `${(env.SUPABASE_URL || '').replace(/\/$/, '')}/rest/v1/ai_templates?select=content_hash,extra&source=eq.${SOURCE}&source_id=eq.${sourceId}`;
   const response = await doFetch(url, {
     method: 'GET',
     headers: serviceHeaders(env),
   });
-  if (!response.ok) return null;
-  const rows = (await response.json()) as Array<{ content_hash?: string }>;
-  return Array.isArray(rows) && rows[0]?.content_hash ? rows[0].content_hash : null;
+  if (!response.ok) return { contentHash: null, listHash: null };
+  const rows = (await response.json()) as Array<{
+    content_hash?: string;
+    extra?: { list_hash?: string } | null;
+  }>;
+  const row = Array.isArray(rows) ? rows[0] : undefined;
+  return {
+    contentHash: row?.content_hash ?? null,
+    listHash: row?.extra?.list_hash ?? null,
+  };
 }
 
 /** 封面转存公开桶 images（公开读策略现成，前端直接用 getPublicUrl 直链）；失败静默 */
@@ -454,7 +475,8 @@ export async function syncTemplateType(
     coverUploaded: 0, errors: [],
   };
 
-  for (let pageNum = 0; pageNum < options.maxPages; pageNum++) {
+  const startPage = options.startPage ?? 0;
+  for (let pageNum = startPage; pageNum < startPage + options.maxPages; pageNum++) {
     let listRows: UpstreamListRow[];
     try {
       listRows = (await fetchJson(buildListUrl(templateType, pageNum, options.pageSize), deps)) as UpstreamListRow[];
@@ -469,7 +491,17 @@ export async function syncTemplateType(
       const sourceId = listRow.templateId;
       if (!sourceId) { summary.skipped++; continue; }
 
-      // 增量：先以列表字段预判；详情后才得完整哈希，故此处只跳过确定无变化的
+      // 增量预判：列表哈希与库中一致 → 内容无变化，免拉详情
+      // （force=true 时跳过该判定，用于回填封面/强制刷新）
+      const listHash = listHashOf(listRow);
+      const existing = await fetchExistingState(env, sourceId, deps);
+      if (!options.force && existing.listHash && existing.listHash === listHash) {
+        summary.skipped++;
+        continue;
+      }
+      const existedBefore =
+        existing.contentHash !== null || existing.listHash !== null;
+
       let detail: UpstreamDetail;
       try {
         detail = (await fetchJson(buildDetailUrl(sourceId), deps)) as UpstreamDetail;
@@ -482,12 +514,7 @@ export async function syncTemplateType(
 
       const row = mapDetailToRow(detail, listRow);
       row.content_hash = contentHashOf(row);
-
-      const existingHash = await fetchExistingHash(env, sourceId, deps);
-      if (!options.force && existingHash && existingHash === row.content_hash) {
-        summary.skipped++;
-        continue;
-      }
+      row.extra = { ...(row.extra as Record<string, unknown>), list_hash: listHash };
 
       try {
         if (options.withCovers && row.source_url) {
@@ -499,14 +526,14 @@ export async function syncTemplateType(
           }
         }
         await postgrestUpsert(env, row, deps);
-        if (existingHash) summary.updated++; else summary.inserted++;
+        if (existedBefore) summary.updated++; else summary.inserted++;
       } catch (error) {
         summary.failed++;
         summary.errors.push(`upsert ${sourceId}: ${error instanceof Error ? error.message : error}`);
       }
     }
 
-    if (pageNum < options.maxPages - 1) {
+    if (pageNum < startPage + options.maxPages - 1) {
       await (deps.sleep || defaultSleep)(options.pageDelayMs);
     }
   }
@@ -575,6 +602,7 @@ export async function handleTemplateCrawler(
     pageSize?: unknown;
     withCovers?: unknown;
     force?: unknown;
+    startPage?: unknown;
   } = {};
   try {
     body = (await request.json()) as typeof body;
@@ -608,6 +636,7 @@ export async function handleTemplateCrawler(
         await syncTemplateType(serviceEnv, deps, templateType, {
           maxPages, pageSize, pageDelayMs: PAGE_DELAY_MS, detailDelayMs: DETAIL_DELAY_MS, withCovers,
           force: body.force === true,
+          startPage: clampInt(body.startPage, 0, 100000, 0),
         })
       );
     }

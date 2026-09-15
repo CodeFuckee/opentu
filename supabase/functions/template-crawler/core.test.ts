@@ -15,6 +15,7 @@ import {
   computeSign,
   contentHashOf,
   handleTemplateCrawler,
+  listHashOf,
   mapDetailToRow,
   md5,
   syncTemplateType,
@@ -157,7 +158,7 @@ describe('syncTemplateType', () => {
         ...adminRoutes(),
         { match: /\/templates\?/, handler: () => ({ status: 200, body: JSON.stringify([LIST_FIXTURE]) }) },
         { match: /\/templates\/6aa8/, handler: () => ({ status: 200, body: JSON.stringify(DETAIL_FIXTURE) }) },
-        { match: /ai_templates\?select=content_hash/, handler: () => ({ status: 200, body: '[]' }) },
+        { match: /ai_templates\?select=content_hash,extra/, handler: () => ({ status: 200, body: '[]' }) },
         { match: /image-assets\.soutushenqi\.com/, handler: () => ({ status: 200, body: 'fake-image-bytes' }) },
         { match: /storage\/v1\/object\/images\//, handler: () => ({ status: 200, body: '{"Key":"x"}' }) },
         { match: /ai_templates\?on_conflict=/, handler: () => ({ status: 201, body: '[]' }) },
@@ -182,17 +183,15 @@ describe('syncTemplateType', () => {
     assert.ok(body.prompt.includes('新中式景观实景照片'));
   });
 
-  test('content_hash 未变化时跳过（不请求 upsert）', async () => {
-    const row = mapDetailToRow(DETAIL_FIXTURE, LIST_FIXTURE);
-    const existingHash = contentHashOf(row);
+  test('列表哈希未变化时跳过（不拉详情、不请求 upsert）', async () => {
+    const existingListHash = listHashOf(LIST_FIXTURE);
     const captures: Capture[] = [];
     const env = buildEnv();
     const fetchImpl = routerFetch(
       [
         ...adminRoutes(),
         { match: /\/templates\?/, handler: () => ({ status: 200, body: JSON.stringify([LIST_FIXTURE]) }) },
-        { match: /\/templates\/6aa8/, handler: () => ({ status: 200, body: JSON.stringify(DETAIL_FIXTURE) }) },
-        { match: /ai_templates\?select=content_hash/, handler: () => ({ status: 200, body: JSON.stringify([{ content_hash: existingHash }]) }) },
+        { match: /ai_templates\?select=content_hash,extra/, handler: () => ({ status: 200, body: JSON.stringify([{ content_hash: 'any', extra: { list_hash: existingListHash } }]) }) },
       ],
       captures
     );
@@ -203,6 +202,7 @@ describe('syncTemplateType', () => {
     assert.equal(summary.skipped, 1);
     assert.equal(summary.inserted, 0);
     assert.equal(summary.updated, 0);
+    assert.ok(!captures.some((c) => c.url.includes('/templates/6aa8')), '不应拉取详情');
     assert.ok(!captures.some((c) => c.url.includes('on_conflict=')), '不应有 upsert 请求');
   });
 
