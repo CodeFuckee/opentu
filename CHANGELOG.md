@@ -114,7 +114,8 @@
   详见 `openspec/changes/add-template-gallery/design.md` 附录。触发端点仅限管理员
   （JWT + configs.TEMPLATE_CRAWLER_ADMINS 白名单）；迁移 `ai_templates.sql`
   （模板表 + 使用记录表 + RLS + `use_template` RPC）。实测单页 30 条全量入库
-  （30 prompt + 30 封面，19.8s，0 失败）。单测 14 条。封面改存公开桶 `images`
+  （30 prompt + 30 封面，19.8s，0 失败）。单测 14 条。新增 `base_images` 原图/参考图
+  列表入库与前端详情展示；封面改存公开桶 `images`
   并记录 `cover_public_url`（爬虫经 SUPABASE_PUBLIC_URL 构建公网地址，容器内
   SUPABASE_URL 指向 api-gw 不可达）；新增 `force` 参数忽略增量强制重爬。
 

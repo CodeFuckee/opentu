@@ -330,3 +330,28 @@
   align-items: center;
   justify-content: center;
 }
+
+.template-gallery__detail-base {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.template-gallery__detail-base-label {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.template-gallery__detail-base-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  img {
+    width: 88px;
+    height: 66px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+  }
+}

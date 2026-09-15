@@ -14,6 +14,7 @@ export interface AiTemplate {
   catalogs: string[][] | null;
   title: string;
   prompt: string | null;
+  base_images: string[] | null;
   template_version: string | null;
   cover_public_url: string | null;
   source_url: string | null;
@@ -57,7 +58,7 @@ export async function listTemplates(
   let builder = client
     .from('ai_templates')
     .select(
-      'id, source, source_id, category, catalogs, title, prompt, template_version, cover_public_url, source_url, likes, views, source_use_count, usage_count'
+      'id, source, source_id, category, catalogs, title, prompt, base_images, template_version, cover_public_url, source_url, likes, views, source_use_count, usage_count'
     )
     .eq('status', 'active')
     .order(sort === 'hot' ? 'usage_count' : 'crawled_at', {

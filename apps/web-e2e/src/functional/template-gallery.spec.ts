@@ -128,6 +128,10 @@ test.describe('模板中心', () => {
     const catalogs = detail.locator('.template-gallery__detail-catalogs');
     await expect(catalogs).toContainText('效果渲染');
     await expect(catalogs).toContainText('景观渲染');
+    // 原图/参考图缩略图（种子 A 携带 1 张）
+    await expect(
+      detail.locator('.template-gallery__detail-base-images img')
+    ).toHaveCount(1);
   });
 
   test('E2E-008 去创作：填充输入框并计数+1', async ({ page }) => {

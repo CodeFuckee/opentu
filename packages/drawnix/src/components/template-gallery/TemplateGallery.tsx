@@ -273,6 +273,18 @@ export const TemplateGallery: React.FC<TemplateGalleryProps> = ({
                 <div className="template-gallery__detail-title">
                   {detail.title}
                 </div>
+                {detail.base_images && detail.base_images.length > 0 ? (
+                  <div className="template-gallery__detail-base">
+                    <span className="template-gallery__detail-base-label">
+                      {language === 'zh' ? '原图/参考图' : 'Reference'}
+                    </span>
+                    <div className="template-gallery__detail-base-images">
+                      {detail.base_images.map((src) => (
+                        <img key={src} src={src} alt="" loading="lazy" />
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
                 {detail.catalogs?.length ? (
                   <div className="template-gallery__detail-catalogs">
                     {detail.catalogs.flat().map((cat) => (

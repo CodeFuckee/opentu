@@ -202,6 +202,9 @@ export function mapDetailToRow(
   const category = catalogs[0]?.[0] ?? null;
   const coverUrl = detail.coverUrl ?? listRow?.coverUrl ?? null;
   const content = detail.content ?? {};
+  const baseImages = Array.isArray(content.baseImageList)
+    ? content.baseImageList.filter((it) => typeof it === 'string')
+    : [];
   const extra = {
     resolution: content.resolution ?? null,
     aspectRatio: content.aspectRatio ?? null,
@@ -216,6 +219,7 @@ export function mapDetailToRow(
     catalogs,
     title: detail.title ?? listRow?.title ?? '',
     prompt: content.prompt ?? null,
+    base_images: baseImages,
     template_version: detail.templateVersion ?? listRow?.templateVersion ?? null,
     source_url: coverUrl,
     extra,
@@ -245,6 +249,7 @@ export function contentHashOf(row: Record<string, unknown>): string {
     category: row.category,
     catalogs: row.catalogs,
     cover: row.source_url,
+    base_images: row.base_images,
     likes: row.likes,
     views: row.views,
     template_version: row.template_version,
