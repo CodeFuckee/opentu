@@ -35,6 +35,13 @@ describe('splitRows', () => {
     expect(result).toEqual([]);
   });
 
+  it('should not hang when cols is 0 or negative', () => {
+    // 旧实现对 cols<=0 会死循环（i 永不推进）
+    expect(splitRows([1, 2, 3], 0)).toEqual([[1], [2], [3]]);
+    expect(splitRows([1, 2, 3], -2)).toEqual([[1], [2], [3]]);
+    expect(splitRows([1, 2, 3], NaN)).toEqual([[1], [2], [3]]);
+  });
+
   it('should work with different data types', () => {
     const strings = ['a', 'b', 'c', 'd'];
     expect(splitRows(strings, 2)).toEqual([['a', 'b'], ['c', 'd']]);

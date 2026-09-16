@@ -86,6 +86,11 @@ describe('dataUrlToBlob', () => {
 
     expect(blob.type).toBe('application/octet-stream');
   });
+
+  it('should throw a clear error when base64 payload is missing', () => {
+    expect(() => dataUrlToBlob('data:image/png;base64,')).toThrow(/missing base64 payload/);
+    expect(() => dataUrlToBlob('not-a-data-url')).toThrow(/missing base64 payload/);
+  });
 });
 
 describe('blobToDataUrl', () => {

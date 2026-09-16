@@ -240,6 +240,11 @@ export function putMany<T>(db: IDBDatabase, storeName: string, values: T[]): Pro
       reject(transaction.error);
     };
 
+    // 显式 abort 等不触发 error 事件的路径也必须让 Promise settle
+    transaction.onabort = () => {
+      reject(transaction.error || new Error(`Transaction aborted for store "${storeName}"`));
+    };
+
     for (const value of values) {
       store.put(value);
     }
@@ -267,14 +272,19 @@ export function deleteById(
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([storeName], 'readwrite');
     const store = transaction.objectStore(storeName);
-    const request = store.delete(id);
+    store.delete(id);
 
-    request.onsuccess = () => {
+    // 与 put 保持一致：以事务提交为准，避免请求成功但事务中止时误报成功
+    transaction.oncomplete = () => {
       resolve();
     };
 
-    request.onerror = () => {
-      reject(request.error);
+    transaction.onerror = () => {
+      reject(transaction.error);
+    };
+
+    transaction.onabort = () => {
+      reject(transaction.error || new Error(`Transaction aborted for store "${storeName}"`));
     };
   });
 }
@@ -285,7 +295,7 @@ export function deleteById(
  * @param db 数据库连接
  * @param storeName store 名称
  * @param ids 记录 ID 数组
- * @returns Promise<number> 删除的记录数
+ * @returns Promise<number> 成功处理的记录数（IndexedDB 对不存在的 id 执行 delete 同样成功，故该值等于请求成功数，而非实际移除的存量记录数）
  *
  * @example
  * ```typescript
@@ -308,6 +318,10 @@ export function deleteMany(
 
     transaction.onerror = () => {
       reject(transaction.error);
+    };
+
+    transaction.onabort = () => {
+      reject(transaction.error || new Error(`Transaction aborted for store "${storeName}"`));
     };
 
     for (const id of ids) {

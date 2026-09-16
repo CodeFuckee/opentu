@@ -67,6 +67,20 @@ describe('throttle', () => {
     expect(fn).toHaveBeenLastCalledWith('b');
   });
 
+  it('should trigger leading edge again after quiet period', () => {
+    const fn = vi.fn();
+    const throttledFn = throttle(fn, 100);
+
+    throttledFn('a');
+    expect(fn).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(250);
+    throttledFn('b');
+    // 旧实现 inThrottle 永不复位，首次之后永远只剩尾缘触发
+    expect(fn).toHaveBeenCalledTimes(2);
+    expect(fn).toHaveBeenLastCalledWith('b');
+  });
+
   it('should handle rapid calls correctly', () => {
     const fn = vi.fn();
     const throttledFn = throttle(fn, 100);

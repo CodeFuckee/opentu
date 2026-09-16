@@ -1085,6 +1085,21 @@ async function splitUniformGrid(
   const width = img.naturalWidth;
   const height = img.naturalHeight;
 
+  // 透明源输出 PNG：JPEG 会把透明区域编码成黑底
+  const probeScale = Math.min(1, 64 / Math.max(width, height));
+  const probeW = Math.max(1, Math.round(width * probeScale));
+  const probeH = Math.max(1, Math.round(height * probeScale));
+  const probeCanvas = document.createElement('canvas');
+  probeCanvas.width = probeW;
+  probeCanvas.height = probeH;
+  const probeCtx = probeCanvas.getContext('2d', { willReadFrequently: true });
+  let sourceHasAlpha = forceTransparency === true;
+  if (probeCtx) {
+    probeCtx.drawImage(img, 0, 0, probeW, probeH);
+    sourceHasAlpha =
+      sourceHasAlpha || hasTransparency(probeCtx.getImageData(0, 0, probeW, probeH));
+  }
+
   // 精确计算每个格子的尺寸
   const cellWidth = Math.floor(width / cols);
   const cellHeight = Math.floor(height / rows);
@@ -1122,7 +1137,7 @@ async function splitUniformGrid(
       );
 
       elements.push({
-        imageData: canvas.toDataURL('image/jpeg', 0.92),
+        imageData: canvas.toDataURL(sourceHasAlpha ? 'image/png' : 'image/jpeg', 0.92),
         index,
         width: cellWidth,
         height: cellHeight,
@@ -1579,8 +1594,11 @@ async function trimImageWhiteBorders(imageUrl: string): Promise<{
     trimmedHeight
   );
 
+  // 透明源输出 PNG，避免 JPEG 把透明区域编码成黑底
+  const sourceHasAlpha = hasTransparency(imageData);
+
   return {
-    trimmedImageUrl: trimmedCanvas.toDataURL('image/jpeg', 0.95),
+    trimmedImageUrl: trimmedCanvas.toDataURL(sourceHasAlpha ? 'image/png' : 'image/jpeg', 0.95),
     borderInfo: {
       original: { width: originalWidth, height: originalHeight },
       trimmed: { width: trimmedWidth, height: trimmedHeight },

@@ -288,6 +288,18 @@ export async function extractVideoFrame(
     const handleMetadata = () => {
       const duration = video.duration;
 
+      // 直播流/MSE 的 duration 可能是 NaN/Infinity，currentTime 无法定位，
+      // 立即失败比干等外层超时更易诊断
+      if (!Number.isFinite(duration) || duration <= 0) {
+        cleanup();
+        reject(
+          new Error(
+            `Failed to extract frame: video duration is not a finite number (${duration})`
+          )
+        );
+        return;
+      }
+
       let targetTime: number;
       if (timestamp === 'last') {
         targetTime = Math.max(0, duration - 0.1);

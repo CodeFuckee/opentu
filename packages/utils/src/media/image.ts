@@ -205,6 +205,45 @@ export function getCompressionStrategy(fileSizeMB: number): CompressionStrategy 
 }
 
 /**
+ * 降采样检测图片是否含有可见透明像素（透明区域被 JPEG 强制编码会变黑底）。
+ * 检测失败时保守返回 false（按无透明处理，维持 JPEG 输出）。
+ */
+export function detectImageHasAlpha(img: HTMLImageElement): boolean {
+  try {
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    if (!w || !h) return false;
+    const scale = Math.min(1, 64 / Math.max(w, h));
+    const sw = Math.max(1, Math.round(w * scale));
+    const sh = Math.max(1, Math.round(h * scale));
+    const sampleCanvas = document.createElement('canvas');
+    sampleCanvas.width = sw;
+    sampleCanvas.height = sh;
+    const sampleCtx = sampleCanvas.getContext('2d', { willReadFrequently: true });
+    if (!sampleCtx) return false;
+    sampleCtx.drawImage(img, 0, 0, sw, sh);
+    const data = sampleCtx.getImageData(0, 0, sw, sh).data;
+    for (let i = 3; i < data.length; i += 4) {
+      if (data[i] < 250) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 选择压缩输出格式：带可见透明像素的源保留 PNG/WebP（保留透明度），
+ * 其余输出 JPEG（可压缩）
+ */
+export function pickCompressOutputType(sourceType: string, hasAlpha: boolean): string {
+  if (hasAlpha) {
+    return sourceType === 'image/webp' ? 'image/webp' : 'image/png';
+  }
+  return 'image/jpeg';
+}
+
+/**
  * 使用指定质量压缩图片
  */
 function compressImageWithQuality(blob: Blob, quality: number): Promise<Blob> {
@@ -221,6 +260,10 @@ function compressImageWithQuality(blob: Blob, quality: number): Promise<Blob> {
       }
 
       ctx.drawImage(img, 0, 0);
+      const outputType = pickCompressOutputType(
+        blob.type,
+        detectImageHasAlpha(img)
+      );
       canvas.toBlob(
         (blob) => {
           URL.revokeObjectURL(img.src);
@@ -230,7 +273,7 @@ function compressImageWithQuality(blob: Blob, quality: number): Promise<Blob> {
             reject(new Error('Canvas to Blob failed'));
           }
         },
-        'image/jpeg',
+        outputType,
         quality
       );
     };
@@ -996,7 +1039,6 @@ export async function trimImageWhiteAndTransparentBorder(
   options: TrimOutputOptions = {}
 ): Promise<string> {
   const {
-    outputFormat = 'image/jpeg',
     outputQuality = 0.92,
     ...trimOptions
   } = options;
@@ -1021,7 +1063,11 @@ export async function trimImageWhiteAndTransparentBorder(
       return imageUrl;
     }
 
-    return trimmedCanvas.toDataURL(outputFormat, outputQuality);
+    // 未显式指定输出格式时按源图透明度选择：透明源输出 PNG，避免 JPEG 黑底
+    const effectiveOutputFormat =
+      options.outputFormat ??
+      (detectImageHasAlpha(img) ? 'image/png' : 'image/jpeg');
+    return trimmedCanvas.toDataURL(effectiveOutputFormat, outputQuality);
   } catch (error) {
     console.error('[trimImageWhiteAndTransparentBorder] Error:', error);
     return imageUrl;
@@ -1081,7 +1127,9 @@ export async function removeWhiteBorder(
       trimmedHeight
     );
 
-    return trimmedCanvas.toDataURL('image/jpeg', 0.92);
+    // 透明源输出 PNG，避免 JPEG 强制编码把透明区域变黑底
+    const outputFormat = detectImageHasAlpha(img) ? 'image/png' : 'image/jpeg';
+    return trimmedCanvas.toDataURL(outputFormat, 0.92);
   } catch (error) {
     console.error('[removeWhiteBorder] Error:', error);
     return imageUrl;

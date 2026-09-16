@@ -33,6 +33,8 @@ export {
   getCompressionStrategy,
   compressImageBlob,
   compressImageBlobWithStats,
+  detectImageHasAlpha,
+  pickCompressOutputType,
   // 边框检测
   isBorderColor,
   isBackgroundPixel,

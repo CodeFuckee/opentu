@@ -27,6 +27,10 @@
  */
 export const splitRows = <T>(items: T[], cols: number): T[][] => {
   const result: T[][] = [];
+  // cols<=0/NaN 会让 i 永不推进导致死循环，钳制为 1
+  if (!Number.isFinite(cols) || cols < 1) {
+    cols = 1;
+  }
   for (let i = 0; i < items.length; i += cols) {
     result.push(items.slice(i, i + cols));
   }

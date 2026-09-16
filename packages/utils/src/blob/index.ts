@@ -78,6 +78,11 @@ export function pureBase64ToBlob(base64: string, mimeType: string): Blob {
  */
 export function dataUrlToBlob(dataUrl: string): Blob {
   const [header, base64] = dataUrl.split(',');
+  if (!base64) {
+    throw new Error(
+      `Invalid data URL: missing base64 payload (got: ${dataUrl.slice(0, 64)})`
+    );
+  }
   const mimeType = header.match(/:(.*?);/)?.[1] || 'application/octet-stream';
   return pureBase64ToBlob(base64, mimeType);
 }
