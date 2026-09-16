@@ -127,15 +127,23 @@ test:e2e:
     - pnpm config set store-dir .pnpm-store
     - pnpm install --frozen-lockfile
     - |
-      # 浏览器自愈：越秀 runner（22）宿主用 sudo 装过共享浏览器（见上方说明）；
-      # 其它带同标签的 runner（docker executor 的 playwright 镜像自带
-      # /ms-playwright，或裸机无浏览器）走默认路径或当场安装
-      if [ -d /opt/ms-playwright ] && compgen -G "/opt/ms-playwright/chromium*_*/INSTALLATION_COMPLETE" >/dev/null; then
-        export PLAYWRIGHT_BROWSERS_PATH="/opt/ms-playwright"
-        echo "[e2e] 使用共享浏览器路径 /opt/ms-playwright"
+      # 浏览器自愈 v2：精确校验「lockfile 对应的浏览器 build」在共享路径是否齐全。
+      # playwright install --dry-run 按当前 playwright 版本列出每个组件的
+      # Install location；全部存在才用共享路径，缺任何一个都回退本地安装——
+      # 防止两类事故：① 标签重叠的其它 runner（如 2026-09-16 的 runner 24）
+      # 根本没有共享路径；② 升级 playwright 后宿主共享浏览器版本滞留。
+      export PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
+      MISSING=0
+      LOC_LIST=$(pnpm exec playwright install chromium --dry-run 2>/dev/null | grep "Install location:" | awk '{print $3}')
+      for loc in $LOC_LIST; do
+        if [ ! -e "$loc" ]; then MISSING=1; echo "[e2e] 共享路径缺失 $loc"; fi
+      done
+      if [ -n "$LOC_LIST" ] && [ "$MISSING" = "0" ]; then
+        echo "[e2e] 使用共享浏览器 /opt/ms-playwright（与 lockfile 版本匹配）"
       else
-        echo "[e2e] /opt/ms-playwright 共享浏览器不可用，回退到镜像自带/本地安装"
-        pnpm exec playwright install chromium || pnpm exec playwright install --with-deps chromium || true
+        echo "[e2e] 共享浏览器缺失或版本不匹配 → 回退镜像自带/本地安装"
+        unset PLAYWRIGHT_BROWSERS_PATH
+        pnpm exec playwright install chromium || true
       fi
   script:
     # 空 E2E_ARGS => 运行 playwright.config.ts 中定义的全部 project（全量 E2E）
