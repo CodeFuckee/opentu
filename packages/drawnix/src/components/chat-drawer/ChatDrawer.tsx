@@ -518,11 +518,17 @@ export const ChatDrawer = forwardRef<ChatDrawerRef, ChatDrawerProps>(
     // This ensures ChatDrawer shows the same status as WorkZone when SW updates workflow state
     useEffect(() => {
       let subscription: { unsubscribe: () => void } | null = null;
+      let disposed = false;
 
       const setupWorkflowSync = async () => {
         const { workflowSubmissionService } = await import(
           '../../services/workflow-submission-service'
         );
+
+        // 动态导入期间组件可能已卸载：此时不得再订阅，否则永不退订
+        if (disposed) {
+          return;
+        }
 
         subscription = workflowSubmissionService.subscribeToAllEvents(
           (event) => {
@@ -671,6 +677,7 @@ export const ChatDrawer = forwardRef<ChatDrawerRef, ChatDrawerProps>(
       });
 
       return () => {
+        disposed = true;
         subscription?.unsubscribe();
       };
     }, []);
@@ -780,17 +787,16 @@ export const ChatDrawer = forwardRef<ChatDrawerRef, ChatDrawerProps>(
       async (sessionId: string) => {
         analytics.track('chat_session_delete');
         await chatStorageService.deleteSession(sessionId);
-        setSessions((prev) => {
-          const updated = prev.filter((s) => s.id !== sessionId);
-          if (activeSessionId === sessionId) {
-            const newActive = updated[0] || null;
-            setActiveSessionId(newActive?.id || null);
-            clearWorkflowState();
-          }
-          return updated;
-        });
+        // 副作用放在 updater 外：updater 必须为纯函数（StrictMode 双执行会重复触发）
+        const updated = sessions.filter((s) => s.id !== sessionId);
+        setSessions(updated);
+        if (activeSessionId === sessionId) {
+          const newActive = updated[0] || null;
+          setActiveSessionId(newActive?.id || null);
+          clearWorkflowState();
+        }
       },
-      [activeSessionId, clearWorkflowState]
+      [sessions, activeSessionId, clearWorkflowState]
     );
 
     // Rename session

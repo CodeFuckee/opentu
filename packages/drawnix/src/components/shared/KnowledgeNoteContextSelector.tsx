@@ -173,6 +173,9 @@ export const KnowledgeNoteContextSelector: React.FC<
         [...nextNotes].sort((left, right) => right.updatedAt - left.updatedAt)
       );
       setDirectories(nextDirectories);
+    } catch (error) {
+      // 加载失败不静默吞掉（此前会成为 unhandled rejection）
+      console.error('[KnowledgeNoteContextSelector] Failed to load notes:', error);
     } finally {
       setLoading(false);
     }

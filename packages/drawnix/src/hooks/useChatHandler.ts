@@ -93,6 +93,9 @@ export function useChatHandler(options: UseChatHandlerOptions): ChatHandler & {
   const rawMessagesRef = useRef<ChatMessage[]>([]);
   // 防止重复发送的锁
   const isSendingRef = useRef(false);
+  // 记录当前 sessionId，用于判断流式回调是否已过期（用户切换了会话）
+  const sessionIdRef = useRef(sessionId);
+  sessionIdRef.current = sessionId;
 
   // Load messages when session changes
   useEffect(() => {
@@ -133,6 +136,9 @@ export function useChatHandler(options: UseChatHandlerOptions): ChatHandler & {
         return;
       }
       isSendingRef.current = true;
+
+      const sentSessionId = sessionId;
+      const isStaleSession = () => sessionIdRef.current !== sentSessionId;
 
       setStatus('submitted');
 
@@ -185,6 +191,7 @@ export function useChatHandler(options: UseChatHandlerOptions): ChatHandler & {
           (event) => {
             if (event.type === 'content' && event.content) {
               fullContent = event.content;
+              if (isStaleSession()) return;
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantMsgId
@@ -254,7 +261,9 @@ export function useChatHandler(options: UseChatHandlerOptions): ChatHandler & {
                 );
               }
 
-              setStatus('ready');
+              if (!isStaleSession()) {
+                setStatus('ready');
+              }
 
               // Save assistant message
               // 如果有工具调用，保存为工作流消息格式（内容使用前缀，workflow 数据由 ChatDrawer 后续更新）
@@ -274,10 +283,13 @@ export function useChatHandler(options: UseChatHandlerOptions): ChatHandler & {
               };
               chatStorageService.addMessage(assistantChatMsg);
               // Update rawMessagesRef with the assistant message
-              rawMessagesRef.current = [
-                ...rawMessagesRef.current,
-                assistantChatMsg,
-              ];
+              // 会话已切换时不并入当前（新会话）的 rawMessagesRef
+              if (!isStaleSession()) {
+                rawMessagesRef.current = [
+                  ...rawMessagesRef.current,
+                  assistantChatMsg,
+                ];
+              }
               chatStorageService.updateSession(sessionId, {
                 updatedAt: Date.now(),
                 messageCount: (session?.messageCount || 0) + 2,
@@ -288,17 +300,21 @@ export function useChatHandler(options: UseChatHandlerOptions): ChatHandler & {
               isSendingRef.current = false;
             } else if (event.type === 'error' && event.error) {
               streamErrorHandled = true;
-              setStatus('error');
+              if (!isStaleSession()) {
+                setStatus('error');
+              }
 
               // Display error message in chat
               const errorText = `❌ 错误: ${event.error}`;
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantMsgId
-                    ? { ...m, parts: [{ type: 'text', text: errorText }] }
-                    : m
-                )
-              );
+              if (!isStaleSession()) {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMsgId
+                      ? { ...m, parts: [{ type: 'text', text: errorText }] }
+                      : m
+                  )
+                );
+              }
 
               // Save error message
               const errorChatMsg: ChatMessage = {
@@ -312,10 +328,12 @@ export function useChatHandler(options: UseChatHandlerOptions): ChatHandler & {
               };
               chatStorageService.addMessage(errorChatMsg);
               // Update rawMessagesRef with the error message
-              rawMessagesRef.current = [
-                ...rawMessagesRef.current,
-                errorChatMsg,
-              ];
+              if (!isStaleSession()) {
+                rawMessagesRef.current = [
+                  ...rawMessagesRef.current,
+                  errorChatMsg,
+                ];
+              }
 
               currentAssistantMsgRef.current = null;
               // 重置发送锁
@@ -332,13 +350,15 @@ export function useChatHandler(options: UseChatHandlerOptions): ChatHandler & {
 
           // Display error in chat
           const errorText = `❌ 错误: ${error.message || '未知错误'}`;
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantMsgId
-                ? { ...m, parts: [{ type: 'text', text: errorText }] }
-                : m
-            )
-          );
+          if (!isStaleSession()) {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantMsgId
+                  ? { ...m, parts: [{ type: 'text', text: errorText }] }
+                  : m
+              )
+            );
+          }
 
           // Save error message
           if (sessionId && assistantMsgId) {
@@ -353,7 +373,9 @@ export function useChatHandler(options: UseChatHandlerOptions): ChatHandler & {
             };
             chatStorageService.addMessage(errorChatMsg);
             // Update rawMessagesRef with the error message
-            rawMessagesRef.current = [...rawMessagesRef.current, errorChatMsg];
+            if (!isStaleSession()) {
+              rawMessagesRef.current = [...rawMessagesRef.current, errorChatMsg];
+            }
           }
         }
         currentAssistantMsgRef.current = null;

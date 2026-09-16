@@ -135,8 +135,9 @@ export const useDrawnix = (): {
 };
 
 export const useSetPointer = () => {
-  const { appState, setAppState } = useDrawnix();
+  const { setAppState } = useDrawnix();
   return (pointer: DrawnixPointerType) => {
-    setAppState({ ...appState, pointer });
+    // 函数式更新：避免用渲染期捕获的旧 appState 回滚其它已更新字段
+    setAppState((prev) => ({ ...prev, pointer }));
   };
 };

@@ -78,22 +78,20 @@ export function useChatSessions(): UseChatSessionsReturn {
     async (sessionId: string): Promise<void> => {
       await chatStorageService.deleteSession(sessionId);
 
-      setSessions((prev) => {
-        const updated = prev.filter((s) => s.id !== sessionId);
+      const updated = sessions.filter((s) => s.id !== sessionId);
+      setSessions(updated);
 
-        // If deleting active session, select another
-        if (activeSession?.id === sessionId) {
-          const newActive = updated[0] || null;
-          setActiveSession(newActive);
-          chatStorageService.setDrawerState({
-            activeSessionId: newActive?.id || null,
-          });
-        }
-
-        return updated;
-      });
+      // If deleting active session, select another
+      // （副作用放在 updater 外：updater 必须为纯函数，StrictMode 下会双执行）
+      if (activeSession?.id === sessionId) {
+        const newActive = updated[0] || null;
+        setActiveSession(newActive);
+        chatStorageService.setDrawerState({
+          activeSessionId: newActive?.id || null,
+        });
+      }
     },
-    [activeSession]
+    [sessions, activeSession]
   );
 
   // Update session title

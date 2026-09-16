@@ -428,8 +428,14 @@ export class WorkflowEngine {
     this.lastToolId = call.mcp;
 
     try {
+      // 超时判负的执行 Promise 若其后 reject 会成为 unhandled rejection，附加空 catch 兜底
+      const executePromise = this.toolExecutor.execute(call.mcp, args);
+      executePromise.catch(() => {
+        /* 已由超时分支判负，吞掉迟到的失败 */
+      });
+
       const result = await Promise.race([
-        this.toolExecutor.execute(call.mcp, args),
+        executePromise,
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('工具执行超时')), this.config.toolTimeout)
         ),

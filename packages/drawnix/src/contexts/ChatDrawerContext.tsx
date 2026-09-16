@@ -11,6 +11,7 @@ import React, {
   useCallback,
   useState,
   type MutableRefObject,
+  useMemo,
 } from 'react';
 import type {
   ChatDrawerRef,
@@ -154,23 +155,37 @@ export const ChatDrawerProvider: React.FC<ChatDrawerProviderProps> = ({
     return chatDrawerRef.current?.syncWorkflowTaskUpdate(task) ?? false;
   }, []);
 
+  // memo 化 Provider value：该 Provider 包裹整个应用，
+  // 任一状态变化都会经新 value 触发所有消费者重渲染
+  const contextValue = useMemo(
+    () => ({
+      chatDrawerRef,
+      registerRetryHandler,
+      executeRetry,
+      selectedContent,
+      setSelectedContent,
+      isDrawerOpen,
+      setIsDrawerOpen,
+      drawerWidth,
+      setDrawerWidth,
+      registerGenerationSubmitter,
+      submitGenerationFromDrawer,
+      syncWorkflowTaskUpdate,
+    }),
+    [
+      registerRetryHandler,
+      executeRetry,
+      selectedContent,
+      isDrawerOpen,
+      drawerWidth,
+      registerGenerationSubmitter,
+      submitGenerationFromDrawer,
+      syncWorkflowTaskUpdate,
+    ]
+  );
+
   return (
-    <ChatDrawerContext.Provider
-      value={{
-        chatDrawerRef,
-        registerRetryHandler,
-        executeRetry,
-        selectedContent,
-        setSelectedContent,
-        isDrawerOpen,
-        setIsDrawerOpen,
-        drawerWidth,
-        setDrawerWidth,
-        registerGenerationSubmitter,
-        submitGenerationFromDrawer,
-        syncWorkflowTaskUpdate,
-      }}
-    >
+    <ChatDrawerContext.Provider value={contextValue}>
       {children}
     </ChatDrawerContext.Provider>
   );
