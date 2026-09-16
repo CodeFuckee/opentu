@@ -7,10 +7,12 @@
 
 import {
   calculateBlobChecksum,
+  detectImageHasAlpha,
   getFileExtension,
   isDataURL,
   isLikelyMediaBlob,
   normalizeImageDataUrl,
+  pickCompressOutputType,
 } from '@aitu/utils';
 import { swChannelClient } from './sw-channel/client';
 import {
@@ -314,6 +316,8 @@ class UnifiedCacheService {
 
       request.onerror = () => {
         console.error('[UnifiedCache] Failed to open database:', request.error);
+        // 置空以允许后续调用重试，否则失败的 Promise 会被永久缓存
+        this.dbPromise = null;
         reject(request.error);
       };
 
@@ -477,9 +481,16 @@ class UnifiedCacheService {
    * 设置 SW 消息监听器（使用 swChannelClient 订阅事件）
    */
   private setupSWMessageListener(): void {
-    // 使用轮询等待 swChannelClient 初始化
+    // 使用轮询等待 swChannelClient 初始化；设上限避免 SW 不可用时无限轮询
+    let retryCount = 0;
+    const MAX_RETRY = 120; // 120 * 500ms = 60s
     const setupSubscriptions = () => {
       if (!swChannelClient.isInitialized()) {
+        retryCount += 1;
+        if (retryCount >= MAX_RETRY) {
+          console.warn('[UnifiedCache] swChannelClient not initialized after 60s, skip cache event subscriptions');
+          return;
+        }
         setTimeout(setupSubscriptions, 500);
         return;
       }
@@ -781,7 +792,7 @@ class UnifiedCacheService {
               reject(new Error('Failed to compress image'));
             }
           },
-          'image/jpeg',
+          pickCompressOutputType(blob.type, detectImageHasAlpha(img)),
           quality
         );
       };

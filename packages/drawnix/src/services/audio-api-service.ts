@@ -1062,6 +1062,7 @@ class AudioAPIService {
 
     let attempts = 0;
     let consecutiveErrors = 0;
+    let isBusinessFailure = false;
     const maxConsecutiveErrors = 10;
 
     while (attempts < maxAttempts) {
@@ -1084,9 +1085,14 @@ class AudioAPIService {
         }
 
         if (isTerminalFailure(result.status)) {
+          isBusinessFailure = true;
           throw new Error(result.failReason || 'Suno 生成失败');
         }
       } catch (error) {
+        // 业务失败（上游判定任务失败）不应重试，直接抛出（与 video-api-service 一致）
+        if (isBusinessFailure) {
+          throw error;
+        }
         consecutiveErrors += 1;
         if (consecutiveErrors >= maxConsecutiveErrors) {
           throw error;

@@ -801,14 +801,16 @@ class GenerationAPIService {
     const modelName = resolveAnalyticsModelName(routeModel, 'gemini-video');
 
     // Track resumed task
-    analytics.trackModelCall({
-      taskId,
-      taskType: 'video',
-      model: modelName,
-      promptLength: 0, // Unknown for resumed tasks
-      hasUploadedImage: false,
-      startTime,
+      analytics.trackModelCall({
+        taskId,
+        taskType: 'video',
+        model: modelName,
+        promptLength: 0, // Unknown for resumed tasks
+        hasUploadedImage: false,
+        startTime,
     });
+
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     try {
       assertStoredTaskInvocationRouteAvailable(taskId, 'video');
@@ -819,7 +821,7 @@ class GenerationAPIService {
 
       // Create timeout promise
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
+        timeoutId = setTimeout(() => {
           reject(new Error('TIMEOUT'));
         }, timeout);
       });
@@ -882,6 +884,10 @@ class GenerationAPIService {
       });
 
       throw error;
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     }
   }
 
@@ -908,11 +914,13 @@ class GenerationAPIService {
       startTime,
     });
 
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
     try {
       assertStoredTaskInvocationRouteAvailable(taskId, 'audio');
       const timeout = TASK_TIMEOUT.AUDIO;
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
+        timeoutId = setTimeout(() => {
           reject(new Error('TIMEOUT'));
         }, timeout);
       });
@@ -973,6 +981,10 @@ class GenerationAPIService {
       });
 
       throw error;
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     }
   }
 

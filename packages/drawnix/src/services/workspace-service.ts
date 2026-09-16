@@ -340,7 +340,9 @@ class WorkspaceService {
         (fid) => fid !== id
       );
     }
-    this.saveState();
+    this.saveState().catch((error) => {
+      console.error('[WorkspaceService] Failed to save state:', error);
+    });
     this.emit('treeChanged');
   }
 
@@ -535,7 +537,9 @@ class WorkspaceService {
     // Clear current if this board is active
     if (this.state.currentBoardId === id) {
       this.state.currentBoardId = null;
-      this.saveState();
+      this.saveState().catch((error) => {
+      console.error('[WorkspaceService] Failed to save state:', error);
+    });
     }
 
     this.boards.delete(id);
@@ -1204,12 +1208,16 @@ class WorkspaceService {
       WORKSPACE_DEFAULTS.SIDEBAR_MIN_WIDTH,
       Math.min(WORKSPACE_DEFAULTS.SIDEBAR_MAX_WIDTH, width)
     );
-    this.saveState();
+    this.saveState().catch((error) => {
+      console.error('[WorkspaceService] Failed to save state:', error);
+    });
   }
 
   setSidebarCollapsed(collapsed: boolean): void {
     this.state.sidebarCollapsed = collapsed;
-    this.saveState();
+    this.saveState().catch((error) => {
+      console.error('[WorkspaceService] Failed to save state:', error);
+    });
   }
 
   private async saveState(): Promise<void> {

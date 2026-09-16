@@ -364,6 +364,11 @@ function ensureCacheInitialized(): void {
  */
 function savePromptHistory(): void {
   if (promptHistoryCache === null) return;
+  if (!cacheInitialized) {
+    // 初始化前缓存是空数组，此时落盘会用空数据覆盖 IndexedDB 中的真实历史
+    console.warn('[PromptStorageService] Skip saving prompt history before cache init');
+    return;
+  }
   kvStorageService.set(STORAGE_KEY, promptHistoryCache).catch((error) => {
     console.error('[PromptStorageService] Failed to save prompt history:', error);
   });
@@ -374,6 +379,10 @@ function savePromptHistory(): void {
  */
 function saveImagePromptHistory(): void {
   if (imagePromptHistoryCache === null) return;
+  if (!cacheInitialized) {
+    console.warn('[PromptStorageService] Skip saving image prompt history before cache init');
+    return;
+  }
   kvStorageService.set(IMAGE_PROMPT_HISTORY_KEY, imagePromptHistoryCache).catch((error) => {
     console.error('[PromptStorageService] Failed to save image prompt history:', error);
   });
@@ -384,6 +393,10 @@ function saveImagePromptHistory(): void {
  */
 function saveVideoPromptHistory(): void {
   if (videoPromptHistoryCache === null) return;
+  if (!cacheInitialized) {
+    console.warn('[PromptStorageService] Skip saving video prompt history before cache init');
+    return;
+  }
   kvStorageService.set(VIDEO_PROMPT_HISTORY_KEY, videoPromptHistoryCache).catch((error) => {
     console.error('[PromptStorageService] Failed to save video prompt history:', error);
   });
@@ -394,6 +407,10 @@ function saveVideoPromptHistory(): void {
  */
 function savePresetData(): void {
   if (presetDataCache === null) return;
+  if (!cacheInitialized) {
+    console.warn('[PromptStorageService] Skip saving preset data before cache init');
+    return;
+  }
   kvStorageService.set(PRESET_SETTINGS_KEY, presetDataCache).catch((error) => {
     console.error('[PromptStorageService] Failed to save preset data:', error);
   });
@@ -401,6 +418,10 @@ function savePresetData(): void {
 
 function saveDeletedPromptContents(): void {
   if (deletedPromptContentsCache === null) return;
+  if (!cacheInitialized) {
+    console.warn('[PromptStorageService] Skip saving deleted prompt contents before cache init');
+    return;
+  }
   kvStorageService
     .set(PROMPT_DELETED_CONTENTS_KEY, deletedPromptContentsCache)
     .catch((error) => {
@@ -413,6 +434,10 @@ function saveDeletedPromptContents(): void {
 
 function savePromptHistoryOverrides(): void {
   if (promptHistoryOverridesCache === null) return;
+  if (!cacheInitialized) {
+    console.warn('[PromptStorageService] Skip saving prompt history overrides before cache init');
+    return;
+  }
   kvStorageService
     .set(PROMPT_HISTORY_OVERRIDES_KEY, promptHistoryOverridesCache)
     .catch((error) => {

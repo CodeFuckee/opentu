@@ -1996,6 +1996,7 @@ export class TaskQueueService {
     }
 
     let task = this.tasks.get(taskId);
+    let createdStub = false;
     if (!task) {
       // Task not in memory — create a minimal entry so the event is still emitted.
       // This can happen after page refresh if restoreTasks hasn't run yet.
@@ -2012,6 +2013,7 @@ export class TaskQueueService {
         updatedAt: now,
       };
       this.tasks.set(taskId, task);
+      createdStub = true;
     }
 
     const now = Date.now();
@@ -2035,7 +2037,10 @@ export class TaskQueueService {
     this.tasks.set(taskId, updatedTask);
 
     // Persist to IndexedDB
-    this.persistTask(updatedTask);
+    // 存根任务只存在于内存（真实记录仍在存储中），落盘会用空 params 覆盖真实任务
+    if (!createdStub) {
+      this.persistTask(updatedTask);
+    }
 
     this.emitEvent('taskUpdated', updatedTask);
 
@@ -2499,7 +2504,10 @@ export class TaskQueueService {
 
     // 异步批量归档到 IndexedDB（fire-and-forget）
     if (archiveIds.length > 0) {
-      taskStorageWriter.archiveTasks(archiveIds).catch((err) => { /* 归档失败不影响主流程 */ });
+      taskStorageWriter.archiveTasks(archiveIds).catch((err) => {
+        // 归档失败不影响主流程，但需留痕：内存已删而 DB 未归档，任务会在下次刷新时回来
+        console.warn('[TaskQueueService] Failed to archive tasks:', archiveIds.length, err);
+      });
       taskStorageReader.invalidateCache();
     }
   }
