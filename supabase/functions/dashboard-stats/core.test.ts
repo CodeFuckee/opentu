@@ -280,6 +280,10 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
         respond: () => json(200, [{ value: '7' }]),
       },
       {
+        match: (url) => url.includes('/rest/v1/configs?key=eq.OUTSOURCE_PRICE_PER_IMAGE'),
+        respond: () => json(200, [{ value: '2' }]),
+      },
+      {
         match: (url) => url.includes('api.tu-zi.com'),
         respond: () =>
           json(200, {
@@ -315,6 +319,23 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
   assert.deepEqual(overview.users.usageByRegion, { 广州: 1 });
   assert.deepEqual(overview.users.costByDepartment, { 技术部: 1.25 });
 
+  // 领导视角：1 个成功生图任务（参数无 n/count → 1 张）；全时段计数走 count 路由（0-0/5）
+  assert.deepEqual(overview.leadership, {
+    windowImages: 1,
+    windowImageTasks: 1,
+    avgImageDurationMs: 5000,
+    topModel: 'm-a',
+    topModelCount: 1,
+    modelTypes: 1,
+    tokens: null,
+    allTimeCalls: 5,
+    allTimeImageTasks: 5,
+    outsourcePriceCny: 2,
+    outsourceEquivalentCny: 2,
+    // 1 张 × ¥2 − $1.25 × 7 = 2 − 8.75 = -6.75（负值如实展示）
+    savedCny: -6.75,
+  });
+
   // 所有 REST 请求都应携带 service_role 身份头
   for (const url of calls) {
     assert.ok(
@@ -331,6 +352,11 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
   assert.ok(
     calls.some((url) => url.includes('model:params-%3E%3Emodel')),
     'task_submissions 查询应带 model:params->>model'
+  );
+  // 任务查询需带出生图张数瘦列（领导视角「生成图片张数」数据源）
+  assert.ok(
+    calls.some((url) => url.includes('n_deep:params-%3Eparams-%3E%3En')),
+    'task_submissions 查询应带 params.params.n 瘦列'
   );
   // 认证用户姓名查询也应发出（Display Name 优先来源）
   assert.ok(calls.some((url) => url.includes('/auth/v1/admin/users')));
@@ -410,10 +436,42 @@ test('fetchCanvasUsage：解析共享令牌并分页求和消耗日志；配置�
     ],
     []
   );
-  // 150000 quota ÷ 500000 = $0.3
+  // 150000 quota ÷ 500000 = $0.3；日志无 token 字段 → tokens null
   assert.deepEqual(await fetchCanvasUsage(ENV, { fetch: fetchImpl }), {
     totalUsd: 0.3,
     quotaByUsername: { chenkaidi: 100000, alice: 50000 },
+    tokens: null,
+  });
+
+  // 日志含 prompt/completion token 字段时求和（绘图按次计费的条目两字段都缺 → 跳过）
+  const withTokens = routeFetch(
+    [
+      { match: (url) => url.includes('/rest/v1/configs?key=eq.NEWAPI_URL'), respond: () => json(200, [{ value: 'http://gw.local' }]) },
+      { match: (url) => url.includes('/rest/v1/configs?key=eq.NEWAPI_TOKEN'), respond: () => json(200, [{ value: 'admintok' }]) },
+      { match: (url) => url.includes('/rest/v1/configs?key=eq.NEWAPI_KEY'), respond: () => json(200, [{ value: 'sk-abcd1234' }]) },
+      {
+        match: (url) => url.includes('/api/token/'),
+        respond: () => json(200, { data: { items: [{ name: 'huabu', key: 'abcd1234' }] } }),
+      },
+      {
+        match: (url) => url.includes('/api/log/?p=1'),
+        respond: () =>
+          json(200, {
+            data: {
+              items: [
+                { quota: 100000, username: 'alice', prompt_tokens: 800, completion_tokens: 434 },
+                { quota: 50000, username: 'bob', prompt_tokens: null, completion_tokens: null },
+              ],
+            },
+          }),
+      },
+    ],
+    []
+  );
+  assert.deepEqual(await fetchCanvasUsage(ENV, { fetch: withTokens }), {
+    totalUsd: 0.3,
+    quotaByUsername: { alice: 100000, bob: 50000 },
+    tokens: 1234,
   });
 
   const missing = routeFetch([], []);
@@ -496,6 +554,16 @@ test('buildDashboardHtml：自包含页面，内嵌 anon key，自带管理员�
   for (const block of ['总操作次数', '消耗金额', '活跃用户数', '数据覆盖天数', '复制报告', '操作类型分布', '模型使用分布', '日历使用热力', '24小时使用分布', '部门使用排行', '部门使用汇总', '部门分布']) {
     assert.ok(html.includes(block), `页面缺少统计块：${block}`);
   }
+  // 「核心指标」（领导视角）区块与委外参考价配置键提示
+  assert.ok(html.includes('<h2>核心指标</h2>'), '页面缺少核心指标区块');
+  assert.ok(html.includes('id="leaderCards"'), '页面缺少领导视角卡片容器');
+  assert.ok(html.includes('累计调用次数'), '领导视角缺累计调用');
+  assert.ok(html.includes('生成图片'), '领导视角缺生成图片');
+  assert.ok(html.includes('Token 消耗'), '领导视角缺 Token 消耗');
+  assert.ok(html.includes('最常用模型'), '领导视角缺最常用模型');
+  assert.ok(html.includes('平均出图耗时'), '领导视角缺平均出图耗时');
+  assert.ok(html.includes('节省委外费用'), '领导视角缺节省委外费用');
+  assert.ok(html.includes('OUTSOURCE_PRICE_PER_IMAGE'), '未配置单价时需提示配置键');
   // 使用次数排行与月度用量 Top 用户面板已按需求下线
   assert.ok(!html.includes('使用次数排行'));
   assert.ok(!html.includes('月度用量 Top 用户'));
@@ -590,6 +658,9 @@ test('verifyDashboardAdmin：管理员放行；请求体必须是调用者 JWT�
 import {
   parseUsageMultiplier,
   applyUsageMultiplier,
+  parseOutsourcePrice,
+  taskImageCount,
+  aggregateLeadership,
 } from './core.ts';
 
 test('parseUsageMultiplier：合法值解析，非法/非正数回退 1', () => {
@@ -646,6 +717,20 @@ function makeOverviewFixture() {
       staffDirectory: 20,
       enabledDepartments: 5,
     },
+    leadership: {
+      windowImages: 8,
+      windowImageTasks: 8,
+      avgImageDurationMs: 12000,
+      topModel: 'gpt-image-2',
+      topModelCount: 10,
+      modelTypes: 1,
+      tokens: 1600000,
+      allTimeCalls: 8000,
+      allTimeImageTasks: 3000,
+      outsourcePriceCny: 5,
+      outsourceEquivalentCny: 40,
+      savedCny: 39,
+    },
   } as never;
 }
 
@@ -675,6 +760,20 @@ test('applyUsageMultiplier：次数与金额按倍数缩放，人数/额度/天�
   assert.deepEqual(scaled.users.byDepartment, { 职能部门: 1 });
   assert.equal(scaled.usage.quotaLimit, 100);
   assert.equal(scaled.usdCnyRate, 0.1);
+
+  // 领导视角：次数/累计/token/金额按倍数缩放，模型名/耗时/单价/种类不变
+  assert.equal(scaled.leadership.windowImages, 16);
+  assert.equal(scaled.leadership.windowImageTasks, 16);
+  assert.equal(scaled.leadership.tokens, 3200000);
+  assert.equal(scaled.leadership.allTimeCalls, 16000);
+  assert.equal(scaled.leadership.allTimeImageTasks, 6000);
+  assert.equal(scaled.leadership.topModelCount, 20);
+  assert.equal(scaled.leadership.outsourceEquivalentCny, 80);
+  assert.equal(scaled.leadership.savedCny, 78);
+  assert.equal(scaled.leadership.topModel, 'gpt-image-2');
+  assert.equal(scaled.leadership.modelTypes, 1);
+  assert.equal(scaled.leadership.avgImageDurationMs, 12000);
+  assert.equal(scaled.leadership.outsourcePriceCny, 5);
 });
 
 test('applyUsageMultiplier：null 金额保留 null；倍数为 1 时数值不变', () => {
@@ -687,4 +786,95 @@ test('applyUsageMultiplier：null 金额保留 null；倍数为 1 时数值不�
   assert.equal(scaled.monthCostUsd, null);
   assert.equal(scaled.weekTasks, 20);
   assert.deepEqual(scaled.tasks.hourly, [2, 4, 6]);
+});
+
+// ============================================================
+// 领导视角：纯函数（taskImageCount / parseOutsourcePrice / aggregateLeadership）
+// ============================================================
+
+test('taskImageCount：优先 n（嵌套/顶层）与 count 参数，缺省 1 张/任务', () => {
+  assert.equal(taskImageCount({ n_deep: 4, n_flat: 2, n_count: 3 }), 4);
+  assert.equal(taskImageCount({ n_deep: null, n_flat: 2, n_count: 3 }), 2);
+  assert.equal(taskImageCount({ n_deep: null, n_flat: null, n_count: 3 }), 3);
+  // 字符串数字（PostgREST ->> 返回文本）与非法值兜底
+  assert.equal(taskImageCount({ n_flat: '6' }), 6);
+  assert.equal(taskImageCount({ n_flat: '0', n_count: '-2' }), 1);
+  assert.equal(taskImageCount({}), 1);
+});
+
+test('parseOutsourcePrice：正数通过，非法/非正数回退 null', () => {
+  assert.equal(parseOutsourcePrice('5'), 5);
+  assert.equal(parseOutsourcePrice('0.5'), 0.5);
+  assert.equal(parseOutsourcePrice(12), 12);
+  assert.equal(parseOutsourcePrice('abc'), null);
+  assert.equal(parseOutsourcePrice('0'), null);
+  assert.equal(parseOutsourcePrice('-3'), null);
+  assert.equal(parseOutsourcePrice(null), null);
+  assert.equal(parseOutsourcePrice(undefined), null);
+  assert.equal(parseOutsourcePrice(''), null);
+});
+
+test('aggregateLeadership：产出/消耗/累计/降本（节约为负如实展示）', () => {
+  const rows = [
+    // 生图任务：参数 n=4，耗时 30s
+    { type: 'image', status: 'completed', created_at: '2026-08-01T01:00:00Z', completed_at: '2026-08-01T01:00:30Z', model: 'm-a', n_deep: 4, n_flat: null, n_count: null },
+    // 生图任务：参数无 n → 1 张，耗时 10s
+    { type: 'image', status: 'completed', created_at: '2026-08-01T02:00:00Z', completed_at: '2026-08-01T02:00:10Z', model: 'm-b', n_flat: null, n_count: null },
+    // 失败生图任务不计入
+    { type: 'image', status: 'failed', created_at: '2026-08-01T03:00:00Z', completed_at: '2026-08-01T03:01:00Z', model: 'm-a', n_flat: 9, n_count: null },
+    // 非生图任务不计入产出/出图耗时，但计入模型种类与 topModel
+    { type: 'chat', status: 'completed', created_at: '2026-08-01T04:00:00Z', completed_at: '2026-08-01T04:00:05Z', model: 'm-b', n_flat: null, n_count: null },
+  ] as never;
+
+  const block = aggregateLeadership(rows, {
+    tokens: 123456,
+    allTimeCalls: 8298,
+    allTimeImageTasks: 3590,
+    outsourcePriceCny: 100,
+    actualCostUsd: 1.25,
+    usdCnyRate: 7,
+  });
+
+  assert.equal(block.windowImages, 5); // 4 + 1（失败/聊天不计）
+  assert.equal(block.windowImageTasks, 2);
+  assert.equal(block.avgImageDurationMs, 20000); // (30s + 10s) / 2
+  // 按成功任务计：m-a 1 次、m-b 2 次 → 最常用 m-b
+  assert.equal(block.topModel, 'm-b');
+  assert.equal(block.topModelCount, 2);
+  assert.equal(block.modelTypes, 2);
+  assert.equal(block.tokens, 123456);
+  assert.equal(block.allTimeCalls, 8298);
+  assert.equal(block.allTimeImageTasks, 3590);
+  assert.equal(block.outsourcePriceCny, 100);
+  assert.equal(block.outsourceEquivalentCny, 500); // 5 张 × ¥100
+  // ¥500 − $1.25 × 7 = ¥491.25
+  assert.equal(block.savedCny, 491.25);
+});
+
+test('aggregateLeadership：未配置委外单价或无产出时降本字段为 null；无任务时模型字段为空', () => {
+  const noPrice = aggregateLeadership(
+    [{ type: 'image', status: 'completed', created_at: '2026-08-01T01:00:00Z', completed_at: '2026-08-01T01:00:10Z', model: 'm-a', n_flat: null, n_count: null }] as never,
+    { tokens: null, allTimeCalls: null, allTimeImageTasks: null, outsourcePriceCny: null, actualCostUsd: 5, usdCnyRate: 7 }
+  );
+  assert.equal(noPrice.outsourceEquivalentCny, null);
+  assert.equal(noPrice.savedCny, null);
+  assert.equal(noPrice.tokens, null);
+  assert.equal(noPrice.allTimeCalls, null);
+
+  const noRows = aggregateLeadership([], {
+    tokens: null,
+    allTimeCalls: 0,
+    allTimeImageTasks: 0,
+    outsourcePriceCny: 5,
+    actualCostUsd: null,
+    usdCnyRate: 7,
+  });
+  assert.equal(noRows.windowImages, 0);
+  assert.equal(noRows.topModel, null);
+  assert.equal(noRows.topModelCount, 0);
+  assert.equal(noRows.modelTypes, 0);
+  assert.equal(noRows.avgImageDurationMs, 0);
+  // 有单价但无实际金额 → 节约不可算
+  assert.equal(noRows.outsourceEquivalentCny, null);
+  assert.equal(noRows.savedCny, null);
 });

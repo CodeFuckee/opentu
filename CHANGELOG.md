@@ -149,9 +149,26 @@
   （source_id URL 编码、封面 content-length 超上限放弃转存）；新增
   `template-service.test.ts`（vitest 6 条，链式 mock 锁定查询形态：
   status 过滤/排序键 + id tiebreaker/分页窗口/分类与搜索过滤/RPC）。
+- 2026-09-16 增量：dashboard-stats 单测 18→22 条（领导视角：taskImageCount
+  生图张数提取、parseOutsourcePrice 委外参考价解析、aggregateLeadership 产出/
+  消耗/累计/降本聚合与空数据降级；applyUsageMultiplier 补 leadership 缩放断言；
+  fetchCanvasUsage 补 token 字段求和用例；编排测试补 leadership 组装与张数瘦列
+  查询断言；页面测试补「领导视角 · 核心指标」区块断言）。
 
 ### 🚀 Features
 
+- **数据看板新增「核心指标」（领导视角）区块**（2026-09-16）：对照《AI为翼，雏鹰启航》
+  课题汇报中领导关心的数据口径，在 dashboard-stats 看板 KPI 卡下方新增六卡区块——
+  **累计调用次数**（全时段成功任务，Content-Range 计数）、**生成图片张数**（窗口内
+  生图任务按参数 `params.params.n`/`params.n`/`params.count` 汇总，缺省 1 张/任务，
+  并展示生图任务次数与全时段累计生图次数）、**Token 消耗**（New API 网关消耗日志
+  prompt+completion token 求和，日志无 token 字段时显示 -）、**最常用模型**
+  （含窗口内模型类型数）、**平均出图耗时**（生图任务窗口均值）、**节省委外费用估算**
+  （configs 表配置单张效果图委外参考价 `OUTSOURCE_PRICE_PER_IMAGE`（元/张）后启用：
+  张数 × 单价 − 实际消耗折算，负值如实展示；未配置时卡片提示配置键）。`/overview`
+  JSON 同步新增 `leadership` 区块；钉钉推送周报文案加入生成图片/Token/节约三条；
+  所有领导视角次数与金额同样受 `USAGE_MULTIPLIER` 缩放。汇报中的定性内容
+  （支援项目清单、用户口碑、研发迭代/bug 数）为过程性数据，不入库不展示。
 - **AI 模板中心对话框与入口按钮视觉优化**（2026-09-16，grill-me 收敛）：
   对话框由 1080×760 封顶改为撑满视口、四周留 60px（窗口宽 <900px 或高 <700px
   自动收窄为 16px，兼顾 iframe 内嵌小窗）；瀑布流列数随宽度 2→6 列自适应；

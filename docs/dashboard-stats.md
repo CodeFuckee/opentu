@@ -14,6 +14,7 @@
 | 区块 | 数据源 | 内容 |
 | --- | --- | --- |
 | KPI 七卡 | `task_submissions` + tu-zi 价目 | 总操作次数（成功任务）、消耗金额（USD，tu-zi 价目折算）、活跃用户数、本月用量（**全局用量，不含个人额度**）、数据覆盖天数 |
+| 核心指标（领导视角） | `task_submissions` + 网关消耗日志 + `configs` | 六卡：累计调用次数（全时段成功任务）、生成图片张数（窗口内生图任务按 `params.params.n`/`params.n`/`params.count` 汇总，缺省 1 张/任务；附生图次数与全时段累计）、Token 消耗（网关日志 prompt+completion 求和，无字段显 -）、最常用模型（含模型类型数）、平均出图耗时（生图任务窗口均值）、节省委外费用估算（见下方口径）。课题汇报中的定性内容（支援项目清单、用户口碑、研发迭代/bug 数）为过程性数据，不入库不展示 |
 | 操作类型分布 | `task_submissions.type` | 成功任务按 type 环图 |
 | 模型使用分布 | `task_submissions.params->>model` | 成功任务按模型环图 |
 | 使用次数排行 | `task_submissions.user_id` + Display Name | 用户前 10（头像=姓名首字） |
@@ -25,6 +26,13 @@
 | 用户与组织 | `user_profiles` / `staff_directory` / `departments` / `auth.users` | 用户总数、部门/区域分布、花名册、可用部门；用户统一显示 Display Name，取值顺序：`auth.users.user_metadata`（displayName → full_name → name，经 GoTrue admin API 按 user_id 关联）→ `staff_directory.name`（按 oa_account join）→ 回退 oa_account。注：自托管网关未放行 `/auth/v1/admin/*`，函数对网关 404 时自动降级直连内部 `http://auth:9999` |
 
 **消耗金额口径**：KPI 总额为**真实消耗**——自建 New API 网关（configs 表 NEWAPI_URL/NEWAPI_TOKEN/NEWAPI_KEY）消耗日志按 huabu 共享令牌分页求和，USD = quota ÷ 500000，含画布全部网关调用（绘图/聊天/轮询等）；网关日志无法区分到画布用户，「部门使用汇总」的金额列按 tu-zi 价目估算（`https://api.tu-zi.com/api/pricing`，按次用 model_price、按量按 1500 token/次估算）。任一数据源失败逐级降级显示 `-`。美元→人民币展示汇率可在 Supabase `configs` 表配置键 `USD_CNY_RATE`（缺省 0.1，内部结算口径 $10=¥1），改值即时生效。
+
+**领导视角 · 节省委外费用口径**：在 `configs` 表配置键 `OUTSOURCE_PRICE_PER_IMAGE`
+（单张效果图委外参考价，人民币/张，如 `80`）后启用——
+`节约 = 窗口内生成图片张数 × 单价 − 窗口内实际消耗（USD × USD_CNY_RATE）`，
+负值（实际消耗高于委外参考）如实展示；未配置单价时该卡显示 `-` 并提示配置键。
+Token 消耗取网关消耗日志 `prompt_tokens + completion_tokens` 求和；绘图按次计费
+的日志条目可能没有 token 字段，整窗均无字段时该卡显示 `-`。
 
 **推送到钉钉**：页面右上角「推送」按钮把当前看板截图 + 周报文字经钉钉群机器人发送。图片先上传 Gitee 仓库中转（raw 直链放入 markdown），机器人用加签方式调用。依赖 `configs` 表四个键（已预置，值需填写）：`DINGTALK_WEBHOOK`（机器人 Webhook）、`DINGTALK_SECRET`（加签密钥）、`GITEE_TOKEN`（Gitee 私人令牌，需仓库写权限）、`GITEE_REPO`（中转仓库，默认 tju-kdj_admin/dingding-talk-images）。未填 webhook 时推送返回明确错误。
 
@@ -77,6 +85,9 @@ curl -s -H "Authorization: Bearer $ANON_KEY" \
 ## 验收清单
 
 - [ ] `curl` 页面返回 200 text/html；浏览器打开渲染全部统计块
-- [ ] `curl` overview 返回 200 JSON（含 weekTasks/monthCostUsd/usdCnyRate），`tasks/usage/users/storage` 四区块均有数据
+- [ ] `curl` overview 返回 200 JSON（含 weekTasks/monthCostUsd/usdCnyRate 与
+      `leadership` 区块），`tasks/usage/users/leadership` 区块均有数据
 - [ ] 修改 `days=7/90` 后任务趋势与过滤窗口随之变化
 - [ ] `node --test supabase/functions/*/core.test.ts` 全绿
+- [ ] 本地纯前端过目（无需后端）：`node scripts/preview-dashboard-stats.mjs [端口]`
+      打开提示的地址，登录壳已跳过，看板用 mock 数据渲染全部区块（含领导视角）

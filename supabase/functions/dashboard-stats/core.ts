@@ -57,6 +57,10 @@ interface TaskRow {
   file_paths?: unknown;
   response_file_paths?: unknown;
   model?: string;
+  /** 生图张数瘦列（PostgREST JSON 提取）：params.params.n / params.n / params.count，缺省按 1 张/任务 */
+  n_deep?: unknown;
+  n_flat?: unknown;
+  n_count?: unknown;
 }
 
 interface UsageRow {
@@ -88,6 +92,8 @@ export interface CanvasUsage {
   totalUsd: number;
   /** 按网关用户名（=OA 账号）汇总的 quota 原始值 */
   quotaByUsername: Record<string, number>;
+  /** 窗口内 token 消耗求和（prompt+completion）；日志不含 token 字段时为 null */
+  tokens: number | null;
 }
 
 /** 读取 configs 表配置值；读不到返回 null */
@@ -159,6 +165,8 @@ export async function fetchCanvasUsage(
     // 2. 分页求和窗口内 type=2 消耗日志（网关把 page_size 静默限制在 100）
     const PAGE_SIZE = 100;
     let sum = 0;
+    let tokenSum = 0;
+    let tokenSeen = false;
     const quotaByUsername: Record<string, number> = {};
     for (let page = 1; page <= 60; page += 1) {
       const res = await doFetch(
@@ -169,7 +177,7 @@ export async function fetchCanvasUsage(
         return null;
       }
       const body = (await res.json()) as {
-        data?: { items?: Array<{ quota?: unknown; username?: unknown }> };
+        data?: { items?: Array<{ quota?: unknown; username?: unknown; prompt_tokens?: unknown; completion_tokens?: unknown }> };
       };
       const items = Array.isArray(body?.data?.items) ? body.data.items : [];
       for (const item of items) {
@@ -182,12 +190,23 @@ export async function fetchCanvasUsage(
         if (username) {
           quotaByUsername[username] = (quotaByUsername[username] ?? 0) + quota;
         }
+        // token 字段存在才累计：绘图按次计费的日志可能没有 token 字段
+        const hasP = item?.prompt_tokens != null;
+        const hasC = item?.completion_tokens != null;
+        if (hasP || hasC) {
+          const p = Number(item?.prompt_tokens ?? 0);
+          const c = Number(item?.completion_tokens ?? 0);
+          if (Number.isFinite(p) && Number.isFinite(c)) {
+            tokenSeen = true;
+            tokenSum += p + c;
+          }
+        }
       }
       if (items.length < PAGE_SIZE) {
         break;
       }
     }
-    return { totalUsd: sum / NEWAPI_QUOTA_PER_UNIT, quotaByUsername };
+    return { totalUsd: sum / NEWAPI_QUOTA_PER_UNIT, quotaByUsername, tokens: tokenSeen ? tokenSum : null };
   } catch {
     return null;
   }
@@ -199,6 +218,8 @@ export const DING_SECRET_CONFIG_KEY = 'DINGTALK_SECRET';
 export const GITEE_TOKEN_CONFIG_KEY = 'GITEE_TOKEN';
 export const GITEE_REPO_CONFIG_KEY = 'GITEE_REPO';
 export const DEFAULT_GITEE_REPO = 'tju-kdj_admin/dingding-talk-images';
+/** 领导视角「节省委外费用」估算用的单张效果图委外参考价（CNY/张）configs 键 */
+export const OUTSOURCE_PRICE_CONFIG_KEY = 'OUTSOURCE_PRICE_PER_IMAGE';
 
 export interface DingPushResult {
   ok: boolean;
@@ -350,23 +371,32 @@ export async function pushReport(
   return sent.ok ? { ok: true, imageUrl } : sent;
 }
 
-/** 统计某时间段（可选上界）的成功任务次数（Content-Range 计数，失败返回 0） */
-async function countCompletedSince(
+/** 统计成功任务次数（Content-Range 计数，可按时段/类型过滤，失败返回 0） */
+async function countCompleted(
   env: DashboardEnv,
-  fromIso: string,
   deps: DashboardDeps,
-  toIso?: string
+  opts: { fromIso?: string; toIso?: string; type?: string } = {}
 ): Promise<number> {
   const doFetch = deps.fetch || fetch;
   try {
-    const toPart = toIso ? `&created_at=lt.${encodeURIComponent(toIso)}` : '';
+    const parts = ['select=id', 'status=eq.completed'];
+    if (opts.type) {
+      parts.push(`type=eq.${encodeURIComponent(opts.type)}`);
+    }
+    if (opts.fromIso) {
+      parts.push(`created_at=gte.${encodeURIComponent(opts.fromIso)}`);
+    }
+    if (opts.toIso) {
+      parts.push(`created_at=lt.${encodeURIComponent(opts.toIso)}`);
+    }
+    parts.push('limit=1');
     const response = await doFetch(
-      `${baseUrl(env)}/rest/v1/task_submissions?select=id&status=eq.completed&created_at=gte.${encodeURIComponent(fromIso)}${toPart}&limit=1`,
+      `${baseUrl(env)}/rest/v1/task_submissions?${parts.join('&')}`,
       { method: 'GET', headers: { ...srkHeaders(env), Prefer: 'count=exact' } }
     );
     if (!response.ok) {
       // 静默返回 0 会让周报口径失真，至少留下告警日志
-      console.error('[dashboard-stats] countCompletedSince failed:', response.status);
+      console.error('[dashboard-stats] countCompleted failed:', response.status);
       return 0;
     }
     const match = /^\d+-\d+\/(\d+)$/.exec(
@@ -436,6 +466,35 @@ export interface DashboardOverview {
     staffDirectory: number;
     enabledDepartments: number;
   };
+  /** 领导视角核心指标（对照课题汇报口径：调用/产出/消耗/降本） */
+  leadership: LeadershipBlock;
+}
+
+/** 领导视角核心指标（口径对应《AI为翼，雏鹰启航》课题汇报中的数据清单） */
+export interface LeadershipBlock {
+  /** 窗口内生成图片张数（按任务参数 n/count 汇总，缺省 1 张/任务） */
+  windowImages: number;
+  /** 窗口内生图任务次数 */
+  windowImageTasks: number;
+  /** 窗口内生图任务平均耗时（毫秒；无样本为 0） */
+  avgImageDurationMs: number;
+  /** 窗口内最常用模型（按成功任务计） */
+  topModel: string | null;
+  topModelCount: number;
+  /** 窗口内使用的模型类型数 */
+  modelTypes: number;
+  /** 窗口内 token 消耗（网关日志求和；日志无 token 字段/网关不可用为 null） */
+  tokens: number | null;
+  /** 全时段累计成功调用次数（查询失败为 null） */
+  allTimeCalls: number | null;
+  /** 全时段累计生图任务次数（查询失败为 null） */
+  allTimeImageTasks: number | null;
+  /** 单张效果图委外参考价（CNY，configs 表 OUTSOURCE_PRICE_PER_IMAGE；未配置为 null） */
+  outsourcePriceCny: number | null;
+  /** 窗口内等效委外成本（CNY = 张数 × 单价；未配置单价或无产出为 null） */
+  outsourceEquivalentCny: number | null;
+  /** 窗口内节省委外费用（CNY = 等效委外成本 − 实际消耗折算；不可算为 null，负值如实展示） */
+  savedCny: number | null;
 }
 
 // ============================================================================
@@ -632,6 +691,105 @@ export function aggregateTasks(rows: TaskRow[]): DashboardOverview['tasks'] {
       .sort((a, b) => a.date.localeCompare(b.date)),
     hourly,
     topUsers: [],
+  };
+}
+
+/**
+ * 单任务生图张数：优先任务参数 n（嵌套 params.params.n / 顶层 params.n）与 count，
+ * 均缺省按 1 张/任务（历史任务或参数缺失时保底）。
+ */
+export function taskImageCount(
+  row: Pick<TaskRow, 'n_deep' | 'n_flat' | 'n_count'>
+): number {
+  for (const value of [row.n_deep, row.n_flat, row.n_count]) {
+    const n = typeof value === 'number' ? value : Number(String(value ?? '').trim());
+    if (Number.isFinite(n) && n > 0) {
+      return Math.round(n);
+    }
+  }
+  return 1;
+}
+
+/**
+ * 解析单张效果图委外参考价（CNY）：非数字/非正数一律回退 null（看板显示 - 并提示配置）。
+ */
+export function parseOutsourcePrice(raw: unknown): number | null {
+  const parsed = typeof raw === 'number' ? raw : Number(String(raw ?? '').trim());
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+/** aggregateLeadership 的外部数据入参 */
+export interface LeadershipOptions {
+  /** 窗口内网关日志 token 求和（不可用 null） */
+  tokens: number | null;
+  /** 全时段累计成功调用次数（查询失败 null） */
+  allTimeCalls: number | null;
+  /** 全时段累计生图任务次数（查询失败 null） */
+  allTimeImageTasks: number | null;
+  /** 单张效果图委外参考价（CNY，未配置 null） */
+  outsourcePriceCny: number | null;
+  /** 窗口内实际消耗（USD，与 tasks.totalCostUsd 同口径） */
+  actualCostUsd: number | null;
+  /** 美元→人民币展示汇率 */
+  usdCnyRate: number;
+}
+
+/**
+ * 领导视角核心指标（对照课题汇报数据清单）：
+ * 产出（生成图片张数/次数、平均出图耗时）、消耗（token、模型种类/最常用模型）、
+ * 累计（全时段调用/生图次数）、降本（委外单价 × 张数 − 实际消耗的节约估算）。
+ */
+export function aggregateLeadership(
+  rows: TaskRow[],
+  opts: LeadershipOptions
+): LeadershipBlock {
+  const okRows = rows.filter((row) => row.status === 'completed');
+  const imageRows = okRows.filter((row) => row.type === 'image');
+  const windowImages = imageRows.reduce((sum, row) => sum + taskImageCount(row), 0);
+
+  let durationSum = 0;
+  let durationCount = 0;
+  for (const row of imageRows) {
+    if (
+      typeof row.created_at === 'string' &&
+      typeof row.completed_at === 'string'
+    ) {
+      durationSum +=
+        new Date(row.completed_at).getTime() - new Date(row.created_at).getTime();
+      durationCount += 1;
+    }
+  }
+
+  const modelEntries = Object.entries(countModelUsage(okRows)).sort(
+    (a, b) => b[1] - a[1]
+  );
+
+  const price = opts.outsourcePriceCny;
+  const outsourceEquivalentCny =
+    price != null && windowImages > 0
+      ? Math.round(windowImages * price * 100) / 100
+      : null;
+  const savedCny =
+    outsourceEquivalentCny != null && opts.actualCostUsd != null
+      ? Math.round(
+          (outsourceEquivalentCny - opts.actualCostUsd * opts.usdCnyRate) * 100
+        ) / 100
+      : null;
+
+  return {
+    windowImages,
+    windowImageTasks: imageRows.length,
+    avgImageDurationMs:
+      durationCount > 0 ? Math.round(durationSum / durationCount) : 0,
+    topModel: modelEntries.length > 0 ? modelEntries[0][0] : null,
+    topModelCount: modelEntries.length > 0 ? modelEntries[0][1] : 0,
+    modelTypes: modelEntries.length,
+    tokens: opts.tokens,
+    allTimeCalls: opts.allTimeCalls,
+    allTimeImageTasks: opts.allTimeImageTasks,
+    outsourcePriceCny: price,
+    outsourceEquivalentCny,
+    savedCny,
   };
 }
 
@@ -875,6 +1033,36 @@ export function applyUsageMultiplier(
       usageByRegion: scaleCounts(overview.users.usageByRegion),
       costByDepartment: scaleMoney(overview.users.costByDepartment),
     },
+    leadership: {
+      ...overview.leadership,
+      windowImages: Math.round(overview.leadership.windowImages * multiplier),
+      windowImageTasks: Math.round(
+        overview.leadership.windowImageTasks * multiplier
+      ),
+      tokens:
+        overview.leadership.tokens == null
+          ? null
+          : Math.round(overview.leadership.tokens * multiplier),
+      allTimeCalls:
+        overview.leadership.allTimeCalls == null
+          ? null
+          : Math.round(overview.leadership.allTimeCalls * multiplier),
+      allTimeImageTasks:
+        overview.leadership.allTimeImageTasks == null
+          ? null
+          : Math.round(overview.leadership.allTimeImageTasks * multiplier),
+      topModelCount: Math.round(overview.leadership.topModelCount * multiplier),
+      outsourceEquivalentCny:
+        overview.leadership.outsourceEquivalentCny == null
+          ? null
+          : Math.round(
+              overview.leadership.outsourceEquivalentCny * multiplier * 100
+            ) / 100,
+      savedCny:
+        overview.leadership.savedCny == null
+          ? null
+          : Math.round(overview.leadership.savedCny * multiplier * 100) / 100,
+    },
   };
 }
 
@@ -1060,11 +1248,11 @@ export async function aggregateOverview(
   const monthStartSec = Math.floor((Date.now() - 30 * 86400000) / 1000);
 
   // 并行拉取基础数据
-  const [taskResult, usageResult, profileResult, staffResult, deptResult, nameByUser, priceByModel, canvasUsage, weekTasks, monthCanvas] =
+  const [taskResult, usageResult, profileResult, staffResult, deptResult, nameByUser, priceByModel, canvasUsage, weekTasks, monthCanvas, allTimeCalls, allTimeImageTasks] =
     await Promise.all([
       restGet(
         env,
-        `/rest/v1/task_submissions?select=id,user_id,type,status,created_at,completed_at,file_paths,response_file_paths,model:params-%3E%3Emodel&created_at=gte.${taskFrom}${taskTo ? `&created_at=lt.${taskTo}` : ''}&order=created_at.asc&limit=50000`,
+        `/rest/v1/task_submissions?select=id,user_id,type,status,created_at,completed_at,file_paths,response_file_paths,model:params-%3E%3Emodel,n_deep:params-%3Eparams-%3E%3En,n_flat:params-%3E%3En,n_count:params-%3E%3Ecount&created_at=gte.${taskFrom}${taskTo ? `&created_at=lt.${taskTo}` : ''}&order=created_at.asc&limit=50000`,
         deps
       ),
       restGet(
@@ -1090,8 +1278,10 @@ export async function aggregateOverview(
       fetchAuthDisplayNames(env, deps),
       fetchModelPricing(deps),
       fetchCanvasUsage(env, deps, usageStartSec, usageEndSec),
-      countCompletedSince(env, weekStartIso, deps, weekEndIso),
+      countCompleted(env, deps, { fromIso: weekStartIso, toIso: weekEndIso }),
       fetchCanvasUsage(env, deps, monthStartSec, Math.floor(Date.now() / 1000)),
+      countCompleted(env, deps),
+      countCompleted(env, deps, { type: 'image' }),
     ]);
 
   const taskRows = taskResult.rows as TaskRow[];
@@ -1153,6 +1343,16 @@ export async function aggregateOverview(
     // 配置缺失/查询失败用默认值
   }
 
+  // 领导视角：单张效果图委外参考价（CNY，configs 表 OUTSOURCE_PRICE_PER_IMAGE）
+  let outsourcePriceCny: number | null = null;
+  try {
+    outsourcePriceCny = parseOutsourcePrice(
+      await readDashboardConfig(env, OUTSOURCE_PRICE_CONFIG_KEY, deps)
+    );
+  } catch {
+    outsourcePriceCny = null;
+  }
+
   return applyUsageMultiplier(
     {
       generatedAt: new Date().toISOString(),
@@ -1176,6 +1376,14 @@ export async function aggregateOverview(
         usageByRegion: participation.usageByRegion,
         costByDepartment,
       },
+      leadership: aggregateLeadership(taskRows, {
+        tokens: canvasUsage ? canvasUsage.tokens : null,
+        allTimeCalls,
+        allTimeImageTasks,
+        outsourcePriceCny,
+        actualCostUsd: totalCostUsd,
+        usdCnyRate,
+      }),
     },
     usageMultiplier
   );
@@ -1342,6 +1550,10 @@ export function buildDashboardHtml(anonKey: string): string {
 <div class="cards" id="kpiCards"><div class="sk"></div></div>
 
 <div class="grid">
+  <div class="panel"><h2>核心指标</h2><div class="cards small" id="leaderCards" style="margin:0"><div class="sk"></div></div></div>
+</div>
+
+<div class="grid">
   <div class="panel"><h2>操作类型分布</h2><div id="typeDonut"><div class="sk"></div></div></div>
   <div class="panel"><h2>模型使用分布</h2><div id="modelDonut"><div class="sk"></div></div></div>
 </div>
@@ -1449,6 +1661,8 @@ function fmtDate(iso){ if(!iso) return '-'; var d=new Date(iso); if(isNaN(d)) re
 function fmtBytes(n){ if(n==null) return '-'; if(n<1024) return n+' B'; if(n<1048576) return (n/1024).toFixed(1)+' KB'; if(n<1073741824) return (n/1048576).toFixed(1)+' MB'; return (n/1073741824).toFixed(2)+' GB'; }
 function esc(s){ return String(s==null?'-':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
 function fmtDur(ms){ if(!ms) return '-'; var s=ms/1000; if(s<60) return Math.round(s)+' 秒'; if(s<3600) return (s/60).toFixed(1)+' 分钟'; return (s/3600).toFixed(1)+' 小时'; }
+function fmtInt(v){ return v==null ? '-' : Number(v).toLocaleString('en-US'); }
+function fmtMoney0(v){ return v==null ? '-' : (v<0?'-':'')+'¥'+Math.abs(Number(v)).toLocaleString('en-US',{maximumFractionDigits:0}); }
 
 function bars(el, data, color){
   var entries = Object.entries(data||{}).sort(function(a,b){return b[1]-a[1];});
@@ -1527,6 +1741,25 @@ function kpiCards(o){
   ];
   document.getElementById('kpiCards').innerHTML = big.map(function(c){
     return '<div class="card"><div class="label">'+esc(c[0])+'</div><div class="value" style="font-size:30px">'+esc(c[1])+'</div><div class="sub">'+esc(c[2])+'</div>'+(c[3]||'')+'</div>';
+  }).join('');
+}
+
+// 领导视角 · 核心指标（产出/消耗/累计/降本，对照课题汇报数据清单口径）
+function leaderCards(o){
+  var L = o.leadership || {};
+  var savedSub = L.outsourcePriceCny == null
+    ? '在 configs 表配置 OUTSOURCE_PRICE_PER_IMAGE（元/张）后启用'
+    : '等效委外 ' + fmtMoney0(L.outsourceEquivalentCny) + '（参考价 ¥' + L.outsourcePriceCny + '/张）';
+  var cards = [
+    ['累计调用次数（成功）', fmtInt(L.allTimeCalls), '全时段累计 · 窗口内 ' + (o.tasks ? o.tasks.total : 0) + ' 次'],
+    ['生成图片', fmtInt(L.windowImages) + ' 张', (L.windowImageTasks||0) + ' 次生图任务 · 累计 ' + fmtInt(L.allTimeImageTasks) + ' 次'],
+    ['Token 消耗（近 ' + o.days + ' 天）', fmtInt(L.tokens), L.tokens==null ? '网关日志未含 token 字段' : '网关日志汇总（prompt+completion）'],
+    ['最常用模型', L.topModel || '-', (L.modelTypes||0) + ' 种模型' + (L.topModel ? ' · ' + fmtInt(L.topModelCount) + ' 次' : '')],
+    ['平均出图耗时', L.avgImageDurationMs ? fmtDur(L.avgImageDurationMs) : '-', '生图任务窗口均值 · 全任务 ' + fmtDur(o.tasks ? o.tasks.avgDurationMs : 0)],
+    ['节省委外费用（估算）', fmtMoney0(L.savedCny), savedSub],
+  ];
+  document.getElementById('leaderCards').innerHTML = cards.map(function(c){
+    return '<div class="card"><div class="label">'+esc(c[0])+'</div><div class="value" style="font-size:22px;overflow-wrap:anywhere">'+esc(c[1])+'</div><div class="sub">'+esc(c[2])+'</div></div>';
   }).join('');
 }
 
@@ -1612,17 +1845,20 @@ function rankTable(el, o){
 }
 
 function buildReportText(o, rangeLabel){
-  var t=o.tasks, u=o.users;
+  var t=o.tasks, u=o.users, L=o.leadership||{};
   var cost=(t.totalCostUsd==null)?'—':'¥'+(t.totalCostUsd*USD_CNY).toFixed(2);
   var lines=[];
   lines.push('【YUE 画布使用周报】');
   lines.push('统计周期：'+rangeLabel);
   lines.push('1. 总操作次数：'+t.total+' 次（日均 '+(t.total/Math.max(1,o.days)).toFixed(1)+' 次），活跃用户 '+t.activeUsers+' 人');
-  lines.push('2. 消耗金额：'+cost);
+  lines.push('2. 生成图片：'+(L.windowImages||0)+' 张（'+(L.windowImageTasks||0)+' 次生图任务，平均出图 '+fmtDur(L.avgImageDurationMs)+'），累计调用 '+fmtInt(L.allTimeCalls)+' 次');
+  lines.push('3. Token 消耗：'+(L.tokens==null?'—':fmtInt(L.tokens))+'；使用模型 '+(L.modelTypes||0)+' 种，最常用 '+(L.topModel||'—'));
+  lines.push('4. 节省委外费用（估算）：'+(L.savedCny==null?'—（未配置 OUTSOURCE_PRICE_PER_IMAGE）':fmtMoney0(L.savedCny)+'（等效委外 '+fmtMoney0(L.outsourceEquivalentCny)+'，参考价 ¥'+L.outsourcePriceCny+'/张）'));
+  lines.push('5. 消耗金额：'+cost);
   var ms=Object.entries(t.byModel||{}).sort(function(a,b){return b[1]-a[1];}).slice(0,2).map(function(e){return e[0]+' '+e[1]+' 次';}).join('、');
-  lines.push('3. 热门模型：'+(ms||'—'));
+  lines.push('6. 热门模型：'+(ms||'—'));
   var ds=Object.entries(u.usageByRegion||{}).sort(function(a,b){return b[1]-a[1];}).slice(0,3).map(function(e){return e[0]+' '+e[1]+' 次';}).join('、');
-  lines.push('4. 各部门使用：'+(ds||'—'));
+  lines.push('7. 各部门使用：'+(ds||'—'));
   lines.push('');
   lines.push('看板地址：'+location.origin+basePath());
   return lines.join('\\n');
@@ -1634,6 +1870,7 @@ function render(o){
   if(Number.isFinite(rate) && rate>0) USD_CNY = rate;
   document.getElementById('generatedAt').textContent = '统计周期 '+CURRENT_RANGE_LABEL+' · 生成于 ' + fmtDate(o.generatedAt);
   kpiCards(o);
+  leaderCards(o);
   donut(document.getElementById('typeDonut'), o.tasks.byType);
   donut(document.getElementById('modelDonut'), o.tasks.byModel);
   calendarHeat(document.getElementById('calendarHeat'), o.tasks.dailyTrend);
