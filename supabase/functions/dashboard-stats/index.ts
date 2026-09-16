@@ -11,9 +11,10 @@
  *   OPTIONS                                        → 204 CORS
  *   其他方法/路径                                   → 405/404
  *
- * 鉴权（2026-09-16 起强制）：三个端点均要求「有效用户 JWT + is_admin()=true」，
- * 未登录/无效 token 401、非管理员 403；页面自带 oa账号+密码登录，登录后以
- * access_token 调用。SUPABASE_ANON_KEY 缺失时拒绝启动（不再硬编码兜底）。
+ * 鉴权（2026-09-16 起强制）：页面是匿名可取的登录壳（不含数据）；/overview 与
+ * /push-report 要求「有效用户 JWT + is_admin()=true」（未登录/无效 401、非管理员
+ * 403）。页面自带 oa账号+密码登录，登录后以 access_token 调用。
+ * SUPABASE_ANON_KEY 缺失时拒绝启动（不再硬编码兜底）。
  */
 import {
   aggregateOverview,
@@ -62,14 +63,10 @@ Deno.serve(async (request: Request) => {
   const route = parseRoute(urlPath);
 
   try {
-    // 统一门禁：页面/overview/push-report 全部仅限管理员（未登录 401、非管理员 403）
-    const gate = await verifyDashboardAdmin(env, request);
-    if (!gate.ok) {
-      return jsonError(gate.status, gate.error);
-    }
-
     if (request.method === 'GET' || request.method === 'HEAD') {
       if (route.kind === 'page') {
+        // 登录壳页面不含任何数据（骨架 + 登录框），匿名可取；
+        // 数据接口才需要管理员 JWT——若连页面也 401，登录框将永远无从展示
         const html = buildDashboardHtml(anonKey);
         return new Response(html, {
           status: 200,
@@ -81,6 +78,11 @@ Deno.serve(async (request: Request) => {
         });
       }
       if (route.kind === 'overview') {
+        // 门禁：仅管理员（未登录 401、非管理员 403）
+        const gate = await verifyDashboardAdmin(env, request);
+        if (!gate.ok) {
+          return jsonError(gate.status, gate.error);
+        }
         const params = new URL(request.url).searchParams;
         const daysParam = params.get('days');
         const days = typeof daysParam === 'string' ? Number(daysParam) : 30;
@@ -113,6 +115,11 @@ Deno.serve(async (request: Request) => {
     }
 
     if (route.kind === 'push' && request.method === 'POST') {
+      // 门禁：仅管理员
+      const gate = await verifyDashboardAdmin(env, request);
+      if (!gate.ok) {
+        return jsonError(gate.status, gate.error);
+      }
       const body = (await request.json().catch(() => ({}))) as {
         imageBase64?: unknown;
         text?: unknown;
