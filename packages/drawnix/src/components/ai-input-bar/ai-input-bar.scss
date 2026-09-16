@@ -813,6 +813,11 @@ $ai-input-small-expanded-max-height: $ai-input-small-line-height * 6 +
     @extend .ai-input-bar__upload-btn;
   }
 
+  // AI 模板按钮（与上传/素材库按钮同款 hover 动效与指针效果）
+  &__template-btn {
+    @extend .ai-input-bar__upload-btn;
+  }
+
   &__knowledge-selector {
     flex: 0 0 auto;
 
@@ -1274,7 +1279,8 @@ $ai-input-small-expanded-max-height: $ai-input-small-line-height * 6 +
     }
 
     &__upload-btn,
-    &__library-btn {
+    &__library-btn,
+    &__template-btn {
       border-color: var(--color-border, #444);
       color: var(--color-gray-50, #999);
 
@@ -1693,7 +1699,8 @@ $ai-input-small-expanded-max-height: $ai-input-small-line-height * 6 +
     }
 
     &__upload-btn,
-    &__library-btn {
+    &__library-btn,
+    &__template-btn {
       width: 36px;
       height: 36px;
       min-width: 36px;
@@ -1789,6 +1796,7 @@ $ai-input-small-expanded-max-height: $ai-input-small-line-height * 6 +
     &__type-btn,
     &__upload-btn,
     &__library-btn,
+    &__template-btn,
     &__send-btn {
       width: 34px;
       height: 34px;

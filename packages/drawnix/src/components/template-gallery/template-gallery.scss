@@ -11,8 +11,15 @@
 .template-gallery {
   display: flex;
   flex-direction: column;
-  width: min(1080px, 92vw);
-  height: min(760px, 88vh);
+  // 撑满视口，四周留 60px；小窗口（含 iframe 内嵌）自动收窄到 16px
+  width: calc(100vw - 120px);
+  height: calc(100vh - 120px);
+
+  @media (max-width: 900px), (max-height: 700px) {
+    width: calc(100vw - 32px);
+    height: calc(100vh - 32px);
+  }
+
   background: var(--color-ui-white, #fff);
   border-radius: 12px;
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.22);
@@ -140,14 +147,21 @@
 }
 
 .template-gallery__masonry {
-  column-count: 4;
+  // 列数随对话框宽度增加：撑满大屏时单卡不至于过宽
+  column-count: 2;
   column-gap: 12px;
 
-  @media (max-width: 1100px) {
+  @media (min-width: 640px) {
     column-count: 3;
   }
-  @media (max-width: 820px) {
-    column-count: 2;
+  @media (min-width: 880px) {
+    column-count: 4;
+  }
+  @media (min-width: 1150px) {
+    column-count: 5;
+  }
+  @media (min-width: 1500px) {
+    column-count: 6;
   }
 }
 
@@ -218,12 +232,18 @@
   position: relative;
   display: flex;
   gap: 18px;
-  width: min(920px, 90vw);
-  max-height: 82vh;
+  // 与外层对话框同步放大：相对对话框四周留 60px（小屏 16px）
+  width: calc(100% - 120px);
+  max-height: calc(100% - 120px);
   padding: 18px;
   background: #fff;
   border-radius: 12px;
   overflow: auto;
+
+  @media (max-width: 900px), (max-height: 700px) {
+    width: calc(100% - 32px);
+    max-height: calc(100% - 32px);
+  }
 }
 
 .template-gallery__detail-close {
