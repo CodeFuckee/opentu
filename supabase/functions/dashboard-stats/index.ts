@@ -41,9 +41,10 @@ Deno.serve(async (request: Request) => {
 
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
   const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-  const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+  // 兼容两种容器注入名：SUPABASE_ANON_KEY（本仓库约定）与 ANON_KEY（自托管 edge-runtime 常见名）
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('ANON_KEY') || '';
   if (!serviceRoleKey || !supabaseUrl || !anonKey) {
-    return jsonError(500, 'dashboard-stats is not configured: SUPABASE_SERVICE_ROLE_KEY / SUPABASE_URL / SUPABASE_ANON_KEY are required');
+    return jsonError(500, 'dashboard-stats is not configured: SUPABASE_SERVICE_ROLE_KEY / SUPABASE_URL / (SUPABASE_ANON_KEY|ANON_KEY) are required');
   }
   const env: DashboardEnv = {
     SUPABASE_URL: supabaseUrl,
