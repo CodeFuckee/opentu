@@ -91,6 +91,12 @@
   }
 }
 
+.template-gallery__count {
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .template-gallery__close {
   width: 30px;
   height: 30px;
@@ -131,6 +137,13 @@
   flex: 1;
   overflow-y: auto;
   padding: 14px 18px;
+}
+
+.template-gallery__more {
+  padding: 12px 0 4px;
+  text-align: center;
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 12px;
 }
 
 .template-gallery__state {

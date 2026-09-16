@@ -8,6 +8,7 @@ import {
   getTemplateGalleryConfig,
 } from './runtime';
 import {
+  countTemplates,
   listTemplates,
   listTemplateCategories,
   recordTemplateUsage,
@@ -16,17 +17,24 @@ import {
 interface RecordedQuery {
   table: string;
   select?: string;
+  selectOpts?: { count?: string; head?: boolean };
   filters: Array<{ op: string; args: unknown[] }>;
   orders: Array<{ column: string; ascending: boolean }>;
   range?: [number, number];
 }
 
 /** 可 await 的链式 builder：记录调用形态，then 时返回固定结果 */
-function makeBuilder(table: string, data: unknown, error: unknown = null) {
+function makeBuilder(
+  table: string,
+  data: unknown,
+  error: unknown = null,
+  count: number | null = null
+) {
   const query: RecordedQuery = { table, filters: [], orders: [] };
   const chain: Record<string, unknown> = {
-    select: (s: string) => {
+    select: (s: string, opts?: { count?: string; head?: boolean }) => {
       query.select = s;
+      query.selectOpts = opts;
       return chain;
     },
     eq: (...args: unknown[]) => {
@@ -49,18 +57,18 @@ function makeBuilder(table: string, data: unknown, error: unknown = null) {
       query.range = [from, to];
       return chain;
     },
-    // supabase-js 的 builder 恒以 { data, error } resolve，不 reject
-    then: (resolve: (v: { data: unknown; error: unknown }) => void) =>
-      resolve({ data, error }),
+    // supabase-js 的 builder 恒以 { data, error, count } resolve，不 reject
+    then: (resolve: (v: { data: unknown; error: unknown; count: number | null }) => void) =>
+      resolve({ data, error, count }),
   };
   return { chain, query };
 }
 
-function makeClient(data: unknown, error: unknown = null) {
+function makeClient(data: unknown, error: unknown = null, count: number | null = null) {
   const queries: RecordedQuery[] = [];
   const client = {
     from: (table: string) => {
-      const b = makeBuilder(table, data, error);
+      const b = makeBuilder(table, data, error, count);
       queries.push(b.query);
       return b.chain;
     },
@@ -79,7 +87,7 @@ describe('template-service 查询形态', () => {
     expect(getTemplateGalleryConfig()).toBeNull();
   });
 
-  it('listTemplates：status=active + 主排序键 desc + id tiebreaker + 首页窗口', async () => {
+  it('listTemplates：status=active + 热度主排序键 desc + 新增时间/id 兜底 + 首页窗口', async () => {
     const { client, queries } = makeClient([]);
     configureTemplateGallery({ client: client as never });
     const rows = await listTemplates({ sort: 'hot', limit: 30 });
@@ -92,6 +100,7 @@ describe('template-service 查询形态', () => {
     });
     expect(q.orders).toEqual([
       { column: 'usage_count', ascending: false },
+      { column: 'crawled_at', ascending: false },
       { column: 'id', ascending: true },
     ]);
     expect(q.range).toEqual([0, 29]);
@@ -137,6 +146,25 @@ describe('template-service 查询形态', () => {
     await expect(
       recordTemplateUsage('6aa8c6a3-67bd-5064-00d8-ee2e00000000')
     ).resolves.toBe(7);
+  });
+
+  it('countTemplates：head + exact count 请求，返回总数并带筛选', async () => {
+    const { client, queries } = makeClient(null, null, 1291);
+    configureTemplateGallery({ client: client as never });
+    await expect(
+      countTemplates({ category: '效果渲染', search: ' 景观 ' })
+    ).resolves.toBe(1291);
+    const q = queries[0];
+    expect(q.selectOpts).toEqual({ count: 'exact', head: true });
+    expect(q.filters).toContainEqual({ op: 'eq', args: ['status', 'active'] });
+    expect(q.filters).toContainEqual({ op: 'eq', args: ['category', '效果渲染'] });
+    expect(q.filters).toContainEqual({ op: 'ilike', args: ['title', '%景观%'] });
+  });
+
+  it('countTemplates：count 缺失时回退 0', async () => {
+    const { client } = makeClient(null);
+    configureTemplateGallery({ client: client as never });
+    await expect(countTemplates()).resolves.toBe(0);
   });
 
   it('查询错误时抛出带 error.message 的业务错误', async () => {

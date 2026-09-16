@@ -63,8 +63,14 @@ export async function listTemplates(
     .eq('status', 'active')
     .order(sort === 'hot' ? 'usage_count' : 'crawled_at', {
       ascending: false,
-    })
-    // 主排序键并列时行序不定，追加 id 做稳定 tiebreaker（翻页不重复/漏行）
+    });
+
+  if (sort === 'hot') {
+    // 平台使用数大多为 0，并列时按新增时间降序，避免"热度"固定同一批
+    builder = builder.order('crawled_at', { ascending: false });
+  }
+  // 主排序键并列时行序不定，追加 id 做稳定 tiebreaker（翻页不重复/漏行）
+  builder = builder
     .order('id', { ascending: true })
     .range(offset, offset + limit - 1);
 
@@ -98,6 +104,29 @@ export async function listTemplateCategories(): Promise<string[]> {
     if (row.category) seen.add(row.category);
   }
   return [...seen];
+}
+
+/** 当前筛选下的模板总数（head 请求只取 count，不拉数据行） */
+export async function countTemplates(
+  query: Pick<TemplateQuery, 'category' | 'search'> = {}
+): Promise<number> {
+  const client = requireClient();
+  const { category = null, search = '' } = query;
+  let builder = client
+    .from('ai_templates')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'active');
+  if (category) {
+    builder = builder.eq('category', category);
+  }
+  if (search.trim()) {
+    builder = builder.ilike('title', `%${search.trim()}%`);
+  }
+  const { count, error } = await builder;
+  if (error) {
+    throw new Error(`模板数量查询失败: ${error.message}`);
+  }
+  return count ?? 0;
 }
 
 /** 记录使用并原子自增使用计数（RPC security definer） */

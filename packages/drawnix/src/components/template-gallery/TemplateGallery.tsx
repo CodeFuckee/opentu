@@ -11,6 +11,7 @@ import {
   getTemplateGalleryConfig,
 } from './runtime';
 import {
+  countTemplates,
   listTemplateCategories,
   listTemplates,
   recordTemplateUsage,
@@ -55,35 +56,94 @@ export const TemplateGallery: React.FC<TemplateGalleryProps> = ({
       .catch(() => setCategories([]));
   }, [open, enabled]);
 
-  // 加载模板列表（请求序号防竞态：快速切换分类/搜索时丢弃过期响应）
+  // 加载模板列表：请求序号防竞态（过期响应一律丢弃）；滚动到底自动追加下一页
   const loadSeqRef = useRef(0);
-  const load = useCallback(async () => {
-    if (!open || !enabled) return;
-    const seq = ++loadSeqRef.current;
-    setLoading(true);
-    setError(null);
-    try {
-      const rows = await listTemplates({
-        category: activeCategory,
-        search,
-        sort,
-        limit: PAGE_SIZE,
-      });
-      if (seq !== loadSeqRef.current) return;
-      setTemplates(rows);
-    } catch (e) {
-      if (seq !== loadSeqRef.current) return;
-      setError(e instanceof Error ? e.message : '模板加载失败');
-    } finally {
-      if (seq === loadSeqRef.current) {
-        setLoading(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const fetchPage = useCallback(
+    async (offset: number) => {
+      if (!open || !enabled) return;
+      const seq = ++loadSeqRef.current;
+      if (offset === 0) {
+        setLoading(true);
+        setError(null);
+      } else {
+        setLoadingMore(true);
       }
+      try {
+        const rows = await listTemplates({
+          category: activeCategory,
+          search,
+          sort,
+          limit: PAGE_SIZE,
+          offset,
+        });
+        if (seq !== loadSeqRef.current) return;
+        setHasMore(rows.length === PAGE_SIZE);
+        if (offset === 0) {
+          setTemplates(rows);
+        } else {
+          setTemplates((prev) => {
+            const seen = new Set(prev.map((t) => t.id));
+            return [...prev, ...rows.filter((r) => !seen.has(r.id))];
+          });
+        }
+      } catch (e) {
+        if (seq !== loadSeqRef.current) return;
+        setError(e instanceof Error ? e.message : '模板加载失败');
+      } finally {
+        if (seq === loadSeqRef.current) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
+      }
+    },
+    [open, enabled, activeCategory, search, sort]
+  );
+
+  // 分类/搜索/排序变化或重新打开：重置回第一页
+  useEffect(() => {
+    if (!open || !enabled) return;
+    void fetchPage(0);
+  }, [fetchPage, open, enabled]);
+
+  // 滚动接近底部时自动追加下一页
+  const maybeLoadMore = useCallback(() => {
+    const el = bodyRef.current;
+    if (!el || loading || loadingMore || !hasMore) return;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 120) {
+      void fetchPage(templates.length);
     }
-  }, [open, enabled, activeCategory, search, sort]);
+  }, [fetchPage, loading, loadingMore, hasMore, templates.length]);
+
+  // 首页不足一屏时自动补页，保证后续滚动加载可触发
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el || loading || loadingMore || !hasMore) return;
+    if (el.scrollHeight <= el.clientHeight + 40) {
+      void fetchPage(templates.length);
+    }
+  }, [templates, loading, loadingMore, hasMore, fetchPage]);
+
+  // 右上角总数展示（随分类/搜索刷新；失败静默，不影响主流程）
+  const countSeqRef = useRef(0);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
+  const refreshCount = useCallback(async () => {
+    if (!open || !enabled) return;
+    const seq = ++countSeqRef.current;
+    try {
+      const n = await countTemplates({ category: activeCategory, search });
+      if (seq === countSeqRef.current) setTotalCount(n);
+    } catch {
+      if (seq === countSeqRef.current) setTotalCount(null);
+    }
+  }, [open, enabled, activeCategory, search]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void refreshCount();
+  }, [refreshCount]);
 
   // Esc 关闭
   useEffect(() => {
@@ -176,6 +236,14 @@ export const TemplateGallery: React.FC<TemplateGalleryProps> = ({
               {language === 'zh' ? '最新' : 'Latest'}
             </button>
           </div>
+          {totalCount !== null ? (
+            <span
+              className="template-gallery__count"
+              data-testid="template-gallery-count"
+            >
+              {language === 'zh' ? `共 ${totalCount} 个` : `${totalCount} templates`}
+            </span>
+          ) : null}
           <button
             className="template-gallery__close"
             onClick={onClose}
@@ -205,7 +273,11 @@ export const TemplateGallery: React.FC<TemplateGalleryProps> = ({
           </div>
         ) : null}
 
-        <div className="template-gallery__body">
+        <div
+          className="template-gallery__body"
+          ref={bodyRef}
+          onScroll={maybeLoadMore}
+        >
           {loading ? (
             <div className="template-gallery__state">
               {language === 'zh' ? '加载中…' : 'Loading…'}
@@ -251,6 +323,14 @@ export const TemplateGallery: React.FC<TemplateGalleryProps> = ({
               ))}
             </div>
           )}
+          {loadingMore ? (
+            <div className="template-gallery__more">加载中…</div>
+          ) : null}
+          {!loading && !hasMore && templates.length > 0 ? (
+            <div className="template-gallery__more">
+              已加载全部 {templates.length} 个模板
+            </div>
+          ) : null}
         </div>
 
         {detail ? (
