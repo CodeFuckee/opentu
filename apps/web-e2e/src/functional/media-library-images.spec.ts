@@ -351,4 +351,76 @@ test.describe('素材库图片可见性', () => {
     }
     await expectAllImagesDecoded(items, 2);
   });
+
+  test('E2E-106 非安全上下文（无 SW/Cache API）下上传图片仍可见', async ({
+    page,
+  }) => {
+    // 模拟纯 HTTP 内网部署环境（如 8089 预览/8088 生产）：浏览器不暴露
+    // Service Worker 与 Cache Storage API。此前 RetryImage 的虚拟路径判断
+    // 只认 '/' 开头的相对路径，被 useThumbnailUrl 转成绝对 URL 后判断失效，
+    // 降级链不触发，<img> 直接 404 —— 本用例锁定该回归。
+    await page.addInitScript(() => {
+      const navProto = Object.getPrototypeOf(navigator) as Record<
+        string,
+        unknown
+      >;
+      // 优先真删除（与真实非安全上下文一致：'serviceWorker' in navigator 为 false）
+      try {
+        delete navProto.serviceWorker;
+      } catch {
+        /* ignore */
+      }
+      if ('serviceWorker' in navigator) {
+        try {
+          Object.defineProperty(navigator, 'serviceWorker', {
+            get: () => undefined,
+            configurable: true,
+          });
+        } catch {
+          /* ignore */
+        }
+      }
+      try {
+        delete (window as unknown as Record<string, unknown>).caches;
+      } catch {
+        /* ignore */
+      }
+      try {
+        delete (Object.getPrototypeOf(window) as Record<string, unknown>)
+          .caches;
+      } catch {
+        /* ignore */
+      }
+      if ('caches' in window) {
+        try {
+          Object.defineProperty(window, 'caches', {
+            get: () => undefined,
+            configurable: true,
+          });
+        } catch {
+          /* ignore */
+        }
+      }
+    });
+
+    await openMediaLibrary(page);
+
+    // 模拟生效性自检：SW 与 Cache API 必须都不存在，否则跳过（防假阳性）
+    const sim = await page.evaluate(() => ({
+      noSW: !('serviceWorker' in navigator),
+      noCaches: !('caches' in window),
+    }));
+    test.skip(
+      !(sim.noSW && sim.noCaches),
+      `当前 Chromium 无法删除 SW/Cache API（noSW=${sim.noSW}, noCaches=${sim.noCaches}），无法模拟非安全上下文`
+    );
+
+    const prefix = `e2eimg${Date.now().toString(36)}`;
+    uploadedPrefixes.push(prefix);
+    const name = `${prefix}-1.png`;
+    await uploadPngs(page, [
+      { name, buffer: makeSolidPng(120, 90, [90, 90, 220]) },
+    ]);
+    await expectAllImagesDecoded(assetItemByName(page, name), 1);
+  });
 });

@@ -173,6 +173,12 @@ async function ensureThumbnailImpl(
     return;
   }
 
+  // 非安全上下文（纯 HTTP 内网）没有 Cache API，缩略图生成/存储依赖 SW，
+  // 直接跳过，避免 caches 未定义的 ReferenceError 反复告警
+  if (typeof caches === 'undefined') {
+    return;
+  }
+
   const thumbnailStorageKey = getThumbnailStorageKey(normalizedUrl, size);
 
   // 使用缓存的 Cache 引用，避免重复 caches.open

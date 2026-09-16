@@ -18,6 +18,7 @@ import {
   type AiTemplate,
   type TemplateSort,
 } from './template-service';
+import { copyToClipboard } from '../../utils/runtime-helpers';
 import './template-gallery.scss';
 
 export interface TemplateGalleryProps {
@@ -386,7 +387,10 @@ export const TemplateGallery: React.FC<TemplateGalleryProps> = ({
                     className="template-gallery__detail-copy"
                     onClick={() => {
                       if (detail.prompt) {
-                        void navigator.clipboard?.writeText(detail.prompt);
+                        // 非安全上下文无 navigator.clipboard，走带 execCommand 降级的公共方法
+                        void copyToClipboard(detail.prompt).catch(
+                          () => undefined
+                        );
                       }
                     }}
                   >

@@ -1,5 +1,31 @@
 ## Unreleased
 
+### 🐛 Bug Fixes
+
+- **纯 HTTP 内网部署（预览 8089/生产 8088）素材库图片全部损坏且控制台刷 404**
+  （2026-09-16，预览环境实测复现 + LAN IP 构建产物 E2E 验证）：
+  非安全上下文（isSecureContext=false）没有 Service Worker 与 Cache Storage，
+  图片应走「IndexedDB 兜底 blob → blob:URL」降级链，但链路被两处缺陷掐断——
+  1. `RetryImage` 虚拟路径判断用 `startsWith('/')`，而 `useThumbnailUrl` 给
+     虚拟路径加 `?thumbnail=large` 时经 `new URL().toString()` 转成**绝对 URL**，
+     判断失效 → 降级不触发 → `<img>` 直指虚拟路径必然 404。现改用共享的
+     `isVirtualMediaUrl()`（按 pathname 判断，相对/绝对均可）。
+  2. `<video>/<audio>`（预览器、素材库视频缩略图）不经 RetryImage，直指虚拟
+     路径同样 404。新增 `useVirtualMediaObjectUrl` hook：SW 不可用时从兜底库
+     读 blob 转 objectURL，MediaViewport 与 VideoPosterPreview 已接入。
+  连带加固与清理：
+  - bootstrap 的 `hasServiceWorkerSupport` 只查 `'serviceWorker' in navigator`，
+    SW API「存在但为 undefined」的环境（扩展注入/旧 shim）会因 register
+    TypeError **整个应用启动崩溃**；现额外校验 `register` 可用。
+  - 模板中心「复制提示词」按钮裸调 `navigator.clipboard`（非安全上下文必然
+    静默失效），换用带 execCommand 降级的 `copyToClipboard`。
+  - `useThumbnailUrl` 在无 Cache API 环境下缩略图生成反复抛 ReferenceError
+    告警，入口处直接跳过。
+  E2E 新增 E2E-106「非安全上下文（无 SW/Cache API）上传图片仍可见」（addInitScript
+  删除 SW/Cache API 模拟），并在 `http://10.37.80.175:7300` 真实非安全上下文
+  生产构建产物上全量验证通过。已知边界：云端同步但本机无二进制的素材会显示
+  「加载失败/需下载」占位（不再刷 404），跨设备自动重新拉取另行立项。
+
 ### 🧪 Tests
 
 - **新增素材库图片可见性 E2E 测试**（2026-09-16，`apps/web-e2e/src/functional/media-library-images.spec.ts`，

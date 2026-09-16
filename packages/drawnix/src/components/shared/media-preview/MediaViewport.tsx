@@ -21,6 +21,7 @@ import { normalizeImageDataUrl } from '@aitu/utils';
 import { quickInsertCanvasMedia } from '../../../services/canvas-operations/media-quick-insert';
 import { AudioCover } from '../AudioCover';
 import { RetryImage } from '../../retry-image';
+import { useVirtualMediaObjectUrl } from '../../../hooks/useVirtualMediaObjectUrl';
 import type { MediaViewportProps, MediaViewportRef } from './types';
 import { HoverPopover } from './HoverPopover';
 import './MediaViewport.scss';
@@ -214,6 +215,9 @@ export const MediaViewport = forwardRef<MediaViewportRef, MediaViewportProps>(({
   const mediaUrl = item
     ? (isVideo || isAudio ? item.url : normalizeImageDataUrl(item.url))
     : '';
+  // <video>/<audio> 不经 SW 拦截：非安全上下文（纯 HTTP 内网）下虚拟路径
+  // 需转 blob URL 才能播放（见 useVirtualMediaObjectUrl）
+  const playbackMediaUrl = useVirtualMediaObjectUrl(mediaUrl);
   const posterUrl = item?.posterUrl ? normalizeImageDataUrl(item.posterUrl) : '';
   const mediaIdentity = item ? `${item.type}:${item.id || item.url}` : 'empty';
   const needsAutoFitGate = Boolean(item?.url && !isAudio && !isCompareMode && !imageLoadFailed);
@@ -668,7 +672,7 @@ export const MediaViewport = forwardRef<MediaViewportRef, MediaViewportProps>(({
           >
             <video
               ref={videoRef}
-              src={mediaUrl}
+              src={playbackMediaUrl}
               autoPlay={videoAutoPlay}
               loop={videoLoop}
               controls
@@ -713,7 +717,7 @@ export const MediaViewport = forwardRef<MediaViewportRef, MediaViewportProps>(({
                 )}
               </div>
               <audio
-                src={mediaUrl}
+                src={playbackMediaUrl}
                 controls
                 preload="metadata"
                 className="media-viewport__audio"

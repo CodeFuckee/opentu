@@ -21,6 +21,7 @@ import React, {
 } from 'react';
 import { unifiedCacheService } from '../services/unified-cache-service';
 import { normalizeImageDataUrl } from '@aitu/utils';
+import { isVirtualMediaUrl } from '../utils/virtual-media-url';
 
 export interface RetryImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   /** Image source URL */
@@ -117,10 +118,12 @@ function isCachedUrl(url: string): boolean {
 
 /**
  * 检测 URL 是否是虚拟路径（需要 SW 拦截）
+ * 必须用共享的 pathname 判断：useThumbnailUrl 等会把虚拟路径转成
+ * 绝对 URL（http://host/asset-library/...），startsWith('/') 会漏判，
+ * 导致非安全上下文（纯 HTTP 内网）下降级链失效、<img> 直接 404
  */
 function isVirtualUrl(url: string): boolean {
-  return url.startsWith('/__aitu_cache__/') ||
-         url.startsWith('/asset-library/');
+  return isVirtualMediaUrl(url);
 }
 
 /**

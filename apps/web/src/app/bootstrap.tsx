@@ -33,8 +33,14 @@ const swQueryParam =
     ? new URLSearchParams(window.location.search).get('sw')
     : null;
 const isServiceWorkerExplicitlyDisabled = swQueryParam === '0';
+// 除 `'serviceWorker' in navigator` 外还要确认 API 真正可用：某些环境
+// （扩展注入/旧浏览器 shim）会留下存在但为 undefined 的属性，直接调
+// register 会 TypeError 并中断整个应用启动
 const hasServiceWorkerSupport =
-  typeof navigator !== 'undefined' && 'serviceWorker' in navigator;
+  typeof navigator !== 'undefined' &&
+  'serviceWorker' in navigator &&
+  !!navigator.serviceWorker &&
+  typeof navigator.serviceWorker.register === 'function';
 const shouldUseServiceWorker =
   hasServiceWorkerSupport && !isServiceWorkerExplicitlyDisabled;
 

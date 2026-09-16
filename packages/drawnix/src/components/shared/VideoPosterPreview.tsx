@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { PlayCircleIcon } from 'tdesign-icons-react';
 import { useThumbnailUrl } from '../../hooks/useThumbnailUrl';
+import { useVirtualMediaObjectUrl } from '../../hooks/useVirtualMediaObjectUrl';
 import './VideoPosterPreview.scss';
 
 const THUMBNAIL_PLACEHOLDER_SIZE = 1;
@@ -139,6 +140,8 @@ export const VideoPosterPreview: React.FC<VideoPosterPreviewProps> = ({
     posterCandidate && posterCandidate === generatedPoster && posterCandidate !== src
   );
   const videoRef = useRef<HTMLVideoElement>(null);
+  // <video> 不经 SW 拦截：非安全上下文（纯 HTTP 内网）下虚拟路径需转 blob URL
+  const playableSrc = useVirtualMediaObjectUrl(src);
   const activatedByClickRef = useRef(false);
   const retryTimerRef = useRef<number | null>(null);
   const [resolvedPoster, setResolvedPoster] = useState<string | null>(() => getCachedResolvedPoster(posterCandidate));
@@ -327,7 +330,7 @@ export const VideoPosterPreview: React.FC<VideoPosterPreviewProps> = ({
   return renderPreviewWithOverlay(
     <video
       ref={videoRef}
-      src={src}
+      src={playableSrc}
       poster={resolvedPoster || normalizedPoster}
       className={`video-poster-preview__media${className ? ` ${className}` : ''}`}
       playsInline
