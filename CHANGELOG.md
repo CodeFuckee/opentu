@@ -5,6 +5,29 @@
 > 本节由一次全仓库代码评审（code-review-skill 五维度：架构/性能/安全/反模式/常见 bug）产出，
 > 均为行为保持或安全加固型修复；需产品决策的行为变更项见评审报告「待确认」清单。
 
+- **[P0] Supabase 用户角色与管理员门禁统一（看板/dashboard-stats 只允许管理员查看）**
+  （2026-09-16，grill-me 方案收敛后落地）：
+  - **角色列**：`user_profiles` 新增 `role` 列（`'admin'`=管理员，NULL=普通用户），
+    迁移 `supabase/migrations/user_roles_is_admin.sql`。配套**收权**：原 RLS 允许用户
+    insert/update/delete 自己的行（存在"删行重插 role='admin'"自提权路径），现 revoke
+    客户端全部写权限（写路径本就全走 service_role 边缘函数），另加 guard 触发器纵深
+    （用户 JWT 上下文写 role 一律置空）。
+  - **统一判定**：数据库安全定义者 RPC `is_admin()`——`role='admin'` 优先，configs
+    历史名单（`TEMPLATE_CRAWLER_ADMINS`/`TASK_MONITOR_ADMINS`，逗号分隔 oa 账号）
+    兼容回退，异常 fail-closed。dashboard-stats / template-crawler / task-monitor
+    三个函数全部切到该 RPC（此前每函数各维护一份名单，现单点在 DB）。
+  - **看板三端点全锁**：页面 HTML、`/overview`、`/push-report` 均要求「有效用户 JWT
+    + is_admin()=true」（未登录/无效 401，非管理员 403）；页面自带 oa账号+密码登录
+    （与主应用同规则：纯账号拼 `@yjk.com`），access token 过期自动用 refresh token
+    续期，403 明示「仅管理员可查看」；`/push-report` 请求同步带凭证。移除
+    `DEFAULT_ANON_KEY` 硬编码兜底，`SUPABASE_ANON_KEY` 缺失时函数拒绝启动。
+  - **存量管理员自动迁移**：迁移 SQL 把现有 configs 名单中的 oa 账号批量刷成
+    `role='admin'`，现有管理员零操作平滑过渡；此后任命/撤销管理员唯一入口：
+    `update user_profiles set role='admin' where oa_account='...'`。
+  - **部署顺序（重要）**：先在库上执行迁移 SQL，再部署三个边缘函数与看板；
+    顺序颠倒会造成 `is_admin()` 缺失 → 全部调用 fail-closed 403（含每日爬虫同步）。
+    另需确认 functions 容器已注入 `SUPABASE_ANON_KEY` 环境变量。
+
 - **[P0] 工具 iframe 同源 XSS**：工具卡片 `src` 直接取自画板元素 `element.url`
   （粘贴/导入画板数据即可注入），`javascript:` URL 会在继承父源的 iframe 中执行。
   `tool.generator.ts` 现仅接受 http(s) 协议（非法协议进入加载失败态）。

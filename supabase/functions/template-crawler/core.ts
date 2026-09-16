@@ -306,40 +306,32 @@ async function verifyCallerJwt(
 }
 
 /**
- * 管理员判定：configs 表 TEMPLATE_CRAWLER_ADMINS 键（逗号分隔 oa 账号，即邮箱前缀）。
- * department_configs 表在本库未部署（ai-proxy 对其容错回退），故复用 configs。
+ * 管理员判定：调数据库统一 RPC is_admin()（security definer）。
+ * role=user_profiles.role='admin' 优先，configs 历史名单回退，单点维护在 DB 侧；
+ * RPC 不可用/失败一律按非管理员处理（fail-closed）。
  */
-export const ADMINS_CONFIG_KEY = 'TEMPLATE_CRAWLER_ADMINS';
-
 export async function isAdminCaller(
   supabaseUrl: string,
   serviceRoleKey: string,
-  email: string | null,
+  jwt: string,
   deps: TemplateCrawlerDeps
 ): Promise<boolean> {
-  if (!email || !email.includes('@')) return false;
-  const oaAccount = email.split('@')[0].toLowerCase();
   const doFetch = deps.fetch || fetch;
   try {
     const response = await doFetch(
-      `${(supabaseUrl || '').replace(/\/$/, '')}/rest/v1/configs?select=value&key=eq.${ADMINS_CONFIG_KEY}`,
+      `${(supabaseUrl || '').replace(/\/$/, '')}/rest/v1/rpc/is_admin`,
       {
-        method: 'GET',
+        method: 'POST',
         headers: {
           apikey: serviceRoleKey,
-          Authorization: `Bearer ${serviceRoleKey}`,
-          Accept: 'application/json',
+          Authorization: `Bearer ${jwt}`,
+          'Content-Type': 'application/json',
         },
+        body: '{}',
       }
     );
     if (!response.ok) return false;
-    const rows = (await response.json()) as Array<{ value?: string }>;
-    const raw = Array.isArray(rows) && rows[0]?.value ? rows[0].value : '';
-    return raw
-      .split(',')
-      .map((it) => it.trim().toLowerCase())
-      .filter(Boolean)
-      .includes(oaAccount);
+    return (await response.json().catch(() => false)) === true;
   } catch {
     return false;
   }
@@ -602,7 +594,7 @@ export async function handleTemplateCrawler(
   if (!caller) {
     return jsonResponse(401, { error: 'unauthorized: invalid token' });
   }
-  if (!(await isAdminCaller(supabaseUrl, serviceRoleKey, caller.email, deps))) {
+  if (!(await isAdminCaller(supabaseUrl, serviceRoleKey, jwt, deps))) {
     return jsonResponse(403, { error: 'forbidden: admin only' });
   }
 

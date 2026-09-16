@@ -6,22 +6,20 @@
  * - 三类统计：任务（task_submissions）、用量（generation_usage）、
  *   用户与组织（user_profiles/staff_directory/departments）、
  *   文件与存储（file_paths/response_file_paths + huabu bucket 对象）
- * - 自包含 HTML 看板页面生成（内联 CSS/JS，无外部依赖）
+ * - 自包含 HTML 看板页面生成（内联 CSS/JS，无外部依赖；自带 oa账号+密码登录，
+ *   数据接口仅接受管理员用户 JWT）
  *
- * 鉴权：暂不做（本函数不校验调用者身份；页面内嵌 anon key 供 Kong 放行）。
- * 升级路径：后续在函数内加管理员判定，或由 Kong 做网络/IP 限制。
+ * 鉴权（2026-09-16 起强制）：页面/overview/push-report 三个端点均要求
+ * 「有效用户 JWT + 数据库统一 RPC is_admin()=true」（见 verifyDashboardAdmin），
+ * 非管理员 403、未登录/无效 token 401；页面 JS 用登录会话的 access_token 调接口。
  */
-
-/** anon key（公钥）兜底：与 apps/web/src/supabase/supabase-client.ts 默认值一致 */
-export const DEFAULT_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE';
 
 /** 看板函数需要的环境注入（由 index.ts 从 Deno.env 读取传入） */
 export interface DashboardEnv {
   SUPABASE_URL: string;
   SERVICE_ROLE_KEY: string;
-  /** 可选：页面 JS 调 overview 时 Kong 放行用的公钥；缺省 DEFAULT_ANON_KEY */
-  ANON_KEY?: string;
+  /** 页面 JS 走 GoTrue 登录与 Kong 放行所需的公钥；缺失时函数拒绝启动（不再硬编码兜底） */
+  ANON_KEY: string;
 }
 
 /** 可注入依赖（便于 node:test 单测） */
@@ -1187,9 +1185,63 @@ export async function aggregateOverview(
 // HTML 看板页面（自包含，无外部依赖）
 // ============================================================================
 
+/** 从 Authorization 头提取 Bearer token（无/格式不符返回 null） */
+export function extractBearerToken(headerValue: string | null): string | null {
+  const match = (headerValue || '').match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : null;
+}
+
+export type DashboardGate =
+  | { ok: true }
+  | { ok: false; status: 401 | 403; error: string };
+
+/**
+ * 看板统一门禁：有效用户 JWT（/auth/v1/user 自证）+ 数据库统一 RPC is_admin()。
+ * 未带 token / token 无效 → 401；非管理员 / RPC 不可用 → 403（fail-closed）。
+ */
+export async function verifyDashboardAdmin(
+  env: DashboardEnv,
+  request: Request,
+  deps: DashboardDeps = {}
+): Promise<DashboardGate> {
+  const jwt = extractBearerToken(request.headers.get('Authorization'));
+  if (!jwt) {
+    return { ok: false, status: 401, error: 'unauthorized: missing bearer token' };
+  }
+  const doFetch = deps.fetch || fetch;
+  const base = (env.SUPABASE_URL || '').replace(/\/$/, '');
+  try {
+    const authRes = await doFetch(`${base}/auth/v1/user`, {
+      method: 'GET',
+      headers: { apikey: env.SERVICE_ROLE_KEY, Authorization: `Bearer ${jwt}` },
+    });
+    if (!authRes.ok) {
+      return { ok: false, status: 401, error: 'unauthorized: invalid token' };
+    }
+    const rpcRes = await doFetch(`${base}/rest/v1/rpc/is_admin`, {
+      method: 'POST',
+      headers: {
+        apikey: env.SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${jwt}`,
+        'Content-Type': 'application/json',
+      },
+      body: '{}',
+    });
+    if (!rpcRes.ok) {
+      return { ok: false, status: 403, error: 'forbidden: admin only' };
+    }
+    const verdict = (await rpcRes.json().catch(() => false)) === true;
+    if (verdict) return { ok: true };
+    return { ok: false, status: 403, error: 'forbidden: admin only' };
+  } catch {
+    return { ok: false, status: 403, error: 'forbidden: admin only' };
+  }
+}
+
+
 /**
  * 生成自包含 HTML 看板页面。页面 JS 以相对路径调 `/overview?days=N`，
- * 请求头带 `Authorization: Bearer <anonKey>`（公钥，供 Kong 放行）。
+ * 数据请求带登录会话的 access_token（oa账号+密码登录，刷新令牌自动续期）。
  */
 export function buildDashboardHtml(anonKey: string): string {
   const safeKey = anonKey.replace(/[<>&'"]/g, '');
@@ -1253,6 +1305,19 @@ export function buildDashboardHtml(anonKey: string): string {
   @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
   .error { color:var(--fail); padding:20px; text-align:center; }
   .muted { color:var(--muted); }
+  /* 登录遮罩（仅管理员可见看板） */
+  #loginCard { position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center;
+    background:radial-gradient(720px 360px at 50% 18%, rgba(91,140,255,.14), transparent 65%), var(--bg); }
+  #loginCard .login-box { width:min(360px,92vw); background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:28px 26px; }
+  #loginCard h1 { font-size:17px; margin-bottom:6px; }
+  #loginCard .sub { color:var(--muted); font-size:12px; margin-bottom:18px; }
+  #loginCard input { width:100%; background:rgba(148,163,184,.1); color:var(--text); border:1px solid var(--line);
+    border-radius:8px; padding:9px 12px; font-size:13px; margin-bottom:10px; outline:none; }
+  #loginCard input:focus { border-color:var(--accent); }
+  #loginBtn { width:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); color:#fff; border:none;
+    border-radius:8px; padding:10px 12px; font-size:13px; font-weight:600; cursor:pointer; }
+  #loginBtn:disabled { opacity:.6; cursor:default; }
+  #loginMsg { color:var(--fail); font-size:12px; min-height:16px; margin-top:10px; text-align:center; }
 </style>
 </head>
 <body>
@@ -1269,6 +1334,7 @@ export function buildDashboardHtml(anonKey: string): string {
     <button id="exportBtn">导出图片</button>
     <button id="pushBtn">推送</button>
     <button id="copyReportBtn">复制报告</button>
+    <button id="logoutBtn" title="退出登录">退出</button>
   </div>
 </header>
 <div class="wrap">
@@ -1298,9 +1364,86 @@ export function buildDashboardHtml(anonKey: string): string {
 </div>
 </div>
 
+<div id="loginCard">
+  <div class="login-box">
+    <h1>YUE 画布数据看板</h1>
+    <div class="sub">仅管理员可见，请使用平台账号（oa账号）登录</div>
+    <input id="loginAccount" placeholder="oa账号（小写）" autocomplete="username">
+    <input id="loginPassword" type="password" placeholder="密码" autocomplete="current-password">
+    <button id="loginBtn">登录</button>
+    <div id="loginMsg"></div>
+  </div>
+</div>
+
 <script>
 var ANON_KEY = "${safeKey}";
 var days = 30;
+
+// ==================== 登录会话（oa账号+密码 → GoTrue，仅管理员可用看板） ====================
+var SESSION_KEY = 'dash_admin_session';
+var session = null; // { access_token, refresh_token }
+
+function loadSession(){ try{ session = JSON.parse(localStorage.getItem(SESSION_KEY)||'null'); }catch(e){ session=null; } if(!session||!session.access_token) session=null; }
+function saveSession(s){ session=s; try{ localStorage.setItem(SESSION_KEY, JSON.stringify(s)); }catch(e){} }
+function clearSession(){ session=null; try{ localStorage.removeItem(SESSION_KEY); }catch(e){} }
+
+// 与主应用一致：纯 oa账号补 @yjk.com（自动转小写），含 @ 视为完整邮箱
+function normalizeAccount(acc){ acc=(acc||'').trim(); if(!acc) return ''; return acc.indexOf('@')>=0 ? acc : acc.toLowerCase()+'@yjk.com'; }
+
+function showLogin(){ document.getElementById('loginCard').style.display='flex'; }
+function hideLogin(){ document.getElementById('loginCard').style.display='none'; }
+
+function showLoginMsg(text){ document.getElementById('loginMsg').textContent=text||''; }
+
+function doLogin(){
+  var account = document.getElementById('loginAccount').value;
+  var password = document.getElementById('loginPassword').value;
+  var email = normalizeAccount(account);
+  if(!email || !password){ showLoginMsg('请输入 oa账号与密码'); return; }
+  var btn = document.getElementById('loginBtn');
+  btn.disabled = true; showLoginMsg('');
+  fetch('/auth/v1/token?grant_type=password', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'apikey':ANON_KEY },
+    body: JSON.stringify({ email: email, password: password })
+  }).then(function(r){ return r.json().then(function(j){ return { ok:r.ok, body:j }; }); })
+    .then(function(res){
+      btn.disabled = false;
+      if(res.ok && res.body && res.body.access_token){
+        saveSession({ access_token:res.body.access_token, refresh_token:res.body.refresh_token });
+        showLoginMsg(''); hideLogin(); load();
+      } else if(res.body && (res.body.error_description||res.body.msg||'').indexOf('expire')>=0){
+        showLoginMsg('登录已过期，请重新登录');
+      } else {
+        showLoginMsg('账号或密码错误（或账号未注册）');
+      }
+    })
+    .catch(function(){ btn.disabled = false; showLoginMsg('登录请求失败，请检查网络'); });
+}
+
+function tryRefresh(){
+  if(!session || !session.refresh_token) return Promise.resolve(false);
+  return fetch('/auth/v1/token?grant_type=refresh_token', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'apikey':ANON_KEY },
+    body: JSON.stringify({ refresh_token: session.refresh_token })
+  }).then(function(r){ return r.json().then(function(j){ return { ok:r.ok, body:j }; }); })
+    .then(function(res){
+      if(res.ok && res.body && res.body.access_token){
+        saveSession({ access_token:res.body.access_token, refresh_token:res.body.refresh_token||session.refresh_token });
+        return true;
+      }
+      clearSession(); return false;
+    })
+    .catch(function(){ return false; });
+}
+
+function authHeaders(extra){
+  var h = extra || {};
+  if(session && session.access_token) h['Authorization'] = 'Bearer ' + session.access_token;
+  return h;
+}
+
 
 function fmtDate(iso){ if(!iso) return '-'; var d=new Date(iso); if(isNaN(d)) return iso; var p=function(x){return String(x).padStart(2,'0')}; return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
 function fmtBytes(n){ if(n==null) return '-'; if(n<1024) return n+' B'; if(n<1048576) return (n/1024).toFixed(1)+' KB'; if(n<1073741824) return (n/1048576).toFixed(1)+' MB'; return (n/1073741824).toFixed(2)+' GB'; }
@@ -1529,7 +1672,7 @@ function weekRange(){
   return {start:f(mon),end:f(sun),label:f(mon)+' ~ '+f(sun)};
 }
 
-function load(){
+async function load(){
   var mode = document.getElementById('daysSel').value;
   var qs;
   if(mode==='week'){
@@ -1542,15 +1685,25 @@ function load(){
     CURRENT_RANGE_LABEL='近 '+days+' 天';
     qs='overview?days='+days;
   }
-  fetch(basePath() + qs, {
-    headers: { 'Authorization': 'Bearer ' + ANON_KEY }
-  })
-    .then(function(res){ if(!res.ok){ throw new Error('HTTP ' + res.status); } return res.json(); })
-    .then(render)
-    .catch(function(err){
-      document.getElementById('kpiCards').innerHTML =
-        '<div class="card" style="grid-column:1/-1"><div class="error">加载失败：'+esc(err.message)+'</div></div>';
-    });
+  var requestOverview = function(){
+    return fetch(basePath() + qs, { headers: authHeaders() });
+  };
+  try {
+    var res = await requestOverview();
+    if(res.status===401){
+      // access token 过期：用 refresh token 续期后重试一次
+      if(await tryRefresh()){ res = await requestOverview(); }
+      if(res.status===401){ clearSession(); showLogin(); return; }
+    }
+    if(res.status===403){
+      throw new Error('仅管理员可查看本看板（当前账号未授权）');
+    }
+    if(!res.ok){ throw new Error('HTTP ' + res.status); }
+    render(await res.json());
+  } catch(err){
+    document.getElementById('kpiCards').innerHTML =
+      '<div class="card" style="grid-column:1/-1"><div class="error">加载失败：'+esc(err && err.message ? err.message : err)+'</div></div>';
+  }
 }
 
 document.getElementById('refreshBtn').addEventListener('click', load);
@@ -1663,10 +1816,11 @@ document.getElementById('pushBtn').addEventListener('click', function(){
     }
     var res = await fetch(basePath() + 'push-report', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ imageBase64: dataUrl, text: text })
     });
     var j = await res.json();
+    if(res.status===403) throw new Error('仅管理员可推送报告');
     if(!(j && j.ok)) throw new Error((j && j.error) || ('HTTP ' + res.status));
   })().then(function(){
     btn.disabled = false;
@@ -1679,7 +1833,15 @@ document.getElementById('pushBtn').addEventListener('click', function(){
   });
 });
 
-load();
+// 登录/退出事件
+document.getElementById('loginBtn').addEventListener('click', doLogin);
+document.getElementById('loginPassword').addEventListener('keydown', function(e){ if(e.key==='Enter') doLogin(); });
+document.getElementById('loginAccount').addEventListener('keydown', function(e){ if(e.key==='Enter') document.getElementById('loginPassword').focus(); });
+document.getElementById('logoutBtn').addEventListener('click', function(){ clearSession(); showLogin(); });
+
+// 启动：有会话直接加载，否则进入登录页
+loadSession();
+if(session){ load(); } else { showLogin(); }
 </script>
 </div>
 </body>

@@ -23,13 +23,16 @@ import {
   pushReport,
   aggregateOverview,
   buildDashboardHtml,
-  DEFAULT_ANON_KEY,
+  verifyDashboardAdmin,
   type DashboardEnv,
 } from './core.ts';
+
+const ANON_KEY = 'test-anon-key';
 
 const ENV: DashboardEnv = {
   SUPABASE_URL: 'http://supabase.local',
   SERVICE_ROLE_KEY: 'service-role-key',
+  ANON_KEY,
 };
 
 type Route = {
@@ -464,14 +467,26 @@ test('pushReport：gitee 上传后钉钉加签发送；缺 webhook 报错', asyn
   assert.ok((r2.error || '').includes('DINGTALK_WEBHOOK'));
 });
 
-test('buildDashboardHtml：自包含页面，内嵌 anon key，无外部脚本依赖', () => {
-  const html = buildDashboardHtml(DEFAULT_ANON_KEY);
+test('buildDashboardHtml：自包含页面，内嵌 anon key，自带管理员登录，无外部脚本依赖', () => {
+  const html = buildDashboardHtml(ANON_KEY);
   assert.ok(html.includes('<!DOCTYPE html>'));
   assert.ok(html.includes('数据看板'));
   assert.ok(html.includes('overview?days='));
-  assert.ok(html.includes(DEFAULT_ANON_KEY));
+  assert.ok(html.includes(ANON_KEY));
   assert.ok(!/<script[^>]+src=/i.test(html), '页面不得引用外部脚本');
   assert.ok(!/<link[^>]+href=/i.test(html), '页面不得引用外部样式');
+  // 登录门禁 UI：oa账号+密码登录卡片、GoTrue 密码授权与刷新、凭证请求头
+  assert.ok(html.includes('id="loginCard"'), '页面必须自带登录卡片');
+  assert.ok(html.includes('仅管理员可见'));
+  assert.ok(html.includes('grant_type=password'));
+  assert.ok(html.includes('grant_type=refresh_token'));
+  assert.ok(html.includes('@yjk.com'), 'oa账号需按主应用约定拼接邮箱域名');
+  assert.ok(html.includes("Authorization'] = 'Bearer ' + session.access_token"));
+  assert.ok(html.includes('仅管理员可查看本看板'), '403 时需给出管理员提示');
+  assert.ok(html.includes('id="logoutBtn"'));
+  // 启动必须先检查会话，不得匿名直接加载
+  assert.ok(html.includes('loadSession();'));
+  assert.ok(!/^\s*load\(\);\s*$/m.test(html.split('loadSession();')[1] || ''), '启动不得绕过会话检查直接 load()');
   // 任务口径：只展示成功任务，不展示状态/失败分布
   assert.ok(html.includes('成功任务按类型') || html.includes('操作类型分布'));
   assert.ok(html.includes('每日成功任务趋势'));
@@ -488,12 +503,85 @@ test('buildDashboardHtml：自包含页面，内嵌 anon key，无外部脚本�
   assert.ok(html.includes('导出图片'));
   assert.ok(html.includes('foreignObject'));
   assert.ok(html.includes('animation:none!important'));
-  // 导出图片按钮与 foreignObject 栅格化实现（导出时禁用动画，避免渐入面板不可见）
-  assert.ok(html.includes('导出图片'));
-  assert.ok(html.includes('foreignObject'));
-  assert.ok(html.includes('animation:none!important'));
   // 推送按钮（钉钉机器人）
   assert.ok(html.includes('id="pushBtn"'));
+});
+
+// ============================================================
+// 管理员门禁 verifyDashboardAdmin（页面/overview/push-report 共用）
+// ============================================================
+
+function gateMockFetch(opts: {
+  authOk?: boolean;
+  rpcStatus?: number;
+  rpcBody?: string;
+} = {}) {
+  const authOk = opts.authOk ?? true;
+  const rpcStatus = opts.rpcStatus ?? 200;
+  const rpcBody = opts.rpcBody ?? 'true';
+  return async (input: RequestInfo | URL): Promise<Response> => {
+    const url = String(input);
+    if (url.includes('/auth/v1/user')) {
+      return new Response(authOk ? JSON.stringify({ id: 'u1' }) : '{}', {
+        status: authOk ? 200 : 401,
+      });
+    }
+    if (url.includes('/rest/v1/rpc/is_admin')) {
+      return new Response(rpcBody, { status: rpcStatus });
+    }
+    return new Response('unexpected', { status: 404 });
+  };
+}
+
+function gateRequest(token?: string) {
+  return new Request('http://x/functions/v1/dashboard-stats/overview', {
+    method: 'GET',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+}
+
+test('verifyDashboardAdmin：无 token / 无效 token → 401', async () => {
+  const missing = await verifyDashboardAdmin(ENV, gateRequest());
+  assert.equal(missing.ok, false);
+  assert.equal(!missing.ok && missing.status, 401);
+
+  const invalid = await verifyDashboardAdmin(ENV, gateRequest('bad-token'), {
+    fetch: gateMockFetch({ authOk: false }),
+  });
+  assert.equal(invalid.ok, false);
+  assert.equal(!invalid.ok && invalid.status, 401);
+});
+
+test('verifyDashboardAdmin：非管理员 / RPC 失败 → 403（fail-closed）', async () => {
+  const nonAdmin = await verifyDashboardAdmin(ENV, gateRequest('u-jwt'), {
+    fetch: gateMockFetch({ rpcBody: 'false' }),
+  });
+  assert.equal(nonAdmin.ok, false);
+  assert.equal(!nonAdmin.ok && nonAdmin.status, 403);
+
+  const rpcDown = await verifyDashboardAdmin(ENV, gateRequest('u-jwt'), {
+    fetch: gateMockFetch({ rpcStatus: 500 }),
+  });
+  assert.equal(rpcDown.ok, false);
+  assert.equal(!rpcDown.ok && rpcDown.status, 403);
+});
+
+test('verifyDashboardAdmin：管理员放行；请求体必须是调用者 JWT（而非 service_role）', async () => {
+  let rpcAuthHeader = '';
+  const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const url = String(input);
+    if (url.includes('/auth/v1/user')) {
+      return new Response(JSON.stringify({ id: 'u1' }), { status: 200 });
+    }
+    if (url.includes('/rest/v1/rpc/is_admin')) {
+      rpcAuthHeader = String(init?.headers && (init.headers as Record<string, string>)['Authorization'] || '');
+      return new Response('true', { status: 200 });
+    }
+    return new Response('unexpected', { status: 404 });
+  };
+  const gate = await verifyDashboardAdmin(ENV, gateRequest('caller-jwt'), { fetch: fetchImpl });
+  assert.equal(gate.ok, true);
+  assert.equal(rpcAuthHeader, 'Bearer caller-jwt', 'is_admin 必须以调用者 JWT 执行，auth.uid() 才指向调用者');
 });
 
 // ============================================================

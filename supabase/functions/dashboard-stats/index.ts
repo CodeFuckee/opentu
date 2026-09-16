@@ -4,19 +4,22 @@
  * 托管在 Supabase 后端的数据看板：页面与聚合数据接口都由本函数提供。
  * 逻辑见 core.ts。
  *
- * 请求（自托管实例：环境变量 SUPABASE_SERVICE_ROLE_KEY / SUPABASE_URL，容器内已配置）：
+ * 请求（自托管实例：环境变量 SUPABASE_SERVICE_ROLE_KEY / SUPABASE_URL /
+ * SUPABASE_ANON_KEY，容器内已配置）：
  *   GET  /functions/v1/dashboard-stats/            → 200 自包含 HTML 看板页面
  *   GET  /functions/v1/dashboard-stats/overview?days=N → 200 JSON 四类聚合统计
  *   OPTIONS                                        → 204 CORS
  *   其他方法/路径                                   → 405/404
  *
- * 鉴权：暂不做（本函数不校验调用者；页面 JS 带 anon key 供 Kong 放行）。
+ * 鉴权（2026-09-16 起强制）：三个端点均要求「有效用户 JWT + is_admin()=true」，
+ * 未登录/无效 token 401、非管理员 403；页面自带 oa账号+密码登录，登录后以
+ * access_token 调用。SUPABASE_ANON_KEY 缺失时拒绝启动（不再硬编码兜底）。
  */
 import {
   aggregateOverview,
   buildDashboardHtml,
   pushReport,
-  DEFAULT_ANON_KEY,
+  verifyDashboardAdmin,
   type DashboardEnv,
 } from './core.ts';
 
@@ -38,9 +41,9 @@ Deno.serve(async (request: Request) => {
 
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
   const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-  const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || DEFAULT_ANON_KEY;
-  if (!serviceRoleKey || !supabaseUrl) {
-    return jsonError(500, 'SUPABASE_SERVICE_ROLE_KEY / SUPABASE_URL not configured');
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+  if (!serviceRoleKey || !supabaseUrl || !anonKey) {
+    return jsonError(500, 'dashboard-stats is not configured: SUPABASE_SERVICE_ROLE_KEY / SUPABASE_URL / SUPABASE_ANON_KEY are required');
   }
   const env: DashboardEnv = {
     SUPABASE_URL: supabaseUrl,
@@ -58,6 +61,12 @@ Deno.serve(async (request: Request) => {
   const route = parseRoute(urlPath);
 
   try {
+    // 统一门禁：页面/overview/push-report 全部仅限管理员（未登录 401、非管理员 403）
+    const gate = await verifyDashboardAdmin(env, request);
+    if (!gate.ok) {
+      return jsonError(gate.status, gate.error);
+    }
+
     if (request.method === 'GET' || request.method === 'HEAD') {
       if (route.kind === 'page') {
         const html = buildDashboardHtml(anonKey);

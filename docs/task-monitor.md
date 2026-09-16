@@ -18,8 +18,13 @@ curl -X POST "http://10.37.80.25:8021/functions/v1/task-monitor" \
 ```
 
 - `hours`：统计窗口，缺省 24，上限 168；GET query 或 POST body 均可
-- 鉴权：任意有效 Supabase 用户 JWT（函数内经 `/auth/v1/user` 自证）；
-  未登录返回 401
+- 鉴权（2026-09-16 起管理员限定）：任意有效 Supabase 用户 JWT（函数内经
+  `/auth/v1/user` 自证，未登录返回 401）+ 数据库统一 RPC `is_admin()`
+  （非管理员返回 403）。管理员判定单点在 DB：
+  `user_profiles.role='admin'` 优先，configs 历史名单
+  （`TEMPLATE_CRAWLER_ADMINS`/`TASK_MONITOR_ADMINS`）兼容回退；
+  任命管理员：`update user_profiles set role='admin' where oa_account='...'`
+  （迁移见 `supabase/migrations/user_roles_is_admin.sql`）
 
 ## 返回字段
 
@@ -46,7 +51,7 @@ curl -X POST "http://10.37.80.25:8021/functions/v1/task-monitor" \
 ## 实现与部署
 
 - 目录：`supabase/functions/task-monitor/{index.ts,core.ts,core.test.ts}`
-- 单测：`node --test supabase/functions/task-monitor/core.test.ts`（18 条）
+- 单测：`node --test supabase/functions/task-monitor/core.test.ts`（21 条）
 - 部署（自托管热加载）：`cp -r supabase/functions/task-monitor
   /home/mdc/codes/supabase/volumes/functions/`
 - 只读聚合：仅两条 PostgREST 查询（failed/completed 两个切片），不写任何表；

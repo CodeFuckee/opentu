@@ -141,10 +141,10 @@ function routerFetch(routes: Array<{ match: RegExp; handler: (url: string) => { 
   };
 }
 
-function adminRoutes(admins = 'chenkaidi') {
+function adminRoutes(isAdmin = true) {
   return [
     { match: /\/auth\/v1\/user/, handler: () => ({ status: 200, body: JSON.stringify({ id: 'u1', email: 'chenkaidi@example.com' }) }) },
-    { match: /configs\?select=value/, handler: () => ({ status: 200, body: JSON.stringify([{ value: admins }]) }) },
+    { match: /\/rest\/v1\/rpc\/is_admin/, handler: () => ({ status: 200, body: JSON.stringify(isAdmin) }) },
   ];
 }
 
@@ -314,10 +314,27 @@ describe('handleTemplateCrawler', () => {
     const res = await handleTemplateCrawler(
       new Request('http://x/f', { method: 'POST', headers: { Authorization: 'Bearer ok' }, body: JSON.stringify({ action: 'crawl' }) }),
       env,
-      { fetch: routerFetch([...adminRoutes('someone-else'), { match: /templates/, handler: () => ({ status: 200, body: '[]' }) }], captures) }
+      { fetch: routerFetch([...adminRoutes(false), { match: /templates/, handler: () => ({ status: 200, body: '[]' }) }], captures) }
     );
     assert.equal(res.status, 403);
     assert.ok(!captures.some((c) => c.url.includes('/templates?')), '不应有上游列表请求');
+  });
+
+  test('is_admin RPC 失败时 fail-closed 403', async () => {
+    const res = await handleTemplateCrawler(
+      new Request('http://x/f', { method: 'POST', headers: { Authorization: 'Bearer ok' }, body: JSON.stringify({ action: 'crawl' }) }),
+      env,
+      {
+        fetch: routerFetch(
+          [
+            { match: /\/auth\/v1\/user/, handler: () => ({ status: 200, body: JSON.stringify({ id: 'u1', email: 'chenkaidi@example.com' }) }) },
+            { match: /\/rest\/v1\/rpc\/is_admin/, handler: () => ({ status: 500, body: 'boom' }) },
+          ],
+          []
+        ),
+      }
+    );
+    assert.equal(res.status, 403);
   });
 
   test('管理员 stats 动作返回分类统计', async () => {

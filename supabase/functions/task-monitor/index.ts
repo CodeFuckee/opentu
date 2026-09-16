@@ -12,7 +12,8 @@
  *   GET  /functions/v1/task-monitor?hours=24
  *   POST /functions/v1/task-monitor   {"hours": 24}
  *   Authorization: Bearer <管理员用户的 Supabase JWT>
- *   管理员名单：configs 表 TASK_MONITOR_ADMINS（未建时回退 TEMPLATE_CRAWLER_ADMINS）
+ *   管理员判定：数据库统一 RPC is_admin()（user_profiles.role='admin' 优先，
+ *   configs 历史名单 TEMPLATE_CRAWLER_ADMINS/TASK_MONITOR_ADMINS 兼容回退）
  */
 import { handleTaskMonitor } from './core.ts';
 

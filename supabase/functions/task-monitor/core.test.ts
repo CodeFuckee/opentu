@@ -165,31 +165,26 @@ describe('handleTaskMonitor', () => {
     SUPABASE_URL: 'http://api-gw:8000',
   };
 
-  const ADMIN_EMAIL = 'chenkaidi@example.com';
-  const NON_ADMIN_EMAIL = 'normaluser@example.com';
-
   function mockFetch(
     failedRows: FailedTaskRow[],
     completedRows: CompletedTaskRow[],
     authOk = true,
-    opts: { email?: string; admins?: string[]; configsOk?: boolean } = {}
+    opts: { isAdmin?: boolean; rpcOk?: boolean } = {}
   ) {
-    const email = opts.email ?? ADMIN_EMAIL;
-    const admins = opts.admins ?? ['chenkaidi'];
-    const configsOk = opts.configsOk ?? true;
+    const isAdmin = opts.isAdmin ?? true;
+    const rpcOk = opts.rpcOk ?? true;
     return async (input: RequestInfo | URL): Promise<Response> => {
       const url = String(input);
       if (url.includes('/auth/v1/user')) {
         return new Response(
-          JSON.stringify(authOk ? { id: 'u1', email } : {}),
+          JSON.stringify(authOk ? { id: 'u1', email: 'u1@yjk.com' } : {}),
           { status: authOk ? 200 : 401 }
         );
       }
-      if (url.includes('/rest/v1/configs')) {
-        return new Response(
-          configsOk ? JSON.stringify(admins.map((value) => ({ value }))) : 'boom',
-          { status: configsOk ? 200 : 500 }
-        );
+      if (url.includes('/rest/v1/rpc/is_admin')) {
+        return new Response(rpcOk ? JSON.stringify(isAdmin) : 'boom', {
+          status: rpcOk ? 200 : 500,
+        });
       }
       if (url.includes('status=eq.failed')) {
         return new Response(JSON.stringify(failedRows), { status: 200 });
@@ -236,53 +231,27 @@ describe('handleTaskMonitor', () => {
         headers: { Authorization: 'Bearer user-token' },
       }),
       env,
-      { fetch: mockFetch([], [], true, { email: NON_ADMIN_EMAIL }) }
+      { fetch: mockFetch([], [], true, { isAdmin: false }) }
     );
     assert.equal(res.status, 403);
     const body = (await res.json()) as { error: string };
     assert.match(body.error, /admin only/);
   });
 
-  test('无邮箱身份（如 service role token）返回 403', async () => {
-    const res = await handleTaskMonitor(
-      new Request('http://x/functions/v1/task-monitor', {
-        method: 'GET',
-        headers: { Authorization: 'Bearer svc-token' },
-      }),
-      env,
-      { fetch: mockFetch([], [], true, { email: '' }) }
-    );
-    assert.equal(res.status, 403);
-  });
-
-  test('管理员名单查询失败时 fail-closed 返回 403', async () => {
+  test('is_admin RPC 失败时 fail-closed 返回 403', async () => {
     const res = await handleTaskMonitor(
       new Request('http://x/functions/v1/task-monitor', {
         method: 'GET',
         headers: { Authorization: 'Bearer good-token' },
       }),
       env,
-      { fetch: mockFetch([], [], true, { configsOk: false }) }
+      { fetch: mockFetch([], [], true, { rpcOk: false }) }
     );
     assert.equal(res.status, 403);
   });
 
-  test('回退名单 TEMPLATE_CRAWLER_ADMINS 内的账号放行', async () => {
+  test('管理员通过 is_admin RPC 放行', async () => {
     const res = await handleTaskMonitor(
-      new Request('http://x/functions/v1/task-monitor?hours=24', {
-        method: 'GET',
-        headers: { Authorization: 'Bearer good-token' },
-      }),
-      env,
-      {
-        fetch: mockFetch([plainFailureRow(AFTER_FIX)], [], true, {
-          admins: [],
-        }),
-      }
-    );
-    assert.equal(res.status, 403);
-
-    const res2 = await handleTaskMonitor(
       new Request('http://x/functions/v1/task-monitor?hours=24', {
         method: 'GET',
         headers: { Authorization: 'Bearer good-token' },
@@ -291,14 +260,12 @@ describe('handleTaskMonitor', () => {
       {
         fetch: mockFetch(
           [plainFailureRow(AFTER_FIX)],
-          [completedRow(AFTER_FIX, '2026-09-15T05:00:30Z', 'ok30')],
-          true,
-          { admins: ['someoneelse', 'chenkaidi'] }
+          [completedRow(AFTER_FIX, '2026-09-15T05:00:30Z', 'ok30')]
         ),
       }
     );
-    assert.equal(res2.status, 200);
-    const body = (await res2.json()) as { counts: Record<string, number> };
+    assert.equal(res.status, 200);
+    const body = (await res.json()) as { counts: Record<string, number> };
     assert.equal(body.counts.completed, 1);
   });
 
@@ -366,15 +333,10 @@ describe('handleTaskMonitor', () => {
         fetch: async (input: RequestInfo | URL): Promise<Response> => {
           const url = String(input);
           if (url.includes('/auth/v1/user')) {
-            return new Response(
-              JSON.stringify({ id: 'u1', email: ADMIN_EMAIL }),
-              { status: 200 }
-            );
+            return new Response(JSON.stringify({ id: 'u1' }), { status: 200 });
           }
-          if (url.includes('/rest/v1/configs')) {
-            return new Response(JSON.stringify([{ value: 'chenkaidi' }]), {
-              status: 200,
-            });
+          if (url.includes('/rest/v1/rpc/is_admin')) {
+            return new Response('true', { status: 200 });
           }
           return new Response('boom', { status: 500 });
         },

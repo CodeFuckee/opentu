@@ -42,6 +42,16 @@
 - ~~[P1] supabase/functions/task-monitor/index.ts — 仅验 JWT 不验管理员，
   任何登录用户可看全站任务失败明细~~ **已修复**（管理员名单
   `TASK_MONITOR_ADMINS`，回退共用 `TEMPLATE_CRAWLER_ADMINS`，fail-closed）。
+  **2026-09-16 晚间更新**：管理员判定已进一步收敛到数据库统一 RPC `is_admin()`
+  （`user_profiles.role='admin'` 优先 + configs 名单回退），本函数同步切换。
+- ~~[P0] 五-C1 dashboard-stats /overview 无鉴权~~、~~[P1] 五-C2 /push-report
+  无鉴权~~、~~[P2] 五-C7 core.ts 硬编码 anon key 兜底~~：
+  **2026-09-16 已根治**——看板三端点（页面/overview/push-report）全部要求
+  「有效用户 JWT + `is_admin()`=true」（401/403），页面自带 oa账号登录；
+  `DEFAULT_ANON_KEY` 兜底已移除，`SUPABASE_ANON_KEY` 缺失拒绝启动。
+  迁移：`supabase/migrations/user_roles_is_admin.sql`（role 列 + 客户端写权限
+  收回 + guard 触发器 + 存量名单刷 admin）。**部署顺序：先执行迁移，再部署
+  函数**；`use_template` 防刷等其余待确认项不变。
 - [待确认] supabase/migrations/ai_templates.sql:57 `use_template` RPC 无防刷：
   单用户可无限调用刷高 usage_count，而「热度」排序正按它排——需产品决策
   （(template_id,user_id,日期) 唯一约束？每日一次？）。
