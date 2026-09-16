@@ -1,5 +1,60 @@
 ## Unreleased
 
+### 🧹 全仓库代码评审 + 行为保持重构（2026-09-17，code-review-skill 五维度）
+
+9 个区域并行评审（supabase 边缘函数 / web 应用壳与 SW / utils·react-board·react-text /
+drawnix services 根与子目录 / 核心组件 / 功能组件 / hooks·contexts·engine / utils·plugins·mcp，
+合计约 37 万行），产出约 150 条发现；本次落地 5 批行为保持或安全加固型修复，
+每批均通过本地全量测试 + typecheck + lint：
+
+- **fix: P0 安全加固（1081db14）**
+  - 知识库笔记来源链接与任务结果链接 `<a href>` 未校验协议，`javascript:` URL 可点击执行
+    （存储型 XSS）→ 提取共享 `link-url-sanitize`（MarkdownReadonly 同款白名单：http/https/mailto），
+    KBNoteEditor 两处、TaskItem 一处接入。
+  - 工具 iframe 图片生成**错误路径** `postMessage(response, '*')` 通配 targetOrigin
+    （成功/失败路径均已校验 origin）→ 统一 `getToolIframeTargetOrigin(iframe)`。
+  - SW 能力通道 `svgToDataUrl` 与 mcp svg-tool 的 LLM 生成 SVG 未消毒 → utils/svg-utils
+    新增 `sanitizeSvgForEmbed`（剥 `<script>`/`<foreignObject>`/`on*` 事件属性/`javascript:` href），
+    `svgToDataUrl` 出口统一消毒；sw-capabilities/handler 重复的私有 SVG 工具函数改为复用共享实现。
+  - `@aitu/utils` `encrypt()` 加密失败静默降级为可逆 Base64，调用方会把明文当"已加密"数据
+    持久化/导出 → 改为抛错（fail-fast；decrypt 仍兼容历史 fallback 数据）。
+- **fix: 基础库 P1（c6565232）**：`splitRows` cols≤0 死循环；IndexedDB `putMany`/`deleteMany`
+  缺 `onabort`（事务显式 abort 时 Promise 永不 settle）、`deleteById` 请求成功即 resolve 过早报成功；
+  `throttle` 首次调用后前缘永久失效（inThrottle 永不复位，退化为纯尾缘）；`dataUrlToBlob`
+  对无逗号输入 `atob(undefined)` 裸抛；`extractVideoFrame` 对直播流 NaN/Infinity duration
+  干等 30s 超时（现立即失败并给明错误）；透明图被强制 JPEG 编码变黑底四处
+  （`compressImageWithQuality`/`trimImageWhiteAndTransparentBorder`/`removeWhiteBorder`/
+  drawnix 宫格拆图与去白边，现按源图 alpha 保留 PNG/WebP，新增 `detectImageHasAlpha`/
+  `pickCompressOutputType` 共享助手）。
+- **fix: 服务层 P1（3370fa32）**：音频轮询把上游终态失败当临时错误退避重试 10 次
+  （对齐 video-api 的 isBusinessFailure 模式）；提示词缓存初始化完成前落盘用空数组覆盖
+  IndexedDB 真实历史（6 个 save* 函数初始化前跳过写盘）；`updateTaskStatus` 对不在内存的
+  任务创建的存根（空 params）不再落盘覆盖真实记录；统一缓存 DB 打开失败后 rejected promise
+  被永久缓存导致本会话读写全废（现置空允许重试）、SW 通道等待轮询加 60s 上限、
+  缓存压缩同样保留透明度；`resumeVideoGeneration`/`resumeAudioGeneration` 超时定时器
+  句柄未保存永不清理（对齐图片恢复路径 finally 清理）；workspace `saveState()` 四处裸调用
+  补 `.catch` 消除 unhandled rejection。
+- **fix: hooks/组件层 P1（484c99fb）**：聊天流式发送的 done/error/content 回调在用户切换
+  会话后仍写入新会话的 messages/rawMessagesRef（现以 sessionIdRef 判过期，存储写入仍归属
+  原会话）；`useSetPointer` 用渲染期捕获的整份 appState 覆盖回滚其它已更新字段（改函数式更新）；
+  会话删除在 `setSessions` updater 内执行副作用（StrictMode 双执行风险，移出 updater）；
+  ChatDrawer workflow 订阅在动态 import 完成前卸载则永不退订（disposed 标志）；
+  知识笔记上下文选择器加载失败吞成 unhandled rejection（补 catch 留痕）；
+  WorkflowEngine 工具超时判负后执行 Promise 迟到 reject 成为 unhandled rejection（空 catch 兜底）；
+  ChatDrawerContext（包裹整树）Provider value memo 化减少全消费者连锁重渲染。
+- **refactor: P2 清理（62abe46f）**：删除空实现死代码 `logImageAdapterSelection`；
+  SW `withTimeout`/`withTimeoutError` settle 后清理定时器（避免悬挂 timer 延缓 SW 终止）；
+  `substr`→`slice`（废弃 API，workflow-submission-service ×2、MermaidRenderer）；
+  `withPinchZoom(board)` 返回值显式赋值（与其余插件组合方式一致）；
+  `stableSetAppState` 恒等双分支化简；`parseInt` 补 radix。
+
+新增回归测试：`link-url-sanitize`（13 用例：协议白名单/控制字符混淆/blob/file 拒绝）、
+`svg-utils` 消毒 7 用例、`throttle` 静默期后前缘恢复、`splitRows` cols≤0 不挂起、
+`dataUrlToBlob` 缺载荷明确报错。评审确认**不改**的项与需产品决策的行为变更清单
+（supabase newapi-key/sync-staff-profile 的 oaAccount 服务端绑定、configs/ai_templates RLS
+迁移、视频/视频 adapter AbortSignal 贯通、ai-proxy 端点白名单、check-email/check-register
+限流等）见评审报告。
+
 ### 🐛 Bug Fixes
 
 - **纯 HTTP 内网部署（预览 8089/生产 8088）素材库图片全部损坏且控制台刷 404**
