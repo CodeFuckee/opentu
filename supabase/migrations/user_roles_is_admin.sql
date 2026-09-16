@@ -11,7 +11,8 @@
 --      看板 dashboard-stats、爬虫 template-crawler、监控 task-monitor 全部切到它；
 --   4. 存量管理员自动迁移：现有 configs 名单中的 oa 账号批量刷成 role='admin'。
 --
--- 用法（自托管 Supabase）：
+-- 用法（自托管 Supabase，必须以表属主 supabase_admin 执行——经 Studio/低权限
+-- 连接会报 `42501: must be owner of table user_profiles`）：
 --   docker exec -i supabase-db psql -U supabase_admin -d postgres < supabase/migrations/user_roles_is_admin.sql
 --
 -- 任命/撤销管理员（此后唯一入口）：
@@ -24,6 +25,18 @@
 --   curl -s -X POST $SUPABASE_URL/rest/v1/rpc/is_admin \
 --     -H "apikey: $ANON_KEY" -H "Authorization: Bearer $USER_JWT"
 -- ============================================================
+
+-- 0. 属主自检：非属主执行立即给出可操作的报错（alter/revoke/trigger 都需要属主）
+do $$
+declare owner_name text;
+begin
+  select tableowner into owner_name
+  from pg_tables where schemaname = 'public' and tablename = 'user_profiles';
+  if owner_name is distinct from current_user then
+    raise exception '当前连接角色 % 不是 user_profiles 的属主（属主为 %），请在服务器上执行: docker exec -i supabase-db psql -U supabase_admin -d postgres < supabase/migrations/user_roles_is_admin.sql',
+      current_user, coalesce(owner_name, '?');
+  end if;
+end $$;
 
 -- 1. 角色列（NULL = 普通用户；'admin' = 管理员；预留 'user' 显式值）
 alter table public.user_profiles add column if not exists role text;
@@ -114,6 +127,13 @@ $$;
 
 revoke execute on function public.is_admin() from public, anon;
 grant execute on function public.is_admin() to authenticated;
+-- 属主钉到 supabase_admin：security definer 函数若被低权限角色持有，
+-- 会因读不到 user_profiles/configs 使 RPC 全部报错（管理员也会被拒）
+do $$ begin
+  if exists (select 1 from pg_roles where rolname = 'supabase_admin') then
+    alter function public.is_admin() owner to supabase_admin;
+  end if;
+end $$;
 
 -- 5. 存量管理员迁移：把现有 configs 名单中的 oa 账号刷成 role='admin'
 --    （configs 表缺失时仅告警跳过，role 判定此后以手工 SQL 任命为准）
