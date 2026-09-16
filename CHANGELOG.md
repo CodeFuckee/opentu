@@ -1,5 +1,17 @@
 ## Unreleased
 
+### 🧪 Tests
+
+- **新增素材库图片可见性 E2E 测试**（2026-09-16，`apps/web-e2e/src/functional/media-library-images.spec.ts`，
+  5 用例 ×Chromium，两轮无头自测全绿 + 用户有头确认）：
+  单张上传后网格图片真实解码可见（`naturalWidth > 0` 且无「加载失败」错误态）、批量上传
+  3 张全部可见、双击预览大图加载成功并可关闭、刷新页面后图片持久化仍可见（IndexedDB +
+  SW `/__aitu_cache__/` 缓存回放）、紧凑/列表视图切换后图片仍可见。测试数据用零依赖自绘
+  PNG 生成器 + 唯一前缀命名，afterEach 搜索前缀批量删除自清理，不污染测试账号数据。
+  运行：`cd apps\web-e2e && npx playwright test --project=functional media-library-images --headed`
+  （注意文件过滤参数用纯文件名子串，Windows 反斜杠路径中 `\f` 会被解析为正则换页符转义
+  导致 `No tests found`）。报告见 `apps/web-e2e/reports/media-library-images-report.md`。
+
 ### 🔒 Security
 
 > 本节由一次全仓库代码评审（code-review-skill 五维度：架构/性能/安全/反模式/常见 bug）产出，
