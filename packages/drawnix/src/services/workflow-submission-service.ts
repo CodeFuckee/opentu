@@ -428,7 +428,7 @@ class WorkflowSubmissionService {
   ): WorkflowDefinition {
     const workflowId = `wf_${Date.now()}_${Math.random()
       .toString(36)
-      .substr(2, 9)}`;
+      .slice(2, 11)}`;
     const now = Date.now();
 
     // Determine MCP tool based on generation type
@@ -471,7 +471,7 @@ class WorkflowSubmissionService {
 
     for (let i = 0; i < count; i++) {
       steps.push({
-        id: `step_${i}_${Math.random().toString(36).substr(2, 9)}`,
+        id: `step_${i}_${Math.random().toString(36).slice(2, 11)}`,
         mcp: mcpTool,
         args: { ...args, count: 1 }, // Each step generates 1 item
         description:

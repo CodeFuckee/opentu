@@ -282,7 +282,7 @@ const initializeBoard = (
   plugins.forEach((plugin: any) => {
     board = plugin(board);
   });
-  withPinchZoom(board);
+  board = withPinchZoom(board);
 
   if (viewport) {
     board.viewport = viewport;

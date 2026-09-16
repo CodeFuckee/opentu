@@ -26,12 +26,16 @@ export function withTimeout<T>(
   timeoutMs: number,
   defaultValue?: T
 ): Promise<T | undefined> {
-  return Promise.race([
-    promise,
-    new Promise<T | undefined>((resolve) =>
-      setTimeout(() => resolve(defaultValue), timeoutMs)
-    ),
-  ]);
+  let timerId: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<T | undefined>((resolve) => {
+    timerId = setTimeout(() => resolve(defaultValue), timeoutMs);
+  });
+  // settle 后清理定时器，避免悬挂的 timer 延缓 SW 终止
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timerId !== undefined) {
+      clearTimeout(timerId);
+    }
+  });
 }
 
 /**
@@ -57,12 +61,16 @@ export function withTimeoutError<T>(
   timeoutMs: number,
   errorMessage = 'Operation timed out'
 ): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
-    ),
-  ]);
+  let timerId: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timerId = setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
+  });
+  // settle 后清理定时器，避免悬挂的 timer 延缓 SW 终止
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timerId !== undefined) {
+      clearTimeout(timerId);
+    }
+  });
 }
 
 /**

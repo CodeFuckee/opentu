@@ -567,11 +567,7 @@ export const Drawnix: React.FC<DrawnixProps> = ({
   // 使用 useCallback 稳定 setAppState 函数引用，支持函数式更新
   const stableSetAppState = useCallback(
     (newAppState: DrawnixState | ((prev: DrawnixState) => DrawnixState)) => {
-      if (typeof newAppState === 'function') {
-        setAppState(newAppState);
-      } else {
-        setAppState(newAppState);
-      }
+      setAppState(newAppState);
     },
     []
   );

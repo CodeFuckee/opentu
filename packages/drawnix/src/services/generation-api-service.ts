@@ -74,21 +74,6 @@ function assertStoredTaskInvocationRouteAvailable(
   }
 }
 
-function logImageAdapterSelection(
-  taskId: string,
-  adapter: ImageModelAdapter,
-  modelId: string | undefined,
-  context: AdapterContext
-): void {
-  const binding = context.binding;
-  const imageMetadata = binding?.metadata?.image as
-    | {
-        imageApiCompatibility?: unknown;
-        resolvedImageApiCompatibility?: unknown;
-      }
-    | undefined;
-}
-
 function readParamValue(params: GenerationParams, keys: string[]): unknown {
   const rawParams = params as Record<string, unknown>;
   const nestedParams =
@@ -457,7 +442,6 @@ class GenerationAPIService {
         invocationOptions
       );
       adapterContext.taskId = taskId;
-      logImageAdapterSelection(taskId, adapter, requestedModel, adapterContext);
 
       const result = await adapter.generateImage(adapterContext, {
         prompt: params.prompt,
@@ -865,7 +849,7 @@ class GenerationAPIService {
         url: videoUrl,
         format: 'mp4',
         size: 0,
-        duration: parseInt(result.seconds) || 8,
+        duration: parseInt(result.seconds, 10) || 8,
       };
     } catch (error: any) {
       const duration = Date.now() - startTime;
