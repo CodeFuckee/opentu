@@ -412,7 +412,7 @@ async function fetchExistingState(
   deps: TemplateCrawlerDeps
 ): Promise<{ contentHash: string | null; listHash: string | null }> {
   const doFetch = deps.fetch || fetch;
-  const url = `${(env.SUPABASE_URL || '').replace(/\/$/, '')}/rest/v1/ai_templates?select=content_hash,extra&source=eq.${SOURCE}&source_id=eq.${sourceId}`;
+  const url = `${(env.SUPABASE_URL || '').replace(/\/$/, '')}/rest/v1/ai_templates?select=content_hash,extra&source=eq.${SOURCE}&source_id=eq.${encodeURIComponent(sourceId)}`;
   const response = await doFetch(url, {
     method: 'GET',
     headers: serviceHeaders(env),
@@ -428,6 +428,9 @@ async function fetchExistingState(
     listHash: row?.extra?.list_hash ?? null,
   };
 }
+
+/** 封面转存大小上限：超限视为脏数据放弃转存（防异常上游撑爆边缘函数内存） */
+export const MAX_COVER_BYTES = 15 * 1024 * 1024;
 
 /** 封面转存公开桶 images（公开读策略现成，前端直接用 getPublicUrl 直链）；失败静默 */
 async function uploadCover(
@@ -445,7 +448,10 @@ async function uploadCover(
   try {
     const response = await doFetch(coverUrl, { method: 'GET' });
     if (!response.ok) return null;
+    const contentLength = Number(response.headers.get('content-length') || '');
+    if (Number.isFinite(contentLength) && contentLength > MAX_COVER_BYTES) return null;
     const buffer = await response.arrayBuffer();
+    if (buffer.byteLength > MAX_COVER_BYTES) return null;
     const uploadUrl = `${base}/storage/v1/object/images/${path}`;
     const upload = await doFetch(uploadUrl, {
       method: 'POST',
@@ -545,7 +551,7 @@ export async function syncTemplateType(
   return summary;
 }
 
-/** 统计信息（GET /stats 或 POST action=stats） */
+/** 统计信息（POST body action=stats） */
 export async function crawlStats(
   env: TemplateCrawlerServiceEnv,
   deps: TemplateCrawlerDeps

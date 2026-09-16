@@ -17,6 +17,7 @@ import {
   handleTemplateCrawler,
   listHashOf,
   mapDetailToRow,
+  MAX_COVER_BYTES,
   md5,
   syncTemplateType,
 } from './core.ts';
@@ -221,6 +222,65 @@ describe('syncTemplateType', () => {
     );
     assert.equal(summary.totalListed, 0);
     assert.equal(summary.errors.length, 1);
+  });
+
+  test('source_id 查询参数经过 URL 编码（特殊字符不破坏过滤器）', async () => {
+    const weirdId = 'abc&x=1 def';
+    const weirdList = { ...LIST_FIXTURE, templateId: weirdId };
+    const weirdDetail = { ...DETAIL_FIXTURE, templateId: weirdId };
+    const captures: Capture[] = [];
+    const env = buildEnv();
+    const fetchImpl = routerFetch(
+      [
+        ...adminRoutes(),
+        { match: /\/templates\?/, handler: () => ({ status: 200, body: JSON.stringify([weirdList]) }) },
+        { match: /ai_templates\?select=content_hash,extra/, handler: () => ({ status: 200, body: '[]' }) },
+        { match: /\/templates\/abc/, handler: () => ({ status: 200, body: JSON.stringify(weirdDetail) }) },
+        { match: /ai_templates\?on_conflict=/, handler: () => ({ status: 201, body: '[]' }) },
+      ],
+      captures
+    );
+    const summary = await syncTemplateType(
+      env, { fetch: fetchImpl, sleep: noSleep }, 'BANANA_CASE',
+      { maxPages: 1, pageSize: 30, pageDelayMs: 0, detailDelayMs: 0, withCovers: false }
+    );
+    assert.equal(summary.inserted, 1);
+    const stateUrl = captures.find((c) => c.url.includes('select=content_hash,extra'))?.url ?? '';
+    assert.ok(
+      stateUrl.includes(`source_id=eq.${encodeURIComponent(weirdId)}`),
+      `增量查询应对 source_id 编码：${stateUrl}`
+    );
+  });
+
+  test('封面 content-length 超上限时放弃转存，模板仍入库', async () => {
+    const env = buildEnv();
+    const fetchImpl = routerFetch(
+      [
+        ...adminRoutes(),
+        { match: /\/templates\?/, handler: () => ({ status: 200, body: JSON.stringify([LIST_FIXTURE]) }) },
+        { match: /ai_templates\?select=content_hash,extra/, handler: () => ({ status: 200, body: '[]' }) },
+        { match: /\/templates\/6aa8/, handler: () => ({ status: 200, body: JSON.stringify(DETAIL_FIXTURE) }) },
+        { match: /ai_templates\?on_conflict=/, handler: () => ({ status: 201, body: '[]' }) },
+      ],
+      []
+    );
+    // routerFetch 不带自定义响应头，这里单独注入超限 content-length 的封面响应
+    const fetchWithHugeCover = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url = String(input);
+      if (url.includes('image-assets.soutushenqi.com')) {
+        return new Response('x', {
+          status: 200,
+          headers: { 'Content-Length': String(MAX_COVER_BYTES + 1) },
+        });
+      }
+      return fetchImpl(input, init);
+    };
+    const summary = await syncTemplateType(
+      env, { fetch: fetchWithHugeCover, sleep: noSleep }, 'BANANA_CASE',
+      { maxPages: 1, pageSize: 30, pageDelayMs: 0, detailDelayMs: 0, withCovers: true }
+    );
+    assert.equal(summary.coverUploaded, 0, '超限封面不应转存');
+    assert.equal(summary.inserted, 1, '模板本身仍应入库');
   });
 });
 

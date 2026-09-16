@@ -4,7 +4,7 @@
  * 对标建筑学长 AI 模板广场（OpenSpec add-template-gallery）。
  * 宿主未注册 supabase 客户端（未登录）时不渲染。
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import classNames from 'classnames';
 import {
@@ -55,9 +55,11 @@ export const TemplateGallery: React.FC<TemplateGalleryProps> = ({
       .catch(() => setCategories([]));
   }, [open, enabled]);
 
-  // 加载模板列表
+  // 加载模板列表（请求序号防竞态：快速切换分类/搜索时丢弃过期响应）
+  const loadSeqRef = useRef(0);
   const load = useCallback(async () => {
     if (!open || !enabled) return;
+    const seq = ++loadSeqRef.current;
     setLoading(true);
     setError(null);
     try {
@@ -67,11 +69,15 @@ export const TemplateGallery: React.FC<TemplateGalleryProps> = ({
         sort,
         limit: PAGE_SIZE,
       });
+      if (seq !== loadSeqRef.current) return;
       setTemplates(rows);
     } catch (e) {
+      if (seq !== loadSeqRef.current) return;
       setError(e instanceof Error ? e.message : '模板加载失败');
     } finally {
-      setLoading(false);
+      if (seq === loadSeqRef.current) {
+        setLoading(false);
+      }
     }
   }, [open, enabled, activeCategory, search, sort]);
 

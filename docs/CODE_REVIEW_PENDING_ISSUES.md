@@ -8,6 +8,52 @@
 > - **[暂缓]**：修法明确，因验证成本/改动风险/需专项窗口而未动，可直接排期修复。
 > - **[待确认]**：涉及产品/部署决策，先确认再动，不要直接改。
 
+## 〇、2026-09-16 复核附记（全量核验 + 增量评审）
+
+**复核结论**：本文档全部 60+ 条经逐条核验**均仍存在**。行号漂移的条目更新如下
+（其余条目行号未变或仅有 ±5 内漂移，动工前仍以实际文件为准）：
+
+- 一-2 release.yml checkout → 109-110；一-5 ops.yml DROP DATABASE → 128-133；
+  一-10 quality-test.yml kill -9 → 118-119；一-14 create-deploy-package.js
+  死数据流 → 177,194,335,845。
+- 二-1 fallback-adapter-routes 未传信号 → 296-297；二-2 kling 轮询 → 549；
+  二-4 canvas-insertion 重复 → 659/600 行两份（long-video 514/368、ai-analyze
+  319/171）；二-7 task-storage-writer → 214,229,248；二-8 llm-api-logger →
+  202,230,253（MAX_MEMORY_LOGS=50 在 :60）；二-11 kling 透传 → 520；
+  二-12 engine Promise.all → 284（rethrow 在 347-349）；二-13 executeMainThreadTool
+  → 594-596；二-14 fallback-executor getConfig → 1384；二-17 空 else → 775
+  （823-825）；二-19 void updateRemoteId → 315-322；二-20 svg-tool validateSvg →
+  74-89；二-21 provider-transport → 179-198（应用于 257）。
+- 三-A2 loadConsoleLogsFromDB → 635-672；三-A8 wrapper.tsx → 358,366,590-600；
+  三-A11 text.tsx → 222-246；三-A12 aes-gcm → 193-197（:21）；三-A15 security
+  → 17,66。
+- 四-B1 SupabaseSyncContext → 114-138（:131）；四-B3 local-collector →
+  101,191,199,207,309；四-B4 archive service → 409,567；四-B11 → 112,198,489。
+- 五-C3 check-email → core.ts:80；五-C4 newapi-key → 480,495,524；五-C5 → 407；
+  五-C6 CORS `*` → ai-proxy/core.ts:34,708、dashboard-stats/index.ts:26、
+  feedbackland-sso/core.ts:21；五-C8 countCompletedSince → 372,379（HTTP 失败
+  路径已加日志，catch 分支 378-379 仍静默 return 0）。
+- 一-7 勘误：upload-and-deploy.js 内**没有** shellEscape 可复用（原清单子前提
+  不成立），未引用插值共 7 处（115,121-122,177,201,316,328,375）。
+- 另：scripts/edge-function-smoke.mjs:88 还有第二枚硬编码 JWT，与一-11 同修。
+
+**2026-09-16 新增问题**（评审 051ff32f 之后的模板中心/task-monitor 新代码）：
+
+- ~~[P1] supabase/functions/task-monitor/index.ts — 仅验 JWT 不验管理员，
+  任何登录用户可看全站任务失败明细~~ **已修复**（管理员名单
+  `TASK_MONITOR_ADMINS`，回退共用 `TEMPLATE_CRAWLER_ADMINS`，fail-closed）。
+- [待确认] supabase/migrations/ai_templates.sql:57 `use_template` RPC 无防刷：
+  单用户可无限调用刷高 usage_count，而「热度」排序正按它排——需产品决策
+  （(template_id,user_id,日期) 唯一约束？每日一次？）。
+- [暂缓] supabase/functions/template-crawler/core.ts:502 逐模板行
+  `fetchExistingState` N+1（每行一次 REST 查询）——可按页批量 `source_id=in.()`。
+- [暂缓] packages/drawnix/src/components/template-gallery/template-service.ts:84
+  `listTemplateCategories` 全表拉 category 列去重——模板量大后需 RPC/物化。
+- [待确认] template-crawler/core.ts:33 与 task-monitor/core.ts:30 CORS 仍 `*`
+  （鉴权已强制，风险低）——与五-C6 家族一并收敛到已知 origin。
+- [暂缓] crawl-templates.sh:9-22 用 JWT_SECRET 自铸用户 JWT + email like 模糊
+  找管理员——仅限服务器本机执行的运维脚本，如改用 service_role 调用更稳。
+
 ## 一、脚本与部署（[暂缓]；建议发版窗口专项处理，改动需真实部署验证）
 
 - [P1] .gitlab/ci/release.yml:72 — git push 把 GIT_PUSH_TOKEN/CI_JOB_TOKEN 内嵌 URL，

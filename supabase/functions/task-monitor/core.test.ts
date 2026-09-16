@@ -165,17 +165,31 @@ describe('handleTaskMonitor', () => {
     SUPABASE_URL: 'http://api-gw:8000',
   };
 
+  const ADMIN_EMAIL = 'chenkaidi@example.com';
+  const NON_ADMIN_EMAIL = 'normaluser@example.com';
+
   function mockFetch(
     failedRows: FailedTaskRow[],
     completedRows: CompletedTaskRow[],
-    authOk = true
+    authOk = true,
+    opts: { email?: string; admins?: string[]; configsOk?: boolean } = {}
   ) {
+    const email = opts.email ?? ADMIN_EMAIL;
+    const admins = opts.admins ?? ['chenkaidi'];
+    const configsOk = opts.configsOk ?? true;
     return async (input: RequestInfo | URL): Promise<Response> => {
       const url = String(input);
       if (url.includes('/auth/v1/user')) {
-        return new Response(JSON.stringify(authOk ? { id: 'u1' } : {}), {
-          status: authOk ? 200 : 401,
-        });
+        return new Response(
+          JSON.stringify(authOk ? { id: 'u1', email } : {}),
+          { status: authOk ? 200 : 401 }
+        );
+      }
+      if (url.includes('/rest/v1/configs')) {
+        return new Response(
+          configsOk ? JSON.stringify(admins.map((value) => ({ value }))) : 'boom',
+          { status: configsOk ? 200 : 500 }
+        );
       }
       if (url.includes('status=eq.failed')) {
         return new Response(JSON.stringify(failedRows), { status: 200 });
@@ -213,6 +227,79 @@ describe('handleTaskMonitor', () => {
       { fetch: mockFetch([], [], false) }
     );
     assert.equal(res.status, 401);
+  });
+
+  test('非管理员用户返回 403（报表含全量用户任务，仅限管理员）', async () => {
+    const res = await handleTaskMonitor(
+      new Request('http://x/functions/v1/task-monitor', {
+        method: 'GET',
+        headers: { Authorization: 'Bearer user-token' },
+      }),
+      env,
+      { fetch: mockFetch([], [], true, { email: NON_ADMIN_EMAIL }) }
+    );
+    assert.equal(res.status, 403);
+    const body = (await res.json()) as { error: string };
+    assert.match(body.error, /admin only/);
+  });
+
+  test('无邮箱身份（如 service role token）返回 403', async () => {
+    const res = await handleTaskMonitor(
+      new Request('http://x/functions/v1/task-monitor', {
+        method: 'GET',
+        headers: { Authorization: 'Bearer svc-token' },
+      }),
+      env,
+      { fetch: mockFetch([], [], true, { email: '' }) }
+    );
+    assert.equal(res.status, 403);
+  });
+
+  test('管理员名单查询失败时 fail-closed 返回 403', async () => {
+    const res = await handleTaskMonitor(
+      new Request('http://x/functions/v1/task-monitor', {
+        method: 'GET',
+        headers: { Authorization: 'Bearer good-token' },
+      }),
+      env,
+      { fetch: mockFetch([], [], true, { configsOk: false }) }
+    );
+    assert.equal(res.status, 403);
+  });
+
+  test('回退名单 TEMPLATE_CRAWLER_ADMINS 内的账号放行', async () => {
+    const res = await handleTaskMonitor(
+      new Request('http://x/functions/v1/task-monitor?hours=24', {
+        method: 'GET',
+        headers: { Authorization: 'Bearer good-token' },
+      }),
+      env,
+      {
+        fetch: mockFetch([plainFailureRow(AFTER_FIX)], [], true, {
+          admins: [],
+        }),
+      }
+    );
+    assert.equal(res.status, 403);
+
+    const res2 = await handleTaskMonitor(
+      new Request('http://x/functions/v1/task-monitor?hours=24', {
+        method: 'GET',
+        headers: { Authorization: 'Bearer good-token' },
+      }),
+      env,
+      {
+        fetch: mockFetch(
+          [plainFailureRow(AFTER_FIX)],
+          [completedRow(AFTER_FIX, '2026-09-15T05:00:30Z', 'ok30')],
+          true,
+          { admins: ['someoneelse', 'chenkaidi'] }
+        ),
+      }
+    );
+    assert.equal(res2.status, 200);
+    const body = (await res2.json()) as { counts: Record<string, number> };
+    assert.equal(body.counts.completed, 1);
   });
 
   test('GET + hours 参数返回聚合报告', async () => {
@@ -279,7 +366,15 @@ describe('handleTaskMonitor', () => {
         fetch: async (input: RequestInfo | URL): Promise<Response> => {
           const url = String(input);
           if (url.includes('/auth/v1/user')) {
-            return new Response('{}', { status: 200 });
+            return new Response(
+              JSON.stringify({ id: 'u1', email: ADMIN_EMAIL }),
+              { status: 200 }
+            );
+          }
+          if (url.includes('/rest/v1/configs')) {
+            return new Response(JSON.stringify([{ value: 'chenkaidi' }]), {
+              status: 200,
+            });
           }
           return new Response('boom', { status: 500 });
         },

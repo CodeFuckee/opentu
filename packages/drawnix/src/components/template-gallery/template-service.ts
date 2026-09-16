@@ -64,6 +64,8 @@ export async function listTemplates(
     .order(sort === 'hot' ? 'usage_count' : 'crawled_at', {
       ascending: false,
     })
+    // 主排序键并列时行序不定，追加 id 做稳定 tiebreaker（翻页不重复/漏行）
+    .order('id', { ascending: true })
     .range(offset, offset + limit - 1);
 
   if (category) {

@@ -2564,23 +2564,26 @@ export const AIInputBar: React.FC<AIInputBarProps> = React.memo(
       async (template: Pick<AiTemplate, 'base_images'>) => {
         const urls = template.base_images ?? [];
         if (urls.length === 0) return;
-        const files: File[] = [];
-        for (const [index, url] of urls.entries()) {
-          try {
-            const resp = await fetch(url);
-            if (!resp.ok) continue;
-            const blob = await resp.blob();
-            if (!blob.type.startsWith('image/')) continue;
-            const ext = blob.type.split('/')[1] || 'png';
-            files.push(
-              new File([blob], `template-reference-${index + 1}.${ext}`, {
-                type: blob.type,
-              })
-            );
-          } catch (error) {
-            console.warn('[template-gallery] 参考图拉取失败:', url, error);
-          }
-        }
+        // 并行下载（Promise.all 保序），单张失败跳过不阻塞其余
+        const files = (
+          await Promise.all(
+            urls.map(async (url, index): Promise<File | null> => {
+              try {
+                const resp = await fetch(url);
+                if (!resp.ok) return null;
+                const blob = await resp.blob();
+                if (!blob.type.startsWith('image/')) return null;
+                const ext = blob.type.split('/')[1] || 'png';
+                return new File([blob], `template-reference-${index + 1}.${ext}`, {
+                  type: blob.type,
+                });
+              } catch (error) {
+                console.warn('[template-gallery] 参考图拉取失败:', url, error);
+                return null;
+              }
+            })
+          )
+        ).filter((f): f is File => f !== null);
         if (files.length > 0) {
           await importLocalImages(files);
         }

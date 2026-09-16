@@ -8,10 +8,11 @@
  * - Env var name: SUPABASE_SERVICE_ROLE_KEY (configured on the container)
  * - SUPABASE_URL is the in-container gateway address (http://api-gw:8000)
  *
- * 用法：
+ * 用法（仅管理员）：
  *   GET  /functions/v1/task-monitor?hours=24
  *   POST /functions/v1/task-monitor   {"hours": 24}
- *   Authorization: Bearer <有效的 Supabase 用户 JWT>
+ *   Authorization: Bearer <管理员用户的 Supabase JWT>
+ *   管理员名单：configs 表 TASK_MONITOR_ADMINS（未建时回退 TEMPLATE_CRAWLER_ADMINS）
  */
 import { handleTaskMonitor } from './core.ts';
 

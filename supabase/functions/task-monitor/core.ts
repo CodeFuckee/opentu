@@ -91,6 +91,11 @@ export function buildAuthUrl(supabaseUrl: string): string {
   return `${(supabaseUrl || '').replace(/\/$/, '')}/auth/v1/user`;
 }
 
+/** 管理员名单 configs 键（主用，逗号分隔 oa 账号=邮箱前缀） */
+export const ADMINS_CONFIG_KEY = 'TASK_MONITOR_ADMINS';
+/** 回退共用键：未单建监控名单时与 template-crawler 管理员共用一份名单 */
+export const FALLBACK_ADMINS_CONFIG_KEY = 'TEMPLATE_CRAWLER_ADMINS';
+
 export function buildFailedSliceUrl(
   supabaseUrl: string,
   sinceIso: string
@@ -123,13 +128,13 @@ export function buildCompletedSliceUrl(
   return `${base}?${params.toString()}`;
 }
 
-/** 校验调用者的 Supabase JWT（GET /auth/v1/user 自证），返回是否有效 */
+/** 校验调用者的 Supabase JWT（GET /auth/v1/user 自证），返回调用者身份；无效返回 null */
 export async function verifyCallerJwt(
   supabaseUrl: string,
   serviceRoleKey: string,
   jwt: string,
   deps: TaskMonitorDeps = {}
-): Promise<boolean> {
+): Promise<{ id: string; email: string | null } | null> {
   const doFetch = deps.fetch || fetch;
   try {
     const response = await doFetch(buildAuthUrl(supabaseUrl), {
@@ -139,7 +144,60 @@ export async function verifyCallerJwt(
         Authorization: `Bearer ${jwt}`,
       },
     });
-    return response.ok;
+    if (!response.ok) return null;
+    const payload = (await response.json()) as { id?: unknown; email?: unknown };
+    if (typeof payload?.id !== 'string') return null;
+    return {
+      id: payload.id,
+      email: typeof payload.email === 'string' ? payload.email : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 管理员判定：configs 表名单（逗号分隔 oa 账号，即邮箱前缀）。
+ * 查询结果对 ADMINS_CONFIG_KEY 与 FALLBACK_ADMINS_CONFIG_KEY 取并集；
+ * 任一名单包含调用者即放行；查询失败一律拒绝（fail-closed）。
+ */
+export async function isAdminCaller(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  email: string | null,
+  deps: TaskMonitorDeps = {}
+): Promise<boolean> {
+  if (!email || !email.includes('@')) return false;
+  const oaAccount = email.split('@')[0].toLowerCase();
+  const doFetch = deps.fetch || fetch;
+  const params = new URLSearchParams({
+    select: 'value',
+    key: `in.(${ADMINS_CONFIG_KEY},${FALLBACK_ADMINS_CONFIG_KEY})`,
+  });
+  try {
+    const response = await doFetch(
+      `${(supabaseUrl || '').replace(/\/$/, '')}/rest/v1/configs?${params.toString()}`,
+      {
+        method: 'GET',
+        headers: {
+          apikey: serviceRoleKey,
+          Authorization: `Bearer ${serviceRoleKey}`,
+          Accept: 'application/json',
+        },
+      }
+    );
+    if (!response.ok) return false;
+    const rows = (await response.json()) as Array<{ value?: unknown }>;
+    if (!Array.isArray(rows)) return false;
+    return rows.some(
+      (row) =>
+        typeof row?.value === 'string' &&
+        row.value
+          .split(',')
+          .map((it) => it.trim().toLowerCase())
+          .filter(Boolean)
+          .includes(oaAccount)
+    );
   } catch {
     return false;
   }
@@ -337,14 +395,18 @@ export async function handleTaskMonitor(
   if (!jwt) {
     return jsonResponse(401, { error: 'unauthorized: missing bearer token' });
   }
-  const callerOk = await verifyCallerJwt(
+  const caller = await verifyCallerJwt(
     supabaseUrl,
     serviceRoleKey,
     jwt,
     deps
   );
-  if (!callerOk) {
+  if (!caller) {
     return jsonResponse(401, { error: 'unauthorized: invalid token' });
+  }
+  // 报表经 service_role 绕过 RLS 汇总所有用户任务，仅限管理员查看
+  if (!(await isAdminCaller(supabaseUrl, serviceRoleKey, caller.email, deps))) {
+    return jsonResponse(403, { error: 'forbidden: admin only' });
   }
 
   const windowHours = await readWindowHoursFromRequest(request);

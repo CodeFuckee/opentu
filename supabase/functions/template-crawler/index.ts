@@ -2,7 +2,7 @@
  * Edge Function: template-crawler (entry)
  *
  * 从建筑学长同步 AI 模板到 ai_templates 表（列表+详情两阶段、增量、封面转存）。
- * 仅管理员（JWT + department_configs.dashboard_admins）可触发。
+ * 仅管理员（JWT + configs.TEMPLATE_CRAWLER_ADMINS）可触发。
  *
  * POST /functions/v1/template-crawler
  *   {"action": "crawl", "templateTypes": ["BANANA_CASE"], "maxPages": 3, "withCovers": true}

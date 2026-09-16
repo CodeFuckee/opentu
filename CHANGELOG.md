@@ -33,8 +33,25 @@
   .gitignore（历史与凭据轮换需另行处理）。
 - 调试控制台 `addDebugLog` 由 `innerHTML` 改 `textContent`（全局可达 XSS sink）；
   视频点击 `window.open` 显式传 `noopener`。
+- **[P1] task-monitor 边缘函数补管理员门禁**（2026-09-16 增量评审发现）：该函数此前
+  仅验证 JWT 有效性，任何登录用户即可经 service_role 绕过 RLS 查看全站用户的
+  生图任务失败明细（错误信息/任务 id/时长），与 template-crawler 的管理员约束不一致。
+  现要求管理员名单：configs 表 `TASK_MONITOR_ADMINS`（未配置时回退共用
+  `TEMPLATE_CRAWLER_ADMINS`，已列名的管理员零配置不受影响）；名单查询失败时
+  fail-closed 拒绝。部署后如需授权新管理员，在 configs 对应键追加 oa 账号即可。
 
 ### 🐛 Bug Fixes
+
+- **模板中心列表加载竞态**（2026-09-16）：快速切换分类/搜索/排序时，先发出但后
+  返回的过期响应会覆盖新结果（显示与筛选条件不符的模板列表）；现按请求序号丢弃
+  过期响应。
+- **模板列表翻页稳定性**（2026-09-16）：主排序键（usage_count/crawled_at）并列时
+  PostgREST 行序不定，翻页会出现重复/漏行；追加 `id` 升序作稳定 tiebreaker。
+- **template-crawler 增量查询参数编码与封面上限**（2026-09-16）：
+  `fetchExistingState` 的 `source_id=eq.${sourceId}` 未做 URL 编码，上游 id 含
+  特殊字符时过滤器失效；现 `encodeURIComponent`。封面转存加 15MB 上限（防异常
+  上游撑爆边缘函数内存）。模板参考图（「去创作」带入）改并行下载（Promise.all
+  保序，单张失败不阻塞）。
 
 - **生图任务超 1 分钟必失败（WorkerRequestCancelled，服务器侧修复）**：自托管 Supabase
   主 worker 脚本（服务器 `volumes/functions/main/index.ts`）创建 user worker 时硬编码
@@ -104,6 +121,11 @@
   （vitest，utils 488 条全绿）。
 - 新增 task-monitor 与 template-crawler 边缘函数单测（node:test 18+14 条，
   全函数套件 111 条全绿）。
+- 2026-09-16 增量：task-monitor 单测 15→22 条（管理员门禁：非管理员/无邮箱身份
+  403、名单查询失败 fail-closed、回退名单放行）；template-crawler 14→16 条
+  （source_id URL 编码、封面 content-length 超上限放弃转存）；新增
+  `template-service.test.ts`（vitest 6 条，链式 mock 锁定查询形态：
+  status 过滤/排序键 + id tiebreaker/分页窗口/分类与搜索过滤/RPC）。
 
 ### 🚀 Features
 
