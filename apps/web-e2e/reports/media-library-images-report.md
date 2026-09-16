@@ -1,5 +1,15 @@
 # E2E 测试报告（素材库对话框图片可见性，2026-09-16）
 
+> **第二轮更新（修复验证，commit fbe22943）**：首轮测试发现预览/生产环境（纯 HTTP 内网，
+> 非安全上下文无 SW/Cache API）图片全部 404 损坏（首轮 localhost 测试掩盖）。修复后：
+> - 用例扩至 6 条（新增 E2E-106 非安全上下文模拟）
+> - `http://10.37.80.175:7300`（生产构建产物 + 真实非安全上下文）：6/6 通过
+> - `http://10.37.80.25:8089`（部署的预览环境实测）：7/7 通过（6 用例 + auth-setup；
+>   首轮出现 reload 后点击被水合吞掉的偶发，已在 openMediaLibrary 加点击重试）
+> - 结论：**预览环境素材库图片已恢复正常**（上传/预览/刷新持久化/视图切换全场景）
+
+## 第一轮记录（localhost dev server，首轮基线）
+
 - 运行环境：
   - 命令：`npx playwright test --project=auth-setup --project=functional src/functional/media-library-images.spec.ts`（cwd：`apps/web-e2e`）
   - 浏览器：Desktop Chromium（Playwright `functional` 项目，无头 headless）

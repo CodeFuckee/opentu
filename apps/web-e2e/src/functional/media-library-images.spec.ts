@@ -92,10 +92,19 @@ async function openMediaLibrary(page: Page, { goto = true } = {}) {
     .filter({ has: page.getByRole('radio', { name: /素材库/ }) })
     .first();
   await expect(mediaLabel).toBeVisible();
-  await mediaLabel.click({ force: true });
-  await expect(page.locator('.winbox-media-library')).toBeVisible({
-    timeout: 8000,
-  });
+
+  // 点击可能落在应用水合完成前被吞掉（远程/慢环境实测出现过），带重试
+  const modal = page.locator('.winbox-media-library');
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await mediaLabel.click({ force: true });
+    try {
+      await expect(modal).toBeVisible({ timeout: 4000 });
+      return;
+    } catch {
+      // 未打开则重试
+    }
+  }
+  await expect(modal).toBeVisible({ timeout: 8000 });
 }
 
 /** 按素材名定位网格素材项（网格视图名称浮层） */
