@@ -98,8 +98,9 @@ test:e2e:
     E2E_TEST_PASSWORD: ""
     E2E_CUSTOM_ACCOUNT: ""
     E2E_CUSTOM_PASSWORD: ""
-    # 宿主机一次性 sudo 安装的共享浏览器路径（默认路径在 runner 用户 home，sudo 装会到 /root）
-    PLAYWRIGHT_BROWSERS_PATH: "/opt/ms-playwright"
+    # 共享浏览器路径不再硬编码到 variables：见 before_script 的「浏览器自愈」，
+    # 避免标签重叠的其它 runner（如 2026-09-16 新注册的 runner 24）无此路径时
+    # 强行指向 /opt/ms-playwright 导致 "Executable doesn't exist"
   cache:
     key:
       files:
@@ -125,6 +126,17 @@ test:e2e:
     - corepack prepare pnpm@${PNPM_VERSION} --activate
     - pnpm config set store-dir .pnpm-store
     - pnpm install --frozen-lockfile
+    - |
+      # 浏览器自愈：越秀 runner（22）宿主用 sudo 装过共享浏览器（见上方说明）；
+      # 其它带同标签的 runner（docker executor 的 playwright 镜像自带
+      # /ms-playwright，或裸机无浏览器）走默认路径或当场安装
+      if [ -d /opt/ms-playwright ] && compgen -G "/opt/ms-playwright/chromium*_*/INSTALLATION_COMPLETE" >/dev/null; then
+        export PLAYWRIGHT_BROWSERS_PATH="/opt/ms-playwright"
+        echo "[e2e] 使用共享浏览器路径 /opt/ms-playwright"
+      else
+        echo "[e2e] /opt/ms-playwright 共享浏览器不可用，回退到镜像自带/本地安装"
+        pnpm exec playwright install chromium || pnpm exec playwright install --with-deps chromium || true
+      fi
   script:
     # 空 E2E_ARGS => 运行 playwright.config.ts 中定义的全部 project（全量 E2E）
     - |
