@@ -191,9 +191,12 @@ export async function encrypt(
 
     return JSON.stringify(result);
   } catch (error) {
+    // 加密失败必须向上抛出：静默降级为可逆 Base64 会让调用方把明文当作
+    // “已加密”数据持久化/导出（decrypt 仍兼容历史 fallback 数据）。
     console.error('Encryption failed:', error);
-    console.warn('Falling back to simple encoding');
-    return fallbackEncode(plaintext);
+    throw new Error(
+      `AES-GCM encryption failed: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 

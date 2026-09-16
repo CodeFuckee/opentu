@@ -38,6 +38,7 @@ import {
   isLyricsResult,
 } from '../../utils/lyrics-task-utils';
 import { VideoPosterPreview } from '../shared/VideoPosterPreview';
+import { sanitizeLinkUrl } from '../../utils/link-url-sanitize';
 import './task-queue.scss';
 import './task-progress-overlay.scss';
 import { HoverTip } from '../shared';
@@ -813,7 +814,7 @@ export const TaskItem: React.FC<TaskItemProps> = React.memo(
                   )}
                   {isCompleted && task.result?.url && !isLyricsTask && (
                     <a
-                      href={task.result.url}
+                      href={sanitizeLinkUrl(task.result.url) ?? undefined}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="task-item__link"

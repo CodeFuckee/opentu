@@ -32,6 +32,7 @@ import { exportNoteAsMarkdown } from '../../services/kb-import-export-service';
 import { openMusicPlayerToolAndPlay } from '../../services/tool-launch-service';
 import { createReadingPlaybackSource } from '../../services/reading-playback-source';
 import { buildBlockAssetEmbedMarkdown } from '../../utils/markdown-asset-embeds';
+import { sanitizeLinkUrl } from '../../utils/link-url-sanitize';
 import './knowledge-base-editor.scss';
 import type { Asset } from '../../types/asset.types';
 import { SelectionMode } from '../../types/asset.types';
@@ -102,6 +103,8 @@ setOutputType((note.metadata?.outputType as 'image' | 'text' | 'video' | 'audio'
   // 笔记元数据
   const metadata = (note as any)?.metadata;
   const hasSourceInfo = metadata && (metadata.sourceUrl || metadata.author || metadata.domain);
+  // sourceUrl 来自网页抓取/导入，属不可信输入，仅放行 http/https/mailto
+  const safeSourceUrl = metadata?.sourceUrl ? sanitizeLinkUrl(metadata.sourceUrl) : null;
 
   // 切换笔记时重置标题、语音和 DSL 状态
   useEffect(() => {
@@ -391,10 +394,10 @@ setOutputType((note.metadata?.outputType as 'image' | 'text' | 'video' | 'audio'
                   <span>{metadata.author}</span>
                 </span>
               )}
-              {metadata.sourceUrl && (
-                <HoverTip content={metadata.sourceUrl} showArrow={false}>
+              {safeSourceUrl && (
+                <HoverTip content={safeSourceUrl} showArrow={false}>
                   <a
-                    href={metadata.sourceUrl}
+                    href={safeSourceUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="kb-note-editor__metadata-collapsed-link"
@@ -451,14 +454,14 @@ setOutputType((note.metadata?.outputType as 'image' | 'text' | 'video' | 'audio'
                   </span>
                 )}
               </div>
-              {metadata.sourceUrl && (
+              {safeSourceUrl && (
                 <a
-                  href={metadata.sourceUrl}
+                  href={safeSourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="kb-note-editor__source-link"
                 >
-                  {metadata.sourceUrl}
+                  {safeSourceUrl}
                 </a>
               )}
               {metadata.description && (

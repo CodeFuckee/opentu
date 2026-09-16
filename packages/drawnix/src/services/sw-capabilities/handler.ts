@@ -29,6 +29,7 @@ import { insertImageFromUrl } from '../../data/image';
 import { insertVideoFromUrl } from '../../data/video';
 import { insertAudioFromUrl } from '../../data/audio';
 import { scrollToPointIfNeeded } from '../../utils/selection-utils';
+import { normalizeSvg, parseSvgDimensions, svgToDataUrl } from '../../utils/svg-utils';
 import { WorkZoneTransforms } from '../../plugins/workzone-transforms';
 import type { PlaitWorkZone } from '../../types/workzone.types';
 
@@ -246,7 +247,7 @@ export class SWCapabilitiesHandler {
             break;
 
           case 'svg': {
-            const dataUrl = this.svgToDataUrl(content);
+            const dataUrl = svgToDataUrl(content);
             const imageItem = { url: dataUrl, width: 400, height: 400 };
             DrawTransforms.insertImage(board, imageItem, currentPoint);
             currentPoint = [currentPoint[0], currentPoint[1] + 400 + verticalGap] as Point;
@@ -332,7 +333,7 @@ export class SWCapabilitiesHandler {
             break;
 
           case 'svg': {
-            const dataUrl = this.svgToDataUrl(content);
+            const dataUrl = svgToDataUrl(content);
             const imageItem = { url: dataUrl, width: 400, height: 400 };
             DrawTransforms.insertImage(board, imageItem, currentPoint);
             currentPoint = [currentPoint[0], currentPoint[1] + 400 + verticalGap] as Point;
@@ -547,16 +548,16 @@ export class SWCapabilitiesHandler {
     try {
       // Extract and normalize SVG
       const svgCode = this.extractSvgCode(svg);
-      const normalizedSvg = this.normalizeSvg(svgCode);
+      const normalizedSvg = normalizeSvg(svgCode);
 
       // Parse dimensions
-      const dimensions = this.parseSvgDimensions(normalizedSvg);
+      const dimensions = parseSvgDimensions(normalizedSvg);
       const effectiveWidth = Math.min(Math.max(width, 100), 800);
       const aspectRatio = dimensions.height / dimensions.width;
       const effectiveHeight = effectiveWidth * aspectRatio;
 
       // Convert to data URL
-      const dataUrl = this.svgToDataUrl(normalizedSvg);
+      const dataUrl = svgToDataUrl(normalizedSvg);
 
       // Determine insertion point
       let insertionPoint = startPoint || this.getInsertionPoint(board);
@@ -1066,46 +1067,6 @@ export class SWCapabilitiesHandler {
     }
 
     return svg.trim();
-  }
-
-  /**
-   * Normalize SVG code
-   */
-  private normalizeSvg(svg: string): string {
-    let normalized = svg.trim();
-    if (!normalized.includes('xmlns=')) {
-      normalized = normalized.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
-    }
-    return normalized;
-  }
-
-  /**
-   * Parse SVG dimensions
-   */
-  private parseSvgDimensions(svg: string): { width: number; height: number } {
-    const viewBoxMatch = svg.match(/viewBox=["']([^"']+)["']/i);
-    if (viewBoxMatch) {
-      const [, , vbWidth, vbHeight] = viewBoxMatch[1].split(/\s+/).map(Number);
-      if (vbWidth && vbHeight) {
-        return { width: vbWidth, height: vbHeight };
-      }
-    }
-
-    const widthMatch = svg.match(/width=["'](\d+)(?:px)?["']/i);
-    const heightMatch = svg.match(/height=["'](\d+)(?:px)?["']/i);
-    if (widthMatch && heightMatch) {
-      return { width: parseInt(widthMatch[1]), height: parseInt(heightMatch[1]) };
-    }
-
-    return { width: 400, height: 400 };
-  }
-
-  /**
-   * Convert SVG to data URL
-   */
-  private svgToDataUrl(svg: string): string {
-    const encoded = encodeURIComponent(svg).replace(/'/g, '%27').replace(/"/g, '%22');
-    return `data:image/svg+xml,${encoded}`;
   }
 }
 

@@ -266,7 +266,7 @@ function setupCommunicationHandlers(
       ) as HTMLIFrameElement;
 
       if (iframe?.contentWindow) {
-        iframe.contentWindow.postMessage(response, '*');
+        iframe.contentWindow.postMessage(response, getToolIframeTargetOrigin(iframe));
         // console.log(`[ToolCommunication] Image generation error sent to ${message.toolId}`);
       }
     }

@@ -5,6 +5,7 @@ import {
 } from '../../stores/asset-map-store';
 import { AssetType } from '../../types/asset.types';
 import { extractAssetIdFromUrl } from '../../utils/markdown-asset-embeds';
+import { sanitizeImageUrl, sanitizeLinkUrl } from '../../utils/link-url-sanitize';
 import {
   parseMarkdownImageAlt,
   parseMarkdownImageTitle,
@@ -70,9 +71,6 @@ const BLOCK_START_PATTERNS = [
   /^\s{0,3}>/,
   /^\s{0,3}(?:---+|\*\*\*+|___+)\s*$/,
 ];
-const SCRIPT_URL_SCHEME = ['java', 'script:'].join('');
-const VBSCRIPT_URL_SCHEME = ['vb', 'script:'].join('');
-
 function joinClassNames(...names: Array<string | undefined>): string {
   return names.filter(Boolean).join(' ');
 }
@@ -345,88 +343,6 @@ function stripOptionalTitle(raw: string): string {
   }
 
   return raw;
-}
-
-function startsWithSchemeIgnoringControl(url: string, scheme: string): boolean {
-  let schemeIndex = 0;
-
-  for (let i = 0; i < url.length; i += 1) {
-    const code = url.charCodeAt(i);
-    if (code <= 32 || code === 127) {
-      continue;
-    }
-
-    if (url[i].toLowerCase() !== scheme[schemeIndex]) {
-      return false;
-    }
-
-    schemeIndex += 1;
-    if (schemeIndex === scheme.length) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-function sanitizeLinkUrl(url: string): string | null {
-  const trimmed = url.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  if (
-    startsWithSchemeIgnoringControl(trimmed, SCRIPT_URL_SCHEME) ||
-    startsWithSchemeIgnoringControl(trimmed, VBSCRIPT_URL_SCHEME) ||
-    startsWithSchemeIgnoringControl(trimmed, 'data:')
-  ) {
-    return null;
-  }
-
-  const scheme = /^[a-z][a-z0-9+.-]*:/i.exec(trimmed)?.[0].toLowerCase();
-  if (
-    scheme &&
-    scheme !== 'http:' &&
-    scheme !== 'https:' &&
-    scheme !== 'mailto:'
-  ) {
-    return null;
-  }
-
-  return trimmed;
-}
-
-function sanitizeImageUrl(url: string): string | null {
-  const trimmed = url.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  if (
-    startsWithSchemeIgnoringControl(trimmed, SCRIPT_URL_SCHEME) ||
-    startsWithSchemeIgnoringControl(trimmed, VBSCRIPT_URL_SCHEME)
-  ) {
-    return null;
-  }
-
-  if (startsWithSchemeIgnoringControl(trimmed, 'data:')) {
-    return /^data:image\/(?:png|jpe?g|gif|webp|avif);base64,/i.test(trimmed)
-      ? trimmed
-      : null;
-  }
-
-  const scheme = /^[a-z][a-z0-9+.-]*:/i.exec(trimmed)?.[0].toLowerCase();
-  if (
-    scheme &&
-    scheme !== 'http:' &&
-    scheme !== 'https:' &&
-    scheme !== 'blob:' &&
-    scheme !== 'asset:'
-  ) {
-    return null;
-  }
-
-  return trimmed;
 }
 
 function parseImageAt(text: string, cursor: number): ImageMeta | null {
