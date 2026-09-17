@@ -46,9 +46,8 @@ function isAbsoluteHttpUrl(url: string): boolean {
 }
 
 function isLocalRelativeImageUrl(url: string): boolean {
+  // 以 / 开头即视为站内相对路径（已覆盖 /__aitu_cache__/、/asset-library/ 等虚拟前缀）
   if (
-    url.startsWith('/__aitu_cache__/') ||
-    url.startsWith('/asset-library/') ||
     url.startsWith('/') ||
     url.startsWith('./') ||
     url.startsWith('../')
@@ -130,9 +129,7 @@ export function countImageAttachmentInputs(
   attachments: MultimodalAttachmentInput[] = []
 ): number {
   return attachments.filter((attachment) =>
-    isFile(attachment)
-      ? isImageMimeType(attachment.type)
-      : isImageMimeType(attachment.type)
+    isImageMimeType(attachment.type)
   ).length;
 }
 
@@ -141,11 +138,7 @@ export async function buildImagePartsFromAttachmentInputs(
   maxImageCount: number = Number.POSITIVE_INFINITY
 ): Promise<GeminiMessagePart[]> {
   const imageAttachments = attachments
-    .filter((attachment) =>
-      isFile(attachment)
-        ? isImageMimeType(attachment.type)
-        : isImageMimeType(attachment.type)
-    )
+    .filter((attachment) => isImageMimeType(attachment.type))
     .slice(0, maxImageCount);
 
   return Promise.all(

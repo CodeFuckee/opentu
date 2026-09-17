@@ -7,7 +7,6 @@
 
 import { Task, TaskStatus, TaskType } from '../types/task.types';
 import { TASK_TIMEOUT } from '../constants/TASK_CONSTANTS';
-import { isAsyncImageModel } from '../constants/model-config';
 import { generateUUID, formatDate } from '@aitu/utils';
 
 /**
@@ -35,17 +34,6 @@ export function generateTaskId(): string {
 export function isTaskActive(task: Task): boolean {
   return task.status === TaskStatus.PENDING || 
          task.status === TaskStatus.PROCESSING;
-}
-
-function hasAsyncImageInvocationRoute(
-  task: Pick<Task, 'invocationRoute'>
-): boolean {
-  const binding = task.invocationRoute?.binding;
-  return (
-    task.invocationRoute?.operation === 'image' &&
-    (binding?.protocol === 'openai.async.media' ||
-      binding?.requestSchema === 'openai.async.image.form')
-  );
 }
 
 /**

@@ -283,10 +283,6 @@ export const boardToImage = (
  * @returns Platform-specific shortcut string
  */
 export const getShortcutKey = (shortcut: string): string => {
-  shortcut = shortcut
-    .replace(/\bAlt\b/i, 'Alt')
-    .replace(/\bShift\b/i, 'Shift')
-    .replace(/\b(Enter|Return)\b/i, 'Enter');
   if (IS_APPLE || IS_MAC) {
     return shortcut
       .replace(/\bCtrlOrCmd\b/gi, 'Cmd')

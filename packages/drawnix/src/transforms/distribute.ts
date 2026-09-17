@@ -24,10 +24,11 @@ const getElementRect = (board: PlaitBoard, element: PlaitElement) => {
 };
 
 /**
- * 水平等间距分布
- * 将元素按水平方向等间距排列
+ * 沿单一轴等间距分布（horizontal 用 x 轴，vertical 用 y 轴）
+ * 将元素按所选轴等间距排列
  */
-const distributeHorizontal = (board: PlaitBoard) => {
+const distributeAlongAxis = (board: PlaitBoard, axis: 'x' | 'y') => {
+  const sizeKey = axis === 'x' ? 'width' : 'height';
   const selectedElements = getSelectedElements(board);
 
   // 至少需要选中3个元素才能等间距分布
@@ -43,115 +44,64 @@ const distributeHorizontal = (board: PlaitBoard) => {
     return;
   }
 
-  // 获取每个元素的矩形信息，并按 x 坐标排序
+  // 获取每个元素的矩形信息，并按轴坐标排序
   const elementsWithRect = primaryElements.map((element) => ({
     element,
     rect: getElementRect(board, element),
   }));
 
-  elementsWithRect.sort((a, b) => a.rect.x - b.rect.x);
+  elementsWithRect.sort((a, b) => a.rect[axis] - b.rect[axis]);
 
-  // 计算总宽度和元素总宽度
+  // 计算总跨度与元素总尺寸
   const firstRect = elementsWithRect[0].rect;
   const lastRect = elementsWithRect[elementsWithRect.length - 1].rect;
-  const totalSpan = lastRect.x + lastRect.width - firstRect.x;
-  const totalElementWidth = elementsWithRect.reduce(
-    (sum, item) => sum + item.rect.width,
+  const totalSpan = lastRect[axis] + lastRect[sizeKey] - firstRect[axis];
+  const totalElementSize = elementsWithRect.reduce(
+    (sum, item) => sum + item.rect[sizeKey],
     0
   );
 
   // 计算间距
-  const totalGap = totalSpan - totalElementWidth;
+  const totalGap = totalSpan - totalElementSize;
   const gapCount = elementsWithRect.length - 1;
   const gap = gapCount > 0 ? totalGap / gapCount : 0;
 
   // 从第二个元素开始调整位置（第一个和最后一个保持不动）
-  let currentX = firstRect.x + firstRect.width + gap;
+  let current = firstRect[axis] + firstRect[sizeKey] + gap;
   const movedElementIds = new Set<string>();
 
   for (let i = 1; i < elementsWithRect.length - 1; i++) {
     const { element, rect } = elementsWithRect[i];
-    const deltaX = currentX - rect.x;
+    const delta = current - rect[axis];
 
-    if (Math.abs(deltaX) > 0.01) {
+    if (Math.abs(delta) > 0.01) {
       moveElementWithFrameRelations(
         board,
         element,
-        deltaX,
-        0,
+        axis === 'x' ? delta : 0,
+        axis === 'x' ? 0 : delta,
         relatedByFrameId,
         movedElementIds
       );
     }
 
-    currentX += rect.width + gap;
+    current += rect[sizeKey] + gap;
   }
 };
+
+/**
+ * 水平等间距分布
+ * 将元素按水平方向等间距排列
+ */
+const distributeHorizontal = (board: PlaitBoard) =>
+  distributeAlongAxis(board, 'x');
 
 /**
  * 垂直等间距分布
  * 将元素按垂直方向等间距排列
  */
-const distributeVertical = (board: PlaitBoard) => {
-  const selectedElements = getSelectedElements(board);
-
-  // 至少需要选中3个元素才能等间距分布
-  if (selectedElements.length < 3) {
-    return;
-  }
-
-  const { primaryElements, relatedByFrameId } = getFrameAwareSelection(
-    board,
-    selectedElements
-  );
-  if (primaryElements.length < 3) {
-    return;
-  }
-
-  // 获取每个元素的矩形信息，并按 y 坐标排序
-  const elementsWithRect = primaryElements.map((element) => ({
-    element,
-    rect: getElementRect(board, element),
-  }));
-
-  elementsWithRect.sort((a, b) => a.rect.y - b.rect.y);
-
-  // 计算总高度和元素总高度
-  const firstRect = elementsWithRect[0].rect;
-  const lastRect = elementsWithRect[elementsWithRect.length - 1].rect;
-  const totalSpan = lastRect.y + lastRect.height - firstRect.y;
-  const totalElementHeight = elementsWithRect.reduce(
-    (sum, item) => sum + item.rect.height,
-    0
-  );
-
-  // 计算间距
-  const totalGap = totalSpan - totalElementHeight;
-  const gapCount = elementsWithRect.length - 1;
-  const gap = gapCount > 0 ? totalGap / gapCount : 0;
-
-  // 从第二个元素开始调整位置（第一个和最后一个保持不动）
-  let currentY = firstRect.y + firstRect.height + gap;
-  const movedElementIds = new Set<string>();
-
-  for (let i = 1; i < elementsWithRect.length - 1; i++) {
-    const { element, rect } = elementsWithRect[i];
-    const deltaY = currentY - rect.y;
-
-    if (Math.abs(deltaY) > 0.01) {
-      moveElementWithFrameRelations(
-        board,
-        element,
-        0,
-        deltaY,
-        relatedByFrameId,
-        movedElementIds
-      );
-    }
-
-    currentY += rect.height + gap;
-  }
-};
+const distributeVertical = (board: PlaitBoard) =>
+  distributeAlongAxis(board, 'y');
 
 /**
  * 自动排列

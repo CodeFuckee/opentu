@@ -448,23 +448,15 @@ export const findElementsOverlappingWithGraphics = (board: PlaitBoard, elements:
 } => {
   // console.log('findElementsOverlappingWithGraphics: Processing', elements.length, 'elements');
   
-  const graphicsElements = elements.filter(el => {
-    const isGraphics = isGraphicsElement(board, el);
-    // if (isGraphics) {
-    //   console.log('Found graphics element:', el.id, 'type:', el.type);
-    // }
-    return isGraphics;
-  });
-  
-  const nonGraphicsElements = elements.filter(el => {
-    const isGraphics = isGraphicsElement(board, el);
-    // if (!isGraphics) {
-    //   const isImage = isImageElement(board, el);
-    //   const isText = isTextElement(board, el);
-    //   console.log('Found non-graphics element:', el.id, 'type:', el.type, 'isImage:', isImage, 'isText:', isText);
-    // }
-    return !isGraphics;
-  });
+  const graphicsElements: PlaitElement[] = [];
+  const nonGraphicsElements: PlaitElement[] = [];
+  for (const el of elements) {
+    if (isGraphicsElement(board, el)) {
+      graphicsElements.push(el);
+    } else {
+      nonGraphicsElements.push(el);
+    }
+  }
   
   // console.log('Graphics elements:', graphicsElements.length, 'Non-graphics elements:', nonGraphicsElements.length);
   
@@ -719,9 +711,15 @@ export const convertElementsToImage = async (board: PlaitBoard, elements: PlaitE
 
     // Sort elements by their original order in the board to maintain layer hierarchy
     // Elements that appear later in the board.children array should be on top
+    const idToIndex = new Map<string, number>();
+    board.children.forEach((child, index) => {
+      if (!idToIndex.has(child.id)) {
+        idToIndex.set(child.id, index);
+      }
+    });
     const sortedElements = elements.slice().sort((a, b) => {
-      const indexA = board.children.findIndex(child => child.id === a.id);
-      const indexB = board.children.findIndex(child => child.id === b.id);
+      const indexA = idToIndex.get(a.id) ?? -1;
+      const indexB = idToIndex.get(b.id) ?? -1;
 
       // If either element is not found in board.children, maintain original order
       if (indexA === -1 && indexB === -1) return 0;

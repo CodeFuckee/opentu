@@ -532,8 +532,10 @@ async function labelConnectedComponents(
       currentLabel++;
       queue.push({ x, y });
 
-      while (queue.length > 0) {
-        const { x: cx, y: cy } = queue.shift()!;
+      // 用头指针代替 shift()，避免 O(n) 的数组搬移退化为 O(n²)
+      let head = 0;
+      while (head < queue.length) {
+        const { x: cx, y: cy } = queue[head++];
         const cidx = cy * width + cx;
 
         if (cx < 0 || cx >= width || cy < 0 || cy >= height) continue;

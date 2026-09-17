@@ -35,6 +35,10 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
+const CJK_CHAR_RE = /[\u3400-\u9fff\uf900-\ufaff]/u;
+const UPPERCASE_ALNUM_RE = /[A-Z0-9]/;
+const WHITESPACE_RE = /\s/;
+
 function measureVisualTextUnits(value?: string): number {
   if (!value) {
     return 0;
@@ -42,11 +46,11 @@ function measureVisualTextUnits(value?: string): number {
 
   let units = 0;
   for (const char of value) {
-    if (/[\u3400-\u9fff\uf900-\ufaff]/u.test(char)) {
+    if (CJK_CHAR_RE.test(char)) {
       units += 2;
-    } else if (/[A-Z0-9]/.test(char)) {
+    } else if (UPPERCASE_ALNUM_RE.test(char)) {
       units += 1.12;
-    } else if (/\s/.test(char)) {
+    } else if (WHITESPACE_RE.test(char)) {
       units += 0.45;
     } else {
       units += 1;

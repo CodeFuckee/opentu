@@ -532,7 +532,14 @@ class SettingsManager {
     };
   }
 
-  private buildTuziOriginalProfile(
+  /**
+   * Tuzi 三个预设档（original/mix/codex）仅 id、名称与默认定价分组不同，
+   * 其余归一化逻辑完全一致，统一由此参数化构建。
+   */
+  private buildTuziProfileVariant(
+    profileId: string,
+    profileName: string,
+    defaultPricingGroup: string,
     profile?: Partial<ProviderProfile>
   ): ProviderProfile {
     const baseUrl =
@@ -545,8 +552,8 @@ class SettingsManager {
     );
 
     return {
-      id: TUZI_ORIGINAL_PROVIDER_PROFILE_ID,
-      name: TUZI_ORIGINAL_PROVIDER_NAME,
+      id: profileId,
+      name: profileName,
       iconUrl: TUZI_PROVIDER_ICON_URL,
       homepageUrl:
         this.normalizeHomepageUrl(profile?.homepageUrl) ||
@@ -569,90 +576,41 @@ class SettingsManager {
       pricingGroup:
         typeof profile?.pricingGroup === 'string' && profile.pricingGroup.trim()
           ? profile.pricingGroup.trim()
-          : 'default',
+          : defaultPricingGroup,
     };
+  }
+
+  private buildTuziOriginalProfile(
+    profile?: Partial<ProviderProfile>
+  ): ProviderProfile {
+    return this.buildTuziProfileVariant(
+      TUZI_ORIGINAL_PROVIDER_PROFILE_ID,
+      TUZI_ORIGINAL_PROVIDER_NAME,
+      'default',
+      profile
+    );
   }
 
   private buildTuziMixProfile(
     profile?: Partial<ProviderProfile>
   ): ProviderProfile {
-    const baseUrl =
-      typeof profile?.baseUrl === 'string' && profile.baseUrl.trim()
-        ? profile.baseUrl
-        : TUZI_PROVIDER_DEFAULT_BASE_URL;
-    const providerType = this.normalizeProviderType(
-      baseUrl,
-      profile?.providerType
+    return this.buildTuziProfileVariant(
+      TUZI_MIX_PROVIDER_PROFILE_ID,
+      TUZI_MIX_PROVIDER_NAME,
+      'gemini-mix',
+      profile
     );
-
-    return {
-      id: TUZI_MIX_PROVIDER_PROFILE_ID,
-      name: TUZI_MIX_PROVIDER_NAME,
-      iconUrl: TUZI_PROVIDER_ICON_URL,
-      homepageUrl:
-        this.normalizeHomepageUrl(profile?.homepageUrl) ||
-        'https://api.tu-zi.com/',
-      providerType,
-      baseUrl,
-      apiKey: typeof profile?.apiKey === 'string' ? profile.apiKey : '',
-      authType: this.normalizeProviderAuthType(
-        baseUrl,
-        providerType,
-        profile?.authType
-      ),
-      imageApiCompatibility: this.normalizeStoredImageApiCompatibility(
-        profile?.imageApiCompatibility
-      ),
-      preferAsyncImageEndpoint: profile?.preferAsyncImageEndpoint === true,
-      extraHeaders: this.normalizeStringRecord(profile?.extraHeaders),
-      enabled: profile?.enabled !== false,
-      capabilities: this.normalizeCapabilities(profile?.capabilities),
-      pricingGroup:
-        typeof profile?.pricingGroup === 'string' && profile.pricingGroup.trim()
-          ? profile.pricingGroup.trim()
-          : 'gemini-mix',
-    };
   }
 
   private buildTuziCodexProfile(
     profile?: Partial<ProviderProfile>
   ): ProviderProfile {
-    const baseUrl =
-      typeof profile?.baseUrl === 'string' && profile.baseUrl.trim()
-        ? profile.baseUrl
-        : TUZI_PROVIDER_DEFAULT_BASE_URL;
-    const providerType = this.normalizeProviderType(
-      baseUrl,
-      profile?.providerType
+    return this.buildTuziProfileVariant(
+      TUZI_CODEX_PROVIDER_PROFILE_ID,
+      TUZI_CODEX_PROVIDER_NAME,
+      'codex',
+      profile
     );
-
-    return {
-      id: TUZI_CODEX_PROVIDER_PROFILE_ID,
-      name: TUZI_CODEX_PROVIDER_NAME,
-      iconUrl: TUZI_PROVIDER_ICON_URL,
-      homepageUrl:
-        this.normalizeHomepageUrl(profile?.homepageUrl) ||
-        'https://api.tu-zi.com/',
-      providerType,
-      baseUrl,
-      apiKey: typeof profile?.apiKey === 'string' ? profile.apiKey : '',
-      authType: this.normalizeProviderAuthType(
-        baseUrl,
-        providerType,
-        profile?.authType
-      ),
-      imageApiCompatibility: this.normalizeStoredImageApiCompatibility(
-        profile?.imageApiCompatibility
-      ),
-      preferAsyncImageEndpoint: profile?.preferAsyncImageEndpoint === true,
-      extraHeaders: this.normalizeStringRecord(profile?.extraHeaders),
-      enabled: profile?.enabled !== false,
-      capabilities: this.normalizeCapabilities(profile?.capabilities),
-      pricingGroup:
-        typeof profile?.pricingGroup === 'string' && profile.pricingGroup.trim()
-          ? profile.pricingGroup.trim()
-          : 'codex',
-    };
   }
 
   private buildTuziBusinessProfile(

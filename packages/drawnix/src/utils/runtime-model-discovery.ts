@@ -1216,19 +1216,17 @@ class RuntimeModelDiscoveryStore {
     state: RuntimeModelDiscoveryState,
     persist = true
   ): void {
+    const normalizedSelectedModelIds = normalizeSelectedModelIds(
+      state.discoveredModels,
+      state.selectedModelIds
+    );
     this.catalogStates.set(profileId, {
       ...state,
       profileId,
-      selectedModelIds: normalizeSelectedModelIds(
-        state.discoveredModels,
-        state.selectedModelIds
-      ),
+      selectedModelIds: normalizedSelectedModelIds,
       models: buildSelectedModels(
         state.discoveredModels,
-        normalizeSelectedModelIds(
-          state.discoveredModels,
-          state.selectedModelIds
-        )
+        normalizedSelectedModelIds
       ),
     });
 
