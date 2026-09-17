@@ -20,6 +20,7 @@
 | 按天归档趋势 | 每日归档任务数与失败数（东八区切日，近 14 天） |
 | 失败样本 | 最近 50 条 failed 任务：时间、用户 OA、类型、模型、耗时、error 摘要 |
 | 卡死任务 | submitted 超过类型阈值：按等待时长倒序，最多 20 条 |
+| 结果完整性 | 窗口内 completed 的 image/video/audio 任务结果核验：应产出文件任务数、结果未归档（response_file_paths 为空）、不在 bucket（按 {用户名}/{日期}/ 前缀并行列出 huabu 对象核验，路径找不到）、零字节（对象存在但 size=0）、未核验（前缀超 400 上限不计入异常）；附异常样本（前 10 条：问题/路径/用户/大小） |
 
 页面默认**每 30 秒自动刷新**（可开关）；窗口天数切换：今日 / 7 / 14 / 30 天。
 
@@ -27,7 +28,21 @@
 
 - **成功率 = completed / (completed + failed + cancelled)**：cancelled 单列展示、
   不算失败；卡死（submitted 超时未终态）不计入分母
+- **平台错误率 = 平台错误失败 / (completed + cancelled + 平台错误失败)**：
+  失败按 error 内容分类——余额不足、上游失败视为外部原因，整体排除在分子分母之外
+  （上游大面积故障不会污染本指标）；其余失败（含 edge 被杀、未知原因）计入平台错误。
+  分类靠关键词匹配（整 error 对象文本，含 apiErrorBody 原始报文 + httpStatus 502/503/504）：
+  - 余额不足：`insufficient_user_quota`、`insufficient quota`、`余额不足`、`额度不足`、
+    `额度已用尽`、`预扣费额度失败`、`令牌额度已用尽`、`quota is not enough`
+  - 上游失败：`upstream_error`、`upstream error`、`upstream timeout`、`上游错误`、
+    `上游失败`、`上游超时`、`上游服务`、`bad gateway`、`service unavailable`、
+    `gateway timeout` + httpStatus ∈ {502,503,504}
+  - 关键词清单在 `core.ts` 的 `BALANCE_KEYWORDS` / `UPSTREAM_KEYWORDS`，随实际报文沉淀可增补
 - **卡死阈值按类型**：image 10 分钟、video 30 分钟、其余 10 分钟
+- **结果完整性核验**：只统计 completed 的 image/video/audio（chat 纯文本不参与）；
+  按记录的 response_file_paths 推导 `{用户名}/{日期}/` 前缀，经 Storage list API
+  并行分页核验（前缀上限 400，超限任务计入「未核验」不计异常；storage list 返回的
+  对象名同时按完整路径与前缀相对名建索引，兼容两种返回格式）
 - **不缩放**：不走 USAGE_MULTIPLIER（开发要真实数字）
 - **失败明细可见**：`task_submissions.error` 的摘要（message 优先，JSON 截断 200 字符）
   只出现在本页，永不上 dashboard-stats

@@ -190,6 +190,10 @@ export interface PipelineRow {
   created_at: string;
   completed_at: string | null;
   model?: string;
+  /** 失败原因原始对象（failed 行才有；含 message/apiErrorBody/httpStatus） */
+  error?: unknown;
+  /** 终态后服务端归档到 huabu bucket 的结果文件路径列表 */
+  response_file_paths?: unknown;
 }
 
 export interface PipelineCounts {
@@ -221,10 +225,21 @@ export interface DailyTrendPoint {
   failed: number;
 }
 
+/** 失败原因归类：余额不足/上游失败为外部原因，其余计入平台错误 */
+export type FailureCategory = 'balance' | 'upstream' | 'platform';
+
 export interface PipelineStats {
   counts: PipelineCounts;
   /** completed / (completed+failed+cancelled)，分母 0 为 null */
   successRate: number | null;
+  /** 失败原因分类计数（余额不足/上游失败/平台，合计=failed） */
+  failureCategories: Record<FailureCategory, number>;
+  /**
+   * 平台错误率 = 平台错误失败 / (completed + cancelled + 平台错误失败)。
+   * 余额不足与上游失败的任务整体排除在分子分母之外（上游大面积故障不影响本指标）；
+   * 分母 0 为 null。
+   */
+  platformErrorRate: number | null;
   durationByType: Record<string, DurationStat>;
   failuresByModel: ModelFailStat[];
   daily: DailyTrendPoint[];
@@ -241,6 +256,84 @@ const STUCK_THRESHOLDS_MS: Record<string, number> = {
 
 export function stuckThresholdMs(type: string): number {
   return STUCK_THRESHOLDS_MS[type] ?? 10 * 60_000;
+}
+
+// ---------------------------------------------------------------------------
+// 失败原因分类（平台错误率口径）
+// ---------------------------------------------------------------------------
+
+/**
+ * 余额不足关键词：账户/令牌额度耗尽（与前端 useTaskExecutor 的判定一致，
+ * 另补网关（new-api）常见中文文案）。命中即视为外部原因，排除出平台错误率。
+ */
+const BALANCE_KEYWORDS = [
+  'insufficient_user_quota',
+  'insufficient_quota',
+  'insufficient quota',
+  'quota is not enough',
+  '余额不足',
+  '额度不足',
+  '额度已用尽',
+  '预扣费额度失败',
+];
+
+/**
+ * 上游失败关键词：上游供应商/网关侧错误。'upstream key unavailable' 是本平台
+ * 自身配置缺失，刻意不在此列（归平台错误）。
+ */
+const UPSTREAM_KEYWORDS = [
+  'upstream_error',
+  'upstream error',
+  'upstream timeout',
+  'upstream failure',
+  '上游错误',
+  '上游失败',
+  '上游超时',
+  '上游服务',
+  'bad gateway',
+  'service unavailable',
+  'gateway timeout',
+];
+
+/** 视为上游失败的 HTTP 状态码（502/503/504 = 网关/供应商侧故障） */
+const UPSTREAM_HTTP_STATUS = new Set([502, 503, 504]);
+
+function errorText(error: unknown): string {
+  if (typeof error === 'string') {
+    return error;
+  }
+  if (error != null && typeof error === 'object') {
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return String(error);
+    }
+  }
+  return error == null ? '' : String(error);
+}
+
+/**
+ * 失败原因分类：整对象文本（含 message 与 apiErrorBody 原始报文）小写后匹配关键词。
+ * 余额不足优先于上游（上游透传余额错误时按外部原因处理）；其余一律归平台错误——
+ * 宁可高估平台错误，也不把未知失败藏进"外部原因"。
+ */
+export function classifyFailureCategory(error: unknown): FailureCategory {
+  const haystack = errorText(error).toLowerCase();
+  if (haystack) {
+    if (BALANCE_KEYWORDS.some((keyword) => haystack.includes(keyword))) {
+      return 'balance';
+    }
+    if (UPSTREAM_KEYWORDS.some((keyword) => haystack.includes(keyword))) {
+      return 'upstream';
+    }
+  }
+  if (error && typeof error === 'object') {
+    const status = (error as { httpStatus?: unknown }).httpStatus;
+    if (typeof status === 'number' && UPSTREAM_HTTP_STATUS.has(status)) {
+      return 'upstream';
+    }
+  }
+  return 'platform';
 }
 
 function localDate(iso: string): string | null {
@@ -266,6 +359,7 @@ export function aggregatePipeline(rows: PipelineRow[], nowMs: number = Date.now(
   let cancelled = 0;
   let submitted = 0;
   let stuck = 0;
+  const failureCategories: Record<FailureCategory, number> = { balance: 0, upstream: 0, platform: 0 };
 
   const durationsByType = new Map<string, number[]>();
   const totalByModel = new Map<string, number>();
@@ -285,6 +379,10 @@ export function aggregatePipeline(rows: PipelineRow[], nowMs: number = Date.now(
         break;
       default:
         break;
+    }
+
+    if (row.status === 'failed') {
+      failureCategories[classifyFailureCategory(row.error)] += 1;
     }
 
     if (row.status === 'completed' && row.created_at && row.completed_at) {
@@ -319,6 +417,14 @@ export function aggregatePipeline(rows: PipelineRow[], nowMs: number = Date.now(
   const denominator = completed + failed + cancelled;
   const successRate = denominator > 0 ? Math.round((completed / denominator) * 10000) / 10000 : null;
 
+  // 平台错误率：外部原因（余额不足/上游失败）整体排除在分子分母之外
+  const platformFailures = failureCategories.platform;
+  const platformDenominator = completed + cancelled + platformFailures;
+  const platformErrorRate =
+    platformDenominator > 0
+      ? Math.round((platformFailures / platformDenominator) * 10000) / 10000
+      : null;
+
   const durationByType: Record<string, DurationStat> = {};
   for (const [type, list] of durationsByType) {
     const sorted = [...list].sort((a, b) => a - b);
@@ -343,7 +449,7 @@ export function aggregatePipeline(rows: PipelineRow[], nowMs: number = Date.now(
 
   const daily = Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date));
 
-  return { counts: { completed, failed, cancelled, submitted, stuck }, successRate, durationByType, failuresByModel, daily };
+  return { counts: { completed, failed, cancelled, submitted, stuck }, successRate, failureCategories, platformErrorRate, durationByType, failuresByModel, daily };
 }
 
 // ============================================================================
@@ -455,6 +561,203 @@ export function toStuckList(
 }
 
 // ============================================================================
+// 结果完整性：成功任务的结果文件是否在 bucket、大小是否为 0
+// ============================================================================
+
+/** 应产出文件任务的成功结果才会有 response_file_paths（chat 纯文本不参与统计） */
+export const RESULT_FILE_TYPES = new Set(['image', 'video', 'audio']);
+
+/** bucket 前缀核验上限（超过则任务计入「未核验」，60s 函数超时约束） */
+export const INTEGRITY_PREFIX_CAP = 400;
+
+function asPathList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((p): p is string => typeof p === 'string' && p !== '') : [];
+}
+
+/**
+ * 收集窗口内 completed 文件任务的去重 bucket 前缀（{用户名}/{日期}/），
+ * 按出现顺序返回（稳定，便于上限截断）。
+ */
+export function collectResultPrefixes(rows: PipelineRow[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const row of rows) {
+    if (row.status !== 'completed' || !RESULT_FILE_TYPES.has(row.type)) {
+      continue;
+    }
+    for (const path of asPathList(row.response_file_paths)) {
+      const cut = path.lastIndexOf('/');
+      const prefix = cut > 0 ? path.slice(0, cut + 1) : '';
+      if (prefix && !seen.has(prefix)) {
+        seen.add(prefix);
+        out.push(prefix);
+      }
+    }
+  }
+  return out;
+}
+
+export interface BucketAuditResult {
+  /** 键同时含完整路径与前缀相对名（兼容 storage list 两种返回格式） */
+  sizes: Map<string, number>;
+  verifiedPrefixes: Set<string>;
+  listedObjects: number;
+}
+
+/**
+ * 按 {用户名}/{日期}/ 前缀并行列出 huabu 对象，构建 路径→大小 映射。
+ * 单前缀分页（每页 1000），前缀数超上限截断；单前缀失败跳过（不进 verifiedPrefixes，
+ * 该前缀下任务计为「未核验」），不拖垮其余前缀。
+ */
+export async function auditBucketObjects(
+  env: DevMonitorEnv,
+  prefixes: string[],
+  deps: DevMonitorDeps = {},
+  opts: { prefixCap?: number; pageSize?: number; concurrency?: number } = {}
+): Promise<BucketAuditResult> {
+  const doFetch = deps.fetch || fetch;
+  const prefixCap = opts.prefixCap ?? INTEGRITY_PREFIX_CAP;
+  const pageSize = opts.pageSize ?? 1000;
+  const concurrency = opts.concurrency ?? 20;
+  const base = baseUrl(env);
+  const sizes = new Map<string, number>();
+  const verifiedPrefixes = new Set<string>();
+  let listedObjects = 0;
+
+  const listOne = async (prefix: string): Promise<void> => {
+    for (let offset = 0; offset < 100000; offset += pageSize) {
+      let res: Response;
+      try {
+        res = await doFetch(`${base}/storage/v1/object/list/huabu`, {
+          method: 'POST',
+          headers: { ...srkHeaders(env), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prefix, limit: pageSize, offset, sortBy: { column: 'name', order: 'asc' } }),
+        });
+      } catch {
+        return; // 网络异常 → 该前缀不核验
+      }
+      if (!res.ok) {
+        return;
+      }
+      const body = (await res.json().catch(() => null)) as
+        | Array<{ name?: unknown; metadata?: { size?: unknown } | null }>
+        | null;
+      const objects = Array.isArray(body) ? body : [];
+      for (const object of objects) {
+        if (typeof object?.name !== 'string' || !object.name) {
+          continue;
+        }
+        const size = Number(object.metadata?.size);
+        if (Number.isFinite(size)) {
+          sizes.set(object.name, size);
+          sizes.set(`${prefix}${object.name}`, size);
+        }
+        listedObjects += 1;
+      }
+      if (objects.length < pageSize) {
+        verifiedPrefixes.add(prefix);
+        return;
+      }
+    }
+    verifiedPrefixes.add(prefix);
+  };
+
+  const queue = prefixes.slice(0, prefixCap);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(concurrency, queue.length) }, async () => {
+    while (cursor < queue.length) {
+      const prefix = queue[cursor];
+      cursor += 1;
+      await listOne(prefix);
+    }
+  });
+  await Promise.all(workers);
+
+  return { sizes, verifiedPrefixes, listedObjects };
+}
+
+export interface IntegritySample {
+  path: string;
+  issue: 'not_archived' | 'missing' | 'zero';
+  oa: string | null;
+  size: number | null;
+}
+
+export interface ResultIntegrityStats {
+  /** 窗口内 completed 的应产出文件任务数（image/video/audio） */
+  fileTaskTotal: number;
+  /** completed 但 response_file_paths 为空 */
+  notArchived: number;
+  /** 路径在 bucket 找不到（前缀已核验的任务） */
+  missingFromBucket: number;
+  /** 路径存在但大小为 0 */
+  zeroSize: number;
+  /** 前缀超核验上限等原因未能核验的任务数 */
+  unverified: number;
+  samples: IntegritySample[];
+}
+
+/** 结果完整性审计（纯逻辑）：任务级计数，样本每任务取第一条问题路径 */
+export function auditResultIntegrity(
+  rows: PipelineRow[],
+  bucket: Pick<BucketAuditResult, 'sizes' | 'verifiedPrefixes'>,
+  oaByUser: Map<string, string>,
+  opts: { sampleCap?: number } = {}
+): ResultIntegrityStats {
+  const sampleCap = opts.sampleCap ?? 10;
+  const samples: IntegritySample[] = [];
+  let fileTaskTotal = 0;
+  let notArchived = 0;
+  let missingFromBucket = 0;
+  let zeroSize = 0;
+  let unverified = 0;
+
+  for (const row of rows) {
+    if (row.status !== 'completed' || !RESULT_FILE_TYPES.has(row.type)) {
+      continue;
+    }
+    fileTaskTotal += 1;
+    const paths = asPathList(row.response_file_paths);
+    const oa = (row.user_id && oaByUser.get(row.user_id)) || null;
+
+    if (paths.length === 0) {
+      notArchived += 1;
+      if (samples.length < sampleCap) {
+        samples.push({ path: '(任务无归档结果路径)', issue: 'not_archived', oa, size: null });
+      }
+      continue;
+    }
+
+    const allVerified = paths.every((path) => {
+      const cut = path.lastIndexOf('/');
+      return bucket.verifiedPrefixes.has(cut > 0 ? path.slice(0, cut + 1) : '');
+    });
+    if (!allVerified) {
+      unverified += 1;
+      continue;
+    }
+
+    const missing = paths.find((path) => !bucket.sizes.has(path));
+    if (missing) {
+      missingFromBucket += 1;
+      if (samples.length < sampleCap) {
+        samples.push({ path: missing, issue: 'missing', oa, size: null });
+      }
+      continue;
+    }
+    const zero = paths.find((path) => bucket.sizes.get(path) === 0);
+    if (zero) {
+      zeroSize += 1;
+      if (samples.length < sampleCap) {
+        samples.push({ path: zero, issue: 'zero', oa, size: 0 });
+      }
+    }
+  }
+
+  return { fileTaskTotal, notArchived, missingFromBucket, zeroSize, unverified, samples };
+}
+
+// ============================================================================
 // 状态编排（/status 数据生产者）
 // ============================================================================
 
@@ -466,6 +769,8 @@ export interface DevStatus {
   pipeline: PipelineStats | null;
   recentFailures: FailureSample[];
   stuckList: StuckItem[];
+  /** 结果完整性审计（窗口行拉取失败时为 null） */
+  resultIntegrity: ResultIntegrityStats | null;
 }
 
 async function fetchJsonRows(
@@ -503,7 +808,7 @@ export async function aggregateStatus(
   const safeDays = clampDays(days);
   const fromIso = new Date(Date.now() - safeDays * 24 * 60 * 60 * 1000).toISOString();
   const windowQuery =
-    `/rest/v1/task_submissions?select=id,user_id,type,status,created_at,completed_at,model:params-%3E%3Emodel&created_at=gte.${encodeURIComponent(fromIso)}&order=created_at.asc&limit=20000`;
+    `/rest/v1/task_submissions?select=id,user_id,type,status,created_at,completed_at,error,response_file_paths,model:params-%3E%3Emodel&created_at=gte.${encodeURIComponent(fromIso)}&order=created_at.asc&limit=20000`;
   const failureQuery =
     `/rest/v1/task_submissions?select=created_at,completed_at,user_id,type,error,model:params-%3E%3Emodel&status=eq.failed&created_at=gte.${encodeURIComponent(fromIso)}&order=created_at.desc&limit=50`;
 
@@ -524,6 +829,17 @@ export async function aggregateStatus(
     }).filter(([id]) => id !== '')
   );
 
+  // 结果完整性：按窗口内 completed 文件任务的前缀核验 bucket 对象（探活与数据查询后串行执行）
+  let resultIntegrity: ResultIntegrityStats | null = null;
+  if (windowRows) {
+    const integrityRows = windowRows as PipelineRow[];
+    const prefixes = collectResultPrefixes(integrityRows);
+    const bucket = prefixes.length
+      ? await auditBucketObjects(env, prefixes, deps)
+      : { sizes: new Map<string, number>(), verifiedPrefixes: new Set<string>(), listedObjects: 0 };
+    resultIntegrity = auditResultIntegrity(integrityRows, bucket, oaByUser);
+  }
+
   return {
     generatedAt: new Date().toISOString(),
     days: safeDays,
@@ -531,6 +847,7 @@ export async function aggregateStatus(
     pipeline: windowRows ? aggregatePipeline(windowRows as PipelineRow[]) : null,
     recentFailures: toFailureSamples((failureRows ?? []) as FailureRow[], oaByUser),
     stuckList: toStuckList((windowRows ?? []) as PipelineRow[], oaByUser),
+    resultIntegrity,
   };
 }
 
@@ -690,6 +1007,9 @@ export function buildDevMonitorHtml(anonKey: string): string {
 
 <div class="panel"><h2>卡死任务（submitted 超过类型阈值：image 10 分钟 / video 30 分钟 / 其余 10 分钟）</h2><table id="stuckTable"><thead><tr><th>创建时间</th><th>用户</th><th>类型</th><th>模型</th><th>已等待</th><th>阈值</th></tr></thead><tbody></tbody></table></div>
 
+<div class="panel"><h2>结果完整性（成功任务的图片/视频/音频结果核验）</h2><div class="cards" id="integrityCards"><div class="sk"></div></div>
+<table id="integritySamples" style="margin-top:12px"><thead><tr><th>问题</th><th>路径</th><th>用户</th><th>大小</th></tr></thead><tbody></tbody></table></div>
+
 </div>
 
 <div id="loginCard">
@@ -791,8 +1111,11 @@ function renderPipeline(o){
   var c = p.counts;
   var img = p.durationByType && p.durationByType.image;
   var imgLine = img ? ('出图 p50 '+fmtDur(img.p50Ms)+' / p95 '+fmtDur(img.p95Ms)+' / n='+img.count) : '暂无完成样本';
+  var fc = p.failureCategories || { balance: 0, upstream: 0, platform: 0 };
+  var platformSub = '已排除余额不足 '+fc.balance+' 条 · 上游失败 '+fc.upstream+' 条';
   var cards = [
     ['成功率', pct(p.successRate), 'completed / (completed+failed+cancelled)'],
+    ['平台错误率', pct(p.platformErrorRate), platformSub],
     ['成功 / 失败', c.completed+' / '+c.failed, 'cancelled '+c.cancelled+' 单列，不计入失败'],
     ['卡死任务', c.stuck, 'submitted 超时未终态（当前 '+c.submitted+' 条未完成）'],
     ['出图耗时', img ? fmtDur(img.p50Ms)+' / '+fmtDur(img.p95Ms) : '-', 'p50 / p95 · '+imgLine],
@@ -832,12 +1155,42 @@ function renderStuck(list){
   document.querySelector('#stuckTable tbody').innerHTML = rows || '<tr><td colspan="6" class="muted">没有卡死任务 👍</td></tr>';
 }
 
+var INTEGRITY_ISSUE_TEXT = { not_archived: '结果未归档', missing: '不在 bucket', zero: '零字节' };
+
+function renderIntegrity(o){
+  var g = o.resultIntegrity;
+  var el = document.getElementById('integrityCards');
+  if(!g){
+    el.innerHTML = '<div class="card" style="grid-column:1/-1"><div class="error">结果完整性数据拉取失败（task_submissions 不可达或超时）</div></div>';
+    document.querySelector('#integritySamples tbody').innerHTML = '';
+    return;
+  }
+  var anomaly = g.notArchived + g.missingFromBucket + g.zeroSize;
+  var cards = [
+    ['应产出文件任务（成功）', g.fileTaskTotal, '窗口内 completed 的 image/video/audio'],
+    ['结果未归档', g.notArchived, 'completed 但 response_file_paths 为空'],
+    ['不在 bucket', g.missingFromBucket, '记录了路径但对象核验不存在'],
+    ['零字节', g.zeroSize, '对象存在但大小为 0'],
+    ['未核验', g.unverified, '前缀超核验上限，未计入异常'],
+  ];
+  el.innerHTML = cards.map(function(card){
+    var bad = card[0] !== '应产出文件任务（成功）' && card[0] !== '未核验' && card[1] > 0;
+    return '<div class="card"><div class="label">'+esc(card[0])+'</div><div class="value" style="'+(bad?'color:var(--fail);':'')+'font-size:22px">'+esc(card[1])+'</div><div class="sub">'+esc(card[2])+'</div></div>';
+  }).join('');
+  var rows = (g.samples||[]).map(function(s){
+    return '<tr><td style="color:var(--fail)">'+esc(INTEGRITY_ISSUE_TEXT[s.issue]||s.issue)+'</td><td class="err" title="'+esc(s.path)+'">'+esc(s.path)+'</td><td>'+esc(s.oa||'-')+'</td><td class="muted">'+(s.size==null?'-':s.size+' B')+'</td></tr>';
+  }).join('');
+  document.querySelector('#integritySamples tbody').innerHTML = rows ||
+    (anomaly ? '' : '<tr><td colspan="4" class="muted">未发现异常 👍</td></tr>');
+}
+
 function render(o){
   document.getElementById('generatedAt').textContent = '统计窗口 近 '+o.days+' 天 · 生成于 ' + fmtDate(o.generatedAt);
   renderProbes(o.probes);
   renderPipeline(o);
   renderFailures(o.recentFailures);
   renderStuck(o.stuckList);
+  renderIntegrity(o);
 }
 
 function basePath(){

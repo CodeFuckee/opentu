@@ -30,6 +30,16 @@
 - **WHEN** 请求 status 接口
 - **THEN** 成功率 = completed / (completed+failed+cancelled)（分母为 0 时为 null）；卡死 = submitted 且 created_at 早于类型阈值（image 10 分钟，video 30 分钟，其余 10 分钟）；cancelled 单列不计入失败
 
+#### Scenario: 平台错误率
+
+- **WHEN** 窗口内存在失败任务
+- **THEN** 失败按 error 内容分类为余额不足/上游失败/平台（关键词匹配整 error 对象文本 + httpStatus 502/503/504）；平台错误率 = 平台错误失败 / (completed + cancelled + 平台错误失败)，余额不足与上游失败的任务整体排除在分子分母之外，分母 0 时为 null
+
+#### Scenario: 结果完整性
+
+- **WHEN** 窗口内存在 completed 的 image/video/audio 任务
+- **THEN** 按其 response_file_paths 推导 {用户名}/{日期}/ 前缀并经 Storage list API 并行核验（前缀上限 400，超限计「未核验」不计异常）：response_file_paths 为空计「结果未归档」，路径在 bucket 不存在计「不在 bucket」，对象存在但 size=0 计「零字节」；chat 纯文本任务不参与统计
+
 #### Scenario: 失败样本与卡死列表
 
 - **WHEN** 窗口内存在 failed 任务或卡死任务

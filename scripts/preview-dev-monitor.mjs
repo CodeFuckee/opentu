@@ -28,6 +28,8 @@ const fixture = {
   pipeline: {
     counts: { completed: 298, failed: 17, cancelled: 5, submitted: 6, stuck: 3 },
     successRate: 0.9312,
+    failureCategories: { balance: 9, upstream: 4, platform: 4 },
+    platformErrorRate: 0.0132,
     durationByType: {
       image: { count: 198, p50Ms: 38000, p95Ms: 92000, avgMs: 46000 },
       video: { count: 30, p50Ms: 300000, p95Ms: 560000, avgMs: 340000 },
@@ -56,7 +58,7 @@ const fixture = {
     },
     {
       createdAt: '2026-09-16T10:58:00Z', oa: 'mengdc', type: 'image', model: 'gpt-image-2',
-      durationMs: 12000, errorSummary: '{"code":429,"error":"rate limited by upstream, retry after 60s"}',
+      durationMs: 12000, errorSummary: '{"error":{"code":"insufficient_user_quota","message":"账户余额不足，请充值"}}',
     },
     {
       createdAt: '2026-09-16T09:41:00Z', oa: null, type: 'video', model: 'kling-v2',
@@ -77,6 +79,18 @@ const fixture = {
       waitedMs: 35 * 60_000, thresholdMs: 30 * 60_000,
     },
   ],
+  resultIntegrity: {
+    fileTaskTotal: 298,
+    notArchived: 3,
+    missingFromBucket: 2,
+    zeroSize: 1,
+    unverified: 0,
+    samples: [
+      { path: 'mengdc/2026-09-16/9f2a1b.png', issue: 'missing', oa: 'mengdc', size: null },
+      { path: 'limh/2026-09-16/7c31de.png', issue: 'zero', oa: 'limh', size: 0 },
+      { path: '(任务无归档结果路径)', issue: 'not_archived', oa: 'wangyl', size: null },
+    ],
+  },
 };
 
 const html = buildDevMonitorHtml('preview-anon-key-not-real')

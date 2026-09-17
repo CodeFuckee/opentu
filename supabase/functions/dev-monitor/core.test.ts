@@ -14,7 +14,11 @@ import assert from 'node:assert/strict';
 import {
   aggregatePipeline,
   aggregateStatus,
+  auditBucketObjects,
+  auditResultIntegrity,
   buildDevMonitorHtml,
+  classifyFailureCategory,
+  collectResultPrefixes,
   probeHealth,
   stuckThresholdMs,
   summarizeError,
@@ -338,6 +342,236 @@ test('probeHealth：端点超时 → ok=false 且标记 timeout（不拖垮其�
 });
 
 // ============================================================
+// 平台错误率：失败分类（余额不足/上游失败/平台）与指标
+// ============================================================
+
+test('classifyFailureCategory：余额不足关键词（message 与 apiErrorBody 均可命中）', () => {
+  assert.equal(classifyFailureCategory({ message: 'insufficient_user_quota' }), 'balance');
+  assert.equal(
+    classifyFailureCategory({ message: '请求失败', apiErrorBody: '{"error":{"code":"insufficient_user_quota"}}' }),
+    'balance'
+  );
+  assert.equal(classifyFailureCategory({ message: '预扣费额度失败' }), 'balance');
+  assert.equal(classifyFailureCategory('账户余额不足，请充值'), 'balance');
+  assert.equal(classifyFailureCategory({ message: '令牌额度已用尽' }), 'balance');
+  assert.equal(classifyFailureCategory({ message: 'quota is not enough' }), 'balance');
+});
+
+test('classifyFailureCategory：上游失败关键词与 502/503/504 状态码', () => {
+  assert.equal(classifyFailureCategory({ message: 'upstream error: provider exploded' }), 'upstream');
+  assert.equal(classifyFailureCategory({ apiErrorBody: '<html>502 Bad Gateway</html>' }), 'upstream');
+  assert.equal(classifyFailureCategory({ message: '上游超时，请稍后重试' }), 'upstream');
+  assert.equal(classifyFailureCategory({ httpStatus: 502, message: 'request failed' }), 'upstream');
+  assert.equal(classifyFailureCategory({ httpStatus: 504 }), 'upstream');
+  // 余额不足优先于上游（两者同时出现按外部原因处理）
+  assert.equal(
+    classifyFailureCategory({ message: '上游返回 insufficient_user_quota' }),
+    'balance'
+  );
+});
+
+test('classifyFailureCategory：其余失败归平台（含 edge 被杀、超时、未知、空值）', () => {
+  assert.equal(classifyFailureCategory({ message: 'WorkerRequestCancelled: worker was cancelled' }), 'platform');
+  assert.equal(classifyFailureCategory({ message: 'Request timeout after 30000ms' }), 'platform');
+  assert.equal(classifyFailureCategory({ httpStatus: 500, message: 'internal error' }), 'platform');
+  assert.equal(classifyFailureCategory({ message: 'AI 拒绝生成此内容' }), 'platform');
+  assert.equal(classifyFailureCategory(null), 'platform');
+  assert.equal(classifyFailureCategory(undefined), 'platform');
+  assert.equal(classifyFailureCategory({}), 'platform');
+});
+
+test('aggregatePipeline：失败分类计数与平台错误率（外部原因整体排除在分子分母之外）', () => {
+  const rows = [
+    { type: 'image', status: 'completed', created_at: '2026-09-15T01:00:00Z', completed_at: '2026-09-15T01:00:20Z', model: 'm-a' },
+    { type: 'image', status: 'completed', created_at: '2026-09-15T02:00:00Z', completed_at: '2026-09-15T02:00:20Z', model: 'm-a' },
+    { type: 'image', status: 'completed', created_at: '2026-09-15T03:00:00Z', completed_at: '2026-09-15T03:00:20Z', model: 'm-a' },
+    { type: 'chat', status: 'cancelled', created_at: '2026-09-15T04:00:00Z', completed_at: null, model: 'm-a' },
+    // 余额不足 → 排除
+    { type: 'image', status: 'failed', created_at: '2026-09-15T05:00:00Z', completed_at: '2026-09-15T05:00:10Z', model: 'm-a', error: { message: 'insufficient_user_quota' } },
+    // 上游失败 → 排除
+    { type: 'image', status: 'failed', created_at: '2026-09-15T06:00:00Z', completed_at: '2026-09-15T06:00:10Z', model: 'm-b', error: { httpStatus: 502 } },
+    // 平台错误 → 计入
+    { type: 'image', status: 'failed', created_at: '2026-09-15T07:00:00Z', completed_at: '2026-09-15T07:00:10Z', model: 'm-b', error: { message: 'WorkerRequestCancelled' } },
+  ] as never;
+
+  const stats = aggregatePipeline(rows);
+  assert.deepEqual(stats.failureCategories, { balance: 1, upstream: 1, platform: 1 });
+  // 分母 = completed(3) + cancelled(1) + 平台错误(1) = 5 → 1/5 = 0.2
+  assert.equal(stats.platformErrorRate, 0.2);
+  // 原有总成功率口径不受影响：3/(3+1+3) = 0.4286
+  assert.equal(stats.successRate, 0.4286);
+});
+
+test('aggregatePipeline：无失败时平台错误率为 0；全外部失败时也为 0；无终态任务为 null', () => {
+  const healthy = aggregatePipeline([
+    { type: 'image', status: 'completed', created_at: '2026-09-15T01:00:00Z', completed_at: '2026-09-15T01:00:20Z', model: 'm-a' },
+  ] as never);
+  assert.deepEqual(healthy.failureCategories, { balance: 0, upstream: 0, platform: 0 });
+  assert.equal(healthy.platformErrorRate, 0);
+
+  const allExternal = aggregatePipeline([
+    { type: 'image', status: 'completed', created_at: '2026-09-15T01:00:00Z', completed_at: '2026-09-15T01:00:20Z', model: 'm-a' },
+    { type: 'image', status: 'failed', created_at: '2026-09-15T02:00:00Z', completed_at: '2026-09-15T02:00:10Z', model: 'm-a', error: { message: '余额不足' } },
+  ] as never);
+  assert.deepEqual(allExternal.failureCategories, { balance: 1, upstream: 0, platform: 0 });
+  assert.equal(allExternal.platformErrorRate, 0);
+
+  const noTerminal = aggregatePipeline([
+    { type: 'image', status: 'submitted', created_at: new Date(Date.now() - 60_000).toISOString(), completed_at: null, model: 'm-a' },
+  ] as never);
+  assert.equal(noTerminal.platformErrorRate, null);
+});
+
+test('buildDevMonitorHtml：页面包含平台错误率卡片', () => {
+  const html = buildDevMonitorHtml(ANON_KEY);
+  assert.ok(html.includes('平台错误率'), '页面缺少平台错误率卡片');
+  assert.ok(html.includes('已排除'), '平台错误率卡需说明排除口径');
+});
+
+
+
+// ============================================================
+// 结果完整性：成功任务的图片结果是否在 bucket、大小是否为 0
+// ============================================================
+
+function integrityRows() {
+  return [
+    // 干净：路径存在且大小 > 0
+    { user_id: 'u1', type: 'image', status: 'completed', created_at: '2026-09-15T01:00:00Z', completed_at: '2026-09-15T01:00:20Z', model: 'm-a', response_file_paths: ['alice/2026-09-15/ok1.png'] },
+    // 结果未归档：completed 但 response_file_paths 为空（缺列/空数组等价）
+    { user_id: 'u1', type: 'image', status: 'completed', created_at: '2026-09-15T02:00:00Z', completed_at: '2026-09-15T02:00:20Z', model: 'm-a', response_file_paths: [] },
+    { user_id: 'u1', type: 'image', status: 'completed', created_at: '2026-09-15T02:30:00Z', completed_at: '2026-09-15T02:40:00Z', model: 'm-a' },
+    // 路径在 bucket 找不到（前缀已核验）
+    { user_id: 'u2', type: 'image', status: 'completed', created_at: '2026-09-15T03:00:00Z', completed_at: '2026-09-15T03:00:20Z', model: 'm-b', response_file_paths: ['bob/2026-09-15/gone.png'] },
+    // 存在但大小为 0
+    { user_id: 'u3', type: 'video', status: 'completed', created_at: '2026-09-15T04:00:00Z', completed_at: '2026-09-15T04:05:00Z', model: 'm-c', response_file_paths: ['carol/2026-09-15/empty.mp4'] },
+    // chat 无文件产出，不参与统计
+    { user_id: 'u1', type: 'chat', status: 'completed', created_at: '2026-09-15T05:00:00Z', completed_at: '2026-09-15T05:00:05Z', model: 'm-d', response_file_paths: [] },
+    // 非成功任务不参与统计
+    { user_id: 'u1', type: 'image', status: 'failed', created_at: '2026-09-15T06:00:00Z', completed_at: '2026-09-15T06:00:10Z', model: 'm-a', response_file_paths: [] },
+    // 前缀未核验（超上限）→ 未核验，不计入缺失
+    { user_id: 'u4', type: 'image', status: 'completed', created_at: '2026-09-15T07:00:00Z', completed_at: '2026-09-15T07:00:20Z', model: 'm-e', response_file_paths: ['dave/2026-09-15/x.png'] },
+  ];
+}
+
+test('auditResultIntegrity：未归档/不在 bucket/零字节分类计数与样本', () => {
+  const bucket = {
+    sizes: new Map([
+      ['alice/2026-09-15/ok1.png', 120],
+      ['carol/2026-09-15/empty.mp4', 0],
+    ]),
+    verifiedPrefixes: new Set(['alice/2026-09-15/', 'bob/2026-09-15/', 'carol/2026-09-15/']),
+    listedObjects: 2,
+  };
+  const oaByUser = new Map([['u1', 'alice'], ['u2', 'bob']]);
+  const stats = auditResultIntegrity(integrityRows() as never, bucket, oaByUser);
+
+  // 应产出文件任务：6 个 completed 的 image/video/audio（chat/failed 不算）
+  assert.equal(stats.fileTaskTotal, 6);
+  assert.equal(stats.notArchived, 2);
+  assert.equal(stats.missingFromBucket, 1);
+  assert.equal(stats.zeroSize, 1);
+  assert.equal(stats.unverified, 1);
+  // 样本：缺失与零字节各一条，带 OA 与路径
+  const missing = stats.samples.find((s) => s.issue === 'missing');
+  assert.equal(missing?.path, 'bob/2026-09-15/gone.png');
+  assert.equal(missing?.oa, 'bob');
+  const zero = stats.samples.find((s) => s.issue === 'zero');
+  assert.equal(zero?.path, 'carol/2026-09-15/empty.mp4');
+  assert.equal(zero?.size, 0);
+});
+
+test('auditResultIntegrity：干净数据全零，samples 为空', () => {
+  const bucket = {
+    sizes: new Map([['alice/2026-09-15/ok1.png', 120]]),
+    verifiedPrefixes: new Set(['alice/2026-09-15/']),
+    listedObjects: 1,
+  };
+  const stats = auditResultIntegrity(
+    [
+      { user_id: 'u1', type: 'image', status: 'completed', created_at: '2026-09-15T01:00:00Z', completed_at: '2026-09-15T01:00:20Z', model: 'm', response_file_paths: ['alice/2026-09-15/ok1.png'] },
+    ] as never,
+    bucket,
+    new Map()
+  );
+  assert.equal(stats.fileTaskTotal, 1);
+  assert.equal(stats.notArchived, 0);
+  assert.equal(stats.missingFromBucket, 0);
+  assert.equal(stats.zeroSize, 0);
+  assert.deepEqual(stats.samples, []);
+});
+
+test('collectResultPrefixes：取 completed 文件任务的去重前缀（用户名/日期/）', () => {
+  const prefixes = collectResultPrefixes(integrityRows() as never);
+  assert.deepEqual(
+    [...prefixes].sort(),
+    ['alice/2026-09-15/', 'bob/2026-09-15/', 'carol/2026-09-15/', 'dave/2026-09-15/']
+  );
+});
+
+test('auditBucketObjects：前缀并行分页列出，键同时含完整路径与前缀相对名', async () => {
+  const calls: string[] = [];
+  const fetchImpl = routeFetch(
+    [
+      {
+        // 前缀在请求体里（POST JSON），路由需检查 body
+        match: (u, init) =>
+          u.includes('/storage/v1/object/list/huabu') && String(init?.body || '').includes('alice'),
+        respond: () =>
+          json(200, [
+            { name: 'ok1.png', metadata: { size: 120 } },
+            { name: 'empty.png', metadata: { size: 0 } },
+          ]),
+      },
+      {
+        match: (u) => u.includes('/storage/v1/object/list/huabu'),
+        respond: (u, init) => {
+          calls.push(String(u));
+          return json(200, []);
+        },
+      },
+    ],
+    calls
+  );
+  const result = await auditBucketObjects(ENV, ['alice/2026-09-15/', 'bob/2026-09-15/'], { fetch: fetchImpl });
+  assert.equal(result.verifiedPrefixes.has('alice/2026-09-15/'), true);
+  assert.equal(result.verifiedPrefixes.has('bob/2026-09-15/'), true);
+  // 完整路径与前缀相对名都可命中（兼容 storage list 两种返回格式）
+  assert.equal(result.sizes.get('alice/2026-09-15/ok1.png'), 120);
+  assert.equal(result.sizes.get('ok1.png'), 120);
+  assert.equal(result.sizes.get('alice/2026-09-15/empty.png'), 0);
+});
+
+test('auditBucketObjects：单前缀列表失败时跳过（不进 verifiedPrefixes），其余照常', async () => {
+  const fetchImpl = routeFetch(
+    [
+      {
+        match: (u, init) =>
+          u.includes('/storage/v1/object/list/huabu') && String(init?.body || '').includes('alice'),
+        respond: () => json(200, [{ name: 'ok1.png', metadata: { size: 5 } }]),
+      },
+      {
+        match: (u, init) =>
+          u.includes('/storage/v1/object/list/huabu') && String(init?.body || '').includes('bob'),
+        respond: () => json(500, { message: 'boom' }),
+      },
+    ],
+    []
+  );
+  const result = await auditBucketObjects(ENV, ['alice/2026-09-15/', 'bob/2026-09-15/'], { fetch: fetchImpl });
+  assert.equal(result.verifiedPrefixes.has('alice/2026-09-15/'), true);
+  assert.equal(result.verifiedPrefixes.has('bob/2026-09-15/'), false);
+  assert.equal(result.sizes.get('alice/2026-09-15/ok1.png'), 5);
+});
+
+test('buildDevMonitorHtml：页面包含结果完整性区块', () => {
+  const html = buildDevMonitorHtml(ANON_KEY);
+  for (const block of ['结果完整性', 'id="integrityCards"', '结果未归档', '不在 bucket', '零字节']) {
+    assert.ok(html.includes(block), `页面缺少区块：${block}`);
+  }
+});
+
+// ============================================================
 // verifyDevAdmin（与 dashboard-stats 门禁同语义）
 // ============================================================
 
@@ -427,8 +661,8 @@ test('buildDevMonitorHtml：自包含、内嵌 anon key、登录壳、自动刷�
 test('aggregateStatus：编排管线/失败样本/探测并输出完整状态 JSON', async () => {
   const calls: string[] = [];
   const windowRows = [
-    { user_id: 'u1', type: 'image', status: 'completed', created_at: '2026-09-15T01:00:00Z', completed_at: '2026-09-15T01:00:20Z', model: 'm-a' },
-    { user_id: 'u1', type: 'image', status: 'failed', created_at: '2026-09-15T02:00:00Z', completed_at: '2026-09-15T02:00:10Z', model: 'm-a' },
+    { user_id: 'u1', type: 'image', status: 'completed', created_at: '2026-09-15T01:00:00Z', completed_at: '2026-09-15T01:00:20Z', model: 'm-a', response_file_paths: ['alice/2026-09-15/ok.png'] },
+    { user_id: 'u1', type: 'image', status: 'failed', created_at: '2026-09-15T02:00:00Z', completed_at: '2026-09-15T02:00:10Z', model: 'm-a', error: { message: 'insufficient_user_quota' } },
     { user_id: 'u2', type: 'image', status: 'submitted', created_at: '2020-01-01T00:00:00Z', completed_at: null, model: 'm-b' },
   ];
   const fetchImpl = routeFetch(
@@ -440,9 +674,13 @@ test('aggregateStatus：编排管线/失败样本/探测并输出完整状态 JS
             {
               user_id: 'u1', type: 'image', status: 'failed',
               created_at: '2026-09-15T02:00:00Z', completed_at: '2026-09-15T02:00:10Z',
-              model: 'm-a', error: { message: 'upstream timeout' },
+              model: 'm-a', error: { message: 'insufficient_user_quota' },
             },
           ]),
+      },
+      {
+        match: (u) => u.includes('/storage/v1/object/list/huabu'),
+        respond: () => json(200, [{ name: 'ok.png', metadata: { size: 2048 } }]),
       },
       {
         match: (u) => u.includes('/rest/v1/task_submissions?select=id&limit=1'),
@@ -473,23 +711,33 @@ test('aggregateStatus：编排管线/失败样本/探测并输出完整状态 JS
   assert.equal(status.probes.length, 6);
   assert.ok(status.probes.every((p) => p.ok === true), '全部探测应为存活');
 
-  // 管线：1 成功 1 失败 1 卡死 → 成功率 0.5
+  // 管线：1 成功 1 失败（余额不足）1 卡死 → 成功率 0.5；平台错误率 0（外部原因排除）
   assert.equal(status.pipeline.counts.completed, 1);
   assert.equal(status.pipeline.counts.failed, 1);
   assert.equal(status.pipeline.counts.stuck, 1);
   assert.equal(status.pipeline.successRate, 0.5);
+  assert.deepEqual(status.pipeline.failureCategories, { balance: 1, upstream: 0, platform: 0 });
+  assert.equal(status.pipeline.platformErrorRate, 0);
 
   // 失败样本：OA 归属 + 错误摘要
   assert.equal(status.recentFailures.length, 1);
   assert.equal(status.recentFailures[0].oa, 'alice');
-  assert.equal(status.recentFailures[0].errorSummary, 'upstream timeout');
+  assert.equal(status.recentFailures[0].errorSummary, 'insufficient_user_quota');
 
   // 卡死列表
   assert.equal(status.stuckList.length, 1);
   assert.equal(status.stuckList[0].type, 'image');
 
-  // 窗口行查询须带 model 提取与时间下界；天数越界收敛
+  // 结果完整性：1 个成功文件任务，路径在 bucket 且大小 2048 → 全零
+  assert.equal(status.resultIntegrity.fileTaskTotal, 1);
+  assert.equal(status.resultIntegrity.notArchived, 0);
+  assert.equal(status.resultIntegrity.missingFromBucket, 0);
+  assert.equal(status.resultIntegrity.zeroSize, 0);
+
+  // 窗口行查询须带 model 提取、error 列、response_file_paths（结果完整性数据源）与时间下界
   assert.ok(calls.some((u) => u.includes('model:params-%3E%3Emodel')));
+  assert.ok(calls.some((u) => u.includes('completed_at,error,response_file_paths,model')), '窗口行查询应带出 response_file_paths');
+  assert.ok(calls.some((u) => u.includes('/storage/v1/object/list/huabu')), '应对 bucket 前缀做对象核验');
   assert.ok(calls.some((u) => u.includes('created_at=gte.')));
   const status2 = await aggregateStatus(ENV, 999, { fetch: fetchImpl });
   assert.equal(status2.days, 90);

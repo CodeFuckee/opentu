@@ -268,6 +268,16 @@ drawnix services 根与子目录 / 核心组件 / 功能组件 / hooks·contexts
   **卡死列表**。页面 30 秒自动刷新可开关；`/status` 走与 dashboard-stats 相同的
   is_admin() fail-closed 门禁，service_role 不进页面；不走 USAGE_MULTIPLIER 缩放
   （开发要真实数字）。见 `docs/dev-monitor.md`。
+  同日增量：任务管线新增**平台错误率**——失败按 error 内容分类（余额不足/上游失败/
+  平台，关键词含 `insufficient_user_quota`/`余额不足`/`bad gateway` 等与
+  httpStatus 502/503/504），平台错误率 = 平台错误失败 / (completed+cancelled+
+  平台错误失败)，余额不足与上游失败的任务整体排除在分子分母之外（上游大面积故障
+  不影响本指标）；关键词清单随实际报文沉淀可增补（`BALANCE_KEYWORDS`/`UPSTREAM_KEYWORDS`）。
+  同日增量：新增**结果完整性**区块——统计成功任务的结果文件核验：结果未归档
+  （completed 但 response_file_paths 为空，chat 纯文本任务不参与）、不在 bucket
+  （按 {用户名}/{日期}/ 前缀并行经 Storage list API 核验对象，前缀上限 400，超限计
+  「未核验」不计异常）、零字节（对象存在但 size=0），附异常样本前 10 条
+  （问题/路径/用户/大小）。
 - **数据看板新增「核心指标」（领导视角）区块**（2026-09-16）：对照《AI为翼，雏鹰启航》
   课题汇报中领导关心的数据口径，在 dashboard-stats 看板 KPI 卡下方新增六卡区块——
   **累计调用次数**（全时段成功任务，Content-Range 计数）、**生成图片张数**（窗口内
