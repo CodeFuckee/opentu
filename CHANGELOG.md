@@ -247,9 +247,27 @@ drawnix services 根与子目录 / 核心组件 / 功能组件 / hooks·contexts
   消耗/累计/降本聚合与空数据降级；applyUsageMultiplier 补 leadership 缩放断言；
   fetchCanvasUsage 补 token 字段求和用例；编排测试补 leadership 组装与张数瘦列
   查询断言；页面测试补「领导视角 · 核心指标」区块断言）。
+- 2026-09-17 增量：新增 `supabase/functions/dev-monitor/core.test.ts`（node:test
+  17 条）：aggregatePipeline 状态计数/成功率分母（cancelled 单列、卡死不计入）、
+  卡死阈值按类型（image 10 分钟/video 30 分钟）、按模型失败排行、按天趋势东八区切日、
+  耗时 p50/p95；summarizeError 各形态与截断；toFailureSamples/toStuckList OA 归属
+  与倒序；probeHealth 并行存活（ai-proxy 401=存活）、GoTrue /health 404 回退
+  /settings、网关缺配置=未探测、端点超时=down 不拖垮其余；verifyDevAdmin
+  401/403/放行带调用者 JWT；buildDevMonitorHtml 自包含/登录壳/自动刷新/区块齐全/
+  不泄露 service_role；aggregateStatus 编排与天数越界收敛（全函数套件 124→141 条全绿）。
 
 ### 🚀 Features
 
+- **新增开发监控看板（dev-monitor 边缘函数，OpenSpec `add-dev-monitor`）**（2026-09-17）：
+  与管理/汇报口径的 dashboard-stats 分离，面向开发排障——**服务健康探测**（PostgREST/
+  GoTrue/Storage/ai-proxy/New API 网关/网关管理令牌六项并行探测，单探测 5s 超时互不阻塞，
+  ai-proxy 无 JWT 被 401 即视为存活，网关配置缺失显示「未探测」）、**任务管线真实口径**
+  （成功率 = completed/(completed+failed+cancelled)，cancelled 单列不算失败；卡死 =
+  submitted 超类型阈值 image 10 分钟/video 30 分钟/其余 10 分钟；出图耗时 p50/p95）、
+  **按模型失败排行**、**按天归档趋势**、**失败样本**（最近 50 条 failed 的 error 摘要）、
+  **卡死列表**。页面 30 秒自动刷新可开关；`/status` 走与 dashboard-stats 相同的
+  is_admin() fail-closed 门禁，service_role 不进页面；不走 USAGE_MULTIPLIER 缩放
+  （开发要真实数字）。见 `docs/dev-monitor.md`。
 - **数据看板新增「核心指标」（领导视角）区块**（2026-09-16）：对照《AI为翼，雏鹰启航》
   课题汇报中领导关心的数据口径，在 dashboard-stats 看板 KPI 卡下方新增六卡区块——
   **累计调用次数**（全时段成功任务，Content-Range 计数）、**生成图片张数**（窗口内
