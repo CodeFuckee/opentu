@@ -437,6 +437,15 @@ export async function handleAiProxyRequest({
   (upstreamHeadersInit as Record<string, string>)['Authorization'] =
     `Bearer ${apiKey}`;
 
+  // 对账契约：把浏览器的 x-task-id 透传给上游网关（X-Task-Id）。
+  // 上游 new-api 目前不记录该头（其 request_id 为自生成），但保留透传后，
+  // 网关侧一旦支持按头记录即可精确关联；对自建/其他网关零成本生效。
+  const incomingTaskId = request.headers.get('x-task-id');
+  if (incomingTaskId) {
+    (upstreamHeadersInit as Record<string, string>)['X-Task-Id'] =
+      incomingTaskId;
+  }
+
   let body: ArrayBuffer | undefined;
   if (method !== 'GET' && method !== 'HEAD') {
     body = await request.arrayBuffer();
