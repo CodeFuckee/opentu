@@ -96,7 +96,6 @@ export const EnhancedChatInput = forwardRef<
       () => [...uploadedContent, ...selectedContent],
       [selectedContent, uploadedContent]
     );
-    const hasExplicitContent = allContent.length > 0;
     const hasSelection = allContent.length > 0;
     const { addHistory: addPromptHistory } = usePromptHistory();
     const { language } = useI18n();
@@ -427,7 +426,7 @@ export const EnhancedChatInput = forwardRef<
 
     const renderImplicitReferenceContent = () => {
       const shouldShowImplicitReferences =
-        !hasExplicitContent &&
+        !hasSelection &&
         implicitReferenceContent.length > 0 &&
         (implicitReferencePinned ||
           shouldUseImplicitWorkflowReferences(input));

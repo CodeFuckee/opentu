@@ -59,7 +59,7 @@ export function useChatSessions(): UseChatSessionsReturn {
     // Users should manually manage their chat history
 
     return newSession;
-  }, [sessions.length]);
+  }, []);
 
   // Select a session
   const selectSession = useCallback(

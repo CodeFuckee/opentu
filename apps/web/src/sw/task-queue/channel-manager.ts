@@ -90,9 +90,6 @@ export class SWChannelManager {
   private constructor(sw: ServiceWorkerGlobalScope) {
     this.sw = sw;
 
-    // SW 启动时立即清理所有旧通道（SW 重启后旧通道都无效）
-    this.channels.clear();
-
     // 启用 postmessage-duplex 的全局路由
     // 当收到来自未知客户端的消息时，自动创建 channel 并处理消息
     ServiceWorkerChannel.enableGlobalRouting((clientId, event) => {

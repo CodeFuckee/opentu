@@ -120,29 +120,7 @@ export function MediaLibraryModal({
     setShowMobileInspector(false);
   }, []);
 
-  // 处理双击插入
-  const handleDoubleClick = useCallback(
-    async (asset: Asset) => {
-      if (!onSelect || isSelectingRef.current) {
-        return;
-      }
-
-      try {
-        isSelectingRef.current = true;
-        setIsSelecting(true);
-        await onSelect(asset);
-        onClose();
-      } finally {
-        isSelectingRef.current = false;
-        if (isMountedRef.current) {
-          setIsSelecting(false);
-        }
-      }
-    },
-    [onClose, onSelect],
-  );
-
-  // 处理"使用"按钮点击
+  // 处理"使用"按钮点击（双击插入与按钮使用是同一行为，共用一个回调）
   const handleUseAsset = useCallback(
     async (asset: Asset) => {
       if (!onSelect || isSelectingRef.current) {
@@ -163,6 +141,9 @@ export function MediaLibraryModal({
     },
     [onClose, onSelect],
   );
+
+  // 处理双击插入
+  const handleDoubleClick = handleUseAsset;
 
   // 处理批量使用
   const handleBatchUse = useCallback(

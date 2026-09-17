@@ -9,8 +9,8 @@
 const originalAddEventListener = window.addEventListener.bind(window);
 const originalRemoveEventListener = window.removeEventListener.bind(window);
 
-// 存储 beforeunload 监听器的引用
-let beforeUnloadHandler: EventListenerOrEventListenerObject | null = null;
+// 存储 beforeunload 监听器的引用（可能存在多个注册者，用集合避免互相覆盖）
+const beforeUnloadHandlers = new Set<EventListenerOrEventListenerObject>();
 
 window.addEventListener = function(
   type: string,
@@ -25,7 +25,7 @@ window.addEventListener = function(
 
   // 对于 beforeunload，保存引用并使用原生方法
   if (type === 'beforeunload') {
-    beforeUnloadHandler = listener;
+    beforeUnloadHandlers.add(listener);
     // console.log('[Permissions Policy] Registering beforeunload with native method');
     return originalAddEventListener.call(window, type as any, listener as any, options);
   }
@@ -41,7 +41,7 @@ window.removeEventListener = function(
 ): any {
   // 对于 beforeunload，清除引用
   if (type === 'beforeunload') {
-    beforeUnloadHandler = null;
+    beforeUnloadHandlers.delete(listener);
   }
 
   return originalRemoveEventListener.call(window, type as any, listener as any, options);
@@ -49,8 +49,7 @@ window.removeEventListener = function(
 
 // 暴露调试函数
 (window as any).__checkBeforeUnload = () => {
-  // console.log('[Permissions Policy] beforeUnloadHandler registered:', !!beforeUnloadHandler);
-  return !!beforeUnloadHandler;
+  return beforeUnloadHandlers.size > 0;
 };
 
 export {};

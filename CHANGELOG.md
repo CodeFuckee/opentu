@@ -1,5 +1,47 @@
 ## Unreleased
 
+### refactor: 全仓库代码评审落地——行为保持重构两批（2026-09-18）
+
+- **评审报告**：`docs/code-review-2026-09-18.md`。按 code-review-skill 清单分 10 个分区
+  （apps/web、drawnix services/components/hooks/state、utils、公共包、supabase 函数与
+  迁移、scripts）逐文件评审，五维度（架构/性能/安全/质量反模式/常见 bug），约 170 条
+  发现；关键 P0/P1 均经人工二次核实。凡需改变行为的修复（明文密码入库、newapi-key
+  `oaAccount` 无归属校验、未加载画板空桩回写丢数据、API Key 下发第三方工具 iframe、
+  对账退款非原子等）全部列入「待确认」清单，未经确认不动。
+- **批次1（transforms/utils，行为保持）**：
+  - `transforms/distribute.ts`：水平/垂直等间距分布两份逐字重复实现参数化为
+    `distributeAlongAxis`（对外导出不变）。
+  - `utils/settings-manager.ts`：Tuzi original/mix/codex 三份构建器合并为
+    `buildTuziProfileVariant`（保留原方法名与调用点；Business 版差异大未动）。
+  - `utils/gemini-api/message-utils.ts`：删除两处「两分支完全相同」的三元与被 `/`
+    前缀判断覆盖的冗余分支。
+  - `utils/common.ts`：`getShortcutKey` 删除三个 no-op replace。
+  - `utils/task-utils.ts`：删除全仓库无引用的 `hasAsyncImageInvocationRoute` 与未使用
+    的 `isAsyncImageModel` 导入。
+  - `utils/selection-utils.ts`：图形/非图形两次全量 `filter` 合并为一次遍历分区；
+    `convertElementsToImage` 排序 comparator 内的 `findIndex` O(n²) 改为预建 id→index Map。
+  - `utils/runtime-model-discovery.ts`：`setCatalogState` 中 `normalizeSelectedModelIds`
+    同参数重复计算两次合并为一次。
+  - `utils/photo-wall-splitter.ts`：连通域 BFS 的 `queue.shift()` O(n) 搬移改为头指针，
+    消除大图 O(n²) 退化（输出顺序不变）。
+  - `data/audio.ts`：字符循环内联正则提为模块常量。
+- **批次2（components/hooks/web，行为保持）**：
+  - `MediaLibraryModal`：双击插入与「使用」按钮两份完全相同的回调合并为一个。
+  - `ProjectDrawer`：PPT 编辑器打开事件 if/else 两分支相同，统一无条件进 frames 面板。
+  - `EnhancedChatInput`：`hasExplicitContent`/`hasSelection` 同义重复变量合并。
+  - `useTaskQueue`：`totalCountAtom`/`loadedCountAtom` 重复派生合并为同一 atom。
+  - `useChatSessions`：`createSession` 依赖数组移除无实际引用的 `sessions.length`。
+  - `Minimap`：合并配置对象改 `useMemo`（避免依赖它的回调与 100ms interval 每渲染拆除
+    重建）；触摸结束的 500ms 隐藏定时器登记句柄并在卸载时清理。
+  - `VirtualTaskList`：组件体内定义的 `LoadMoreIndicator` 改为 JSX 元素变量，消除每渲染
+    因组件身份变化导致的子树重挂载。
+  - `AIInputBar`：`initialPreferences` 改 `useMemo`，不再每次渲染重读 localStorage
+    （全部消费点均为 useState/useRef 初始值语义，首渲染结果不变）。
+  - `apps/web`：crash-logger 删除死变量 `frameCount`；`channel-manager` 构造器删除对刚
+    创建空 Map 的 no-op `clear()`；`permissions-policy-fix` 的 beforeunload 引用由单变量
+    改 Set 记录（多注册者不再互相覆盖，拦截行为不变）。
+- **验证**：`pnpm check`（typecheck+lint）与 `pnpm test` 全量通过。
+
 ### 🧹 全仓库代码评审 + 行为保持重构（2026-09-17，code-review-skill 五维度）
 
 9 个区域并行评审（supabase 边缘函数 / web 应用壳与 SW / utils·react-board·react-text /

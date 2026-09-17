@@ -1103,12 +1103,8 @@ export const ProjectDrawer: React.FC<ProjectDrawerProps> = ({
     const handleOpenPPTEditor = (
       event: Event | CustomEvent<PPTEditorOpenEventDetail>
     ) => {
-      const detail = (event as CustomEvent<PPTEditorOpenEventDetail>).detail;
-      if (detail?.viewMode === 'outline' || detail?.viewMode === 'slides') {
-        handleTabChange('frames');
-      } else {
-        handleTabChange('frames');
-      }
+      // 无论 viewMode 是 outline 还是 slides，统一进入 frames 面板
+      handleTabChange('frames');
     };
 
     window.addEventListener(PPT_EDITOR_OPEN_EVENT, handleOpenPPTEditor);

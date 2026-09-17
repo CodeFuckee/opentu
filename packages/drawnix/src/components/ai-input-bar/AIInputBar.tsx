@@ -859,7 +859,8 @@ export const AIInputBar: React.FC<AIInputBarProps> = React.memo(
 
     // 当前 WorkZone 元素 ID（用于在画布上显示工作流进度）
     const currentWorkZoneIdRef = useRef<string | null>(null);
-    const initialPreferences = loadAIInputPreferences();
+    // 偏好只在挂载时读取一次（全部消费点均为 useState/useRef 初始值，无需每渲染重读 localStorage）
+    const initialPreferences = useMemo(() => loadAIInputPreferences(), []);
 
     const bindCurrentImageAnchorTask = useCallback(
       (

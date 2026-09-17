@@ -78,7 +78,8 @@ const cancelledTasksAtom = atom((get) =>
   get(tasksAtom).filter((task) => task.status === TaskStatus.CANCELLED)
 );
 const totalCountAtom = atom((get) => get(tasksAtom).length);
-const loadedCountAtom = atom((get) => get(tasksAtom).length);
+// 已加载数与总数同源（任务全量驻留内存），复用同一 atom 避免重复派生
+const loadedCountAtom = totalCountAtom;
 const createTaskAtom = atom(
   null,
   (_get, set, payload: { params: GenerationParams; type: TaskType }): Task | null => {

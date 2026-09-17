@@ -9,7 +9,7 @@
  * - manual: 完全手动控制
  */
 
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { PlaitBoard, RectangleClient, BoardTransforms, getViewportOrigination } from '@plait/core';
 import {
   MinimapProps,
@@ -101,17 +101,22 @@ export const Minimap: React.FC<MinimapProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const autoHideTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const previewHideTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 合并配置
-  const config: MinimapConfig = {
-    ...DEFAULT_MINIMAP_CONFIG,
-    ...configOverride,
-  };
+  // 合并配置（useMemo 保持引用稳定，避免依赖 config 的回调/定时器每渲染重建）
+  const config: MinimapConfig = useMemo(() => {
+    return {
+      ...DEFAULT_MINIMAP_CONFIG,
+      ...configOverride,
+    };
+  }, [configOverride]);
 
-  const autoTriggerConfig: MinimapAutoTriggerConfig = {
-    ...DEFAULT_AUTO_TRIGGER_CONFIG,
-    ...autoTriggerConfigOverride,
-  };
+  const autoTriggerConfig: MinimapAutoTriggerConfig = useMemo(() => {
+    return {
+      ...DEFAULT_AUTO_TRIGGER_CONFIG,
+      ...autoTriggerConfigOverride,
+    };
+  }, [autoTriggerConfigOverride]);
 
   // 组件状态
   const [state, setState] = useState<MinimapState>(() => ({
@@ -792,9 +797,13 @@ export const Minimap: React.FC<MinimapProps> = ({
    */
   const handleTouchEnd = useCallback(() => {
     isTouchingRef.current = false;
-    
+
     // 延迟隐藏预览，给用户一点时间看到最终位置
-    setTimeout(() => {
+    if (previewHideTimerRef.current) {
+      clearTimeout(previewHideTimerRef.current);
+    }
+    previewHideTimerRef.current = setTimeout(() => {
+      previewHideTimerRef.current = null;
       // 只有在不再触控时才隐藏
       if (!isTouchingRef.current) {
         setPreviewVisible(false);
@@ -804,6 +813,16 @@ export const Minimap: React.FC<MinimapProps> = ({
       }
     }, 500); // 延长到 500ms，让用户更清楚看到最终位置
   }, [render]);
+
+  // 卸载时清理未触发的隐藏定时器
+  useEffect(() => {
+    return () => {
+      if (previewHideTimerRef.current) {
+        clearTimeout(previewHideTimerRef.current);
+        previewHideTimerRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!state.expanded) return;

@@ -290,8 +290,8 @@ export const VirtualTaskList: React.FC<VirtualTaskListProps> = ({
   // 实际已加载数量（优先使用 tasks.length，因为它是最准确的）
   const actualLoadedCount = tasks.length || loadedCount || 0;
 
-  // 加载更多指示器组件
-  const LoadMoreIndicator = () => (
+  // 加载更多指示器（直接构造 JSX 元素而非组件，避免组件身份每渲染变化导致子树重挂载）
+  const loadMoreIndicator = (
     <>
       {/* 加载状态显示 */}
       {isLoadingMore && (
@@ -365,7 +365,7 @@ export const VirtualTaskList: React.FC<VirtualTaskListProps> = ({
               onExtractCharacter={onExtractCharacter}
             />
           ))}
-          <LoadMoreIndicator />
+          {loadMoreIndicator}
         </div>
 
         {showBackToTop && (
@@ -455,7 +455,7 @@ export const VirtualTaskList: React.FC<VirtualTaskListProps> = ({
             );
           })}
         </div>
-        <LoadMoreIndicator />
+        {loadMoreIndicator}
       </div>
 
       {showBackToTop && (
