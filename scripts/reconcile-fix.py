@@ -10,6 +10,8 @@
 2. 同步生图（上游不留存产物，结果不可找回）→ 平台预扣额度退回
    （refund_image_quota），任务保持 failed 并在 error.reconciled 写入对账标注；
    stuck 任务同样置为 failed，结束其 pending 状态。
+3. 已退额标注的任务也会重试 tuzi 回传：有留存则救回置 completed 并补扣已退
+   额度（consume_image_quota，账目保持「有图才扣费」）；确无留存维持原状。
 3. 默认 dry-run：只打印处置计划；--apply 才真正改数据；--notify 推送钉钉汇总。
 
 用法（服务器上）：
@@ -198,8 +200,9 @@ def content_type_of(ext: str) -> str:
     }.get(ext, "application/octet-stream")
 
 
-def download_bytes(url: str, attempts: int = 3) -> bytes:
-    """下载带重试：tuzi OSS 偶发掐断长下载（IncompleteRead）。"""
+def download_bytes(url: str, attempts: int = 4) -> bytes:
+    """下载带重试：tuzi OSS 偶发掐断长下载（IncompleteRead），
+    连续抓取也可能触发限流（403/500），用递增退避缓解。"""
     import time
     last: Exception = RuntimeError("no attempt")
     for i in range(attempts):
@@ -210,7 +213,7 @@ def download_bytes(url: str, attempts: int = 3) -> bytes:
                 return resp.read()
         except Exception as exc:  # noqa: BLE001
             last = exc
-            time.sleep(2 * (i + 1))
+            time.sleep(min(2 ** i * 3, 20))
     raise last
 
 
@@ -246,6 +249,61 @@ def notify_dingtalk(text: str):
         print(f"[warn] 钉钉推送失败: {exc}")
 
 
+def get_reconcile_action(task_id: str) -> str | None:
+    raw = run_psql(
+        "SELECT coalesce(error->'reconciled'->>'action','') FROM "
+        f"task_submissions WHERE task_id='{task_id}'")
+    return raw.strip() or None
+
+
+def perform_recovery(t: dict, urls: list, recover_via: str, srk: str,
+                     billed: int, prev_refunded: bool = False) -> str:
+    """下载产物转存 huabu 并把任务置 completed；prev_refunded 时补扣额度。"""
+    folder = "reconciled"
+    paths = []
+    for i, u in enumerate(urls):
+        path, size = upload_to_bucket(t["task_id"], u, i, srk, folder)
+        paths.append((path, size, u))
+    first_path, first_size, first_url = paths[0]
+
+    quota_recharged = None
+    if prev_refunded:
+        # 该任务此前已退额：救回后补扣，保持「有图才扣费」的账目一致
+        outc = run_psql(
+            f"SELECT consume_image_quota('{t['user_id']}', "
+            f"{int(t.get('n') or 1)})")
+        try:
+            quota_recharged = json.loads(outc).get("consumed") in (True, "true")
+        except Exception:
+            quota_recharged = False
+        if not quota_recharged:
+            print(f"[warn] {t['task_id'][:8]} 补扣额度未成功（额度不足或返回异常）"
+                  f"，仍恢复任务")
+
+    # result.url 沿用平台惯例放源站 URL（huabu 桶非公开）；
+    # huabu 备份路径放 response_file_paths 走前端签名链路
+    meta = {"reconciled": {
+        "at": datetime.datetime.now().isoformat(timespec="seconds"),
+        "action": "result_restored", "via": recover_via,
+        "source_url": first_url,
+        "huabu_paths": [p for p, _, _ in paths],
+        "upstream_quota": billed,
+        "original_error": (t.get("err") or "")[:200]}}
+    if prev_refunded:
+        meta["reconciled"]["previously_refunded"] = True
+        meta["reconciled"]["quota_recharged"] = quota_recharged
+    result = json.dumps(
+        {"url": first_url, "size": first_size,
+         "format": ext_of(first_url), **meta}).replace("'", "''")
+    paths_json = json.dumps([p for p, _, _ in paths]).replace("'", "''")
+    run_psql(
+        f"UPDATE task_submissions SET status='completed', "
+        f"result='{result}', response_file_paths='{paths_json}', "
+        f"completed_at=now(), updated_at=now(), error=NULL "
+        f"WHERE task_id='{t['task_id']}'")
+    return f"restored {len(paths)} file(s)"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--days", type=int, default=7)
@@ -274,10 +332,53 @@ def main() -> int:
               "跳过 tuzi 结果回传，全部走退额路径")
     actions = []
     for t in targets:
-        if t.get("reconciled"):
-            print(f"[skip] {t['task_id'][:8]} 已标注 reconciled，跳过（防重复退款）")
-            continue
         billed = sum(lg["quota"] for lg in t["logs"])
+        prev_refunded = False
+        if t.get("reconciled"):
+            # 已标注任务：若是纯退额件，仍按用户要求尝试 tuzi 救回（救回则补扣额度）
+            if get_reconcile_action(t["task_id"]) != "quota_refunded":
+                print(f"[skip] {t['task_id'][:8]} 已恢复/非退额标注，跳过")
+                continue
+            if not tuzi_creds:
+                print(f"[skip] {t['task_id'][:8]} 已退额且未配置 tuzi 凭证，跳过")
+                continue
+            prev_refunded = True
+            urls = []
+            recover_via = None
+            for lg in t["logs"]:
+                tuzi_urls = tuzi_find_urls(
+                    lg.get("upstream_request_id", ""), lg["bill_at"], tuzi_creds)
+                if tuzi_urls:
+                    urls = tuzi_urls
+                    recover_via = "tuzi"
+                    break
+            if not urls:
+                print(f"[skip] {t['task_id'][:8]} 已退额，tuzi 无留存（或已过期），"
+                      f"维持原状")
+                actions.append({"task_id": t["task_id"], "action":
+                                "retry_refund_no_image", "billed": billed})
+                continue
+            plan = {"task_id": t["task_id"], "model": t["model"],
+                    "status": t["status"], "user_id": t["user_id"],
+                    "billed": billed, "recover_via": recover_via,
+                    "recoverable": True, "action": "recover_recharged",
+                    "urls": urls}
+            if args.apply:
+                try:
+                    plan["done"] = perform_recovery(
+                        t, urls, recover_via, srk, billed, prev_refunded=True)
+                    print(f"[✓] {t['task_id'][:8]} 已退额任务救回并补扣额度")
+                except Exception as exc:  # noqa: BLE001
+                    plan["recover_error"] = (
+                        f"{type(exc).__name__}: {exc}")[:200]
+                    print(f"[warn] {t['task_id'][:8]} 救回失败，维持退额原状: "
+                          f"{plan['recover_error']}")
+            else:
+                print(f"[plan] {t['task_id'][:8]} 已退额但 tuzi 有留存，"
+                      f"可救回（将补扣额度）")
+            actions.append(plan)
+            continue
+
         detail = fetch_task_detail(t["task_id"])
         remote_id = find_remote_id(t, detail)
         upstream_task = lookup_upstream_task(remote_id) if remote_id else None
@@ -305,35 +406,8 @@ def main() -> int:
             plan["urls"] = urls
             if args.apply:
                 try:
-                    folder = "reconciled"
-                    paths = []
-                    for i, u in enumerate(urls):
-                        path, size = upload_to_bucket(
-                            t["task_id"], u, i, srk, folder)
-                        paths.append((path, size, u))
-                    first_path, first_size, first_url = paths[0]
-                    # result.url 沿用平台惯例放源站 URL（huabu 桶非公开）；
-                    # huabu 备份路径放 response_file_paths 走前端签名链路
-                    meta = {"reconciled": {
-                        "at": datetime.datetime.now().isoformat(
-                            timespec="seconds"),
-                        "action": "result_restored", "via": recover_via,
-                        "source_url": first_url,
-                        "huabu_paths": [p for p, _, _ in paths],
-                        "upstream_quota": billed,
-                        "original_error": (t.get("err") or "")[:200]}}
-                    result = json.dumps(
-                        {"url": first_url, "size": first_size,
-                         "format": ext_of(first_url), **meta}
-                    ).replace("'", "''")
-                    paths_json = json.dumps(
-                        [p for p, _, _ in paths]).replace("'", "''")
-                    run_psql(
-                        f"UPDATE task_submissions SET status='completed', "
-                        f"result='{result}', response_file_paths='{paths_json}', "
-                        f"completed_at=now(), updated_at=now(), error=NULL "
-                        f"WHERE task_id='{t['task_id']}'")
-                    plan["done"] = f"restored {len(paths)} file(s)"
+                    plan["done"] = perform_recovery(
+                        t, urls, recover_via, srk, billed)
                 except Exception as exc:  # noqa: BLE001
                     plan["recover_error"] = (
                         f"{type(exc).__name__}: {exc}")[:200]
@@ -375,11 +449,20 @@ def main() -> int:
               + (f"（{plan.get('done', plan.get('reason', ''))}）"
                  if args.apply or plan.get("reason") else ""))
 
+    recovered = sum(1 for a in actions
+                    if a.get("done") and a["action"] in
+                    ("recover", "recover_recharged"))
+    refunded = sum(1 for a in actions if a["action"] == "refund+annotate")
+    kept = sum(1 for a in actions if a["action"] == "retry_refund_no_image")
+    retry_failed = sum(1 for a in actions
+                       if a["action"] == "recover_recharged"
+                       and not a.get("done"))
     summary_lines = [
         "### 🔧 对账修复" + ("（已执行）" if args.apply else "（计划预览，未执行）"),
         f"- 处置任务 {len(actions)} 个，疑似资损 {findings['loss_quota']}",
-        f"- 恢复结果 {sum(1 for a in actions if a['action'] == 'recover')} 个 / "
-        f"退额+标注 {sum(1 for a in actions if a['action'] == 'refund+annotate')} 个",
+        f"- 恢复结果 {recovered} 个（含已退额救回补扣）/ "
+        f"退额+标注 {refunded} 个 / 无留存维持原状 {kept} 个"
+        + (f" / 救回待重试 {retry_failed} 个" if retry_failed else ""),
     ]
     print("\n".join(summary_lines))
 
