@@ -60,8 +60,8 @@ def service_role_key() -> str:
         ["docker", "exec", "supabase-edge-functions", "env"],
         capture_output=True, text=True, timeout=30)
     for line in out.stdout.splitlines():
-        if line.startswith(("SERVICE_ROLE_KEY=",
-                            "SUPABASE_SERVICE_ROLE_KEY=")):
+        if line.startswith(("SUPABASE_SERVICE_ROLE_KEY=",
+                            "SERVICE_ROLE_KEY=")):
             return line.split("=", 1)[1].strip()
     raise RuntimeError("SERVICE_ROLE_KEY not found in edge-functions env")
 
@@ -135,6 +135,57 @@ def result_urls(data: dict) -> list:
     return urls
 
 
+def get_tuzi_creds() -> tuple | None:
+    """从 configs 读 tuzi 控制台凭证（TUZI_ACCESS_TOKEN / TUZI_USER_ID）。"""
+    raw = run_psql(
+        "SELECT coalesce(json_object_agg(key, value), '{}'::json)::text "
+        "FROM configs WHERE key IN ('TUZI_ACCESS_TOKEN','TUZI_USER_ID')")
+    cfg = json.loads(raw)
+    token, uid = cfg.get("TUZI_ACCESS_TOKEN"), cfg.get("TUZI_USER_ID")
+    return (token, uid) if token and uid else None
+
+
+def tuzi_find_urls(upstream_request_id: str, bill_at: int, creds: tuple) -> list:
+    """按 new-api 的 upstream_request_id 精确匹配 tuzi 日志，提取留存图片 URL。
+
+    tuzi(New API 深度定制) 在 /api/log/self 行的 other 字段里留存
+    generated_image_urls（image_storage_enabled=true），且其 request_id
+    与 new-api 记录的 upstream_request_id 一致。"""
+    if not upstream_request_id:
+        return []
+    token, uid = creds
+    start = bill_at - 180
+    end = bill_at + 180
+    url = (f"https://api.tu-zi.com/api/log/self?p=1&page_size=100"
+           f"&start_timestamp={start}&end_timestamp={end}")
+    req = urllib.request.Request(
+        url, headers={"Authorization": token, "New-Api-User": uid})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            payload = json.loads(resp.read().decode())
+    except Exception as exc:  # noqa: BLE001
+        print(f"[warn] tuzi 日志查询失败: {exc}")
+        return []
+    data = payload.get("data") or {}
+    items = data.get("items") if isinstance(data, dict) else data
+    for row in items or []:
+        if row.get("request_id") != upstream_request_id:
+            continue
+        try:
+            other = json.loads(row.get("other") or "{}")
+        except Exception:
+            return []
+        delivery = other.get("generated_image_delivery") or {}
+        urls = [e.get("url") for e in delivery.get("entries") or []
+                if isinstance(e, dict) and e.get("url")]
+        if not urls:
+            urls = other.get("generated_image_urls") or []
+        if not urls and other.get("generated_image_url"):
+            urls = [other["generated_image_url"]]
+        return [u for u in urls if isinstance(u, str) and u.startswith("http")]
+    return []
+
+
 def ext_of(url: str) -> str:
     tail = url.split("?")[0].rsplit(".", 1)
     return tail[1][:5] if len(tail) == 2 and tail[1].isalnum() else "png"
@@ -147,9 +198,25 @@ def content_type_of(ext: str) -> str:
     }.get(ext, "application/octet-stream")
 
 
+def download_bytes(url: str, attempts: int = 3) -> bytes:
+    """下载带重试：tuzi OSS 偶发掐断长下载（IncompleteRead）。"""
+    import time
+    last: Exception = RuntimeError("no attempt")
+    for i in range(attempts):
+        try:
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "Mozilla/5.0 reconcile-fix"})
+            with urllib.request.urlopen(req, timeout=180) as resp:
+                return resp.read()
+        except Exception as exc:  # noqa: BLE001
+            last = exc
+            time.sleep(2 * (i + 1))
+    raise last
+
+
 def upload_to_bucket(task_id: str, url: str, idx: int, srk: str,
                      folder: str) -> tuple:
-    data = urllib.request.urlopen(url, timeout=120).read()
+    data = download_bytes(url)
     ext = ext_of(url)
     path = f"{folder}/reconciled-{task_id[:8]}-{idx}.{ext}"
     req = urllib.request.Request(
@@ -201,6 +268,10 @@ def main() -> int:
           f"疑似资损 {findings['loss_quota']}）\n")
 
     srk = service_role_key() if args.apply else ""
+    tuzi_creds = get_tuzi_creds()
+    if not tuzi_creds:
+        print("[warn] configs 缺少 TUZI_ACCESS_TOKEN/TUZI_USER_ID，"
+              "跳过 tuzi 结果回传，全部走退额路径")
     actions = []
     for t in targets:
         if t.get("reconciled"):
@@ -211,41 +282,70 @@ def main() -> int:
         remote_id = find_remote_id(t, detail)
         upstream_task = lookup_upstream_task(remote_id) if remote_id else None
         urls = result_urls(upstream_task or {})
+        recover_via = "upstream_tasks" if urls else None
+
+        # tuzi 结果回传：按 new-api 流水的 upstream_request_id 精确匹配 tuzi 日志
+        if not urls and tuzi_creds:
+            for lg in t["logs"]:
+                tuzi_urls = tuzi_find_urls(
+                    lg.get("upstream_request_id", ""), lg["bill_at"], tuzi_creds)
+                if tuzi_urls:
+                    urls = tuzi_urls
+                    recover_via = "tuzi"
+                    break
 
         plan = {"task_id": t["task_id"], "model": t["model"],
                 "status": t["status"], "user_id": t["user_id"],
                 "billed": billed, "remote_id": remote_id,
+                "recover_via": recover_via,
                 "recoverable": bool(urls)}
 
         if urls:
             plan["action"] = "recover"
             plan["urls"] = urls
             if args.apply:
-                folder = "reconciled"
-                paths = []
-                for i, u in enumerate(urls):
-                    path, size = upload_to_bucket(
-                        t["task_id"], u, i, srk, folder)
-                    paths.append((path, size, u))
-                first_path, first_size, first_url = paths[0]
-                meta = {"reconciled": {
-                    "at": datetime.datetime.now().isoformat(timespec="seconds"),
-                    "action": "result_restored", "source_url": first_url,
-                    "upstream_quota": billed,
-                    "original_error": (t.get("err") or "")[:200]}}
-                result = json.dumps({"url": f"{PUBLIC_BASE}/{BUCKET}/{first_path}",
-                                     "size": first_size, "format": ext_of(first_url),
-                                     **meta}).replace("'", "''")
-                paths_json = json.dumps([p for p, _, _ in paths]).replace("'", "''")
-                run_psql(
-                    f"UPDATE task_submissions SET status='completed', "
-                    f"result='{result}', response_file_paths='{paths_json}', "
-                    f"completed_at=now(), updated_at=now(), error=NULL "
-                    f"WHERE task_id='{t['task_id']}'")
-                plan["done"] = f"restored {len(paths)} file(s)"
-        else:
-            reason = ("同步生图产物上游不留存，无法找回" if not remote_id
-                      else "上游任务无成功结果")
+                try:
+                    folder = "reconciled"
+                    paths = []
+                    for i, u in enumerate(urls):
+                        path, size = upload_to_bucket(
+                            t["task_id"], u, i, srk, folder)
+                        paths.append((path, size, u))
+                    first_path, first_size, first_url = paths[0]
+                    # result.url 沿用平台惯例放源站 URL（huabu 桶非公开）；
+                    # huabu 备份路径放 response_file_paths 走前端签名链路
+                    meta = {"reconciled": {
+                        "at": datetime.datetime.now().isoformat(
+                            timespec="seconds"),
+                        "action": "result_restored", "via": recover_via,
+                        "source_url": first_url,
+                        "huabu_paths": [p for p, _, _ in paths],
+                        "upstream_quota": billed,
+                        "original_error": (t.get("err") or "")[:200]}}
+                    result = json.dumps(
+                        {"url": first_url, "size": first_size,
+                         "format": ext_of(first_url), **meta}
+                    ).replace("'", "''")
+                    paths_json = json.dumps(
+                        [p for p, _, _ in paths]).replace("'", "''")
+                    run_psql(
+                        f"UPDATE task_submissions SET status='completed', "
+                        f"result='{result}', response_file_paths='{paths_json}', "
+                        f"completed_at=now(), updated_at=now(), error=NULL "
+                        f"WHERE task_id='{t['task_id']}'")
+                    plan["done"] = f"restored {len(paths)} file(s)"
+                except Exception as exc:  # noqa: BLE001
+                    plan["recover_error"] = (
+                        f"{type(exc).__name__}: {exc}")[:200]
+                    print(f"[warn] {t['task_id'][:8]} 恢复失败，转退额: "
+                          f"{plan['recover_error']}")
+
+        if not (urls and (not args.apply or plan.get("done"))):
+            if not urls:
+                reason = ("tuzi 无留存结果（或上游请求 id 缺失）" if tuzi_creds
+                          else "上游不留存且未配置 tuzi 凭证")
+            else:
+                reason = ("恢复失败: " + plan.get("recover_error", ""))
             plan["action"] = "refund+annotate"
             plan["reason"] = reason
             if args.apply:

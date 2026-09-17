@@ -100,7 +100,7 @@ def fetch_upstream_logs(since_epoch: int) -> list:
         try:
             rows = con.execute(
                 """SELECT id, created_at, use_time, model_name, quota,
-                          channel_name, content
+                          channel_name, content, upstream_request_id
                    FROM logs
                    WHERE username = ? AND token_name = ? AND type = 2
                      AND created_at >= ?
@@ -116,6 +116,7 @@ def fetch_upstream_logs(since_epoch: int) -> list:
             "log_id": r[0], "bill_at": r[1], "use_time": r[2],
             "model": r[3], "quota": r[4], "channel": r[5] or "",
             "content": (r[6] or "")[:80],
+            "upstream_request_id": r[7] or "",
             "start": r[1] - (r[2] or 0),  # 上游请求开始时间
         }
         for r in rows
@@ -201,7 +202,11 @@ def main() -> int:
                 "type": t["type"], "status": t["status"], "model": t["model"],
                 "n": t.get("n", 1), "created": t["created"], "ended": t["ended"],
                 "err": t.get("err", ""), "stuck": t["stuck"],
-                "reconciled": t.get("reconciled", False), "logs": t["logs"],
+                "reconciled": t.get("reconciled", False),
+                "logs": [{"log_id": lg["log_id"], "bill_at": lg["bill_at"],
+                          "model": lg["model"], "quota": lg["quota"],
+                          "upstream_request_id": lg.get("upstream_request_id", ""),
+                          "start": lg["start"]} for lg in t["logs"]],
             }
         print(json.dumps({
             "generated_at": datetime.now().isoformat(timespec="seconds"),
