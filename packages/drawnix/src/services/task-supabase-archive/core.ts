@@ -517,7 +517,10 @@ export function sniffMimeFromBytes(bytes: Uint8Array): string {
   if (ascii(4, 'ftyp') && ascii(8, 'avif')) {
     return 'image/avif';
   }
-  return 'image/png';
+  // 严格模式：未知字节返回空串，由调用方决定回退值。
+  // （此前兜底返回 'image/png'，会把上游抖动时的 HTML 错误页误判为图片，
+  //  导致毒化响应被上传 bucket / 缓存本地 / 替换进 result.url。）
+  return '';
 }
 
 /** base64 字符串解码为字节 */

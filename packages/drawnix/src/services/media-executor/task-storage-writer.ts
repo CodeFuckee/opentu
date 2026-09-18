@@ -76,6 +76,16 @@ export interface SWTask {
     chatResponse?: string;
     analysisData?: unknown;
     toolCalls?: any[];
+    /** 归档替换前的原始交付 URL（上游地址，调试用） */
+    source_url?: string;
+    /** 多图任务归档替换前的原始 URL 列表 */
+    source_urls?: string[];
+    /** 生成结果归档信息（huabu 副本路径等） */
+    archived?: {
+      at: string;
+      via: string;
+      paths: string[];
+    };
   };
   error?: {
     code: string;
@@ -283,6 +293,28 @@ class TaskStorageWriter {
       task.updatedAt = Date.now();
       await this.saveTask(task);
     }
+  }
+
+  /**
+   * 归档完成后回填任务结果（url 替换为稳定地址 / size 真值 / source_url 保留）。
+   * 只合并 result，不改状态与 completedAt，避免干扰终态语义。
+   * patch 返回 null/undefined 表示放弃本次写入。
+   */
+  async updateTaskResult(
+    taskId: string,
+    patch: (prev: SWTask['result'] | undefined) => SWTask['result'] | undefined | null
+  ): Promise<void> {
+    const task = await this.getTask(taskId);
+    if (!task) {
+      return;
+    }
+    const next = patch(task.result);
+    if (!next) {
+      return;
+    }
+    task.result = next;
+    task.updatedAt = Date.now();
+    await this.saveTask(task);
   }
 
   /**

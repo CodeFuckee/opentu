@@ -42,6 +42,52 @@
     改 Set 记录（多注册者不再互相覆盖，拦截行为不变）。
 - **验证**：`pnpm check`（typecheck+lint）与 `pnpm test` 全量通过。
 
+### fix: 生图归档链路重试加固 + result.url 替换为稳定地址（size 真值回填）+ 存量修复脚本（2026-09-17）
+
+**背景**：生成交付依赖上游（tuzi）URL 直连，上游抖动导致前端下载要重试多遍、
+中途中断；归档是浏览器旁路 fire-and-forget（无重试、静默失败），bucket 副本随同丢失；
+且所有任务完成路径硬编码 `result.size = 0`，真值从未测量。
+
+- **归档重试加固**（`packages/drawnix/src/services/task-supabase-archive/service.ts`）：
+  `archiveGeneratedMediaToSupabase` 的上游下载改为 4 次指数退避重试（1.5s/3s/6s），
+  并做媒体魔数校验——上游抖动时常见的 200 + HTML 错误页按失败重试，不再误入 bucket。
+  根因修复：`core.ts` 的 `sniffMimeFromBytes` 原本对未知字节兜底返回 `image/png`，
+  现改为严格模式（未知返回空串），b64 分支调用点显式回退 `image/png` 保持旧行为。
+- **归档成功后回写 result（交付走自己的副本）**：bucket 上传成功后，
+  同一份字节以内容寻址虚拟路径缓存本地（`/__aitu_cache__/<type>/content-{sha256}.{ext}`，
+  与 b64 结果既有约定一致），任务 `result.url` 替换为该路径，`result.source_url` /
+  `source_urls` 保留原始上游 URL（调试用），`result.size` 写真实字节数，`result.archived`
+  记录归档信息。本地 IndexedDB 任务（`taskStorageWriter.updateTaskResult` 新方法）与远端
+  `task_submissions.result`（读-合并-写）同时回写，先本地后远端，与终态回写任意时序收敛。
+  说明：huabu bucket 为私有（per-user RLS），前端无裸存储 URL 渲染路径，故沿用 b64
+  结果的稳定虚拟地址约定；bucket 副本 + `response_file_paths` 保证服务端可随时找回。
+- **修复脚本** `scripts/repair-task-media.mjs`（dry-run 默认，`--apply` 生效）：
+  服务端补齐存量 completed 图片任务的归档缺口——`response_file_paths` 缺失/对象损坏时
+  从 `result.url` 重试下载（5 次退避，魔数校验）上传 huabu，回写
+  `response_file_paths` / `result.size`（真值）/ `result.source_url` / `result.repaired` 标记；
+  幂等可重跑；不改动存量 `result.url`（生成设备已按旧地址渲染/缓存）。
+  PATCH 用 `Prefer: return=representation` 带回更新后的行做回读校验（`[ok]` 以服务端
+  确认 `repaired` 写入为准）；修复 api() 辅助函数对预序列化 body 二次 stringify 导致
+  PATCH 载荷变 JSON 字符串、PostgREST 返回 2xx 但不更新任何列的 bug（本地 mock Supabase
+  冒烟验证通过）。
+- **测试**：新增 `archive-generated-media.test.ts` 4 例（重试成功后本地/服务端回写、
+  重试耗尽静默放弃、HTML 毒化响应不入桶、b64 结果 size 回填），
+  `core.test.ts` 更新严格 sniff 断言；task-supabase-archive + media-executor 8 文件 97 例全绿。
+
+### feat: user_profiles 新增 password 字段记录 Supabase 账号密码（2026-09-17，开发者测试用）
+
+- **迁移**：`supabase/migrations/user_profiles_add_password.sql` 给 `public.user_profiles`
+  增加 `password text` 列（明文，沿用 newapi_password 的自托管内网先例）；RLS 不变，
+  普通用户仍只能读写自己的行，读取全部用户密码需 service_role / 数据库直连权限。
+  执行：`docker exec -i supabase-db psql -U supabase_admin -d postgres < supabase/migrations/user_profiles_add_password.sql`。
+- **回写时机**：注册（`signUp`）与登录（`signIn`）成功后由前端 fire-and-forget
+  upsert `{ user_id, password }`（登录成功即证明密码当前有效，管理员改密后再次登录可自动刷新）；
+  回写失败仅 console.warn，不阻塞注册/登录（`apps/web/src/supabase/auth-context.tsx`）。
+- **测试**：新增 `apps/web/src/supabase/auth-context.spec.tsx` 5 例（注册/登录成功回写、
+  失败不回写、回写失败不阻塞），web 子项目 test/typecheck/lint 全绿。
+- **文档**：`docs/user_profiles_password.md`（用途、安全边界、执行与验证）。
+- ⚠️ 明文密码属高敏数据，仅建议内网/测试环境使用；对外开放前应清空该列。
+
 ### 🧹 全仓库代码评审 + 行为保持重构（2026-09-17，code-review-skill 五维度）
 
 9 个区域并行评审（supabase 边缘函数 / web 应用壳与 SW / utils·react-board·react-text /

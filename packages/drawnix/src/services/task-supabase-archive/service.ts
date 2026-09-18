@@ -13,6 +13,7 @@ import type { Task } from '../../types/task.types';
 import { TaskStatus } from '../../types/task.types';
 import { getTaskArchiveConfig } from './runtime';
 import { unifiedCacheService } from '../unified-cache-service';
+import { taskStorageWriter } from '../media-executor/task-storage-writer';
 import {
   buildFileEntries,
   buildFileEntryFromBlob,
@@ -371,7 +372,9 @@ export async function archiveUpstreamResponseToSupabase(
         }
         const bytes = decodeResponseBase64(payload);
         const mime =
-          extractMimeFromDataUrl(value) ?? sniffMimeFromBytes(bytes);
+          extractMimeFromDataUrl(value) ||
+          sniffMimeFromBytes(bytes) ||
+          'image/png';
         const ext = mimeToExtension(mime);
         const hash = await sha256Hex(bytes);
         const storagePath = buildStoragePath(username, dateStr, hash, ext);
@@ -452,38 +455,61 @@ export async function archiveUpstreamResponseFromFetch(
 }
 
 /**
+ * 单个生成结果 URL 的归档产出
+ */
+export interface GeneratedMediaArchiveEntry {
+  /** executor 传入的原始 URL（上游 http URL 或本地虚拟 URL） */
+  sourceUrl: string;
+  /** 归档后可稳定展示的内容寻址虚拟路径（无有效字节/缓存失败时与 sourceUrl 相同） */
+  stableUrl: string;
+  /** huabu bucket 存储路径（上传失败为 null） */
+  storagePath: string | null;
+  /** 实际字节数 */
+  size: number;
+}
+
+/**
  * 生成结果媒体归档（fire-and-forget）：
  *
- * 场景：适配器生图完成后，新生成的图片已由 executor 缓存到本地
- * （/__aitu_cache__/... 虚拟 URL）。本函数把本地 blob 上传 huabu bucket
- * （{sha256}.{ext}），并写 task_submissions.response_file_paths。
+ * 场景：适配器生图完成后，把生成结果上传 huabu bucket
+ * （{username}/{日期}/{sha256}.{ext}），并回写 task_submissions。
  *
  * - 上游返回 b64_json 时由 archiveUpstreamResponseToSupabase 负责；
  * - 上游返回 URL（OpenAI data[].url 格式）时，响应 JSON 里没有字节，
  *   转存必须发生在 executor 拿到可下载结果之后 —— 即本函数（补足 URL 型输出入桶）。
+ *
+ * 稳定性约定（替代"交付依赖上游 URL、size 恒为 0"的旧模式）：
+ * - 上游下载带重试 + 媒体魔数校验（上游抖动时常见 200 + HTML 错误页，按失败重试）；
+ * - bucket 上传成功后：本地以内容寻址虚拟路径缓存同一份字节，任务 result.url
+ *   替换为该虚拟路径（source_url 保留原 URL 便于调试），result.size 写真实字节数
+ *   —— 之后展示/下载由本地缓存稳定供给，不再依赖上游 URL；
+ * - 本地任务（IndexedDB）与远端 task_submissions.result 同时回写；先本地后远端，
+ *   终态回写读取本地结果，任意时序最终收敛。
+ *
  * 全程 fire-and-forget、静默失败：任何异常只 console.warn，绝不抛出、不阻塞生成。
  */
 export async function archiveGeneratedMediaToSupabase(
   taskId: string,
   urls: string[]
-): Promise<void> {
+): Promise<GeneratedMediaArchiveEntry[]> {
+  const entries: GeneratedMediaArchiveEntry[] = [];
   try {
     const config = getTaskArchiveConfig();
     if (!config || !taskId || !urls || urls.length === 0) {
       console.warn(
         `[TaskArchive] generated media skip: config=${!!config} taskId=${taskId} urls=${urls?.length}`
       );
-      return;
+      return entries;
     }
     const user = await getCurrentUser(config.client);
     if (!user) {
       console.warn('[TaskArchive] generated media skip: no session user');
-      return;
+      return entries;
     }
     const username = await resolveUsername(config.client, user);
     if (!username) {
       console.warn('[TaskArchive] generated media skip: username unresolved');
-      return;
+      return entries;
     }
 
     console.warn(
@@ -515,24 +541,17 @@ export async function archiveGeneratedMediaToSupabase(
           }
           bytes = decodeResponseBase64(payload);
           mime =
-            extractMimeFromDataUrl(imageData.value) ?? sniffMimeFromBytes(bytes);
+            extractMimeFromDataUrl(imageData.value) ||
+            sniffMimeFromBytes(bytes) ||
+            'image/png';
         } else {
-          // url 型（http URL 或虚拟 URL 缓存缺失降级）：直接 fetch 取 blob
-          const response = await fetch(url, { referrerPolicy: 'no-referrer' });
-          if (!response.ok) {
-            console.warn(
-              `[TaskArchive] generated media fetch ${url} failed: ${response.status}, skipping upload`
-            );
+          // url 型（http URL 或虚拟 URL 缓存缺失降级）：带重试与魔数校验地取字节
+          const fetched = await fetchGeneratedMediaWithRetry(url);
+          if (!fetched) {
             continue;
           }
-          const blob = await response.blob();
-          if (blob.size === 0) {
-            continue;
-          }
-          // 兼容不支持 blob.arrayBuffer() 的环境（部分 jsdom），复用 FileReader 回退
-          const arrayBuffer = await readBlobAsArrayBufferSafe(blob);
-          bytes = new Uint8Array(arrayBuffer);
-          mime = blob.type || sniffMimeFromBytes(bytes);
+          bytes = fetched.bytes;
+          mime = fetched.mime;
         }
         const ext = mimeToExtension(mime);
         const hash = await sha256Hex(bytes);
@@ -549,32 +568,282 @@ export async function archiveGeneratedMediaToSupabase(
             '[TaskArchive] generated media upload failed (silent):',
             error
           );
+          entries.push({
+            sourceUrl: url,
+            stableUrl: url,
+            storagePath: null,
+            size: bytes.length,
+          });
           continue;
         }
         uploadedPaths.push(storagePath);
+
+        // 本地缓存同一份字节：result.url 替换后，<img> 由 SW 从本地缓存稳定供给
+        const stableUrl = await cacheArchiveBlobLocally(
+          taskId,
+          url,
+          bytes,
+          mime,
+          hash
+        );
+        entries.push({
+          sourceUrl: url,
+          stableUrl,
+          storagePath,
+          size: bytes.length,
+        });
       } catch (error) {
         console.warn('[TaskArchive] generated media processing failed:', error);
       }
     }
 
     if (uploadedPaths.length === 0) {
-      return;
+      return entries;
     }
 
-    const { error } = await config.client
-      .from('task_submissions')
-      .update({
-        response_file_paths: uploadedPaths,
-      })
-      .eq('user_id', user.id)
-      .eq('task_id', taskId);
-    if (error) {
-      console.warn(
-        '[TaskArchive] generated media update failed (silent):',
-        error
+    // 回写本地任务结果（先本地：终态回写读本地结果，任意时序最终收敛）
+    await applyArchiveResultToLocalStorage(taskId, entries, uploadedPaths);
+
+    // 服务端回写（读-合并-写，仅覆盖 response_file_paths 与 result）
+    await applyArchiveResultToServerRow(
+      config,
+      user.id,
+      taskId,
+      entries,
+      uploadedPaths
+    );
+  } catch (error) {
+    console.warn('[TaskArchive] generated media archive failed (silent):', error);
+  }
+  return entries;
+}
+
+/** 生成结果上游下载重试次数（上游 URL 抖动/限流是常态） */
+const GENERATED_MEDIA_FETCH_ATTEMPTS = 4;
+
+/**
+ * 带重试的生成结果下载：响应必须携带可识别的媒体魔数或 image/* content-type，
+ * 拒绝上游抖动时返回的 200 + HTML 错误页等毒化响应。
+ */
+async function fetchGeneratedMediaWithRetry(
+  url: string
+): Promise<{ bytes: Uint8Array; mime: string } | null> {
+  let lastError: unknown = new Error('no attempt');
+  for (let attempt = 0; attempt < GENERATED_MEDIA_FETCH_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        credentials: 'omit',
+        cache: 'no-store',
+        referrerPolicy: 'no-referrer',
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const blob = await response.blob();
+      if (blob.size === 0) {
+        throw new Error('empty body');
+      }
+      const bytes = new Uint8Array(await readBlobAsArrayBufferSafe(blob));
+      const sniffed = sniffMimeFromBytes(bytes);
+      const headerMime = (blob.type || '').split(';')[0];
+      const mime = sniffed || (isMediaMime(headerMime) ? headerMime : '');
+      if (!mime) {
+        throw new Error(
+          `non-media content (sniff=${sniffed || 'unknown'}, ct=${headerMime || 'none'})`
+        );
+      }
+      return { bytes, mime };
+    } catch (error) {
+      lastError = error;
+      if (attempt < GENERATED_MEDIA_FETCH_ATTEMPTS - 1) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.min(2 ** attempt * 1500, 15000))
+        );
+      }
+    }
+  }
+  console.warn(
+    '[TaskArchive] generated media fetch failed after retries:',
+    url.slice(0, 80),
+    lastError
+  );
+  return null;
+}
+
+function isMediaMime(mime: string): boolean {
+  return /^(image|video|audio)\//.test(mime);
+}
+
+function mediaTypeOfMime(mime: string): 'image' | 'video' | 'audio' {
+  if (mime.startsWith('video/')) return 'video';
+  if (mime.startsWith('audio/')) return 'audio';
+  return 'image';
+}
+
+/**
+ * 把归档字节缓存到本地内容寻址虚拟路径（与 b64 结果的 cacheRemoteUrl 约定一致），
+ * 返回可用于 result.url 的稳定地址；缓存失败时返回原 URL（交付退回旧行为）。
+ */
+async function cacheArchiveBlobLocally(
+  taskId: string,
+  sourceUrl: string,
+  bytes: Uint8Array,
+  mime: string,
+  hash: string
+): Promise<string> {
+  const mediaType = mediaTypeOfMime(mime);
+  const stableUrl = `/__aitu_cache__/${mediaType}/content-${hash}.${mimeToExtension(mime)}`;
+  if (stableUrl === sourceUrl) {
+    return stableUrl;
+  }
+  try {
+    if (!(await unifiedCacheService.isCached(stableUrl))) {
+      await unifiedCacheService.cacheMediaFromBlob(
+        stableUrl,
+        new Blob([bytes], { type: mime }),
+        mediaType,
+        { taskId, source: 'AI_GENERATED' }
       );
     }
   } catch (error) {
-    console.warn('[TaskArchive] generated media archive failed (silent):', error);
+    console.warn(
+      '[TaskArchive] local archive cache failed (delivery keeps source url):',
+      error
+    );
+    return sourceUrl;
+  }
+  return stableUrl;
+}
+
+interface ResultLike {
+  url?: string;
+  urls?: string[];
+  size?: number;
+  source_url?: string;
+  source_urls?: string[];
+  archived?: { at: string; via: string; paths: string[] };
+  [key: string]: unknown;
+}
+
+/**
+ * 把归档产出合并进任务结果：url/urls 替换为稳定地址、source_url(s) 保留原始值、
+ * size 写真实字节数、archived 记录归档信息。不修改其他字段。
+ */
+function mergeArchiveIntoResult(
+  prev: Record<string, unknown>,
+  entries: GeneratedMediaArchiveEntry[],
+  archivedPaths: string[]
+): Record<string, unknown> {
+  const next: ResultLike = { ...prev };
+  const bySource = new Map(entries.map((e) => [e.sourceUrl, e]));
+
+  const primary =
+    typeof next.url === 'string' && next.url
+      ? bySource.get(next.url)
+      : undefined;
+  if (primary?.storagePath) {
+    if (primary.stableUrl !== primary.sourceUrl && next.url === primary.sourceUrl) {
+      // 已归档：替换交付地址，保留原始 URL 便于调试（幂等：重跑时 url 已是稳定地址）
+      next.source_url = primary.sourceUrl;
+      next.url = primary.stableUrl;
+    }
+  } else if (!next.url && entries.length > 0) {
+    // 服务端 result 尚未写入（归档先于终态回写完成的竞态窗口）：用首个归档产出填充
+    const first = entries.find((e) => e.storagePath);
+    if (first) {
+      next.url = first.stableUrl;
+      next.source_url = first.sourceUrl;
+    }
+  }
+
+  if (Array.isArray(next.urls) && next.urls.length > 0) {
+    const originals = [...next.urls];
+    const mapped = originals.map((u) => {
+      const entry = bySource.get(u);
+      return entry?.storagePath ? entry.stableUrl : u;
+    });
+    if (mapped.some((u, i) => u !== originals[i])) {
+      next.source_urls = originals;
+      next.urls = mapped;
+    }
+  }
+
+  const sizeEntry =
+    primary?.storagePath && primary.size > 0
+      ? primary
+      : entries.find((e) => e.storagePath && e.size > 0);
+  if (sizeEntry) {
+    next.size = sizeEntry.size;
+  }
+
+  next.archived = {
+    at: new Date().toISOString(),
+    via: 'generated-media-archive',
+    paths: archivedPaths,
+  };
+  return next as Record<string, unknown>;
+}
+
+/** 本地任务结果回填（IndexedDB；任务不存在时静默跳过） */
+async function applyArchiveResultToLocalStorage(
+  taskId: string,
+  entries: GeneratedMediaArchiveEntry[],
+  uploadedPaths: string[]
+): Promise<void> {
+  try {
+    await taskStorageWriter.updateTaskResult(taskId, (prev) => {
+      if (!prev) {
+        return prev;
+      }
+      return mergeArchiveIntoResult(
+        prev as Record<string, unknown>,
+        entries,
+        uploadedPaths
+      ) as typeof prev;
+    });
+  } catch (error) {
+    console.warn(
+      '[TaskArchive] local task result backfill failed (silent):',
+      error
+    );
+  }
+}
+
+/** 服务端 task_submissions 回写：读现有 result → 合并 → 写回 */
+async function applyArchiveResultToServerRow(
+  config: { client: SupabaseClient },
+  userId: string,
+  taskId: string,
+  entries: GeneratedMediaArchiveEntry[],
+  uploadedPaths: string[]
+): Promise<void> {
+  let existing: Record<string, unknown> = {};
+  try {
+    const { data } = await config.client
+      .from('task_submissions')
+      .select('result')
+      .eq('user_id', userId)
+      .eq('task_id', taskId)
+      .maybeSingle();
+    if (data?.result && typeof data.result === 'object') {
+      existing = data.result as Record<string, unknown>;
+    }
+  } catch (error) {
+    console.warn(
+      '[TaskArchive] read existing result failed (merge on empty):',
+      error
+    );
+  }
+  const merged = mergeArchiveIntoResult(existing, entries, uploadedPaths);
+  const { error } = await config.client
+    .from('task_submissions')
+    .update({ response_file_paths: uploadedPaths, result: merged })
+    .eq('user_id', userId)
+    .eq('task_id', taskId);
+  if (error) {
+    console.warn(
+      '[TaskArchive] generated media update failed (silent):',
+      error
+    );
   }
 }

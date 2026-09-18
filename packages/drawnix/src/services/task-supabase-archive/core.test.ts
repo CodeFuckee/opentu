@@ -390,8 +390,11 @@ describe('sniffMimeFromBytes / decodeResponseBase64', () => {
     expect(sniffMimeFromBytes(bytes)).toBe('image/jpeg');
   });
 
-  it('未知二进制回退 image/png', () => {
-    expect(sniffMimeFromBytes(new Uint8Array([1, 2, 3]))).toBe('image/png');
+  it('未知二进制返回空串（严格模式，防 HTML 错误页误判为图片）', () => {
+    expect(sniffMimeFromBytes(new Uint8Array([1, 2, 3]))).toBe('');
+    expect(
+      sniffMimeFromBytes(new TextEncoder().encode('<html><body>502</body></html>'))
+    ).toBe('');
   });
 
   it('decodeResponseBase64 解码正确', () => {
