@@ -213,9 +213,31 @@ test('aggregatePipeline：按天趋势按东八区切日（total=全部归档，
   ] as never;
   const stats = aggregatePipeline(rows);
   assert.deepEqual(stats.daily, [
-    { date: '2026-09-14', total: 1, failed: 0 },
-    { date: '2026-09-15', total: 3, failed: 2 },
+    { date: '2026-09-14', total: 1, failed: 0, completed: 1, cancelled: 0, platformFailed: 0, successRate: 1, platformErrorRate: 0 },
+    { date: '2026-09-15', total: 3, failed: 2, completed: 1, cancelled: 0, platformFailed: 2, successRate: 0.3333, platformErrorRate: 0.6667 },
   ]);
+});
+
+test('aggregatePipeline：当日口径——余额/上游失败不计平台分子；分母 0 的天为 null', () => {
+  const rows = [
+    // 当日：completed + balance 失败 + cancelled → 成功率 1/3；平台分子 0 → 平台错误率 0/2=0
+    { type: 'image', status: 'completed', created_at: '2026-09-16T01:00:00Z', completed_at: '2026-09-16T01:00:10Z', model: 'm-a' },
+    { type: 'image', status: 'failed', created_at: '2026-09-16T02:00:00Z', completed_at: '2026-09-16T02:00:10Z', model: 'm-a', error: 'insufficient_user_quota' },
+    { type: 'chat', status: 'cancelled', created_at: '2026-09-16T03:00:00Z', completed_at: null, model: 'm-c' },
+    // 当日只有 submitted（卡死与否不影响）→ 两个比率都是 null
+    { type: 'image', status: 'submitted', created_at: '2026-09-17T01:00:00Z', completed_at: null, model: 'm-a' },
+  ] as never;
+  const stats = aggregatePipeline(rows);
+  const byDate = new Map(stats.daily.map((d) => [d.date, d]));
+  const d16 = byDate.get('2026-09-16')!;
+  assert.equal(d16.completed, 1);
+  assert.equal(d16.cancelled, 1);
+  assert.equal(d16.platformFailed, 0);
+  assert.equal(d16.successRate, 0.3333);
+  assert.equal(d16.platformErrorRate, 0);
+  const d17 = byDate.get('2026-09-17')!;
+  assert.equal(d17.successRate, null);
+  assert.equal(d17.platformErrorRate, null);
 });
 
 test('aggregatePipeline：出图耗时分位 p50/p95（completed 且双时间戳，按 type 拆）', () => {

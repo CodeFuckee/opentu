@@ -1,5 +1,16 @@
 ## Unreleased
 
+### feat: 开发看板成功率/平台错误率趋势 sparkline 双卡（2026-09-18）
+
+- **DailyTrendPoint 扩展**：每日聚合新增 completed/cancelled/platformFailed 与派生的
+  当日 successRate / platformErrorRate；分母口径与页首总口径一致
+  （成功率分母含 cancelled，平台错误率排除余额/上游失败），分母 0 为 null。
+- **看板**：任务管线下新增「成功率 / 平台错误率趋势」双卡，内联 SVG sparkline
+  （跟随页面统计窗口，悬浮单日看数值），附当前值、环比（pp）与无任务天数；
+  分母为 0 的天显示 '-' 且折线断开，不虚构数据。
+- **测试**：daily 断言更新 + 新增当日口径用例（余额失败不计平台分子、
+  仅 submitted 的天双率 null），dev-monitor 32 例全绿；预览 mock 同步。
+
 ### feat: 开发看板新增「失败归因」板块——细分分类 + 占比 + 最近出现时间（2026-09-18）
 
 - **细分归因**：在三分类（余额/上游/平台，平台错误率口径不变）之上新增 8 类细分

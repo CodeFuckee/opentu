@@ -223,6 +223,16 @@ export interface DailyTrendPoint {
   date: string;
   total: number;
   failed: number;
+  /** completed 终态数（当日成功率分子） */
+  completed: number;
+  /** cancelled 终态数（当日成功率分母的一部分） */
+  cancelled: number;
+  /** 平台错误失败数（当日平台错误率分子；余额/上游失败不计入） */
+  platformFailed: number;
+  /** 当日成功率 = completed/(completed+failed+cancelled)，分母 0 为 null（与总口径一致） */
+  successRate: number | null;
+  /** 当日平台错误率 = platformFailed/(completed+cancelled+platformFailed)，分母 0 为 null */
+  platformErrorRate: number | null;
 }
 
 /** 失败原因归类：余额不足/上游失败为外部原因，其余计入平台错误 */
@@ -506,8 +516,10 @@ export function aggregatePipeline(rows: PipelineRow[], nowMs: number = Date.now(
         break;
     }
 
+    let failedCategory: FailureCategory | null = null;
     if (row.status === 'failed') {
-      failureCategories[classifyFailureCategory(row.error)] += 1;
+      failedCategory = classifyFailureCategory(row.error);
+      failureCategories[failedCategory] += 1;
       const detail = classifyFailureDetail(row.error);
       detailCount.set(detail, (detailCount.get(detail) ?? 0) + 1);
       const seenAt = row.completed_at || row.created_at || '';
@@ -538,13 +550,33 @@ export function aggregatePipeline(rows: PipelineRow[], nowMs: number = Date.now(
 
     const date = row.created_at ? localDate(row.created_at) : null;
     if (date) {
-      const point = dailyMap.get(date) ?? { date, total: 0, failed: 0 };
+      const point = dailyMap.get(date) ?? {
+        date, total: 0, failed: 0, completed: 0, cancelled: 0, platformFailed: 0,
+        successRate: null, platformErrorRate: null,
+      };
       point.total += 1;
       if (row.status === 'failed') {
         point.failed += 1;
       }
+      if (row.status === 'completed') {
+        point.completed += 1;
+      }
+      if (row.status === 'cancelled') {
+        point.cancelled += 1;
+      }
+      if (failedCategory === 'platform') {
+        point.platformFailed += 1;
+      }
       dailyMap.set(date, point);
     }
+  }
+
+  // 当日成功率/平台错误率（分母 0 为 null；分母口径与页首总口径一致）
+  for (const point of dailyMap.values()) {
+    const srDenom = point.completed + point.failed + point.cancelled;
+    point.successRate = srDenom > 0 ? Math.round((point.completed / srDenom) * 10000) / 10000 : null;
+    const peDenom = point.completed + point.cancelled + point.platformFailed;
+    point.platformErrorRate = peDenom > 0 ? Math.round((point.platformFailed / peDenom) * 10000) / 10000 : null;
   }
 
   const denominator = completed + failed + cancelled;
@@ -1147,6 +1179,8 @@ export function buildDevMonitorHtml(anonKey: string): string {
 
 <div class="panel"><h2>任务管线（真实口径：成功率分母含 cancelled，卡死单列）</h2><div class="cards" id="pipeCards"><div class="sk"></div></div></div>
 
+<div class="panel"><h2>成功率 / 平台错误率趋势（跟随统计窗口；分母与页首总口径一致，无任务的天显示 '-'）</h2><div id="trendCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px"><div class="sk"></div></div></div>
+
 <div class="grid2">
   <div class="panel"><h2>按模型失败排行</h2><div id="modelFailBars"><div class="sk"></div></div></div>
   <div class="panel"><h2>按天归档趋势（total / failed）</h2><table id="dailyTable"><thead><tr><th>日期</th><th>归档任务</th><th>失败</th><th>失败率</th></tr></thead><tbody></tbody></table></div>
@@ -1310,6 +1344,63 @@ function fmtRelative(iso, nowMs){
   return Math.floor(diff/86400000)+' 天前';
 }
 
+// 趋势 sparkline：points=[{date,v}]，v=null 表示当日分母为 0（断线不画）
+function sparklineSvg(points, color){
+  var W=300,H=80,PAD=6;
+  var vals = points.filter(function(p){return p.v!=null}).map(function(p){return p.v});
+  if(!vals.length) return '<div class="muted">窗口内暂无数据</div>';
+  var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+  if(hi-lo < 0.02){ lo = Math.max(0, lo-0.01); hi = Math.min(1, hi+0.01); }
+  var n = points.length;
+  function xy(i, v){
+    var x = n>1 ? PAD + i/(n-1)*(W-2*PAD) : W/2;
+    var y = H-PAD - (v-lo)/(hi-lo)*(H-2*PAD);
+    return [x,y];
+  }
+  var segs = []; var cur = [];
+  points.forEach(function(p, i){
+    if(p.v==null){ if(cur.length){ segs.push(cur); cur=[]; } }
+    else cur.push([i,p.v]);
+  });
+  if(cur.length) segs.push(cur);
+  var paths = segs.map(function(seg){
+    return '<path d="'+seg.map(function(pt,idx){ var c=xy(pt[0],pt[1]); return (idx?'L':'M')+c[0].toFixed(1)+','+c[1].toFixed(1); }).join(' ')+'" fill="none" stroke="'+color+'" stroke-width="1.5" stroke-linejoin="round"/>';
+  }).join('');
+  var dots = points.map(function(p,i){
+    if(p.v==null) return '';
+    var c = xy(i,p.v);
+    return '<circle cx="'+c[0].toFixed(1)+'" cy="'+c[1].toFixed(1)+'" r="2.2" fill="'+color+'"><title>'+esc(p.date)+'　'+(p.v*100).toFixed(1)+'%</title></circle>';
+  }).join('');
+  return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:80px;display:block">'+paths+dots+'</svg>';
+}
+
+function trendCard(title, points, color){
+  var vals = points.filter(function(p){return p.v!=null}).map(function(p){return p.v});
+  var cur = vals.length ? vals[vals.length-1] : null;
+  var prev = vals.length>1 ? vals[vals.length-2] : null;
+  var deltaText = '';
+  if(cur!=null && prev!=null){
+    var pp = (cur-prev)*100;
+    deltaText = ' · 环比 '+(pp>=0?'+':'')+pp.toFixed(1)+'pp';
+  }
+  var emptyDays = points.filter(function(p){return p.v==null}).length;
+  var emptyText = emptyDays ? ' · '+emptyDays+' 天无任务' : '';
+  return '<div class="card" style="display:block"><div class="label">'+esc(title)+'</div>'+
+    sparklineSvg(points, color)+
+    '<div class="sub">'+(cur!=null?('当前 '+(cur*100).toFixed(1)+'%'):'-')+deltaText+emptyText+'</div></div>';
+}
+
+function renderTrend(o){
+  var p = o.pipeline;
+  var el = document.getElementById('trendCards');
+  if(!p){ el.innerHTML = '<div class="card" style="grid-column:1/-1"><div class="error">任务管线数据拉取失败</div></div>'; return; }
+  var daily = p.daily || [];
+  var srPoints = daily.map(function(d){ return { date: d.date, v: d.successRate }; });
+  var pePoints = daily.map(function(d){ return { date: d.date, v: d.platformErrorRate }; });
+  el.innerHTML = trendCard('成功率（分母含 cancelled）', srPoints, 'var(--accent)')+
+    trendCard('平台错误率（余额/上游失败除外）', pePoints, 'var(--fail)');
+}
+
 function renderFailureBreakdown(o){
   var p = o.pipeline;
   var tbody = document.querySelector('#breakdownTable tbody');
@@ -1368,6 +1459,7 @@ function render(o){
   document.getElementById('generatedAt').textContent = '统计窗口 近 '+o.days+' 天 · 生成于 ' + fmtDate(o.generatedAt);
   renderProbes(o.probes);
   renderPipeline(o);
+  renderTrend(o);
   renderFailures(o.recentFailures);
   renderFailureBreakdown(o);
   renderStuck(o.stuckList);
