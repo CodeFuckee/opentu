@@ -235,6 +235,12 @@ export interface PipelineStats {
   /** 失败原因分类计数（余额不足/上游失败/平台，合计=failed） */
   failureCategories: Record<FailureCategory, number>;
   /**
+   * 失败细分归因（看板「失败归因」表格）：balance/upstream_timeout/upstream_http/
+   * upstream_error/platform_timeout/auth/content_policy/platform_other，按次数降序；
+   * rollup 合计与 failureCategories 严格一致（占比分母=failed）。
+   */
+  failureBreakdown: FailureBreakdownEntry[];
+  /**
    * 平台错误率 = 平台错误失败 / (completed + cancelled + 平台错误失败)。
    * 余额不足与上游失败的任务整体排除在分子分母之外（上游大面积故障不影响本指标）；
    * 分母 0 为 null。
@@ -336,6 +342,120 @@ export function classifyFailureCategory(error: unknown): FailureCategory {
   return 'platform';
 }
 
+// ---------------------------------------------------------------------------
+// 失败细分归因（看板「失败归因」板块）：三分类的细分，rollup 与三分类一一对应
+// ---------------------------------------------------------------------------
+
+/** 失败细分归因：每项均可归并回 FailureCategory（rollup 合计 = failureCategories） */
+export type FailureDetailCategory =
+  | 'balance' // 余额不足
+  | 'upstream_timeout' // 上游超时（rollup: upstream）
+  | 'upstream_http' // 上游网关 5xx（rollup: upstream）
+  | 'upstream_error' // 其他上游错误（rollup: upstream）
+  | 'platform_timeout' // 平台侧处理超时（rollup: platform）
+  | 'auth' // 认证/令牌/密钥（rollup: platform）
+  | 'content_policy' // 内容审核拒绝（rollup: platform）
+  | 'platform_other'; // 其余平台错误（rollup: platform）
+
+export const FAILURE_DETAIL_META: Record<
+  FailureDetailCategory,
+  { label: string; rollup: FailureCategory }
+> = {
+  balance: { label: '余额不足', rollup: 'balance' },
+  upstream_timeout: { label: '上游超时', rollup: 'upstream' },
+  upstream_http: { label: '上游网关错误(5xx)', rollup: 'upstream' },
+  upstream_error: { label: '其他上游错误', rollup: 'upstream' },
+  platform_timeout: { label: '处理超时', rollup: 'platform' },
+  auth: { label: '认证/令牌失败', rollup: 'platform' },
+  content_policy: { label: '内容审核拒绝', rollup: 'platform' },
+  platform_other: { label: '其他平台错误', rollup: 'platform' },
+};
+
+/** 平台侧超时关键词（不含 upstream 前缀的；含 upstream 的已先行归入 upstream_timeout） */
+const TIMEOUT_KEYWORDS = [
+  'timeout',
+  'timed out',
+  'etimedout',
+  '超时',
+];
+
+/** 认证/令牌/密钥失败关键词（rollup 计平台错误：多为本平台配置缺失） */
+const AUTH_KEYWORDS = [
+  'unauthorized',
+  'authentication',
+  'invalid api key',
+  'invalid_api_key',
+  'api key',
+  'api_key',
+  '401',
+  '令牌无效',
+  '无效的令牌',
+  '鉴权失败',
+  'upstream key unavailable',
+];
+
+/** 内容审核/安全策略拒绝关键词 */
+const CONTENT_POLICY_KEYWORDS = [
+  'content policy',
+  'content_policy',
+  'content_filter',
+  'content filtering',
+  'safety system',
+  'flagged as sensitive',
+  'inappropriate',
+  'sensitive content',
+  '审核未通过',
+  '内容审核',
+  '敏感内容',
+  '涉嫌违规',
+];
+
+/** 细分归因分类：与 classifyFailureCategory 同源（先余额后上游 5xx），再细分平台侧 */
+export function classifyFailureDetail(error: unknown): FailureDetailCategory {
+  const haystack = errorText(error).toLowerCase();
+  if (haystack) {
+    if (BALANCE_KEYWORDS.some((keyword) => haystack.includes(keyword))) {
+      return 'balance';
+    }
+    if (UPSTREAM_KEYWORDS.some((keyword) => haystack.includes(keyword))) {
+      return TIMEOUT_KEYWORDS.some((keyword) => haystack.includes(keyword))
+        ? 'upstream_timeout'
+        : 'upstream_error';
+    }
+    if (AUTH_KEYWORDS.some((keyword) => haystack.includes(keyword))) {
+      return 'auth';
+    }
+    if (CONTENT_POLICY_KEYWORDS.some((keyword) => haystack.includes(keyword))) {
+      return 'content_policy';
+    }
+    if (TIMEOUT_KEYWORDS.some((keyword) => haystack.includes(keyword))) {
+      return 'platform_timeout';
+    }
+  }
+  if (error && typeof error === 'object') {
+    const status = (error as { httpStatus?: unknown }).httpStatus;
+    if (typeof status === 'number' && UPSTREAM_HTTP_STATUS.has(status)) {
+      return 'upstream_http';
+    }
+  }
+  return 'platform_other';
+}
+
+/** 细分归因聚合行（看板「失败归因」表格一行） */
+export interface FailureBreakdownEntry {
+  category: FailureDetailCategory;
+  label: string;
+  /** 归并回的三分类（与平台错误率口径自洽） */
+  rollup: FailureCategory;
+  count: number;
+  /** 占比 = count / 窗口 failed 总数（分母 0 为 null） */
+  share: number | null;
+  /** 该类最近一次失败时间（completed_at ?? created_at，ISO） */
+  lastSeenAt: string | null;
+  /** 最近一次错误摘要（summarizeError 截断） */
+  lastSample: string | null;
+}
+
 function localDate(iso: string): string | null {
   const t = Date.parse(iso);
   if (!Number.isFinite(t)) {
@@ -361,6 +481,11 @@ export function aggregatePipeline(rows: PipelineRow[], nowMs: number = Date.now(
   let stuck = 0;
   const failureCategories: Record<FailureCategory, number> = { balance: 0, upstream: 0, platform: 0 };
 
+  // 细分归因聚合：count / 最近出现时间 / 最近错误样本（仅 failed 行）
+  const detailCount = new Map<FailureDetailCategory, number>();
+  const detailLastSeen = new Map<FailureDetailCategory, string>();
+  const detailLastSample = new Map<FailureDetailCategory, string>();
+
   const durationsByType = new Map<string, number[]>();
   const totalByModel = new Map<string, number>();
   const failedByModel = new Map<string, number>();
@@ -383,6 +508,14 @@ export function aggregatePipeline(rows: PipelineRow[], nowMs: number = Date.now(
 
     if (row.status === 'failed') {
       failureCategories[classifyFailureCategory(row.error)] += 1;
+      const detail = classifyFailureDetail(row.error);
+      detailCount.set(detail, (detailCount.get(detail) ?? 0) + 1);
+      const seenAt = row.completed_at || row.created_at || '';
+      const prevSeen = detailLastSeen.get(detail);
+      if (seenAt && (!prevSeen || seenAt > prevSeen)) {
+        detailLastSeen.set(detail, seenAt);
+        detailLastSample.set(detail, summarizeError(row.error));
+      }
     }
 
     if (row.status === 'completed' && row.created_at && row.completed_at) {
@@ -449,7 +582,23 @@ export function aggregatePipeline(rows: PipelineRow[], nowMs: number = Date.now(
 
   const daily = Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date));
 
-  return { counts: { completed, failed, cancelled, submitted, stuck }, successRate, failureCategories, platformErrorRate, durationByType, failuresByModel, daily };
+  // 失败细分归因：全部类别按次数降序（0 计数的排最后，供看板占位）
+  const failureBreakdown: FailureBreakdownEntry[] = (Object.keys(FAILURE_DETAIL_META) as FailureDetailCategory[])
+    .map((category) => {
+      const count = detailCount.get(category) ?? 0;
+      return {
+        category,
+        label: FAILURE_DETAIL_META[category].label,
+        rollup: FAILURE_DETAIL_META[category].rollup,
+        count,
+        share: failed > 0 ? Math.round((count / failed) * 10000) / 10000 : null,
+        lastSeenAt: detailLastSeen.get(category) ?? null,
+        lastSample: detailLastSample.get(category) ?? null,
+      };
+    })
+    .sort((a, b) => b.count - a.count || a.category.localeCompare(b.category));
+
+  return { counts: { completed, failed, cancelled, submitted, stuck }, successRate, failureCategories, platformErrorRate, failureBreakdown, durationByType, failuresByModel, daily };
 }
 
 // ============================================================================
@@ -1005,6 +1154,8 @@ export function buildDevMonitorHtml(anonKey: string): string {
 
 <div class="panel"><h2>失败样本（最近 50 条，含报错摘要）</h2><table id="failTable"><thead><tr><th>时间</th><th>用户</th><th>类型</th><th>模型</th><th>耗时</th><th>错误</th></tr></thead><tbody></tbody></table></div>
 
+<div class="panel"><h2>失败归因（细分分类 · 占比 · 最近出现；细分类可完全归并回三分类口径）</h2><table id="breakdownTable"><thead><tr><th>失败类别</th><th>归并</th><th>次数</th><th>占比</th><th>最近出现</th><th>最近错误摘要</th></tr></thead><tbody></tbody></table></div>
+
 <div class="panel"><h2>卡死任务（submitted 超过类型阈值：image 10 分钟 / video 30 分钟 / 其余 10 分钟）</h2><table id="stuckTable"><thead><tr><th>创建时间</th><th>用户</th><th>类型</th><th>模型</th><th>已等待</th><th>阈值</th></tr></thead><tbody></tbody></table></div>
 
 <div class="panel"><h2>结果完整性（成功任务的图片/视频/音频结果核验）</h2><div class="cards" id="integrityCards"><div class="sk"></div></div>
@@ -1148,6 +1299,35 @@ function renderFailures(list){
   document.querySelector('#failTable tbody').innerHTML = rows || '<tr><td colspan="6" class="muted">窗口内暂无失败任务 🎉</td></tr>';
 }
 
+var ROLLUP_TEXT = { balance: '余额不足', upstream: '上游失败', platform: '平台错误' };
+function fmtRelative(iso, nowMs){
+  if(!iso) return '-';
+  var t = Date.parse(iso); if(isNaN(t)) return String(iso);
+  var diff = Math.max(0, (nowMs||Date.now()) - t);
+  if(diff < 60*1000) return '刚刚';
+  if(diff < 3600*1000) return Math.floor(diff/60000)+' 分钟前';
+  if(diff < 24*3600*1000) return Math.floor(diff/3600000)+' 小时前';
+  return Math.floor(diff/86400000)+' 天前';
+}
+
+function renderFailureBreakdown(o){
+  var p = o.pipeline;
+  var tbody = document.querySelector('#breakdownTable tbody');
+  if(!p){ tbody.innerHTML = '<tr><td colspan="6" class="muted">任务管线数据拉取失败</td></tr>'; return; }
+  var entries = p.failureBreakdown || [];
+  var active = entries.filter(function(e){ return e.count > 0; });
+  var list = active.length ? active : entries.slice(0, 3);
+  var nowMs = Date.parse(o.generatedAt) || Date.now();
+  tbody.innerHTML = list.map(function(e){
+    return '<tr><td>'+esc(e.label)+'</td>'+
+      '<td><span class="muted">'+esc(ROLLUP_TEXT[e.rollup]||e.rollup)+'</span></td>'+
+      '<td>'+e.count+'</td>'+
+      '<td>'+pct(e.share)+'</td>'+
+      '<td title="'+esc(fmtDate(e.lastSeenAt))+'">'+esc(fmtRelative(e.lastSeenAt, nowMs))+'</td>'+
+      '<td class="err" title="'+esc(e.lastSample)+'">'+esc(e.lastSample||'-')+'</td></tr>';
+  }).join('') || '<tr><td colspan="6" class="muted">窗口内暂无失败任务 🎉</td></tr>';
+}
+
 function renderStuck(list){
   var rows = (list||[]).map(function(s){
     return '<tr><td>'+fmtDate(s.createdAt)+'</td><td>'+esc(s.oa||'-')+'</td><td>'+esc(s.type)+'</td><td>'+esc(s.model||'-')+'</td><td style="color:var(--warn)">'+fmtDur(s.waitedMs)+'</td><td class="muted">'+fmtDur(s.thresholdMs)+'</td></tr>';
@@ -1189,6 +1369,7 @@ function render(o){
   renderProbes(o.probes);
   renderPipeline(o);
   renderFailures(o.recentFailures);
+  renderFailureBreakdown(o);
   renderStuck(o.stuckList);
   renderIntegrity(o);
 }

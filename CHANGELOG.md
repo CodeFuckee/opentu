@@ -1,5 +1,20 @@
 ## Unreleased
 
+### feat: 开发看板新增「失败归因」板块——细分分类 + 占比 + 最近出现时间（2026-09-18）
+
+- **细分归因**：在三分类（余额/上游/平台，平台错误率口径不变）之上新增 8 类细分
+  （余额不足 / 上游超时 / 上游网关5xx / 其他上游错误 / 处理超时 / 认证令牌失败 /
+  内容审核拒绝 / 其他平台错误），新增关键词组（超时/认证/内容审核）；
+  每个细分类带 rollup 归并，合计与 `failureCategories` 严格一致（口径自洽，测试断言）。
+- **每类聚合**：次数、占比（分母=窗口 failed）、最近出现时间（completed_at ?? created_at
+  取最大，页面显示相对时间、悬浮绝对时间）、最近错误摘要（summarizeError 截断）。
+- **看板**：失败样本下方新增「失败归因」表（类别/归并/次数/占比/最近出现/最近摘要），
+  零计数类别占位显示；`classifyFailureDetail` 关键词优先级与三分类同源
+  （余额 → 上游关键词 → 认证 → 审核 → 超时 → 平台）。
+- **测试**：`core.test.ts` 新增 classifyFailureDetail 断言与 failureBreakdown 聚合用例
+  （计数/占比/lastSeenAt 取最大/样本跟随最近一条/零计数占位/rollup 合计一致性），
+  dev-monitor 31 例全绿；预览 mock（scripts/preview-dev-monitor.mjs）补充板块数据。
+
 ### refactor: 全仓库代码评审落地——行为保持重构两批（2026-09-18）
 
 - **评审报告**：`docs/code-review-2026-09-18.md`。按 code-review-skill 清单分 10 个分区

@@ -18,6 +18,7 @@ import {
   auditResultIntegrity,
   buildDevMonitorHtml,
   classifyFailureCategory,
+  classifyFailureDetail,
   collectResultPrefixes,
   probeHealth,
   stuckThresholdMs,
@@ -99,6 +100,70 @@ test('aggregatePipeline：分母为 0 时成功率为 null；空行全零', () =
   assert.equal(empty.counts.failed, 0);
   assert.deepEqual(empty.daily, []);
   assert.deepEqual(empty.failuresByModel, []);
+});
+
+test('classifyFailureDetail：细分归因与三分类 rollup 一致', () => {
+  assert.equal(classifyFailureDetail('insufficient_user_quota: 余额不足'), 'balance');
+  assert.equal(classifyFailureDetail('upstream timeout: no response in 30s'), 'upstream_timeout');
+  assert.equal(classifyFailureDetail('上游错误: channel exhausted'), 'upstream_error');
+  assert.equal(classifyFailureDetail({ httpStatus: 502, message: 'vendor error' }), 'upstream_http');
+  // 含上游关键词文本时关键词优先于状态码（与三分类同源）
+  assert.equal(classifyFailureDetail({ httpStatus: 502, message: 'bad gateway' }), 'upstream_error');
+  assert.equal(classifyFailureDetail('upstream key unavailable: 未配置令牌'), 'auth');
+  assert.equal(classifyFailureDetail('content_policy_violation: prompt flagged as sensitive'), 'content_policy');
+  assert.equal(classifyFailureDetail('IMAGE_GENERATION_TIMEOUT after 300000ms'), 'platform_timeout');
+  assert.equal(classifyFailureDetail('TypeError: Cannot read properties of null'), 'platform_other');
+  assert.equal(classifyFailureDetail(null), 'platform_other');
+});
+
+test('aggregatePipeline：failureBreakdown 计数/占比/最近出现/样本，rollup 合计=三分类', () => {
+  const rows = [
+    // upstream_timeout：两条，取较晚者 04:00 作为 lastSeenAt，样本取其错误
+    { type: 'image', status: 'failed', created_at: '2026-09-15T03:00:00Z', completed_at: '2026-09-15T03:00:30Z', model: 'm-a', error: 'upstream timeout: old sample' },
+    { type: 'image', status: 'failed', created_at: '2026-09-15T04:00:00Z', completed_at: '2026-09-15T04:00:10Z', model: 'm-a', error: 'upstream timeout: latest sample' },
+    // balance：无 completed_at → 用 created_at 作 lastSeenAt
+    { type: 'image', status: 'failed', created_at: '2026-09-15T05:00:00Z', completed_at: null, model: 'm-b', error: '{"code":"insufficient_user_quota"}' },
+    // auth（rollup: platform）
+    { type: 'image', status: 'failed', created_at: '2026-09-15T06:00:00Z', completed_at: '2026-09-15T06:00:05Z', model: 'm-a', error: 'upstream key unavailable' },
+    // 成功行不参与
+    { type: 'image', status: 'completed', created_at: '2026-09-15T07:00:00Z', completed_at: '2026-09-15T07:00:20Z', model: 'm-a' },
+  ] as never;
+
+  const stats = aggregatePipeline(rows);
+  assert.equal(stats.counts.failed, 4);
+  const byCategory = new Map(stats.failureBreakdown.map((e) => [e.category, e]));
+
+  const timeout = byCategory.get('upstream_timeout')!;
+  assert.equal(timeout.count, 2);
+  assert.equal(timeout.share, 0.5);
+  assert.equal(timeout.lastSeenAt, '2026-09-15T04:00:10Z');
+  assert.equal(timeout.lastSample, 'upstream timeout: latest sample');
+  assert.equal(timeout.rollup, 'upstream');
+
+  const balance = byCategory.get('balance')!;
+  assert.equal(balance.count, 1);
+  assert.equal(balance.share, 0.25);
+  assert.equal(balance.lastSeenAt, '2026-09-15T05:00:00Z');
+
+  const auth = byCategory.get('auth')!;
+  assert.equal(auth.count, 1);
+  assert.equal(auth.rollup, 'platform');
+
+  // 零计数类别也在列表里（占位）
+  const zero = byCategory.get('content_policy')!;
+  assert.equal(zero.count, 0);
+  assert.equal(zero.share, 0);
+  assert.equal(zero.lastSeenAt, null);
+
+  // 排序：按次数降序
+  assert.equal(stats.failureBreakdown[0]!.category, 'upstream_timeout');
+
+  // rollup 合计与三分类严格一致（口径自洽）
+  const rollups = { balance: 0, upstream: 0, platform: 0 } as Record<string, number>;
+  for (const entry of stats.failureBreakdown) {
+    rollups[entry.rollup] += entry.count;
+  }
+  assert.deepEqual(rollups, stats.failureCategories);
 });
 
 test('stuckThresholdMs：image 10 分钟、video 30 分钟、其余 10 分钟', () => {
