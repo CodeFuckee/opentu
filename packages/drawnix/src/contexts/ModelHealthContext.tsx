@@ -143,7 +143,9 @@ export const ModelHealthProvider: React.FC<{ children: React.ReactNode }> = ({ c
     useEffect(() => {
         const show = checkShouldShow();
 
-        if (show) {
+        // 子组件 effect 先于父 Provider effect 运行：若子组件已经通过
+        // setActiveSelections 建立了轮询，这里不能覆盖句柄（否则旧 interval 泄漏、双份轮询）
+        if (show && !intervalRef.current) {
             fetchData();
 
             intervalRef.current = setInterval(() => {

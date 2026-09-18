@@ -1,5 +1,41 @@
 ## Unreleased
 
+### refactor: 第三轮全仓库代码评审落地——行为保持重构两批（2026-09-19）
+
+- **评审报告**：`docs/code-review-2026-09-19.md`。按 code-review-skill 清单分 6 分区
+  （supabase、services/mcp、逻辑层、components、外围包/顶层、scripts/E2E/部署）评审，
+  与前两轮报告逐条去重后新增约 50 条发现（P0×2 新增、P1×8、其余 P2），全部附行号与
+  处置标注；对 09-18 两批重构修复项做回退抽查（全部在位）。凡需改变行为的修复
+  （supabase 配额 RPC revoke 漏 PUBLIC、reconcile 双退、同步失败仍推进 lastSyncTime、
+  precise-erase 形状几何、归档把任意 URL 当参考图、copyBoard 空副本、scripts 退出码
+  三件套等）全部列入「待确认」，未经确认不动。
+- **批次1（资源清理与可观测性，行为保持）**：
+  - `utils/selection-utils.ts`：`copyFillDefsToElements` 第二遍 Promise.all 失败时
+    先移除已插入的 defs 克隆再抛出，不再残留污染导出 SVG（成功路径不变）。
+  - `contexts/ModelHealthContext.tsx`：Provider mount effect 加 `!intervalRef.current`
+    守卫，消除"子组件先建轮询、父 effect 覆盖句柄"导致的定时器双份泄漏。
+  - `components/ai-input-bar/AIInputBar.tsx`：SelectionWatcher mouseup 的 50ms
+    setTimeout 句柄纳入卸载清理。
+  - `services/ppt/ppt-export-service.ts`：元素级静默 `catch { void err; }` 改为
+    console.warn 留痕，容错语义不变。
+  - `mcp/registry.ts`：useSW 死开关与"SW 优先委托"误导注释如实化（接口不变）。
+- **批次2（纯结构/性能，行为保持）**：
+  - `drawnix.tsx`：画板 options 提升模块级常量、34 项 plugins 数组改 `useMemo`
+    （updateAppState 稳定引用），不再每次渲染重建并重复调用插件工厂。
+  - `transforms/clipper-shared.ts`（新增）：boolean 与 precise-erase 两份逐字重复的
+    clipper 类型声明/CLIPPER_SCALE/loadClipperLib/坐标转换（约 80 行）抽共享（超集
+    类型），两文件改导入；各自 `getShapePolygon` 分叉保持原样（几何合并属行为变更）。
+  - `transforms/boolean.ts`：booleanFlatten 函数体与 booleanUnion 逐字相同，改为
+    委托复用，导出结构不变。
+  - `utils/selection-utils.ts`：两处双重循环内 `includes` O(n²) 改 Set 哈希
+    （remaining 过滤与派生数组口径严格互补）。
+  - `.dockerignore`：追加 `secret.md`（真实凭据）与 `test-files/`，不再进入 Docker
+    构建上下文（交付镜像本就不含，上下文卫生加固）。
+  - `scripts/generate-manual.ts`：markdownToHtml 的 alt/href/链接文本内插前经
+    escapeHtml 转义（可信文档，纯加固）。
+- **测试**：typecheck 5 项目全绿；`pnpm test`（4 项目 1483+ 用例）批次1/批次2 后
+  各跑一次全绿；详见评审报告处置清单。
+
 ### feat: 开发看板成功率/平台错误率趋势 sparkline 双卡（2026-09-18）
 
 - **DailyTrendPoint 扩展**：每日聚合新增 completed/cancelled/platformFailed 与派生的

@@ -24,43 +24,13 @@ import { PenPath, PenAnchor, PEN_TYPE, PenShape } from '../plugins/pen/type';
 import { Freehand } from '../plugins/freehand/type';
 import { getPathSamplePoints } from '../plugins/pen/bezier-utils';
 import { getAbsoluteAnchors } from '../plugins/pen/utils';
-
-// Clipper-lib 类型声明
-interface ClipperPoint {
-  X: number;
-  Y: number;
-}
-
-type ClipperPath = ClipperPoint[];
-
-interface ClipperInstance {
-  AddPath: (path: ClipperPath, polyType: number, closed: boolean) => void;
-  AddPaths: (paths: ClipperPath[], polyType: number, closed: boolean) => void;
-  Execute: (
-    clipType: number,
-    solution: ClipperPath[],
-    fillType1?: number,
-    fillType2?: number
-  ) => boolean;
-}
-
-interface ClipperLibType {
-  Clipper: new () => ClipperInstance;
-  PolyType: {
-    ptSubject: number;
-    ptClip: number;
-  };
-  ClipType: {
-    ctUnion: number;
-    ctDifference: number;
-    ctIntersection: number;
-    ctXor: number;
-  };
-  PolyFillType: {
-    pftEvenOdd: number;
-    pftNonZero: number;
-  };
-}
+import {
+  clipperPathToPoints,
+  loadClipperLib,
+  pointsToClipperPath,
+  type ClipperPath,
+  type ClipperLibType,
+} from './clipper-shared';
 
 export type BooleanOperationType =
   | 'union'
@@ -68,26 +38,6 @@ export type BooleanOperationType =
   | 'intersect'
   | 'exclude'
   | 'flatten';
-
-// Clipper 使用整数运算，需要缩放因子
-const CLIPPER_SCALE = 1000;
-
-/**
- * 将 Point 数组转换为 Clipper 路径格式
- */
-function pointsToClipperPath(points: Point[]): ClipperPath {
-  return points.map((p) => ({
-    X: Math.round(p[0] * CLIPPER_SCALE),
-    Y: Math.round(p[1] * CLIPPER_SCALE),
-  }));
-}
-
-/**
- * 将 Clipper 路径转换回 Point 数组
- */
-function clipperPathToPoints(path: ClipperPath): Point[] {
-  return path.map((p) => [p.X / CLIPPER_SCALE, p.Y / CLIPPER_SCALE] as Point);
-}
 
 /**
  * 获取形状元素的多边形点（矩形、椭圆等基础形状）
@@ -621,16 +571,6 @@ function polygonToPenPath(
 }
 
 /**
- * 加载 clipper-lib（动态导入）
- */
-async function loadClipperLib(): Promise<ClipperLibType> {
-  // clipper-lib 没有类型声明
-  // @ts-expect-error - clipper-lib doesn't have type definitions
-  const clipper = await import('clipper-lib');
-  return clipper.default || clipper;
-}
-
-/**
  * 执行布尔运算
  */
 async function executeBooleanOperation(
@@ -846,9 +786,8 @@ const booleanFlatten = async (
   board: PlaitBoard,
   language: 'zh' | 'en' = 'zh'
 ) => {
-  // Flatten 使用 Union 操作，但确保所有图形都被处理
-  const ClipperLib = await loadClipperLib();
-  await executeBooleanOperation(board, ClipperLib.ClipType.ctUnion, language);
+  // Flatten 在 Clipper 层与 Union 语义一致（ctUnion），直接复用同一实现
+  await booleanUnion(board, language);
 };
 
 /**

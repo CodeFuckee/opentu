@@ -461,14 +461,16 @@ export const findElementsOverlappingWithGraphics = (board: PlaitBoard, elements:
   // console.log('Graphics elements:', graphicsElements.length, 'Non-graphics elements:', nonGraphicsElements.length);
   
   const overlappingElements: PlaitElement[] = [];
-  
+  const overlappingSet = new Set<PlaitElement>();
+
   for (const graphicsEl of graphicsElements) {
     // console.log('Checking overlaps for graphics element:', graphicsEl.id);
     for (const otherEl of nonGraphicsElements) {
       const overlaps = detectElementOverlap(board, graphicsEl, otherEl);
       // console.log('  Overlap check with', otherEl.id, ':', overlaps);
-      if (overlaps && !overlappingElements.includes(otherEl)) {
+      if (overlaps && !overlappingSet.has(otherEl)) {
         overlappingElements.push(otherEl);
+        overlappingSet.add(otherEl);
         // console.log('  Added overlapping element:', otherEl.id);
       }
     }
@@ -667,26 +669,40 @@ const copyFillDefsToElements = async (board: PlaitBoard, elements: PlaitElement[
   }
 
   // 第二遍：并行处理所有图片填充（转换 URL 为 base64）
-  await Promise.all(
-    imageFillTasks.map(async ({ element, fillConfig, elementG, defId }) => {
-      // 将图片 URL 转换为 base64（支持虚拟路径和外部 URL）
-      const base64Url = await convertImageUrlToBase64(fillConfig.image.imageUrl);
+  try {
+    await Promise.all(
+      imageFillTasks.map(async ({ element, fillConfig, elementG, defId }) => {
+        // 将图片 URL 转换为 base64（支持虚拟路径和外部 URL）
+        const base64Url = await convertImageUrlToBase64(
+          fillConfig.image.imageUrl
+        );
 
-      // 创建使用 userSpaceOnUse 坐标的 pattern
-      const elementRect = getRectangleByElements(board, [element], false);
-      const newPattern = createUserSpacePatternForToImage(
-        fillConfig.image,
-        defId,
-        elementRect,
-        base64Url
-      );
+        // 创建使用 userSpaceOnUse 坐标的 pattern
+        const elementRect = getRectangleByElements(board, [element], false);
+        const newPattern = createUserSpacePatternForToImage(
+          fillConfig.image,
+          defId,
+          elementRect,
+          base64Url
+        );
 
-      const defsClone = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-      defsClone.appendChild(newPattern);
-      elementG.insertBefore(defsClone, elementG.firstChild);
-      addedDefs.push({ element: elementG, defsClone });
-    })
-  );
+        const defsClone = document.createElementNS(
+          'http://www.w3.org/2000/svg',
+          'defs'
+        );
+        defsClone.appendChild(newPattern);
+        elementG.insertBefore(defsClone, elementG.firstChild);
+        addedDefs.push({ element: elementG, defsClone });
+      })
+    );
+  } catch (error) {
+    // 失败路径：此时清理函数尚未返回给调用方，先移除已插入的 defs 克隆再抛出，
+    // 避免残留节点污染导出 SVG
+    addedDefs.forEach(({ element, defsClone }) => {
+      element.removeChild(defsClone);
+    });
+    throw error;
+  }
 
   // 返回清理函数
   return () => {
@@ -1200,8 +1216,13 @@ export const processSelectedContentForAI = async (
   );
   
   // Step 3: Identify remaining elements (not graphics-related), preserving sorted order
+  // 与上方 filter 的口径严格互补（原为对派生数组做 includes），Set 命中查询替代 O(n) includes
   const remainingElements = sortedElements.filter(
-    el => !allGraphicsRelatedElements.includes(el)
+    el =>
+      !(
+        allGraphicsRelatedElementsSet.has(el) &&
+        !maskBrushElementSet.has(el as any)
+      )
   );
   // console.log('Remaining elements count:', remainingElements.length);
   

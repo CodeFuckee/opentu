@@ -16,5 +16,9 @@ test-results
 *.log
 .env
 .env.*
+# 本机敏感/临时文件：secret.md 含真实凭据，test-files 为本机测试素材，
+# 均不应进入 Docker 构建上下文（Dockerfile 的 COPY . 会打包整个上下文）
+secret.md
+test-files
 # Feedbackland 自托管应用独立构建（feedbackland/Dockerfile），不进 opentu 镜像上下文
 feedbackland

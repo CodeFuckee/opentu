@@ -104,7 +104,8 @@ function markdownToHtml(markdown: string, screenshotsDir: string): string {
     /<Screenshot\s+id="([^"]+)"(?:\s+alt="([^"]*)")?\s*\/>/g,
     (_, id, alt) => {
       const imgPath = CDN_BASE ? `${CDN_BASE}/screenshots/${id}.png` : `screenshots/${id}.png`;
-      return `<img class="step-screenshot" src="${imgPath}" alt="${alt || id}" loading="lazy" />`;
+      // alt/id 来自文档内容，属性内插前转义，避免引号破坏 HTML 结构
+      return `<img class="step-screenshot" src="${imgPath}" alt="${escapeHtml(alt || id)}" loading="lazy" />`;
     }
   );
   
@@ -122,7 +123,11 @@ function markdownToHtml(markdown: string, screenshotsDir: string): string {
   html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>');
   
   // 处理链接
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+  // href 与链接文本内插前转义，避免文档中的引号/尖括号产生畸形 HTML
+  html = html.replace(
+    /\[([^\]]+)\]\(([^)]+)\)/g,
+    (_, text, href) => `<a href="${escapeHtml(href)}">${escapeHtml(text)}</a>`
+  );
   
   // 处理 tip/note 块
   html = html.replace(

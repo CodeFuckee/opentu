@@ -12,7 +12,7 @@ import type { MCPTool, MCPResult, ToolCall, MCPExecuteOptions } from './types';
 class MCPRegistry {
   private tools: Map<string, MCPTool> = new Map();
   private static instance: MCPRegistry;
-  /** 是否使用 SW 执行工具（默认 true，可通过 setUseSW 切换） */
+  /** 预留开关：SW 执行工具。当前 executeTool 仅走本地执行，此字段尚未接线 */
   private useSW = true;
 
   private constructor() { /* 单例：禁止外部实例化 */ }
@@ -94,7 +94,7 @@ class MCPRegistry {
 
   /**
    * 执行工具调用
-   * 优先委托给 Service Worker 执行，如果 SW 不可用则回退到本地执行
+   * 当前实现仅本地执行——useSW 开关尚未接线（无 SW 委托路径），勿按旧注释假设存在回退链路
    * @param toolCall - 工具调用信息
    * @param options - 执行选项（可选，用于指定执行模式等）
    */

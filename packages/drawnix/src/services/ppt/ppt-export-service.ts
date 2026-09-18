@@ -1847,7 +1847,9 @@ async function addFrameSlide(
         });
       }
     } catch (err) {
-      void err;
+      // 元素级容错：单个元素文本导出失败时跳过该元素继续导出，
+      // 但必须留下日志，否则系统性抛错会表现为"整页静默丢文本"无从排查
+      console.warn('[ppt-export] 元素文本导出失败，已跳过该元素:', err);
     }
   }
 

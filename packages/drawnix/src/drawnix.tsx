@@ -301,6 +301,14 @@ function detectMobileViewport(): boolean {
   return compactViewport || (coarsePointer && touchCapable);
 }
 
+// 画板静态配置：内容不可变，模块级常量避免每次渲染重建
+const DRAWNIX_BOARD_OPTIONS: PlaitBoardOptions = {
+  readonly: false,
+  hideScrollbar: false,
+  disabledScrollOnNonFocus: false,
+  themeColors: MindThemeColors,
+};
+
 export const Drawnix: React.FC<DrawnixProps> = ({
   value,
   viewport,
@@ -317,12 +325,9 @@ export const Drawnix: React.FC<DrawnixProps> = ({
   currentBoardId,
   toolbarBottomExtra,
 }) => {
-  const options: PlaitBoardOptions = {
-    readonly: false,
-    hideScrollbar: false,
-    disabledScrollOnNonFocus: false,
-    themeColors: MindThemeColors,
-  };
+  // 静态配置提升到模块级常量：Wrapper 仅在初始化时消费一次，
+  // 避免每次渲染（含每次选择变化）重建对象
+  const options = DRAWNIX_BOARD_OPTIONS;
 
   const [appState, setAppState] = useState<DrawnixState>(() => {
     // TODO: need to consider how to maintenance the pointer state in future
@@ -740,40 +745,48 @@ export const Drawnix: React.FC<DrawnixProps> = ({
     };
   }, []);
 
-  const plugins: PlaitPlugin[] = [
-    withDraw,
-    withGroup,
-    withMind,
-    withMindExtend,
-    withCommonPlugin,
-    buildDrawnixHotkeyPlugin(updateAppState),
-    withFreehand,
-    withPen,
-    withTextResize, // 文本缩放 - 拖拽缩放文本框时连带字体大小等比缩放
-    withMultiResize, // 多选缩放 - 支持 Freehand 和 PenPath 的多选缩放
-    buildPencilPlugin(updateAppState),
-    buildTextLinkPlugin(updateAppState),
-    withVideo,
-    withTool,
-    withToolResize, // 工具缩放功能 - 拖拽缩放手柄
-    withToolFocus, // 工具焦点管理 - 双击编辑
-    withImageGenerationAnchor, // 生图锚点 - 结果对象化反馈的独立画布元素
-    withWorkZone, // 工作区元素 - 在画布上显示工作流进度
-    withArrowLineAutoCompleteExtend, // 自动完成形状选择 - hover 中点时选择下一个节点形状
-    withFlowchartShortcut, // 流程图快速创建 - 方向键创建连接节点，Tab 导航
-    withFrame, // Frame 容器 - 分组管理画布元素
-    withFrameResize, // Frame 缩放 - 拖拽缩放 Frame 容器
-    withCard, // Card 标签贴 - Markdown 粘贴和 Agent 输出的卡片展示
-    withCardResize, // Card 缩放 - 拖拽缩放 Card 标签贴
-    withAudioNode, // Audio Node - 画布内可播放的音频组件节点
-    withAudioNodeResize, // Audio Node 缩放 - 拖拽缩放音频组件节点
-    withDefaultFill, // 默认填充 - 让新创建的图形有白色填充，方便双击编辑
-    withGradientFill, // 渐变填充 - 支持渐变和图片填充渲染
-    withLassoSelection, // 套索选择 - 自由路径框选元素
-    withLockedElement, // 锁定元素 - 阻止选中和移动被锁定的元素
-    withTracking,
-    withUnknownElementFallback, // 必须最后 — 捕获未知元素类型避免崩溃
-  ];
+  // Wrapper 仅在 useState 初始化器中消费一次插件数组；用 useMemo 保持引用稳定，
+  // 避免每次渲染（含每次选择变化）重建 34 项数组并重复调用插件工厂
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const plugins: PlaitPlugin[] = useMemo(
+    () => [
+      withDraw,
+      withGroup,
+      withMind,
+      withMindExtend,
+      withCommonPlugin,
+      buildDrawnixHotkeyPlugin(updateAppState),
+      withFreehand,
+      withPen,
+      withTextResize, // 文本缩放 - 拖拽缩放文本框时连带字体大小等比缩放
+      withMultiResize, // 多选缩放 - 支持 Freehand 和 PenPath 的多选缩放
+      buildPencilPlugin(updateAppState),
+      buildTextLinkPlugin(updateAppState),
+      withVideo,
+      withTool,
+      withToolResize, // 工具缩放功能 - 拖拽缩放手柄
+      withToolFocus, // 工具焦点管理 - 双击编辑
+      withImageGenerationAnchor, // 生图锚点 - 结果对象化反馈的独立画布元素
+      withWorkZone, // 工作区元素 - 在画布上显示工作流进度
+      withArrowLineAutoCompleteExtend, // 自动完成形状选择 - hover 中点时选择下一个节点形状
+      withFlowchartShortcut, // 流程图快速创建 - 方向键创建连接节点，Tab 导航
+      withFrame, // Frame 容器 - 分组管理画布元素
+      withFrameResize, // Frame 缩放 - 拖拽缩放 Frame 容器
+      withCard, // Card 标签贴 - Markdown 粘贴和 Agent 输出的卡片展示
+      withCardResize, // Card 缩放 - 拖拽缩放 Card 标签贴
+      withAudioNode, // Audio Node - 画布内可播放的音频组件节点
+      withAudioNodeResize, // Audio Node 缩放 - 拖拽缩放音频组件节点
+      withDefaultFill, // 默认填充 - 让新创建的图形有白色填充，方便双击编辑
+      withGradientFill, // 渐变填充 - 支持渐变和图片填充渲染
+      withLassoSelection, // 套索选择 - 自由路径框选元素
+      withLockedElement, // 锁定元素 - 阻止选中和移动被锁定的元素
+      withTracking,
+      withUnknownElementFallback, // 必须最后 — 捕获未知元素类型避免崩溃
+    ],
+    // updateAppState 为 useCallback([]) 稳定引用；插件工厂闭包依赖的
+    // setAppState 同样稳定，数组实际只构建一次
+    [updateAppState]
+  );
 
   const containerRef = useRef<HTMLDivElement>(null);
 

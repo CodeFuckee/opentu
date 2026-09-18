@@ -18,84 +18,14 @@ import { Freehand } from '../plugins/freehand/type';
 import { EraserShape } from '../plugins/freehand/freehand-settings';
 import { getPathSamplePoints } from '../plugins/pen/bezier-utils';
 import { getAbsoluteAnchors } from '../plugins/pen/utils';
-
-// Clipper-lib 类型声明
-interface ClipperPoint {
-  X: number;
-  Y: number;
-}
-
-type ClipperPath = ClipperPoint[];
-
-interface ClipperInstance {
-  AddPath: (path: ClipperPath, polyType: number, closed: boolean) => void;
-  Execute: (
-    clipType: number,
-    solution: ClipperPath[],
-    fillType1?: number,
-    fillType2?: number
-  ) => boolean;
-}
-
-interface ClipperOffsetInstance {
-  AddPath: (path: ClipperPath, joinType: number, endType: number) => void;
-  Execute: (solution: ClipperPath[], delta: number) => void;
-}
-
-interface ClipperLibType {
-  Clipper: new () => ClipperInstance;
-  ClipperOffset: new () => ClipperOffsetInstance;
-  PolyType: {
-    ptSubject: number;
-    ptClip: number;
-  };
-  ClipType: {
-    ctDifference: number;
-    ctIntersection: number;
-  };
-  PolyFillType: {
-    pftNonZero: number;
-  };
-  JoinType: {
-    jtRound: number;
-    jtMiter: number;
-    jtSquare: number;
-  };
-  EndType: {
-    etOpenRound: number;
-    etOpenSquare: number;
-    etOpenButt: number;
-  };
-}
-
-// Clipper 使用整数运算，需要缩放因子
-const CLIPPER_SCALE = 1000;
-
-/**
- * 加载 clipper-lib
- */
-async function loadClipperLib(): Promise<ClipperLibType> {
-  // @ts-expect-error - clipper-lib doesn't have type definitions
-  const clipper = await import('clipper-lib');
-  return clipper.default || clipper;
-}
-
-/**
- * 将 Point 数组转换为 Clipper 路径格式
- */
-function pointsToClipperPath(points: Point[]): ClipperPath {
-  return points.map((p) => ({
-    X: Math.round(p[0] * CLIPPER_SCALE),
-    Y: Math.round(p[1] * CLIPPER_SCALE),
-  }));
-}
-
-/**
- * 将 Clipper 路径转换回 Point 数组
- */
-function clipperPathToPoints(path: ClipperPath): Point[] {
-  return path.map((p) => [p.X / CLIPPER_SCALE, p.Y / CLIPPER_SCALE] as Point);
-}
+import {
+  CLIPPER_SCALE,
+  clipperPathToPoints,
+  loadClipperLib,
+  pointsToClipperPath,
+  type ClipperLibType,
+  type ClipperPath,
+} from './clipper-shared';
 
 /**
  * 将橡皮擦路径转换为有宽度的多边形

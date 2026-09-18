@@ -774,8 +774,9 @@ const SelectionWatcher: React.FC<{
 
       handleSelectionChange();
 
+      let mouseupTimer: number | undefined;
       const handleMouseUp = () => {
-        setTimeout(handleSelectionChange, 50);
+        mouseupTimer = window.setTimeout(handleSelectionChange, 50);
       };
       document.addEventListener('mouseup', handleMouseUp);
       document.addEventListener(
@@ -784,6 +785,9 @@ const SelectionWatcher: React.FC<{
       );
 
       return () => {
+        if (mouseupTimer !== undefined) {
+          window.clearTimeout(mouseupTimer);
+        }
         document.removeEventListener('mouseup', handleMouseUp);
         document.removeEventListener(
           AI_SELECTION_CONTENT_REFRESH_EVENT,
