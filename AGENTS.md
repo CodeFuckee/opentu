@@ -29,3 +29,16 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 4. 若用户明确要求"部署生产"，AI 也应**请用户自行在 GitLab 上点击**，AI 只负责确认部署结果与后续验证。
 5. 该约束同等适用于任何定时任务（如每日模板同步）：同步只做数据同步，永远不涉及部署。
 6. 预览环境（deploy:preview 自动触发）不受此条约束；反馈环境（feedbackland:redeploy）同生产环境对待，仅由用户触发。
+
+# 🌐 HTTP 部署约束（对所有 AI 助手 / agent，永久生效，2026-09-18 由用户确立）
+
+**本项目通过 HTTP 明文部署并供内网（LAN IP）直接访问，任何功能的实现都必须确保在不安全连接（非 HTTPS、非 localhost）下可以正常运行。**
+
+具体要求：
+
+1. 浏览器只为 secure context（HTTPS / localhost）提供部分 Web 平台能力。新功能用到以下能力时**必须提供降级路径并实测 HTTP 访问可用**，否则在内网 HTTP 下静默失效：
+   - `crypto.subtle`（Web Crypto）：项目先例见 `sha256Hex`（packages/drawnix/src/services/task-supabase-archive/core.ts）——无 subtle 时用确定性 FNV-1a 摘要兜底；
+   - Clipboard / Notification / 摄像头麦克风 / Web Share 等 secure-context 专属 API：先探测可用性，不可用时降级为普通交互或明确提示，不允许裸调。
+2. `navigator.serviceWorker` 在不安全 origin 上不可用（localhost 除外）：涉及 SW 的功能必须保证 SW 未注册时应用核心流程仍可用（降级执行器模式即为此设计，保持该前提）。
+3. 不要依赖 HTTPS-only 的行为：如 `Secure`/`__Host-` 前缀 Cookie、自动升级的混合内容、HTTPS 专属 Referrer 语义等。
+4. 功能验证时**不要只在 localhost 验证**：过目/测试应至少覆盖一次非 localhost 的 HTTP 访问（如 `http://10.37.80.175:7289` 这类 LAN 地址），localhost 的通过不能证明内网可用。
