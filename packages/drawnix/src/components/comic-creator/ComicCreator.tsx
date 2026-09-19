@@ -575,6 +575,12 @@ function formatRecordCreatedAt(createdAt: number): string {
   });
 }
 
+// persistPatch 的浮动调用统一留痕点：乐观更新已在内存生效、仅 IndexedDB
+// 落盘失败时不再产生 unhandled rejection（静默丢编辑的根治属行为变更，另列）
+const persistWarn = (error: unknown) => {
+  console.warn('[ComicCreator] persistPatch failed:', error);
+};
+
 const ComicCreator: React.FC = () => {
   const {
     records,
@@ -1364,14 +1370,14 @@ const ComicCreator: React.FC = () => {
       const pages = record.pages.map((item) =>
         item.id === pageId ? { ...item, ...patch } : item
       );
-      void persistPatch({ pages });
+      persistPatch({ pages }).catch(persistWarn);
     },
     [persistPatch]
   );
 
   const handleCommonPromptChange = useCallback(
     (value: string) => {
-      void persistPatch({ commonPrompt: value });
+      persistPatch({ commonPrompt: value }).catch(persistWarn);
     },
     [persistPatch]
   );
@@ -1390,10 +1396,10 @@ const ComicCreator: React.FC = () => {
         page_count_after: pages.length,
         ...getComicRecordAnalytics(record),
       });
-      void persistPatch({
+      persistPatch({
         pages: renumberPages(pages),
         pageCount: pages.length,
-      });
+      }).catch(persistWarn);
     },
     [persistPatch]
   );
@@ -1415,7 +1421,7 @@ const ComicCreator: React.FC = () => {
         next.delete(pageId);
         return next;
       });
-      void persistPatch({ pages, pageCount: pages.length });
+      persistPatch({ pages, pageCount: pages.length }).catch(persistWarn);
     },
     [persistPatch]
   );
@@ -1437,7 +1443,7 @@ const ComicCreator: React.FC = () => {
         to_index: nextIndex,
         page_count: record.pages.length,
       });
-      void persistPatch({ pages: renumberPages(pages) });
+      persistPatch({ pages: renumberPages(pages) }).catch(persistWarn);
     },
     [persistPatch]
   );
@@ -1566,7 +1572,7 @@ const ComicCreator: React.FC = () => {
         page_id: pageId,
         ...getComicRecordAnalytics(record),
       });
-      void persistPatch({ pages });
+      persistPatch({ pages }).catch(persistWarn);
     },
     [persistPatch]
   );

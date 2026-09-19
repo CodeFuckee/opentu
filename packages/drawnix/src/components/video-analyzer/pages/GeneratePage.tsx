@@ -1446,7 +1446,6 @@ export const GeneratePage: React.FC<GeneratePageProps> = ({
       shouldInsertToCanvas = false;
     }
 
-    await ensureBatchId();
     batchStopRef.current = false;
     batchAbortControllerRef.current = new AbortController();
     activeBatchTaskIdRef.current = null;
@@ -1460,6 +1459,14 @@ export const GeneratePage: React.FC<GeneratePageProps> = ({
     });
 
     try {
+      // ensureBatchId 放入 try：失败时走下方 finally 复位批量锁，
+      // 避免 batchVideoRunningRef 永久 true 吞掉后续「全部生成」点击
+      try {
+        await ensureBatchId();
+      } catch (error) {
+        console.warn('[VideoAnalyzer] ensureBatchId failed:', error);
+        return;
+      }
       // ── Step 0: 为缺少参考图的角色生成参考图 ──
       const currentCharacters = latestRecordRef.current.characters || latestRecordRef.current.analysis.characters || [];
       const charsNeedingRef = currentCharacters.filter(c => !c.referenceImageUrl);
