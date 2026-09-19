@@ -30,10 +30,7 @@ import {
 import { LS_KEYS } from '../../constants/storage-keys';
 import { ModelDiscoveryDialog } from './model-discovery-dialog';
 import { PricingFieldGroup } from './pricing-field-group';
-import {
-  useModelPriceText,
-  useModelMeta,
-} from '../../hooks/use-model-pricing';
+import { useModelPriceText, useModelMeta } from '../../hooks/use-model-pricing';
 import {
   getDefaultAudioModel,
   getDefaultImageModel,
@@ -81,6 +78,7 @@ import {
   getModelVendorPalette,
   ModelVendorMark,
 } from '../shared/ModelVendorBrand';
+import { matchesModelQuery } from './model-discovery-utils';
 import {
   ContextMenu,
   useContextMenuState,
@@ -342,25 +340,6 @@ function getModelTypeCounts(models: ModelConfig[]): Record<ModelType, number> {
     },
     { image: 0, video: 0, audio: 0, text: 0 }
   );
-}
-
-function matchesProviderModelQuery(model: ModelConfig, query: string) {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) {
-    return true;
-  }
-
-  return [
-    model.id,
-    model.label,
-    model.shortLabel,
-    model.shortCode,
-    model.description,
-    model.sourceProfileName,
-    getDiscoveryVendorLabel(model.vendor),
-  ]
-    .filter(Boolean)
-    .some((value) => value?.toLowerCase().includes(normalized));
 }
 
 function dedupeModelsByTypeAndId(models: ModelConfig[]): ModelConfig[] {
@@ -1759,7 +1738,9 @@ export const SettingsDialog = ({
           closeAfterSave,
           profilesCount: normalizedProfiles.length,
           presetsCount: normalizedPresets.length,
-          enabledProfilesCount: normalizedProfiles.filter((profile) => profile.enabled).length,
+          enabledProfilesCount: normalizedProfiles.filter(
+            (profile) => profile.enabled
+          ).length,
         },
       });
 
@@ -2214,7 +2195,15 @@ export const SettingsDialog = ({
               </span>
             </div>
 
-            <div className="settings-dialog__field settings-dialog__field--full" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <div
+              className="settings-dialog__field settings-dialog__field--full"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                flexWrap: 'wrap',
+              }}
+            >
               <label className="settings-dialog__label" style={{ margin: 0 }}>
                 图片优先使用异步接口（实验功能，建议不要开，还未上线）
               </label>
@@ -2227,16 +2216,27 @@ export const SettingsDialog = ({
                     ...profile,
                     preferAsyncImageEndpoint: value,
                   }));
-                  providerProfilesSettings.update(
-                    cloneValue(providerProfilesSettings.get()).map((profile) =>
-                      profile.id === selectedProfile.id
-                        ? { ...profile, preferAsyncImageEndpoint: value }
-                        : profile
+                  providerProfilesSettings
+                    .update(
+                      cloneValue(providerProfilesSettings.get()).map(
+                        (profile) =>
+                          profile.id === selectedProfile.id
+                            ? { ...profile, preferAsyncImageEndpoint: value }
+                            : profile
+                      )
                     )
-                  );
+                    .catch((err) => {
+                      console.warn(
+                        '[SettingsDialog] Failed to persist preferAsyncImageEndpoint:',
+                        err
+                      );
+                    });
                 }}
               />
-              <span className="settings-dialog__field-hint" style={{ width: '100%' }}>
+              <span
+                className="settings-dialog__field-hint"
+                style={{ width: '100%' }}
+              >
                 开启后，支持异步接口的图片模型将优先使用 /v1/videos 异步接口生成
               </span>
             </div>
@@ -2377,7 +2377,11 @@ export const SettingsDialog = ({
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => setIsApiKeyVisible((visible) => !visible)}
                     >
-                      {isApiKeyVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+                      {isApiKeyVisible ? (
+                        <EyeOff size={16} />
+                      ) : (
+                        <Eye size={16} />
+                      )}
                     </button>
                   </HoverTip>
                 </div>
@@ -2486,7 +2490,7 @@ export const SettingsDialog = ({
     const modelSearch = deferredModelSearchQuery.trim();
     const typeCounts = getModelTypeCounts(displayModels);
     const filteredModels = displayModels.filter((model) =>
-      matchesProviderModelQuery(model, modelSearch)
+      matchesModelQuery(model, modelSearch)
     );
     const modelGroups = MODEL_SUMMARY_GROUP_ORDER.map((type) => ({
       type,

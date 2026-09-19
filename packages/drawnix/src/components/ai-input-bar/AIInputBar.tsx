@@ -27,7 +27,11 @@ import React, {
 import { Maximize2, Minimize2, Send } from 'lucide-react';
 import { MessagePlugin } from 'tdesign-react';
 import { useConfirmDialog } from '../dialog/ConfirmDialog';
-import { ImageUploadIcon, MediaLibraryIcon, TemplateGalleryIcon } from '../icons';
+import {
+  ImageUploadIcon,
+  MediaLibraryIcon,
+  TemplateGalleryIcon,
+} from '../icons';
 import { useBoard } from '@plait-board/react-board';
 import { SelectedContentPreview } from '../shared/SelectedContentPreview';
 import { PromptOptimizeButton } from '../shared/PromptOptimizeButton';
@@ -1037,62 +1041,94 @@ export const AIInputBar: React.FC<AIInputBarProps> = React.memo(
       [resolvePersistedModelSelection]
     );
 
-    const initialGenerationType = initialPreferences.generationType;
-    const initialModelsForType =
-      initialGenerationType === 'video'
-        ? videoModels
-        : initialGenerationType === 'audio'
-        ? audioModels
-        : initialGenerationType === 'text' || initialGenerationType === 'agent'
-        ? textModels
-        : imageModels;
-    const initialSelectedModelConfig =
-      resolvePreferredModelSelection(
-        initialGenerationType,
-        initialModelsForType
-      ) ||
-      getModelConfig(initialPreferences.selectedModel) ||
-      getModelConfig(
+    // 首渲染一次性解析初始模型/路由/参数：内部含 localStorage 读取与
+    // settings-manager 全量解析，且下方全部消费点均为 useState/useRef 初始值
+    // 语义，惰性化后首渲染结果不变，后续渲染（每键击）不再重算
+    const {
+      initialGenerationType,
+      initialModelsForType,
+      initialSelectedModelConfig,
+      initialImageModel,
+      initialVideoModel,
+      initialAudioModel,
+      initialImageRoute,
+      initialSelectedModelId,
+      initialSelectedModelRef,
+      initialSelectedModelKey,
+      initialScopedSelectedParams,
+    } = useMemo(() => {
+      const initialGenerationType = initialPreferences.generationType;
+      const initialModelsForType =
         initialGenerationType === 'video'
-          ? getDefaultVideoModel()
+          ? videoModels
           : initialGenerationType === 'audio'
-          ? getDefaultAudioModel()
+          ? audioModels
           : initialGenerationType === 'text' ||
             initialGenerationType === 'agent'
-          ? getDefaultTextModel()
-          : getDefaultImageModel()
+          ? textModels
+          : imageModels;
+      const initialSelectedModelConfig =
+        resolvePreferredModelSelection(
+          initialGenerationType,
+          initialModelsForType
+        ) ||
+        getModelConfig(initialPreferences.selectedModel) ||
+        getModelConfig(
+          initialGenerationType === 'video'
+            ? getDefaultVideoModel()
+            : initialGenerationType === 'audio'
+            ? getDefaultAudioModel()
+            : initialGenerationType === 'text' ||
+              initialGenerationType === 'agent'
+            ? getDefaultTextModel()
+            : getDefaultImageModel()
+        );
+      const initialImageModel =
+        resolvePreferredModelSelection('image', imageModels) ||
+        getModelConfig(getDefaultImageModel());
+      const initialVideoModel =
+        resolvePreferredModelSelection('video', videoModels) ||
+        getModelConfig(getDefaultVideoModel());
+      const initialAudioModel =
+        resolvePreferredModelSelection('audio', audioModels) ||
+        getModelConfig(getDefaultAudioModel());
+      const initialImageRoute = resolveInvocationRoute('image');
+      const initialSelectedModelId =
+        initialImageModel?.id ||
+        initialImageRoute.modelId ||
+        getDefaultImageModel();
+      const initialSelectedModelRef =
+        getModelRefFromConfig(initialImageModel) ||
+        createModelRef(initialImageRoute.profileId, initialImageRoute.modelId);
+      const initialSelectedModelKey = getSelectionKey(
+        initialSelectedModelConfig?.id || initialSelectedModelId,
+        getModelRefFromConfig(initialSelectedModelConfig) ||
+          initialSelectedModelRef
       );
-    const initialImageModel =
-      resolvePreferredModelSelection('image', imageModels) ||
-      getModelConfig(getDefaultImageModel());
-    const initialVideoModel =
-      resolvePreferredModelSelection('video', videoModels) ||
-      getModelConfig(getDefaultVideoModel());
-    const initialAudioModel =
-      resolvePreferredModelSelection('audio', audioModels) ||
-      getModelConfig(getDefaultAudioModel());
-    const initialImageRoute = resolveInvocationRoute('image');
-    const initialSelectedModelId =
-      initialImageModel?.id ||
-      initialImageRoute.modelId ||
-      getDefaultImageModel();
-    const initialSelectedModelRef =
-      getModelRefFromConfig(initialImageModel) ||
-      createModelRef(initialImageRoute.profileId, initialImageRoute.modelId);
-    const initialSelectedModelKey = getSelectionKey(
-      initialSelectedModelConfig?.id || initialSelectedModelId,
-      getModelRefFromConfig(initialSelectedModelConfig) ||
-        initialSelectedModelRef
-    );
-    const initialScopedSelectedParams =
-      initialGenerationType === 'agent'
-        ? {}
-        : loadScopedAIInputModelParams(
-            initialGenerationType,
-            initialSelectedModelConfig?.id || initialSelectedModelId,
-            initialSelectedModelKey,
-            initialPreferences.selectedParams
-          );
+      const initialScopedSelectedParams =
+        initialGenerationType === 'agent'
+          ? {}
+          : loadScopedAIInputModelParams(
+              initialGenerationType,
+              initialSelectedModelConfig?.id || initialSelectedModelId,
+              initialSelectedModelKey,
+              initialPreferences.selectedParams
+            );
+      return {
+        initialGenerationType,
+        initialModelsForType,
+        initialSelectedModelConfig,
+        initialImageModel,
+        initialVideoModel,
+        initialAudioModel,
+        initialImageRoute,
+        initialSelectedModelId,
+        initialSelectedModelRef,
+        initialSelectedModelKey,
+        initialScopedSelectedParams,
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- 初始值语义，仅首渲染计算（同 initialPreferences）
+    }, [initialPreferences]);
 
     // State
     const [prompt, setPrompt] = useState('');
@@ -2579,9 +2615,13 @@ export const AIInputBar: React.FC<AIInputBarProps> = React.memo(
                 const blob = await resp.blob();
                 if (!blob.type.startsWith('image/')) return null;
                 const ext = blob.type.split('/')[1] || 'png';
-                return new File([blob], `template-reference-${index + 1}.${ext}`, {
-                  type: blob.type,
-                });
+                return new File(
+                  [blob],
+                  `template-reference-${index + 1}.${ext}`,
+                  {
+                    type: blob.type,
+                  }
+                );
               } catch (error) {
                 console.warn('[template-gallery] 参考图拉取失败:', url, error);
                 return null;

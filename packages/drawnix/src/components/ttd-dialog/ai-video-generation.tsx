@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from 'react';
 import './ttd-dialog.scss';
 import './ai-video-generation.scss';
 import { useI18n } from '../../i18n';
@@ -252,32 +258,66 @@ const AIVideoGeneration = ({
   const isCompactLayout = viewportWidth <= 768;
 
   // Video model parameters - use state to support dynamic updates
-  const initialRoute = resolveInvocationRoute('video');
-  const initialPreferredModelId = initialModel || initialRoute.modelId;
-  const initialPreferredModelRef = getAlignedModelRef(
+  // 首渲染一次性解析（含 settings-manager 全量路由解析），下方消费点均为
+  // useState 初始值语义，惰性化后首渲染结果不变、后续渲染不再重算
+  const {
+    initialRoute,
     initialPreferredModelId,
-    initialModel && initialModel === selectedModel
-      ? selectedModelRef
-      : initialRoute.modelId === initialPreferredModelId
-      ? createModelRef(initialRoute.profileId, initialRoute.modelId)
-      : null
-  );
-  const initialMatchedModel =
-    findMatchingSelectableModel(
-      videoModels,
+    initialPreferredModelRef,
+    initialMatchedModel,
+    initialResolvedModelRef,
+    initialVideoSelectionKey,
+    initialScopedVideoPreferences,
+  } = useMemo(() => {
+    const initialRoute = resolveInvocationRoute('video');
+    const initialPreferredModelId = initialModel || initialRoute.modelId;
+    const initialPreferredModelRef = getAlignedModelRef(
       initialPreferredModelId,
-      initialPreferredModelRef
-    ) ||
-    getPinnedSelectableModel(
-      'video',
-      initialPreferredModelId,
-      initialPreferredModelRef
+      initialModel && initialModel === selectedModel
+        ? selectedModelRef
+        : initialRoute.modelId === initialPreferredModelId
+        ? createModelRef(initialRoute.profileId, initialRoute.modelId)
+        : null
     );
-  const initialResolvedModelRef = resolveVideoModelRef(
-    videoModels,
-    (initialMatchedModel?.id as VideoModel) || initialPreferredModelId,
-    getModelRefFromConfig(initialMatchedModel) || initialPreferredModelRef
-  );
+    const initialMatchedModel =
+      findMatchingSelectableModel(
+        videoModels,
+        initialPreferredModelId,
+        initialPreferredModelRef
+      ) ||
+      getPinnedSelectableModel(
+        'video',
+        initialPreferredModelId,
+        initialPreferredModelRef
+      );
+    const initialResolvedModelRef = resolveVideoModelRef(
+      videoModels,
+      (initialMatchedModel?.id as VideoModel) || initialPreferredModelId,
+      getModelRefFromConfig(initialMatchedModel) || initialPreferredModelRef
+    );
+    const initialVideoSelectionKey = getSelectionKey(
+      ((initialMatchedModel?.id as VideoModel) ||
+        videoModels[0]?.id ||
+        normalizeVideoModel('veo3')) as VideoModel,
+      initialResolvedModelRef
+    );
+    const initialScopedVideoPreferences = loadScopedAIVideoToolPreferences(
+      ((initialMatchedModel?.id as VideoModel) ||
+        videoModels[0]?.id ||
+        normalizeVideoModel('veo3')) as VideoModel,
+      initialVideoSelectionKey
+    );
+    return {
+      initialRoute,
+      initialPreferredModelId,
+      initialPreferredModelRef,
+      initialMatchedModel,
+      initialResolvedModelRef,
+      initialVideoSelectionKey,
+      initialScopedVideoPreferences,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 初始值语义，仅首渲染计算
+  }, []);
   const [currentModel, setCurrentModel] = useState<VideoModel>(
     (initialMatchedModel?.id as VideoModel) ||
       videoModels[0]?.id ||
@@ -285,18 +325,6 @@ const AIVideoGeneration = ({
   );
   const [currentModelRef, setCurrentModelRef] = useState<ModelRef | null>(
     initialResolvedModelRef
-  );
-  const initialVideoSelectionKey = getSelectionKey(
-    ((initialMatchedModel?.id as VideoModel) ||
-      videoModels[0]?.id ||
-      normalizeVideoModel('veo3')) as VideoModel,
-    initialResolvedModelRef
-  );
-  const initialScopedVideoPreferences = loadScopedAIVideoToolPreferences(
-    ((initialMatchedModel?.id as VideoModel) ||
-      videoModels[0]?.id ||
-      normalizeVideoModel('veo3')) as VideoModel,
-    initialVideoSelectionKey
   );
   const visibleVideoModels = React.useMemo(() => {
     const currentMatch = findMatchingSelectableModel(
@@ -727,7 +755,9 @@ const AIVideoGeneration = ({
       prompt: initialPrompt,
       image: initialImage?.url,
       images: initialImages?.map((img) => img.url),
-      knowledgeContextRefs: initialKnowledgeContextRefs.map((ref) => ref.noteId),
+      knowledgeContextRefs: initialKnowledgeContextRefs.map(
+        (ref) => ref.noteId
+      ),
       duration: initialDuration,
       model: initialModel,
       size: initialSize,

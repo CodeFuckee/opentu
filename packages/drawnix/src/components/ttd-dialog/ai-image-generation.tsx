@@ -194,18 +194,38 @@ const AIImageGeneration = ({
   onDraftChange,
 }: AIImageGenerationProps = {}) => {
   const imageModels = useSelectableModels('image');
-  const initialRoute = resolveInvocationRoute('image');
-  const initialMatchedModel =
-    findMatchingSelectableModel(
-      imageModels,
-      initialRoute.modelId,
-      createModelRef(initialRoute.profileId, initialRoute.modelId)
-    ) ||
-    getPinnedSelectableModel(
-      'image',
-      initialRoute.modelId,
-      createModelRef(initialRoute.profileId, initialRoute.modelId)
-    );
+  // 首渲染一次性解析（含 settings-manager 全量路由解析），下方消费点均为
+  // useState 初始值语义，惰性化后首渲染结果不变、后续渲染不再重算
+  const { initialRoute, initialMatchedModel, initialScopedPreferences } =
+    useMemo(() => {
+      const initialRoute = resolveInvocationRoute('image');
+      const initialMatchedModel =
+        findMatchingSelectableModel(
+          imageModels,
+          initialRoute.modelId,
+          createModelRef(initialRoute.profileId, initialRoute.modelId)
+        ) ||
+        getPinnedSelectableModel(
+          'image',
+          initialRoute.modelId,
+          createModelRef(initialRoute.profileId, initialRoute.modelId)
+        );
+      const initialSelectionKey = getSelectionKey(
+        initialMatchedModel?.id ||
+          imageModels[0]?.id ||
+          'gemini-2.5-flash-image-vip',
+        getModelRefFromConfig(initialMatchedModel) ||
+          createModelRef(initialRoute.profileId, initialRoute.modelId)
+      );
+      const initialScopedPreferences = loadScopedAIImageToolPreferences(
+        initialMatchedModel?.id ||
+          imageModels[0]?.id ||
+          'gemini-2.5-flash-image-vip',
+        initialSelectionKey
+      );
+      return { initialRoute, initialMatchedModel, initialScopedPreferences };
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- 初始值语义，仅首渲染计算
+    }, []);
   const [currentModel, setCurrentModel] = useState(
     initialMatchedModel?.id ||
       imageModels[0]?.id ||
@@ -214,19 +234,6 @@ const AIImageGeneration = ({
   const [currentModelRef, setCurrentModelRef] = useState<ModelRef | null>(
     getModelRefFromConfig(initialMatchedModel) ||
       createModelRef(initialRoute.profileId, initialRoute.modelId)
-  );
-  const initialSelectionKey = getSelectionKey(
-    initialMatchedModel?.id ||
-      imageModels[0]?.id ||
-      'gemini-2.5-flash-image-vip',
-    getModelRefFromConfig(initialMatchedModel) ||
-      createModelRef(initialRoute.profileId, initialRoute.modelId)
-  );
-  const initialScopedPreferences = loadScopedAIImageToolPreferences(
-    initialMatchedModel?.id ||
-      imageModels[0]?.id ||
-      'gemini-2.5-flash-image-vip',
-    initialSelectionKey
   );
   const [prompt, setPrompt] = useState(initialPrompt);
   const [knowledgeContextRefs, setKnowledgeContextRefs] = useState<
@@ -369,7 +376,9 @@ const AIImageGeneration = ({
     const propsKey = JSON.stringify({
       prompt: initialPrompt,
       images: initialImages?.map((img) => img.url),
-      knowledgeContextRefs: initialKnowledgeContextRefs.map((ref) => ref.noteId),
+      knowledgeContextRefs: initialKnowledgeContextRefs.map(
+        (ref) => ref.noteId
+      ),
       elementIds: initialSelectedElementIds,
       width: initialWidth,
       height: initialHeight,
@@ -742,7 +751,8 @@ const AIImageGeneration = ({
           typeof height === 'string' ? parseInt(height) || 1024 : height;
         // Convert File objects to base64 data URLs for serialization
         const convertedImages = await convertImagesToSerializable();
-        const uploadedImageParams = stripMaskFromReferenceImages(convertedImages);
+        const uploadedImageParams =
+          stripMaskFromReferenceImages(convertedImages);
 
         // 如果数量大于1，使用批量生成
         if (effectiveCount > 1) {

@@ -1027,14 +1027,13 @@ const ComicCreator: React.FC = () => {
       pdf_size_bucket: getFileSizeBucket(pdfAttachment?.size),
       should_delete_cache: shouldDeleteCache,
     });
-    setPdfAttachment((prev) => {
-      if (shouldDeleteCache && prev?.cacheUrl) {
-        void unifiedCacheService
-          .deleteCache(prev.cacheUrl)
-          .catch(() => undefined);
-      }
-      return null;
-    });
+    // 缓存删除移出 state updater（副作用入 updater 会被 StrictMode 双触发）
+    if (shouldDeleteCache && pdfAttachment?.cacheUrl) {
+      void unifiedCacheService
+        .deleteCache(pdfAttachment.cacheUrl)
+        .catch(() => undefined);
+    }
+    setPdfAttachment(null);
     if (pdfInputRef.current) {
       pdfInputRef.current.value = '';
     }
@@ -1082,18 +1081,17 @@ const ComicCreator: React.FC = () => {
       try {
         const cacheUrl = `comic-pdf-${generateUUID()}.pdf`;
         await unifiedCacheService.cacheToCacheStorageOnly(cacheUrl, file);
-        setPdfAttachment((prev) => {
-          if (prev?.cacheUrl) {
-            void unifiedCacheService
-              .deleteCache(prev.cacheUrl)
-              .catch(() => undefined);
-          }
-          return {
-            cacheUrl,
-            name: file.name,
-            size: file.size,
-            mimeType: file.type || 'application/pdf',
-          };
+        // 旧附件缓存删除移出 state updater（副作用入 updater 会被 StrictMode 双触发）
+        if (pdfAttachment?.cacheUrl) {
+          void unifiedCacheService
+            .deleteCache(pdfAttachment.cacheUrl)
+            .catch(() => undefined);
+        }
+        setPdfAttachment({
+          cacheUrl,
+          name: file.name,
+          size: file.size,
+          mimeType: file.type || 'application/pdf',
         });
         trackComicCreatorEvent('pdf_upload', {
           status: 'success',
@@ -1121,7 +1119,7 @@ const ComicCreator: React.FC = () => {
         );
       }
     },
-    [geminiTextModels, setTextModel, textModel, textModelRef]
+    [geminiTextModels, setTextModel, textModel, textModelRef, pdfAttachment]
   );
 
   const persistPatch = useCallback(

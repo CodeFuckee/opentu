@@ -239,6 +239,8 @@ export const FrameSlideshow: React.FC<FrameSlideshowProps> = ({
   const currentIndexRef = useRef(0);
   const transitionKeyRef = useRef(0);
   const transitionTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  // 进入全屏后重定位的延时句柄，卸载/退出时清理
+  const repositionTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const [activeTransition, setActiveTransition] =
     useState<SlideshowTransitionState | null>(null);
 
@@ -404,7 +406,10 @@ export const FrameSlideshow: React.FC<FrameSlideshowProps> = ({
     );
     fullscreenRequest
       ?.then(() => {
-        setTimeout(() => goToFrame(startIndex, { animate: false }), 300);
+        repositionTimerRef.current = setTimeout(
+          () => goToFrame(startIndex, { animate: false }),
+          300
+        );
       })
       .catch(() => undefined);
 
@@ -416,12 +421,16 @@ export const FrameSlideshow: React.FC<FrameSlideshowProps> = ({
       if (transitionTimerRef.current) {
         clearTimeout(transitionTimerRef.current);
       }
+      if (repositionTimerRef.current) {
+        clearTimeout(repositionTimerRef.current);
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
-  // 退出时恢复 viewport 和 pointer
-  const handleClose = useCallback(() => {
+  // 退出时恢复 viewport 和 pointer（与 fullscreenchange 处理器共用，
+  // 顺序保持原 handleClose 语义）
+  const restoreViewportAndPointer = useCallback(() => {
     setSlideshowMode(false);
     const saved = savedViewportRef.current;
     if (saved && board) {
@@ -437,12 +446,21 @@ export const FrameSlideshow: React.FC<FrameSlideshowProps> = ({
       BoardTransforms.updatePointerType(board, savedPointerRef.current);
       setPointer(savedPointerRef.current as Parameters<typeof setPointer>[0]);
     }
-    exitFullscreenIfActive()?.catch(() => undefined);
+  }, [board, setPointer]);
+
+  const finishClose = useCallback(() => {
     setFrameRect(null);
     setActiveTransition(null);
     setActiveTool('select');
     onClose();
-  }, [board, onClose, setPointer]);
+  }, [onClose]);
+
+  // 退出时恢复 viewport 和 pointer
+  const handleClose = useCallback(() => {
+    restoreViewportAndPointer();
+    exitFullscreenIfActive()?.catch(() => undefined);
+    finishClose();
+  }, [restoreViewportAndPointer, finishClose]);
 
   const goToNextFrameOrClose = useCallback(() => {
     const frames = framesRef.current;
@@ -459,34 +477,15 @@ export const FrameSlideshow: React.FC<FrameSlideshowProps> = ({
 
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement && visible) {
-        setSlideshowMode(false);
-        const saved = savedViewportRef.current;
-        if (saved && board) {
-          const orig = saved.origination ?? [0, 0];
-          BoardTransforms.updateViewport(
-            board,
-            orig as [number, number],
-            saved.zoom
-          );
-        }
-        // 恢复 pointer（同时更新 board 和 React context）
-        if (savedPointerRef.current !== null) {
-          BoardTransforms.updatePointerType(board, savedPointerRef.current);
-          setPointer(
-            savedPointerRef.current as Parameters<typeof setPointer>[0]
-          );
-        }
-        setFrameRect(null);
-        setActiveTransition(null);
-        setActiveTool('select');
-        onClose();
+        restoreViewportAndPointer();
+        finishClose();
       }
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
-  }, [visible, board, onClose, setPointer]);
+  }, [visible, restoreViewportAndPointer, finishClose]);
 
   // 窗口 resize 时重新计算
   useEffect(() => {
@@ -515,11 +514,12 @@ export const FrameSlideshow: React.FC<FrameSlideshowProps> = ({
         case 'PageDown':
         case 'ArrowDown': {
           e.preventDefault();
-          setCurrentIndex((prev) => {
-            const next = Math.min(prev + 1, frames.length - 1);
-            if (next !== prev) goToFrame(next);
-            return next;
-          });
+          // 用 ref 计算目标帧，goToFrame 内部会 setCurrentIndex：
+          // 不在 state updater 里做 board 副作用（StrictMode 双触发会重放转场）
+          const next = Math.min(currentIndexRef.current + 1, frames.length - 1);
+          if (next !== currentIndexRef.current) {
+            goToFrame(next);
+          }
           break;
         }
         case 'ArrowLeft':
@@ -527,11 +527,10 @@ export const FrameSlideshow: React.FC<FrameSlideshowProps> = ({
         case 'PageUp':
         case 'ArrowUp': {
           e.preventDefault();
-          setCurrentIndex((prev) => {
-            const next = Math.max(prev - 1, 0);
-            if (next !== prev) goToFrame(next);
-            return next;
-          });
+          const prevIndex = Math.max(currentIndexRef.current - 1, 0);
+          if (prevIndex !== currentIndexRef.current) {
+            goToFrame(prevIndex);
+          }
           break;
         }
         case 'Escape': {

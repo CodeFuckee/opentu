@@ -707,8 +707,12 @@ const BatchImageGeneration: React.FC<BatchImageGenerationProps> = ({
       );
 
       // 创建新状态条目
+      // 行级浅拷贝即可快照：TaskRow 的全部字段（prompt/params/images/taskIds）
+      // 更新时均为整体替换（新对象/新数组），从无原地突变，历史条目共享旧引用
+      // 不会随后续编辑变化；undo/redo 恢复时另有深克隆。避免每键击对含
+      // base64 data URL 的整表做 JSON 深克隆（可达数百 MB 字符串）。
       const newEntry: HistoryEntry = {
-        tasks: JSON.parse(JSON.stringify(newTasks)),
+        tasks: newTasks.map((row) => ({ ...row })),
         selectedCells: [...currentSelectedCells],
         activeCell: currentActiveCell ? { ...currentActiveCell } : null,
         selectedRows: Array.from(currentSelectedRows),
@@ -1308,6 +1312,12 @@ const BatchImageGeneration: React.FC<BatchImageGenerationProps> = ({
           const dataUrl = ev.target?.result as string;
           addImageToRow(targetRow, dataUrl);
         };
+        reader.onerror = () => {
+          console.warn(
+            '[BatchImageGeneration] Failed to read image file:',
+            file.name
+          );
+        };
         reader.readAsDataURL(file);
       });
 
@@ -1410,6 +1420,12 @@ const BatchImageGeneration: React.FC<BatchImageGenerationProps> = ({
           const dataUrl = ev.target?.result as string;
           addImageToRow(rowIndex, dataUrl);
         };
+        reader.onerror = () => {
+          console.warn(
+            '[BatchImageGeneration] Failed to read image file:',
+            file.name
+          );
+        };
         reader.readAsDataURL(file);
         addedCount++;
       });
@@ -1470,89 +1486,99 @@ const BatchImageGeneration: React.FC<BatchImageGenerationProps> = ({
     if (pendingImportFiles.length === 0) return;
     const endTrack = trackMemory(`批量导入(${pendingImportFiles.length}张)`);
 
-    const perRow = normalizedImagesPerRow;
-    const totalImages = pendingImportFiles.length;
-    const rowsNeeded = Math.ceil(totalImages / perRow);
-    const startIndex = importStartRow - 1; // 转为 0-based index
+    try {
+      const perRow = normalizedImagesPerRow;
+      const totalImages = pendingImportFiles.length;
+      const rowsNeeded = Math.ceil(totalImages / perRow);
+      const startIndex = importStartRow - 1; // 转为 0-based index
 
-    // 读取所有图片为 DataURL，同时添加到素材库
-    const imageDataUrls: string[] = [];
-    for (const file of pendingImportFiles) {
-      // Add to asset library (async, don't block UI)
-      addAsset(file, AssetType.IMAGE, AssetSource.LOCAL, file.name).catch(
-        (err) => {
-          console.warn(
-            '[BatchImageGeneration] Failed to add asset to library:',
-            err
-          );
-        }
-      );
+      // 读取所有图片为 DataURL，同时添加到素材库
+      const imageDataUrls: string[] = [];
+      for (const file of pendingImportFiles) {
+        // Add to asset library (async, don't block UI)
+        addAsset(file, AssetType.IMAGE, AssetSource.LOCAL, file.name).catch(
+          (err) => {
+            console.warn(
+              '[BatchImageGeneration] Failed to add asset to library:',
+              err
+            );
+          }
+        );
 
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (ev) => resolve(ev.target?.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      imageDataUrls.push(dataUrl);
-    }
-
-    // 分配图片到行
-    setTasks((prev) => {
-      const newTasks = [...prev];
-      let imageIndex = 0;
-      let newRowsCreated = 0;
-
-      for (let i = 0; i < rowsNeeded; i++) {
-        const targetRowIndex = startIndex + i;
-        const rowImages: string[] = [];
-
-        // 收集本行的图片
-        for (let j = 0; j < perRow && imageIndex < totalImages; j++) {
-          rowImages.push(imageDataUrls[imageIndex]);
-          imageIndex++;
-        }
-
-        if (targetRowIndex < newTasks.length) {
-          // 插入到已有行：追加图片到现有行
-          newTasks[targetRowIndex] = {
-            ...newTasks[targetRowIndex],
-            images: [...newTasks[targetRowIndex].images, ...rowImages],
-          };
-        } else {
-          // 超出现有行：创建新行
-          newTasks.push({
-            id: taskIdCounter + newRowsCreated,
-            prompt: '',
-            params: { ...defaultModelParams },
-            images: rowImages,
-            count: 1,
-            taskIds: [],
-          });
-          newRowsCreated++;
-        }
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (ev) => resolve(ev.target?.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        imageDataUrls.push(dataUrl);
       }
 
-      return newTasks;
-    });
+      // 分配图片到行
+      setTasks((prev) => {
+        const newTasks = [...prev];
+        let imageIndex = 0;
+        let newRowsCreated = 0;
 
-    // 更新 ID 计数器（仅当创建了新行时）
-    const existingRowsUsed = Math.min(rowsNeeded, tasks.length - startIndex);
-    const newRowsCreated = Math.max(0, rowsNeeded - existingRowsUsed);
-    if (newRowsCreated > 0) {
-      setTaskIdCounter((prev) => prev + newRowsCreated);
+        for (let i = 0; i < rowsNeeded; i++) {
+          const targetRowIndex = startIndex + i;
+          const rowImages: string[] = [];
+
+          // 收集本行的图片
+          for (let j = 0; j < perRow && imageIndex < totalImages; j++) {
+            rowImages.push(imageDataUrls[imageIndex]);
+            imageIndex++;
+          }
+
+          if (targetRowIndex < newTasks.length) {
+            // 插入到已有行：追加图片到现有行
+            newTasks[targetRowIndex] = {
+              ...newTasks[targetRowIndex],
+              images: [...newTasks[targetRowIndex].images, ...rowImages],
+            };
+          } else {
+            // 超出现有行：创建新行
+            newTasks.push({
+              id: taskIdCounter + newRowsCreated,
+              prompt: '',
+              params: { ...defaultModelParams },
+              images: rowImages,
+              count: 1,
+              taskIds: [],
+            });
+            newRowsCreated++;
+          }
+        }
+
+        return newTasks;
+      });
+
+      // 更新 ID 计数器（仅当创建了新行时）
+      const existingRowsUsed = Math.min(rowsNeeded, tasks.length - startIndex);
+      const newRowsCreated = Math.max(0, rowsNeeded - existingRowsUsed);
+      if (newRowsCreated > 0) {
+        setTaskIdCounter((prev) => prev + newRowsCreated);
+      }
+
+      // 清理状态
+      setPendingImportFiles([]);
+      setShowBatchImportModal(false);
+      endTrack();
+
+      const message =
+        language === 'zh'
+          ? `已导入 ${totalImages} 张图片，从第 ${importStartRow} 行开始`
+          : `Imported ${totalImages} images starting from row ${importStartRow}`;
+      MessagePlugin.success(message);
+    } catch (error) {
+      // 读取/导入失败不再裸抛（onClick 裸消费会产生 unhandled rejection）：
+      // 记录日志并清理弹窗状态，避免确认弹窗卡死
+      console.warn('[BatchImageGeneration] 批量导入失败:', error);
+      setPendingImportFiles([]);
+      setShowBatchImportModal(false);
+    } finally {
+      endTrack();
     }
-
-    // 清理状态
-    setPendingImportFiles([]);
-    setShowBatchImportModal(false);
-    endTrack();
-
-    const message =
-      language === 'zh'
-        ? `已导入 ${totalImages} 张图片，从第 ${importStartRow} 行开始`
-        : `Imported ${totalImages} images starting from row ${importStartRow}`;
-    MessagePlugin.success(message);
   }, [
     pendingImportFiles,
     normalizedImagesPerRow,
@@ -1780,9 +1806,9 @@ const BatchImageGeneration: React.FC<BatchImageGenerationProps> = ({
         return { status: 'idle', tasks: [], completedCount: 0, failedCount: 0 };
       }
 
-      const relatedTasks = queueTasks.filter((t) =>
-        taskRow.taskIds.includes(t.id)
-      );
+      // Set 命中替代双重循环 includes，保持 queueTasks 原有顺序与结果不变
+      const taskIdSet = new Set(taskRow.taskIds);
+      const relatedTasks = queueTasks.filter((t) => taskIdSet.has(t.id));
       const completedCount = relatedTasks.filter(
         (t) => t.status === TaskStatus.COMPLETED
       ).length;
@@ -2012,13 +2038,15 @@ const BatchImageGeneration: React.FC<BatchImageGenerationProps> = ({
 
     // 收集所有已完成任务的图片URL
     const imageUrls: { url: string; filename: string }[] = [];
+    // id 索引一次建表，替代 forEach 内逐个 queueTasks.find
+    const queueTaskById = new Map(queueTasks.map((t) => [t.id, t]));
     selectedRowIndices.forEach((rowIndex) => {
       const taskRow = tasks[rowIndex];
       if (!taskRow) return;
 
       // 找到该行关联的已完成任务
       taskRow.taskIds.forEach((taskId, taskIdx) => {
-        const queueTask = queueTasks.find((t) => t.id === taskId);
+        const queueTask = queueTaskById.get(taskId);
         if (
           queueTask?.status === TaskStatus.COMPLETED &&
           queueTask.result?.url
@@ -2331,7 +2359,12 @@ const BatchImageGeneration: React.FC<BatchImageGenerationProps> = ({
       })
         .then((confirmed) => {
           if (confirmed) {
-            executeSubmit(validTasks);
+            executeSubmit(validTasks).catch((err) => {
+              console.warn(
+                '[BatchImageGeneration] executeSubmit failed:',
+                err
+              );
+            });
           } else {
             submitLockRef.current = false;
             setIsSubmitting(false);
@@ -2345,7 +2378,9 @@ const BatchImageGeneration: React.FC<BatchImageGenerationProps> = ({
     }
 
     // 没有超限，直接提交
-    executeSubmit(validTasks);
+    executeSubmit(validTasks).catch((err) => {
+      console.warn('[BatchImageGeneration] executeSubmit failed:', err);
+    });
   }, [
     confirm,
     tasks,

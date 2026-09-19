@@ -950,23 +950,23 @@ function usePPTFramePreviewSnapshots(
     [frameInfos]
   );
 
+  // ref 为权威镜像：在 updater 外同步写入，避免副作用入 updater
+  // （StrictMode 双触发/并发渲染丢弃更新时 ref 与 state 分叉）
   const updateSnapshotUrl = useCallback((frameId: string, url?: string) => {
-    setSnapshotUrls((current) => {
-      const next = { ...current };
-      if (url) {
-        if (next[frameId] === url) {
-          return current;
-        }
-        next[frameId] = url;
-      } else {
-        if (!(frameId in next)) {
-          return current;
-        }
-        delete next[frameId];
+    const next = { ...snapshotUrlsRef.current };
+    if (url) {
+      if (next[frameId] === url) {
+        return;
       }
-      snapshotUrlsRef.current = next;
-      return next;
-    });
+      next[frameId] = url;
+    } else {
+      if (!(frameId in next)) {
+        return;
+      }
+      delete next[frameId];
+    }
+    snapshotUrlsRef.current = next;
+    setSnapshotUrls(next);
   }, []);
 
   useEffect(() => {
@@ -982,20 +982,18 @@ function usePPTFramePreviewSnapshots(
         changed = true;
       }
     });
-    setSnapshotUrls((current) => {
-      const next = { ...current };
-      Object.keys(next).forEach((frameId) => {
-        if (!activeFrameIds.has(frameId)) {
-          delete next[frameId];
-          changed = true;
-        }
-      });
-      if (!changed) {
-        return current;
+    const next = { ...snapshotUrlsRef.current };
+    Object.keys(next).forEach((frameId) => {
+      if (!activeFrameIds.has(frameId)) {
+        delete next[frameId];
+        changed = true;
       }
-      snapshotUrlsRef.current = next;
-      return next;
     });
+    if (!changed) {
+      return;
+    }
+    snapshotUrlsRef.current = next;
+    setSnapshotUrls(next);
   }, [frameIdsKey, frameInfos]);
 
   useEffect(() => {

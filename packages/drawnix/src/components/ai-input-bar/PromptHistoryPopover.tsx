@@ -9,7 +9,13 @@
  * - 支持删除历史记录
  */
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, {
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+  useEffect,
+} from 'react';
 import { MoreHorizontal } from 'lucide-react';
 import { usePromptHistory } from '../../hooks/usePromptHistory';
 import { useGenerationHistory } from '../../hooks/useGenerationHistory';
@@ -67,32 +73,44 @@ export const PromptHistoryPopover: React.FC<PromptHistoryPopoverProps> = ({
   const { imageHistory, videoHistory } = useGenerationHistory();
   const { confirm, confirmDialog } = useConfirmDialog();
   const [isOpen, setIsOpen] = useState(false);
-  const [, setRenderVersion] = useState(0);
+  const [renderVersion, setRenderVersion] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const leaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const promptPanelTitle = language === 'zh' ? '我的提示词' : 'My Prompts';
 
-  const promptItems =
-    generationType === 'image' || generationType === 'video'
-      ? resolvePresetPromptItems({
-          generationType,
-          language,
-          promptContents: getMergedPresetPrompts(
+  // useMemo：多次 localStorage 读取的解析不必随父组件每键击重渲染而重算；
+  // renderVersion（存储变更时递增）保证与原「每次渲染重算」的失效时机一致
+  const promptItems = useMemo(
+    () =>
+      generationType === 'image' || generationType === 'video'
+        ? resolvePresetPromptItems({
             generationType,
             language,
-            generationType === 'image' ? imageHistory : videoHistory
-          ),
-          imageHistory,
-          videoHistory,
-        })
-      : resolvePromptItemsByGenerationType({
-          generationType,
-          language,
-          aiInputHistory: history,
-          imageHistory,
-          videoHistory,
-        });
+            promptContents: getMergedPresetPrompts(
+              generationType,
+              language,
+              generationType === 'image' ? imageHistory : videoHistory
+            ),
+            imageHistory,
+            videoHistory,
+          })
+        : resolvePromptItemsByGenerationType({
+            generationType,
+            language,
+            aiInputHistory: history,
+            imageHistory,
+            videoHistory,
+          }),
+    [
+      renderVersion,
+      generationType,
+      language,
+      imageHistory,
+      videoHistory,
+      history,
+    ]
+  );
 
   useEffect(() => {
     return promptStorageService.subscribeChanges(() => {

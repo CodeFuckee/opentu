@@ -121,44 +121,39 @@ export const ResizableDivider: React.FC<ResizableDividerProps> = ({
       startXRef.current = e.clientX;
       startWidthRef.current = rightPanelWidth;
       onResizeStart?.();
-
-      const handleMouseMove = (moveEvent: MouseEvent) => {
-        // 向左拖动（deltaX < 0）应该增加右侧面板宽度
-        const deltaX = startXRef.current - moveEvent.clientX;
-        const newWidth = Math.max(
-          minWidth,
-          Math.min(maxWidth, startWidthRef.current + deltaX)
-        );
-        onWidthChange(newWidth);
-      };
-
-      const handleMouseUp = () => {
-        setIsDragging(false);
-        onResizeEnd?.();
-        // 保存当前宽度到 localStorage
-        const currentWidth =
-          startWidthRef.current +
-          (startXRef.current - document.body.getBoundingClientRect().left);
-        saveWidth(storageKey, rightPanelWidth);
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-      };
-
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
     },
-    [
-      disabled,
-      isRightPanelVisible,
-      rightPanelWidth,
-      minWidth,
-      maxWidth,
-      onWidthChange,
-      onResizeStart,
-      onResizeEnd,
-      storageKey,
-    ]
+    [disabled, isRightPanelVisible, rightPanelWidth, onResizeStart]
   );
+
+  // 拖拽中的 document 监听在 effect 内注册/清理：组件在拖拽中途卸载时
+  // 监听随 cleanup 移除，不再泄漏；保存宽度由下方 isDragging 变化的
+  // 统一 effect 负责（此前 mouseup 里的 saveWidth 写入的是拖拽开始时的
+  // 旧值，且随后即被该 effect 以最新值覆盖）
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      // 向左拖动（deltaX < 0）应该增加右侧面板宽度
+      const deltaX = startXRef.current - moveEvent.clientX;
+      const newWidth = Math.max(
+        minWidth,
+        Math.min(maxWidth, startWidthRef.current + deltaX)
+      );
+      onWidthChange(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      onResizeEnd?.();
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, minWidth, maxWidth, onWidthChange, onResizeEnd]);
 
   // 保存宽度变化
   useEffect(() => {
