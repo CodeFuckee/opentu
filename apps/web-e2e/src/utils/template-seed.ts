@@ -18,7 +18,9 @@ export const TEMPLATE_A = {
   category: '效果渲染',
   catalogs: [['效果渲染', '景观渲染']],
   prompt: 'E2E 种子提示词 A：渲染一幅新中式庭院黄昏实景，暖光治愈氛围。',
-  base_images: ['data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='],
+  base_images: [
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  ],
   status: 'active',
   usage_count: 999999,
   likes: 12,
@@ -78,7 +80,9 @@ export async function seedE2eTemplates(): Promise<void> {
     }
   );
   if (!response.ok) {
-    throw new Error(`播种模板失败 ${response.status}: ${await response.text()}`);
+    throw new Error(
+      `播种模板失败 ${response.status}: ${await response.text()}`
+    );
   }
 }
 
@@ -86,26 +90,23 @@ export async function seedE2eTemplates(): Promise<void> {
 export async function cleanupE2eTemplates(): Promise<void> {
   const ctx = requireServiceKey();
   const headers = serviceHeaders(ctx);
-  // 先删使用记录（外键引用），再删模板行
-  const logDel = await fetch(
-    `${ctx.baseUrl}/rest/v1/template_usage_log?template_id=in.(select id from ai_templates where source=eq.${E2E_TEMPLATE_SOURCE})`,
-    { method: 'DELETE', headers }
+  // 先删使用记录（外键引用），再删模板行。
+  // PostgREST 的 in.(select ...) 子查询需要服务端 allowlist，默认不可用，
+  // 直接走「列出 id → 按 id 删」两步删除。
+  const list = await fetch(
+    `${ctx.baseUrl}/rest/v1/ai_templates?select=id&source=eq.${E2E_TEMPLATE_SOURCE}`,
+    { method: 'GET', headers }
   );
-  if (!logDel.ok && logDel.status !== 404) {
-    // in.(select ...) 需要 allowlist；失败时退化为两步删除
-    const list = await fetch(
-      `${ctx.baseUrl}/rest/v1/ai_templates?select=id&source=eq.${E2E_TEMPLATE_SOURCE}`,
-      { method: 'GET', headers }
-    );
-    if (list.ok) {
-      const rows = (await list.json()) as Array<{ id: string }>;
-      const ids = rows.map((r) => r.id);
-      if (ids.length) {
-        await fetch(
-          `${ctx.baseUrl}/rest/v1/template_usage_log?template_id=in.(${ids.join(',')})`,
-          { method: 'DELETE', headers }
-        );
-      }
+  if (list.ok) {
+    const rows = (await list.json()) as Array<{ id: string }>;
+    const ids = rows.map((r) => r.id);
+    if (ids.length) {
+      await fetch(
+        `${ctx.baseUrl}/rest/v1/template_usage_log?template_id=in.(${ids.join(
+          ','
+        )})`,
+        { method: 'DELETE', headers }
+      );
     }
   }
   const del = await fetch(

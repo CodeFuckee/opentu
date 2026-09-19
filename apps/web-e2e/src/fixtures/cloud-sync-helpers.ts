@@ -54,7 +54,10 @@ export async function forceFileInputFallback(page: Page): Promise<void> {
     try {
       delete HTMLInputElement.prototype.showPicker;
     } catch {
-      const proto = HTMLInputElement.prototype as unknown as Record<string, unknown>;
+      const proto = HTMLInputElement.prototype as unknown as Record<
+        string,
+        unknown
+      >;
       proto.showPicker = undefined;
     }
   });
@@ -73,7 +76,7 @@ export async function loginViaUi(
   const password =
     typeof account === 'string'
       ? E2E_TEST_PASSWORD
-      : (account.password ?? E2E_TEST_PASSWORD);
+      : account.password ?? E2E_TEST_PASSWORD;
   await page.goto('/');
   // 可能已带 storageState 登录会话：等待「登录门禁」或「工作区」任一出现
   const gate = page.locator('[data-testid="auth-gate"]');
@@ -115,7 +118,10 @@ export async function openProjectDrawer(page: Page): Promise<void> {
 }
 
 /** 点击「新建画板」并重命名 */
-export async function createNamedBoard(page: Page, name: string): Promise<void> {
+export async function createNamedBoard(
+  page: Page,
+  name: string
+): Promise<void> {
   const drawer = page.getByTestId('project-drawer');
   await drawer.getByRole('button', { name: '新建画板' }).click();
   // 新建后自动进入就地重命名态：节点内的 Input 自动聚焦
@@ -165,7 +171,8 @@ export async function insertImageToCanvas(
   // 等待图片元素渲染到画布（.element-host 中出现 plait-data-id 元素）
   await expect
     .poll(
-      () => page.locator('.board-host-svg .element-host [plait-data-id]').count(),
+      () =>
+        page.locator('.board-host-svg .element-host [plait-data-id]').count(),
       { timeout: TIMEOUTS.element, intervals: [POLL_INTERVALS.canvas] }
     )
     .toBeGreaterThan(0);
@@ -196,7 +203,9 @@ export async function clickSyncAction(
   buttonName: string
 ): Promise<void> {
   const dialog = page.locator('.sync-settings-dialog');
-  const actionBtn = dialog.getByRole('button', { name: new RegExp(buttonName) });
+  const actionBtn = dialog.getByRole('button', {
+    name: new RegExp(buttonName),
+  });
   await expect(actionBtn).toBeVisible({ timeout: TIMEOUTS.confirmDialog });
   await actionBtn.click();
 
@@ -222,7 +231,9 @@ export async function closeSyncSettingsDialog(page: Page): Promise<void> {
   }
   // 优先点击 TDesign Dialog 的显式关闭按钮（Escape 关闭依赖焦点，非总可靠）
   const closeBtn = dialog
-    .locator('.t-dialog__close, .t-dialog__header-close, button[aria-label="关闭"]')
+    .locator(
+      '.t-dialog__close, .t-dialog__header-close, button[aria-label="关闭"]'
+    )
     .first();
   if (await closeBtn.isVisible().catch(() => false)) {
     await closeBtn.click({ force: true });
@@ -261,7 +272,9 @@ export async function syncAndOpenBoard(
       await page.waitForTimeout(400);
     }
   }
-  throw new Error(`设备同步后画板「${boardName}」未出现在项目抽屉（重试后仍不可见）`);
+  throw new Error(
+    `设备同步后画板「${boardName}」未出现在项目抽屉（重试后仍不可见）`
+  );
 }
 
 /**
@@ -314,9 +327,7 @@ async function getAccessToken(page: Page): Promise<string> {
         const raw = localStorage.getItem(key) || '';
         const parsed = JSON.parse(raw);
         const token =
-          parsed?.currentSession?.access_token ||
-          parsed?.access_token ||
-          '';
+          parsed?.currentSession?.access_token || parsed?.access_token || '';
         if (token) {
           return token;
         }
@@ -412,7 +423,10 @@ export function classifyBoardElements(
 export async function fetchRemoteBoardContent(
   page: Page,
   boardName: string
-): Promise<{ content: Record<string, unknown>; row: Record<string, unknown> } | null> {
+): Promise<{
+  content: Record<string, unknown>;
+  row: Record<string, unknown>;
+} | null> {
   const rows = await fetchBoardRows(page);
   for (const row of rows) {
     const content = row.content as Record<string, unknown> | null;
@@ -431,14 +445,19 @@ export async function fetchRemoteBoardContent(
 export async function fetchRemoteBoardByElementId(
   page: Page,
   elementId: string
-): Promise<{ content: Record<string, unknown>; row: Record<string, unknown> } | null> {
+): Promise<{
+  content: Record<string, unknown>;
+  row: Record<string, unknown>;
+} | null> {
   const rows = await fetchBoardRows(page);
   for (const row of rows) {
     const content = row.content as Record<string, unknown> | null;
     if (!content) {
       continue;
     }
-    const elements = content.elements as Array<Record<string, unknown>> | undefined;
+    const elements = content.elements as
+      | Array<Record<string, unknown>>
+      | undefined;
     if (
       Array.isArray(elements) &&
       elements.some((el) => (el as Record<string, unknown>)?.id === elementId)
@@ -462,7 +481,11 @@ export async function isMediaSyncedToCloud(
     return null;
   }
   const res = await fetch(
-    `${SUPABASE.url}/rest/v1/user_sync_media?select=url&url=eq.${encodeURIComponent(mediaUrl)}`,
+    `${
+      SUPABASE.url
+    }/rest/v1/user_sync_media?select=url&url=eq.${encodeURIComponent(
+      mediaUrl
+    )}`,
     {
       headers: {
         apikey: SUPABASE.anonKey,
@@ -486,13 +509,21 @@ export async function isMediaSyncedToCloud(
 export async function probeRemoteMediaObject(
   page: Page,
   mediaUrl: string
-): Promise<{ rowFound: boolean; status: number | null; isMediaContent: boolean | null }> {
+): Promise<{
+  rowFound: boolean;
+  status: number | null;
+  isMediaContent: boolean | null;
+}> {
   const accessToken = await getAccessToken(page);
   if (!accessToken) {
     return { rowFound: false, status: null, isMediaContent: null };
   }
   const res = await fetch(
-    `${SUPABASE.url}/rest/v1/user_sync_media?select=storage_path&url=eq.${encodeURIComponent(mediaUrl)}`,
+    `${
+      SUPABASE.url
+    }/rest/v1/user_sync_media?select=storage_path&url=eq.${encodeURIComponent(
+      mediaUrl
+    )}`,
     {
       headers: {
         apikey: SUPABASE.anonKey,
@@ -505,7 +536,8 @@ export async function probeRemoteMediaObject(
   }
   const rows = (await res.json()) as Array<Record<string, unknown>>;
   if (rows.length === 0) {
-    return { rowFound: true, status: null, isMediaContent: null };
+    // 查询成功但 0 行 = 元数据行不存在（媒体尚未同步），语义应为 rowFound: false
+    return { rowFound: false, status: null, isMediaContent: null };
   }
   const storagePath = String(rows[0].storage_path ?? '');
   if (!storagePath) {
@@ -528,7 +560,8 @@ export async function probeRemoteMediaObject(
     try {
       const head = new Uint8Array(await dl.clone().arrayBuffer()).slice(0, 512);
       const text = new TextDecoder().decode(head).trimStart();
-      isMediaContent = !/^<!doctype html|<html[\s>]|<head[\s>]|<body[\s>]/i.test(text);
+      isMediaContent =
+        !/^<!doctype html|<html[\s>]|<head[\s>]|<body[\s>]/i.test(text);
     } catch {
       isMediaContent = null;
     }
@@ -547,7 +580,9 @@ export async function isCloudMediaObjectReady(
   mediaUrl: string
 ): Promise<boolean> {
   const probe = await probeRemoteMediaObject(page, mediaUrl);
-  return probe.rowFound && probe.status === 200 && probe.isMediaContent === true;
+  return (
+    probe.rowFound && probe.status === 200 && probe.isMediaContent === true
+  );
 }
 
 /** 从 Slate 段落结构中提取纯文本 */
