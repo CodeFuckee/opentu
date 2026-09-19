@@ -1,5 +1,36 @@
 ## Unreleased
 
+### refactor: 第四轮全仓库代码评审落地——行为保持重构五批（2026-09-20）
+
+- **评审报告**：`docs/code-review-2026-09-20.md`。按 code-review-skill 清单分 6 分区
+  （apps/web 含 sw 全量逐行、巨石组件、services、逻辑层/公共包、supabase/脚本、E2E）
+  评审，与前三轮报告逐条去重后新增 1 P0 + 4 P1 + 40 余 P2，全部附行号与处置标注；
+  全部 P0/P1 经人工二次核实。凡需改变行为的修复（云同步墓碑误判、对账锁看门狗、
+  批量视频重试无上限、页选择静默全选、DJB2 判重等）全部列入「待确认」，未经确认不动。
+- **批次1（apps/web SW 层）**：音频/视频拦截分支补 GET 守卫（对照图片分支，POST 上传
+  不再被强制转 GET）；videoBlobCache 写入后主动清理（纯视频会话不再只增不减）；
+  控制台日志 4 个 IDB 辅助函数 `await new Promise` 让既有 catch 真正兜底；getDB 失败
+  重置缓存句柄允许重试；缩略图删除同键重复 cache.put；crash-logger 死变量清理。
+- **批次2（组件层）**：AIInputBar/ai-video/ai-image-generation 的 initial* 初始值解析
+  useMemo 惰性化（每键击不再重读 localStorage 与 settings-manager 全量解析，首渲染
+  结果不变）；batch-image-generation 撤销历史改行级浅拷贝（消除每键击含 base64 整表
+  深克隆）+ O(n²) 索引化 + FileReader/提交链路错误兜底；settings-dialog 重复函数去重；
+  ModelSelector TypeIcon 提模块级；ResizableDivider 拖拽监听 effect 化（卸载不泄漏）；
+  FramePanel snapshot ref 写移出 updater；FrameSlideshow 定时器清理/updater 副作用
+  外移/关闭逻辑去重；ComicCreator updater 副作用外移；PromptHistoryPopover useMemo。
+- **批次3（utils/services）**：image-splitter 插入点函数改委托 selection-utils；
+  gemini-api/auth 自执行块改委托 initializeSettings（删 15 行逐字重复）；三份
+  DEFAULT_FRAME_NAME_REGEXP 收敛到 types/frame.types.ts；fallback-executor 死变量
+  t0 清理；sync-engine 两处静默失败补 warn；workflow-engine resume 并发双执行窗口
+  封堵；SupabaseSyncContext failed 列表不再静默丢弃。
+- **批次4（E2E 辅助）**：probeRemoteMediaObject 0 行时 rowFound 语义修正；template-seed
+  删除注定失败的 `in.(select ...)` 首请求。
+- **批次5（批量生成）**：ComicCreator 6 处 persistPatch 浮动调用补 .catch 留痕；
+  两个 GeneratePage 的 ensureBatchId 移入 try，失败时 finally 复位批量锁，
+  「全部→生成视频」按钮不再被永久卡死。
+- **测试**：每批次后 `pnpm test` 全量通过（4 项目 1483 用例 + 23 跳过）；
+  `pnpm check`（typecheck 5 项目 + lint 0 错误）全绿。
+
 ### refactor: 第三轮全仓库代码评审落地——行为保持重构两批（2026-09-19）
 
 - **评审报告**：`docs/code-review-2026-09-19.md`。按 code-review-skill 清单分 6 分区
