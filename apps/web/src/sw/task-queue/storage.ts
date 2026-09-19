@@ -350,7 +350,14 @@ export class TaskQueueStorage {
     if (!this.dbPromise) {
       this.dbPromise = openDB();
     }
-    return this.dbPromise;
+    // open 失败时清除缓存句柄，允许下次调用重试，避免 SW 存活期内
+    // 一次失败被永久缓存、后续所有任务持久化静默失败
+    try {
+      return await this.dbPromise;
+    } catch (error) {
+      this.dbPromise = null;
+      throw error;
+    }
   }
 
   /**

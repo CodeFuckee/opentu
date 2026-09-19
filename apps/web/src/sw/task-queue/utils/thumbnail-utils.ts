@@ -180,23 +180,9 @@ async function generateThumbnailForSize(
       },
     });
     
-    // 使用 Request 对象作为key，确保与查找时一致
-    const thumbnailRequest = new Request(cacheKey, { method: 'GET' });
-    await thumbCache.put(thumbnailRequest, createResponse());
-    
-    // 同时使用URL字符串作为key（兼容性）
+    // Cache API 会把 Request 规范化为 URL 字符串键，字符串键写入即同时
+    // 覆盖两种查找形态，无需再以 Request 键重复 put
     await thumbCache.put(cacheKey, createResponse());
-    
-    // 对于 /__aitu_cache__/ 路径，也使用pathname作为key（但需要包含 _thumb 参数）
-    try {
-      const url = new URL(cacheKey);
-      if (url.pathname.startsWith('/__aitu_cache__/') || url.pathname.startsWith('/asset-library/')) {
-        // 使用带 _thumb 参数的完整 URL 作为 key，而不是只使用 pathname
-        await thumbCache.put(cacheKey, createResponse());
-      }
-    } catch {
-      // URL解析失败，忽略
-    }
   } catch (error) {
     console.warn('[ThumbnailUtils] Failed to generate image thumbnail:', error);
     // 生成失败不影响主流程，静默失败
@@ -277,23 +263,9 @@ async function generateVideoThumbnailForSize(
       },
     });
     
-    // 使用 Request 对象作为key，确保与查找时一致
-    const thumbnailRequest = new Request(cacheKey, { method: 'GET' });
-    await thumbCache.put(thumbnailRequest, createResponse());
-    
-    // 同时使用URL字符串作为key（兼容性）
+    // Cache API 会把 Request 规范化为 URL 字符串键，字符串键写入即同时
+    // 覆盖两种查找形态，无需再以 Request 键重复 put
     await thumbCache.put(cacheKey, createResponse());
-    
-    // 对于 /__aitu_cache__/ 路径，也使用带 _thumb 参数的完整 URL 作为 key
-    try {
-      const url = new URL(cacheKey);
-      if (url.pathname.startsWith('/__aitu_cache__/') || url.pathname.startsWith('/asset-library/')) {
-        // 使用带 _thumb 参数的完整 URL 作为 key，而不是只使用 pathname
-        await thumbCache.put(cacheKey, createResponse());
-      }
-    } catch {
-      // URL解析失败，忽略
-    }
   } catch (error) {
     console.warn(`[ThumbnailUtils] ❌ Failed to generate ${size} video thumbnail:`, error);
     // 生成失败不影响主流程，静默失败

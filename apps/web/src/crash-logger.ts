@@ -641,7 +641,6 @@ export function startPeriodicSnapshots(): void {
   }
 
   // 追踪状态
-  let lastUsedMB = 0;
   let highMemoryCount = 0; // 连续高内存次数
 
   snapshotInterval = window.setInterval(() => {
@@ -681,8 +680,6 @@ export function startPeriodicSnapshots(): void {
       // 内存恢复正常，重置计数
       highMemoryCount = 0;
     }
-
-    lastUsedMB = usedMB;
   }, PERIODIC_SNAPSHOT_INTERVAL);
 }
 
@@ -1018,9 +1015,6 @@ function checkForWhitescreen(): void {
   const isBoardHidden =
     !!document.querySelector('[data-whitescreen-hidden="auth-gate"]') ||
     !!document.querySelector('[data-whitescreen-hidden]');
-
-  // 检查是否有可见内容
-  const bodyHasContent = document.body.children.length > 1; // 至少有 root 以外的元素
 
   // 如果 root 存在但没有子元素，可能是白屏
   if (root && !hasContent) {

@@ -616,7 +616,8 @@ async function saveConsoleLogToDB(logEntry: DebugLogEntry): Promise<void> {
     const store = transaction.objectStore('logs');
     store.add(logEntry);
 
-    return new Promise((resolve, reject) => {
+    // await 使事务级 rejection 进入下方 catch，而非逃逸给未设防的调用方
+    await new Promise<void>((resolve, reject) => {
       transaction.oncomplete = () => {
         db.close();
         resolve();
@@ -642,21 +643,21 @@ async function loadConsoleLogsFromDB(): Promise<DebugLogEntry[]> {
     const expirationTime =
       Date.now() - CONSOLE_LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 
-    return new Promise((resolve, reject) => {
+    const logs = await new Promise<DebugLogEntry[]>((resolve, reject) => {
       const request = index.openCursor(null, 'prev'); // 按时间倒序
-      const logs: DebugLogEntry[] = [];
+      const collected: DebugLogEntry[] = [];
 
       request.onsuccess = () => {
         const cursor = request.result;
         if (cursor) {
           const entry = cursor.value as DebugLogEntry;
           if (entry.timestamp >= expirationTime) {
-            logs.push(entry);
+            collected.push(entry);
           }
           cursor.continue();
         } else {
           db.close();
-          resolve(logs);
+          resolve(collected);
         }
       };
 
@@ -665,6 +666,7 @@ async function loadConsoleLogsFromDB(): Promise<DebugLogEntry[]> {
         reject(request.error);
       };
     });
+    return logs;
   } catch (error) {
     console.warn('Service Worker: 无法加载控制台日志:', error);
     return [];
@@ -683,22 +685,22 @@ async function cleanupExpiredConsoleLogs(): Promise<number> {
       Date.now() - CONSOLE_LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000;
     const range = IDBKeyRange.upperBound(expirationTime);
 
-    return new Promise((resolve, reject) => {
+    const deletedCount = await new Promise<number>((resolve, reject) => {
       const request = index.openCursor(range);
-      let deletedCount = 0;
+      let count = 0;
 
       request.onsuccess = () => {
         const cursor = request.result;
         if (cursor) {
           cursor.delete();
-          deletedCount++;
+          count++;
           cursor.continue();
         } else {
           db.close();
-          if (deletedCount > 0) {
-            // console.log(`Service Worker: 清理了 ${deletedCount} 条过期控制台日志`);
+          if (count > 0) {
+            // console.log(`Service Worker: 清理了 ${count} 条过期控制台日志`);
           }
-          resolve(deletedCount);
+          resolve(count);
         }
       };
 
@@ -707,6 +709,7 @@ async function cleanupExpiredConsoleLogs(): Promise<number> {
         reject(request.error);
       };
     });
+    return deletedCount;
   } catch (error) {
     console.warn('Service Worker: 无法清理过期日志:', error);
     return 0;
@@ -721,7 +724,8 @@ async function clearAllConsoleLogs(): Promise<void> {
     const store = transaction.objectStore('logs');
     store.clear();
 
-    return new Promise((resolve, reject) => {
+    // await 使事务级 rejection 进入下方 catch，而非逃逸给未设防的调用方
+    await new Promise<void>((resolve, reject) => {
       transaction.oncomplete = () => {
         db.close();
         resolve();
@@ -4438,7 +4442,15 @@ sw.addEventListener('fetch', (event: FetchEvent) => {
     return; // 静默放行，让浏览器直接处理
   }
 
-  if (url.origin !== location.origin && isAudioRequest(url, event.request)) {
+  // 拦截外部音频请求（非同源、GET 且为音频格式）
+  // 注意必须是 GET：与下方图片分支同理，POST 上传（URL 以 .mp3/.wav 结尾或
+  // destination 为 audio）若被当作音频处理，handleAudioRequest 会强制以 GET
+  // 重新 fetch，上传请求会静默变成对象读取。
+  if (
+    url.origin !== location.origin &&
+    event.request.method === 'GET' &&
+    isAudioRequest(url, event.request)
+  ) {
     const startTime = Date.now();
     const rangeHeader = event.request.headers.get('range');
     const debugId = addDebugLog({
@@ -4481,7 +4493,10 @@ sw.addEventListener('fetch', (event: FetchEvent) => {
   }
 
   // 拦截视频请求以支持 Range 请求
-  if (isVideoRequest(url, event.request)) {
+  // 注意必须是 GET：与图片/音频分支同理，非 GET（如 POST 上传到 .mp4 结尾 URL
+  // 或 hash 含 'video' 的地址——isVideoRequest 的 hash 匹配较宽）不能被当作
+  // 视频处理，handleVideoRequest 会强制以 GET 重新 fetch，导致上传被静默改写。
+  if (event.request.method === 'GET' && isVideoRequest(url, event.request)) {
     // console.log('Service Worker: Intercepting video request:', url.href);
     const startTime = Date.now();
     const rangeHeader = event.request.headers.get('range');
@@ -5430,6 +5445,9 @@ async function handleVideoRequest(request: Request): Promise<Response> {
             blob: videoBlob,
             timestamp: Date.now(),
           });
+          // 纯视频会话中图片路径的周期清理不会触发，这里写入后主动清理，
+          // 避免长会话内存缓存只增不减
+          cleanupVideoBlobCache();
           // console.log(`Service Worker [Video-${requestId}]: 视频已恢复到内存缓存`);
         }
 
@@ -5481,6 +5499,9 @@ async function handleVideoRequest(request: Request): Promise<Response> {
             blob: videoBlob,
             timestamp: Date.now(),
           });
+          // 纯视频会话中图片路径的周期清理不会触发，这里写入后主动清理，
+          // 避免长会话内存缓存只增不减
+          cleanupVideoBlobCache();
           // 2. 持久化到 Cache API（用于跨会话持久化）
           try {
             const cache = await caches.open(IMAGE_CACHE_NAME);
