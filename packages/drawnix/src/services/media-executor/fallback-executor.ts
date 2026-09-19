@@ -355,7 +355,6 @@ export class FallbackMediaExecutor implements IMediaExecutor {
       // 处理参考图片：统一转为 base64（API 要求），并行处理提升性能
       let processedImages: string[] | undefined;
       if (referenceImages && referenceImages.length > 0) {
-        const t0 = performance.now();
         processedImages = await Promise.all(
           referenceImages.map(async (imgUrl) => {
             const imageData = await unifiedCacheService.getImageForAI(imgUrl);
@@ -524,7 +523,6 @@ export class FallbackMediaExecutor implements IMediaExecutor {
       // 处理参考图片：统一转为 base64（与同步路径一致），并行处理
       let processedImages: string[] | undefined;
       if (params.referenceImages && params.referenceImages.length > 0) {
-        const t0 = performance.now();
         processedImages = await Promise.all(
           params.referenceImages.map(async (imgUrl) => {
             const imageData = await unifiedCacheService.getImageForAI(imgUrl);
@@ -719,7 +717,6 @@ export class FallbackMediaExecutor implements IMediaExecutor {
         (params.inputReference ? [params.inputReference] : undefined);
       let referenceImages: string[] | undefined;
       if (refUrls && refUrls.length > 0) {
-        const t0 = performance.now();
         const isVirtual = (u: string) =>
           u.startsWith('/__aitu_cache__/') || u.startsWith('/asset-library/');
         referenceImages = await Promise.all(

@@ -13,7 +13,10 @@ import {
 import { trackMemory } from './common';
 import { DrawTransforms } from '@plait/draw';
 import { loadImage, trimBorders } from '@aitu/utils';
-import { scrollToPointIfNeeded } from './selection-utils';
+import {
+  scrollToPointIfNeeded,
+  getInsertionPointBelowBottommostElement,
+} from './selection-utils';
 import {
   type SplitImageElement,
   type TrimMode,
@@ -607,7 +610,8 @@ function detectHardSeamGridFromImage(
 
     const score =
       seamStats.reduce(
-        (sum, stats) => sum + stats.mean * stats.strongRatio * stats.edgeBalance,
+        (sum, stats) =>
+          sum + stats.mean * stats.strongRatio * stats.edgeBalance,
         0
       ) / seamStats.length;
 
@@ -1097,7 +1101,8 @@ async function splitUniformGrid(
   if (probeCtx) {
     probeCtx.drawImage(img, 0, 0, probeW, probeH);
     sourceHasAlpha =
-      sourceHasAlpha || hasTransparency(probeCtx.getImageData(0, 0, probeW, probeH));
+      sourceHasAlpha ||
+      hasTransparency(probeCtx.getImageData(0, 0, probeW, probeH));
   }
 
   // 精确计算每个格子的尺寸
@@ -1137,7 +1142,10 @@ async function splitUniformGrid(
       );
 
       elements.push({
-        imageData: canvas.toDataURL(sourceHasAlpha ? 'image/png' : 'image/jpeg', 0.92),
+        imageData: canvas.toDataURL(
+          sourceHasAlpha ? 'image/png' : 'image/jpeg',
+          0.92
+        ),
         index,
         width: cellWidth,
         height: cellHeight,
@@ -1598,7 +1606,10 @@ async function trimImageWhiteBorders(imageUrl: string): Promise<{
   const sourceHasAlpha = hasTransparency(imageData);
 
   return {
-    trimmedImageUrl: trimmedCanvas.toDataURL(sourceHasAlpha ? 'image/png' : 'image/jpeg', 0.95),
+    trimmedImageUrl: trimmedCanvas.toDataURL(
+      sourceHasAlpha ? 'image/png' : 'image/jpeg',
+      0.95
+    ),
     borderInfo: {
       original: { width: originalWidth, height: originalHeight },
       trimmed: { width: trimmedWidth, height: trimmedHeight },
@@ -1785,54 +1796,16 @@ export async function recursiveSplitElement(
 /**
  * 获取画布最底部元素下方的插入位置
  * 用于在没有指定 startPoint 和 sourceRect 时计算默认插入位置
+ *
+ * 委托 selection-utils 的同名实现（同算法），仅按本模块的历史契约
+ * 把 Point/undefined 映射为对象/兜底坐标 {100,100}
  */
 function getBottommostInsertionPoint(board: PlaitBoard): {
   x: number;
   y: number;
 } {
-  if (!board.children || board.children.length === 0) {
-    return { x: 100, y: 100 };
-  }
-
-  try {
-    let bottommostElement: PlaitElement | null = null;
-    let maxBottomY = -Infinity;
-
-    for (const element of board.children) {
-      try {
-        const rect = getRectangleByElements(
-          board,
-          [element as PlaitElement],
-          false
-        );
-        const bottomY = rect.y + rect.height;
-
-        if (bottomY > maxBottomY) {
-          maxBottomY = bottomY;
-          bottommostElement = element as PlaitElement;
-        }
-      } catch {
-        // 忽略无法计算矩形的元素
-      }
-    }
-
-    if (!bottommostElement) {
-      return { x: 100, y: 100 };
-    }
-
-    const bottommostRect = getRectangleByElements(
-      board,
-      [bottommostElement],
-      false
-    );
-    // 在最底部元素的左侧开始，下方 50px
-    return {
-      x: bottommostRect.x,
-      y: bottommostRect.y + bottommostRect.height + 50,
-    };
-  } catch {
-    return { x: 100, y: 100 };
-  }
+  const point = getInsertionPointBelowBottommostElement(board);
+  return point ? { x: point[0], y: point[1] } : { x: 100, y: 100 };
 }
 
 /**

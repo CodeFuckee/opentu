@@ -40,7 +40,11 @@ export class WorkflowEngine {
     this.options = {
       stepTimeout: options.stepTimeout ?? 10 * 60 * 1000, // 10 分钟
       continueOnError: options.continueOnError ?? false,
-      onEvent: options.onEvent ?? (() => { /* 默认空事件回调 */ }),
+      onEvent:
+        options.onEvent ??
+        (() => {
+          /* 默认空事件回调 */
+        }),
       executeMainThreadTool: options.executeMainThreadTool,
       forceFallbackExecutor: options.forceFallbackExecutor ?? false,
     };
@@ -122,6 +126,12 @@ export class WorkflowEngine {
     // 从 IndexedDB 加载
     const workflow = await workflowStorageWriter.getWorkflow(workflowId);
     if (!workflow) {
+      return;
+    }
+
+    // await 窗口内可能已有并发 resume 装载并开始执行同一工作流，
+    // 此时直接放弃本次恢复，避免两份副本重复执行同一步骤
+    if (this.workflows.has(workflowId)) {
       return;
     }
 

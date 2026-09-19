@@ -28,9 +28,17 @@ import {
 import { syncMediaToSupabase } from '../services/supabase-sync/media-sync';
 import { applyRemoteEntities } from '../services/supabase-sync/apply-remote';
 import { deleteLocalEntities } from '../services/supabase-sync/delete-local';
-import { mergeBoardElements, resolveBoardConflict, toDiffInput } from '../services/supabase-sync/merge';
+import {
+  mergeBoardElements,
+  resolveBoardConflict,
+  toDiffInput,
+} from '../services/supabase-sync/merge';
 import { kvStorageService } from '../services/kv-storage-service';
-import type { SupabaseSyncStatus, SupabaseSyncResult, SyncEntity } from '../services/supabase-sync/types';
+import type {
+  SupabaseSyncStatus,
+  SupabaseSyncResult,
+  SyncEntity,
+} from '../services/supabase-sync/types';
 import type { SupabaseSyncDeps } from '../services/supabase-sync/sync-engine';
 import { entityKey, parseEntityKey } from '../services/supabase-sync/checksum';
 import { logInfo, logError, logSuccess } from '../services/supabase-sync/log';
@@ -53,7 +61,9 @@ interface SupabaseSyncContextValue {
   pullFromRemote: () => Promise<SupabaseSyncResult>;
 }
 
-const SupabaseSyncContext = createContext<SupabaseSyncContextValue | null>(null);
+const SupabaseSyncContext = createContext<SupabaseSyncContextValue | null>(
+  null
+);
 
 const emptyResult: SupabaseSyncResult = {
   success: false,
@@ -71,7 +81,8 @@ interface SupabaseSyncProviderProps {
 
 export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
   const [isConfigured, setIsConfigured] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<SupabaseSyncStatus>('not_configured');
+  const [syncStatus, setSyncStatus] =
+    useState<SupabaseSyncStatus>('not_configured');
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -99,8 +110,11 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
         const { entities } = await fetchRemoteEntities(config, userId);
         return entities;
       },
-      upsertRemote: async (c: unknown, userId: string, entities: SyncEntity[]) =>
-        upsertRemoteEntities(config, userId, entities),
+      upsertRemote: async (
+        c: unknown,
+        userId: string,
+        entities: SyncEntity[]
+      ) => upsertRemoteEntities(config, userId, entities),
       softDeleteRemote: async (c: unknown, userId: string, keys: string[]) =>
         softDeleteRemoteEntities(config, userId, keys),
       applyRemote: async (opts: { entities: SyncEntity[] }) => {
@@ -128,7 +142,9 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
           );
           if (hasConflicts) {
             // 合并结果保留本地 updatedAt 较大值；写回本地并上传
-            void applyRemoteEntities([{ ...remoteEntity, content: mergedBoard }]);
+            void applyRemoteEntities([
+              { ...remoteEntity, content: mergedBoard },
+            ]);
           }
         }
         return resolveBoardConflict(
@@ -143,85 +159,93 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
   }, []);
 
   /** 执行同步（内部用当前 config） */
-  const performSync = useCallback(
-    async (): Promise<SupabaseSyncResult> => {
-      if (syncRef.current.inProgress) {
-        return { ...emptyResult, error: '同步正在进行中' };
-      }
-      const config = getSupabaseSyncConfig();
-      if (!config) {
-        return { ...emptyResult, error: '未登录，无法同步' };
-      }
+  const performSync = useCallback(async (): Promise<SupabaseSyncResult> => {
+    if (syncRef.current.inProgress) {
+      return { ...emptyResult, error: '同步正在进行中' };
+    }
+    const config = getSupabaseSyncConfig();
+    if (!config) {
+      return { ...emptyResult, error: '未登录，无法同步' };
+    }
 
-      syncRef.current.inProgress = true;
-      setIsSyncing(true);
-      setSyncStatus('syncing');
+    syncRef.current.inProgress = true;
+    setIsSyncing(true);
+    setSyncStatus('syncing');
 
-      try {
-        // 画布全量保存走防抖：上传前先把挂起保存落盘，否则收集到旧快照
-        await workspaceService
-          .flushPendingCurrentBoardSave()
-          .catch(() => undefined);
-        // 获取当前用户
-        const client = config.client as {
-          auth: {
-            getSession: () => Promise<{
-              data: { session: { user: { id: string; email?: string } | null } | null };
-            }>;
-          };
+    try {
+      // 画布全量保存走防抖：上传前先把挂起保存落盘，否则收集到旧快照
+      await workspaceService
+        .flushPendingCurrentBoardSave()
+        .catch(() => undefined);
+      // 获取当前用户
+      const client = config.client as {
+        auth: {
+          getSession: () => Promise<{
+            data: {
+              session: { user: { id: string; email?: string } | null } | null;
+            };
+          }>;
         };
-        const { data } = await client.auth.getSession();
-        const user = data.session?.user;
-        if (!user) {
-          setSyncStatus('error');
-          setError('未能获取登录用户');
-          return { ...emptyResult, error: '未能获取登录用户' };
-        }
-
-        const deps = buildDeps();
-        if (!deps) {
-          setSyncStatus('error');
-          return { ...emptyResult, error: '同步未配置' };
-        }
-
-        logInfo('开始 Supabase 云同步', { userId: user.id });
-        const result = await runSync({
-          ...deps,
-          user: { id: user.id, email: user.email },
-        });
-
-        syncRef.current.last = Date.now();
-        setLastSyncTime(syncRef.current.last);
-        await kvStorageService.set(LAST_SYNC_KEY, syncRef.current.last);
-
-        if (result.success) {
-          setSyncStatus('synced');
-          setError(null);
-          pendingChangesRef.current = false;
-          logSuccess('云同步完成', {
-            uploaded: result.uploaded,
-            downloaded: result.downloaded,
-            deleted: result.deleted,
-            conflicts: result.conflicts,
-          });
-        } else {
-          setSyncStatus('error');
-          setError(result.error ?? '同步失败');
-          logError('云同步失败', result.error ? new Error(result.error) : new Error('同步失败'));
-        }
-        return result;
-      } catch (err) {
+      };
+      const { data } = await client.auth.getSession();
+      const user = data.session?.user;
+      if (!user) {
         setSyncStatus('error');
-        setError(err instanceof Error ? err.message : '同步失败');
-        logError('云同步异常', err instanceof Error ? err : new Error(String(err)));
-        return { ...emptyResult, error: err instanceof Error ? err.message : '同步失败' };
-      } finally {
-        syncRef.current.inProgress = false;
-        setIsSyncing(false);
+        setError('未能获取登录用户');
+        return { ...emptyResult, error: '未能获取登录用户' };
       }
-    },
-    [buildDeps]
-  );
+
+      const deps = buildDeps();
+      if (!deps) {
+        setSyncStatus('error');
+        return { ...emptyResult, error: '同步未配置' };
+      }
+
+      logInfo('开始 Supabase 云同步', { userId: user.id });
+      const result = await runSync({
+        ...deps,
+        user: { id: user.id, email: user.email },
+      });
+
+      syncRef.current.last = Date.now();
+      setLastSyncTime(syncRef.current.last);
+      await kvStorageService.set(LAST_SYNC_KEY, syncRef.current.last);
+
+      if (result.success) {
+        setSyncStatus('synced');
+        setError(null);
+        pendingChangesRef.current = false;
+        logSuccess('云同步完成', {
+          uploaded: result.uploaded,
+          downloaded: result.downloaded,
+          deleted: result.deleted,
+          conflicts: result.conflicts,
+        });
+      } else {
+        setSyncStatus('error');
+        setError(result.error ?? '同步失败');
+        logError(
+          '云同步失败',
+          result.error ? new Error(result.error) : new Error('同步失败')
+        );
+      }
+      return result;
+    } catch (err) {
+      setSyncStatus('error');
+      setError(err instanceof Error ? err.message : '同步失败');
+      logError(
+        '云同步异常',
+        err instanceof Error ? err : new Error(String(err))
+      );
+      return {
+        ...emptyResult,
+        error: err instanceof Error ? err.message : '同步失败',
+      };
+    } finally {
+      syncRef.current.inProgress = false;
+      setIsSyncing(false);
+    }
+  }, [buildDeps]);
 
   /** 初始化：读取上次同步时间 + 注册状态监听 */
   useEffect(() => {
@@ -231,7 +255,9 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
     initializedRef.current = true;
 
     const init = async () => {
-      const saved = await kvStorageService.get<number>(LAST_SYNC_KEY).catch(() => null);
+      const saved = await kvStorageService
+        .get<number>(LAST_SYNC_KEY)
+        .catch(() => null);
       if (typeof saved === 'number') {
         syncRef.current.last = saved;
         setLastSyncTime(saved);
@@ -261,7 +287,14 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
     const workspaceSubscription = workspaceService
       .observeEvents()
       .subscribe((event: { type: string }) => {
-        const syncTriggerEvents = ['boardCreated', 'boardUpdated', 'boardDeleted', 'folderCreated', 'folderUpdated', 'folderDeleted'];
+        const syncTriggerEvents = [
+          'boardCreated',
+          'boardUpdated',
+          'boardDeleted',
+          'folderCreated',
+          'folderUpdated',
+          'folderDeleted',
+        ];
         if (!syncTriggerEvents.includes(event.type)) {
           return;
         }
@@ -348,7 +381,9 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
     let result: SupabaseSyncResult;
     try {
       // 上传前落盘挂起的画布保存（同 performSync）
-      await workspaceService.flushPendingCurrentBoardSave().catch(() => undefined);
+      await workspaceService
+        .flushPendingCurrentBoardSave()
+        .catch(() => undefined);
       result = await runSync({
         ...deps,
         user: { id: user.id },
@@ -393,7 +428,9 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
     }
     syncRef.current.inProgress = true;
     try {
-      await workspaceService.flushPendingCurrentBoardSave().catch(() => undefined);
+      await workspaceService
+        .flushPendingCurrentBoardSave()
+        .catch(() => undefined);
       const remote = await fetchRemoteEntities(config, user.id);
       // 拆分：有效实体 → 应用下载；墓碑实体（deleted_at 非空）→ 本地删除，
       // 保证「下载远程」与「立即同步」的画板数量语义一致（墓碑不复活、生效删除）
@@ -401,10 +438,20 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
       const tombstoneKeys = remote.entities
         .filter((e) => !!e.deleted_at)
         .map((e) => entityKey(e.entity_type, e.entity_id));
-      const { applied } = await applyRemoteEntities(activeEntities);
+      const { applied, failed } = await applyRemoteEntities(activeEntities);
+      if (failed.length > 0) {
+        // 失败实体此前被静默丢弃，留痕便于排查（是否重试/影响基线推进属
+        // 行为语义变更，另行决策）
+        console.warn(
+          '[SupabaseSync] applyRemoteEntities failed entities:',
+          failed
+        );
+      }
       let deleted = 0;
       if (tombstoneKeys.length > 0) {
-        const { deleted: tombstoneDeleted } = await deleteLocalEntities(tombstoneKeys);
+        const { deleted: tombstoneDeleted } = await deleteLocalEntities(
+          tombstoneKeys
+        );
         deleted = tombstoneDeleted;
       }
       // 同步更新 syncRef 基线（同 pushToRemote）
@@ -447,7 +494,9 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
 export function useSupabaseSync(): SupabaseSyncContextValue {
   const context = useContext(SupabaseSyncContext);
   if (!context) {
-    throw new Error('useSupabaseSync must be used within a SupabaseSyncProvider');
+    throw new Error(
+      'useSupabaseSync must be used within a SupabaseSyncProvider'
+    );
   }
   return context;
 }

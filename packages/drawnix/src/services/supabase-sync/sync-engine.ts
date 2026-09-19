@@ -38,7 +38,10 @@ export interface SupabaseSyncDeps {
   /** 当前登录用户 */
   user: SupabaseSyncUser | null;
   /** 收集本地快照 */
-  collectLocal: () => Promise<{ entities: SyncEntity[]; stats: { total: number } }>;
+  collectLocal: () => Promise<{
+    entities: SyncEntity[];
+    stats: { total: number };
+  }>;
   /** 拉取远程全部实体（按用户） */
   fetchRemote: (client: unknown, userId: string) => Promise<SyncEntity[]>;
   /** 批量 upsert 实体（含新增/更新） */
@@ -76,7 +79,9 @@ export interface SupabaseSyncDeps {
 /**
  * 执行一次完整同步。返回统一结果；任何错误捕获为 error 结果（不抛出）。
  */
-export async function runSync(deps: SupabaseSyncDeps): Promise<SupabaseSyncResult> {
+export async function runSync(
+  deps: SupabaseSyncDeps
+): Promise<SupabaseSyncResult> {
   const startTime = Date.now();
 
   if (!deps.user) {
@@ -135,7 +140,11 @@ export async function runSync(deps: SupabaseSyncDeps): Promise<SupabaseSyncResul
     if (toUploadEntities.length > 0) {
       for (let i = 0; i < toUploadEntities.length; i += BATCH_SIZE) {
         const batch = toUploadEntities.slice(i, i + BATCH_SIZE);
-        const { error } = await deps.upsertRemote(deps.client, deps.user.id, batch);
+        const { error } = await deps.upsertRemote(
+          deps.client,
+          deps.user.id,
+          batch
+        );
         if (error) {
           return {
             success: false,
@@ -174,18 +183,25 @@ export async function runSync(deps: SupabaseSyncDeps): Promise<SupabaseSyncResul
       if (resolution === 'remote') {
         // 下载远程（覆盖本地）
         if (deps.applyRemote) {
-          const { applied } = await deps.applyRemote({ entities: [remoteEntity] });
+          const { applied } = await deps.applyRemote({
+            entities: [remoteEntity],
+          });
           downloaded += applied;
         }
       } else {
         // 保留本地 → 上传本地版本（以本地为准）
-        const { error } = await deps.upsertRemote(
-          deps.client,
-          deps.user.id,
-          [localEntity]
-        );
+        const { error } = await deps.upsertRemote(deps.client, deps.user.id, [
+          localEntity,
+        ]);
         if (!error) {
           uploaded += 1;
+        } else {
+          // 冲突「保留本地」的上传失败此前被静默忽略，留痕便于排查
+          console.warn(
+            '[SupabaseSync] conflict resolution upload failed:',
+            key,
+            error
+          );
         }
       }
     }
@@ -199,13 +215,17 @@ export async function runSync(deps: SupabaseSyncDeps): Promise<SupabaseSyncResul
       }
     }
     if (toDownloadEntities.length > 0 && deps.applyRemote) {
-      const { applied } = await deps.applyRemote({ entities: toDownloadEntities });
+      const { applied } = await deps.applyRemote({
+        entities: toDownloadEntities,
+      });
       downloaded += applied;
     }
 
     // 4d. 本地删除（墓碑下载侧）
     if (diff.toDeleteLocally.length > 0 && deps.deleteLocal) {
-      const { deleted: deletedCount } = await deps.deleteLocal(diff.toDeleteLocally);
+      const { deleted: deletedCount } = await deps.deleteLocal(
+        diff.toDeleteLocally
+      );
       deleted += deletedCount;
     }
 
@@ -222,10 +242,10 @@ export async function runSync(deps: SupabaseSyncDeps): Promise<SupabaseSyncResul
       }
     }
 
-    // 6. 媒体同步（fire-and-forget：失败不阻塞主流程）
+    // 6. 媒体同步（fire-and-forget：失败不阻塞主流程，但需留痕可观测）
     if (deps.syncMedia) {
-      deps.syncMedia(deps.client, deps.user.id).catch(() => {
-        /* 媒体同步失败静默，主同步已成功 */
+      deps.syncMedia(deps.client, deps.user.id).catch((error) => {
+        console.warn('[SupabaseSync] media sync failed:', error);
       });
     }
 

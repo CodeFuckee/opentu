@@ -238,30 +238,6 @@ function getSettingsFromUrl(): { apiKey?: string; baseUrl?: string } | null {
 }
 
 /**
- * 从URL中移除apiKey参数
- */
-function removeApiKeyFromUrl(): void {
-  if (typeof window === 'undefined') return;
-
-  const url = new URL(window.location.href);
-  let hasChanges = false;
-
-  if (url.searchParams.has('apiKey')) {
-    url.searchParams.delete('apiKey');
-    hasChanges = true;
-  }
-
-  if (url.searchParams.has('settings')) {
-    url.searchParams.delete('settings');
-    hasChanges = true;
-  }
-
-  if (hasChanges) {
-    window.history.replaceState({}, document.title, url.toString());
-  }
-}
-
-/**
  * 初始化设置：从URL获取settings参数并处理
  */
 export function initializeSettings(): void {
@@ -290,18 +266,7 @@ export function initializeSettings(): void {
 }
 
 // Initialize settings from URL if present
+// 委托上方 initializeSettings（原先此处是逐字重复的第二份实现）
 if (typeof window !== 'undefined') {
-  // 处理settings参数
-  const settings = getSettingsFromUrl();
-  // 处理单独的apiKey参数
-  const apiKey = getApiKeyFromUrl();
-
-  if (settings?.apiKey || settings?.baseUrl || apiKey) {
-    geminiSettings.update({
-      ...(settings?.apiKey && { apiKey: settings.apiKey }),
-      ...(settings?.baseUrl && { baseUrl: settings.baseUrl }),
-      ...(apiKey && { apiKey: apiKey }),
-    });
-    removeApiKeyFromUrl();
-  }
+  initializeSettings();
 }

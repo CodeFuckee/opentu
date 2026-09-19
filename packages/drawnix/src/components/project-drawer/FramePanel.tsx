@@ -55,6 +55,7 @@ import {
   PlaitFrame,
   getFrameDisplayName,
   isFrameElement,
+  DEFAULT_FRAME_NAME_REGEXP,
 } from '../../types/frame.types';
 import { FrameTransforms } from '../../plugins/with-frame';
 import { DialogType, useDrawnix } from '../../hooks/use-drawnix';
@@ -225,7 +226,6 @@ const PPT_LAYOUT_COLUMN_OPTIONS = Array.from(
   { length: 10 },
   (_, index) => index + 1
 );
-const DEFAULT_FRAME_NAME_REGEXP = /^(?:Frame|Slide|PPT\s*页面)\s*\d+$/i;
 
 function getAnalyticsErrorName(error: unknown): string {
   return error instanceof Error ? error.name || 'Error' : typeof error;

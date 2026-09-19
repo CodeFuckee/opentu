@@ -13,7 +13,11 @@ import {
   idCreator,
 } from '@plait/core';
 import { DrawTransforms } from '@plait/draw';
-import { isFrameElement, type PlaitFrame } from '../types/frame.types';
+import {
+  isFrameElement,
+  type PlaitFrame,
+  DEFAULT_FRAME_NAME_REGEXP,
+} from '../types/frame.types';
 import { FrameTransforms } from '../plugins/with-frame';
 import { getImageRegion } from '../services/ppt/ppt-layout-engine';
 import type {
@@ -27,7 +31,6 @@ const PPT_PLACEHOLDER_IMAGE_URL =
 
 type PPTImageStatus = 'placeholder' | 'loading' | 'generated' | 'failed';
 const PPT_SLIDE_IMAGE_HISTORY_LIMIT = 20;
-const DEFAULT_FRAME_NAME_REGEXP = /^(Frame|Slide|PPT\s*页面)\s*\d+$/i;
 const PPT_FRAME_TITLE_PROMPT_LENGTH = 10;
 
 export type FrameMediaInsertionResult =
@@ -526,7 +529,8 @@ export function syncEditedPPTSlideImage(
 
   const pptMeta = getFramePPTMeta(board, frameId);
   const isCurrentPPTSlideImage =
-    element.pptSlideImage === true || pptMeta?.slideImageElementId === elementId;
+    element.pptSlideImage === true ||
+    pptMeta?.slideImageElementId === elementId;
   if (!isCurrentPPTSlideImage) {
     return;
   }
@@ -598,7 +602,9 @@ export function insertPPTImagePlaceholder(
   Transforms.insertNode(board, placeholderElement, [board.children.length]);
 }
 
-export function getSelectedInsertionFrame(board: PlaitBoard): PlaitFrame | null {
+export function getSelectedInsertionFrame(
+  board: PlaitBoard
+): PlaitFrame | null {
   const selectedElements = getSelectedElements(board);
   if (selectedElements.length > 0) {
     const selectedElement = selectedElements[0];

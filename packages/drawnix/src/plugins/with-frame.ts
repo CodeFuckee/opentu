@@ -30,6 +30,7 @@ import {
   PlaitFrame,
   getFrameDisplayName,
   isFrameElement,
+  DEFAULT_FRAME_NAME_REGEXP,
 } from '../types/frame.types';
 import { FrameComponent } from '../components/frame-element/frame.component';
 import {
@@ -52,7 +53,9 @@ export const FramePointerType = 'frame' as const;
 
 /** 生成唯一的 Frame ID（避免同毫秒批量创建冲突） */
 const generateFrameId = () => {
-  return `frame-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 9)}`;
+  return `frame-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .substring(2, 9)}`;
 };
 
 type RectLike = { x: number; y: number; width: number; height: number };
@@ -61,7 +64,6 @@ type PPTFrameDeletionReflowSnapshot = {
   startPosition: Point;
   columns: number;
 };
-const DEFAULT_FRAME_NAME_REGEXP = /^(?:Frame|Slide|PPT\s*页面)\s*\d+$/i;
 
 function getElementRect(element: PlaitElement): RectLike | null {
   const points = (element as PlaitElement & { points?: Point[] }).points;
@@ -189,7 +191,9 @@ function moveElementByDelta(
     return;
   }
 
-  const elementIndex = board.children.findIndex((child) => child.id === element.id);
+  const elementIndex = board.children.findIndex(
+    (child) => child.id === element.id
+  );
   if (elementIndex === -1) {
     return;
   }
@@ -370,10 +374,7 @@ function reorderRootFramesByIds(
   }
 }
 
-function renumberPPTFrames(
-  board: PlaitBoard,
-  orderedFrameIds: string[]
-): void {
+function renumberPPTFrames(board: PlaitBoard, orderedFrameIds: string[]): void {
   orderedFrameIds.forEach((frameId, index) => {
     const frameIndex = board.children.findIndex(
       (element) => element.id === frameId && isFrameElement(element)
@@ -393,7 +394,9 @@ function renumberPPTFrames(
         pptMeta: {
           ...(frame.pptMeta || {}),
           pageIndex,
-          ...(!frame.pptMeta ? { slideImageStatus: 'placeholder' as const } : {}),
+          ...(!frame.pptMeta
+            ? { slideImageStatus: 'placeholder' as const }
+            : {}),
         },
       } as any,
       [frameIndex]
@@ -574,7 +577,11 @@ export const FrameTransforms = {
   /**
    * 绑定元素到 Frame
    */
-  bindToFrame(board: PlaitBoard, element: PlaitElement, frame: PlaitFrame): void {
+  bindToFrame(
+    board: PlaitBoard,
+    element: PlaitElement,
+    frame: PlaitFrame
+  ): void {
     const index = board.children.findIndex((el) => el.id === element.id);
     if (index !== -1) {
       Transforms.setNode(board, { frameId: frame.id } as any, [index]);
@@ -610,7 +617,8 @@ export const FrameTransforms = {
       if (element.id === frame.id) continue;
       if (isFrameElement(element)) continue;
 
-      const currentFrameId = (element as PlaitElement & { frameId?: string }).frameId;
+      const currentFrameId = (element as PlaitElement & { frameId?: string })
+        .frameId;
       const associatedFrameId = getAssociatedFrameIdByMaxIntersection(
         board,
         element
@@ -663,7 +671,9 @@ export const withFrame: PlaitPlugin = (board: PlaitBoard) => {
   // 注册 getDeletedFragment：删除选中的 Frame 时一并删除绑定内容
   board.getDeletedFragment = (data: PlaitElement[]) => {
     const selectedElements = getSelectedElements(board);
-    const selectedFrames = selectedElements.filter(isFrameElement) as PlaitFrame[];
+    const selectedFrames = selectedElements.filter(
+      isFrameElement
+    ) as PlaitFrame[];
     if (selectedFrames.length) {
       const frameIds = new Set(selectedFrames.map((frame) => frame.id));
       const existingIds = new Set(data.map((element) => element.id));
@@ -741,7 +751,7 @@ export const withFrame: PlaitPlugin = (board: PlaitBoard) => {
       const rect = RectangleClient.getRectangleByPoints(element.points);
       const selectionRect = RectangleClient.getRectangleByPoints([
         selection.anchor,
-        selection.focus
+        selection.focus,
       ]);
       return isRectIntersect(rect, selectionRect);
     }
@@ -800,7 +810,10 @@ export const withFrame: PlaitPlugin = (board: PlaitBoard) => {
         width: Math.max(0, rect.width - borderWidth * 2),
         height: Math.max(0, rect.height - borderWidth * 2),
       };
-      if (isPointInRect(viewBoxPoint, outerRect) && !isPointInRect(viewBoxPoint, innerRect)) {
+      if (
+        isPointInRect(viewBoxPoint, outerRect) &&
+        !isPointInRect(viewBoxPoint, innerRect)
+      ) {
         createFrameTitleEditor(board, frame);
         event.preventDefault();
         event.stopPropagation();
@@ -846,7 +859,10 @@ export const withFrame: PlaitPlugin = (board: PlaitBoard) => {
     if (board.pointer === FramePointerType) {
       isCreatingFrame = true;
       // 转换坐标到画布坐标系（viewBox 坐标）
-      const point = toViewBoxPoint(board, toHostPoint(board, event.x, event.y)) as Point;
+      const point = toViewBoxPoint(
+        board,
+        toHostPoint(board, event.x, event.y)
+      ) as Point;
       createStartPoint = point;
       return;
     }
@@ -921,7 +937,10 @@ export const withFrame: PlaitPlugin = (board: PlaitBoard) => {
         previewG = null;
       }
 
-      const endPoint = toViewBoxPoint(board, toHostPoint(board, event.x, event.y)) as Point;
+      const endPoint = toViewBoxPoint(
+        board,
+        toHostPoint(board, event.x, event.y)
+      ) as Point;
       if (endPoint) {
         const width = Math.abs(endPoint[0] - createStartPoint[0]);
         const height = Math.abs(endPoint[1] - createStartPoint[1]);
@@ -964,7 +983,9 @@ export const withFrame: PlaitPlugin = (board: PlaitBoard) => {
   // 监听变化：Frame 移动时同步移动相交的元素
   board.afterChange = () => {
     if (movingFrameId) {
-      const frame = board.children.find((el) => el.id === movingFrameId) as PlaitFrame | undefined;
+      const frame = board.children.find((el) => el.id === movingFrameId) as
+        | PlaitFrame
+        | undefined;
       if (frame && lastFramePoints) {
         const currentPoints = frame.points;
         const deltaX = currentPoints[0][0] - lastFramePoints[0][0];
@@ -978,16 +999,22 @@ export const withFrame: PlaitPlugin = (board: PlaitBoard) => {
 
           // 移动预先记录的元素
           for (const element of elementsToMove) {
-            const elementIndex = board.children.findIndex((el) => el.id === element.id);
+            const elementIndex = board.children.findIndex(
+              (el) => el.id === element.id
+            );
             if (elementIndex !== -1) {
               if ((element as any).points) {
                 // 有 points 属性的元素
-                const newPoints = (element as any).points.map((p: Point) => [
-                  p[0] + deltaX,
-                  p[1] + deltaY,
-                ] as Point);
-                Transforms.setNode(board, { points: newPoints } as any, [elementIndex]);
-              } else if ((element as any).x !== undefined && (element as any).y !== undefined) {
+                const newPoints = (element as any).points.map(
+                  (p: Point) => [p[0] + deltaX, p[1] + deltaY] as Point
+                );
+                Transforms.setNode(board, { points: newPoints } as any, [
+                  elementIndex,
+                ]);
+              } else if (
+                (element as any).x !== undefined &&
+                (element as any).y !== undefined
+              ) {
                 // 有 x, y 属性的元素
                 Transforms.setNode(
                   board,
@@ -1014,7 +1041,9 @@ export const withFrame: PlaitPlugin = (board: PlaitBoard) => {
   board.globalPointerUp = (event: PointerEvent) => {
     if (movingFrameId) {
       // 移动结束后更新成员关系
-      const frame = board.children.find((el) => el.id === movingFrameId) as PlaitFrame | undefined;
+      const frame = board.children.find((el) => el.id === movingFrameId) as
+        | PlaitFrame
+        | undefined;
       if (frame) {
         FrameTransforms.updateFrameMembers(board, frame);
       }
