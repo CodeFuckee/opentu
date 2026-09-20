@@ -59,6 +59,15 @@ def cate_slug(category: str) -> str:
         return CATE_SLUGS[category]
     return "c" + hashlib.md5(category.encode("utf-8")).hexdigest()[:10]
 TABLE = "jzxz_materials"
+GALLERIES = ["家居库", "植物库", "配景库"]  # 配景库有两级分类，其余两库为属性筛选直翻页
+
+
+def norm_tag(tag: str) -> str:
+    """tag 归一化为 chip 文本：去 免抠- 前缀与尾点"""
+    t = (tag or "").strip()
+    if t.startswith("免抠-"):
+        t = t[3:]
+    return t.rstrip(".").strip()
 PAGE_URL = "https://www.jianzhuxuezhang.com/home"
 
 CAPTURE_HOOK = r"""
@@ -161,7 +170,7 @@ def drain(driver):
     return driver.execute_script("return window.__jzxzCapture ? window.__jzxzCapture.splice(0) : [];")
 
 
-def wait_any(driver, category, timeout=20):
+def wait_any(driver, gallery, timeout=20):
     """等待任意新 reference 响应；返回 [(tag_param, items), ...]。
     面板会按 tag 记忆翻页位置（点击 tag 不一定回到第 0 页），故只做事件驱动收割，
     乱序页按 source_id 去重，不影响最终覆盖。"""
@@ -171,7 +180,7 @@ def wait_any(driver, category, timeout=20):
         for cap in drain(driver):
             q = parse_qs(urlparse(cap["url"]).query)
             tag = q.get("tag", [""])[0]
-            out.append((tag, parse_items(cap["body"], category, tag)))
+            out.append((tag, parse_items(cap["body"], gallery, None, tag)))
         if not out:
             time.sleep(0.5)
     return out
@@ -201,13 +210,35 @@ def process_batch(cfg, items, stats, dry_items):
     return len(items), new_here
 
 
+def row_arrows(driver, row):
+    """行内前/后箭头（按 y 坐标同行配对；相邻行的箭头 y 不同）"""
+    try:
+        ry = row.rect["y"]
+    except Exception:
+        return None, None
+    parent = row.find_element(By.XPATH, "..")
+    prev = next_e = None
+    for el in parent.find_elements(By.XPATH, ".//*[contains(@class,'arrow_icon')]"):
+        cls = el.get_attribute("class") or ""
+        try:
+            r = el.rect
+        except Exception:
+            continue
+        if abs(r["y"] - ry) > 25:
+            continue
+        if "prev_" in cls:
+            prev = el
+        elif "next_" in cls:
+            next_e = el
+    return prev, next_e
+
+
 def panel_chips(driver, row_class_frag):
-    """分类/tag 行内全部 chip（文本, 元素）；点行内 next 箭头滚动，直到无新增 chip"""
-    rows = driver.find_elements(By.XPATH, f"//div[contains(@class,'{row_class_frag}')]")
-    row = next((r for r in rows if r.is_displayed()), None)
+    """分类/tag 行内全部 chip（文本, 元素）；行内箭头滚动直到 chip 集合稳定"""
+    row = next((r for r in driver.find_elements(By.XPATH, f"//div[contains(@class,'{row_class_frag}')]") if r.is_displayed()), None)
     if row is None:
         return []
-    collected: dict[str, object] = {}
+    collected = {}
 
     def collect():
         for s in row.find_elements(By.XPATH, ".//*[contains(@class,'swiper-slide')]"):
@@ -215,39 +246,77 @@ def panel_chips(driver, row_class_frag):
             if t and len(t) <= 12:
                 collected[t] = s
 
-    def arrows(kind):
-        return row.find_elements(
-            By.XPATH, f"following::*[contains(@class,'arrow_icon')][contains(@class,'{kind}_')]")
-
-    # 先滚回行首
-    for _ in range(20):
-        prev = arrows("prev")
-        if not prev:
-            break
-        try:
-            real_click(driver, prev[0])
-        except Exception:
-            break
-        time.sleep(0.4)
-    # 再正向滚动收集
-    for _ in range(20):
+    prev, nxt = row_arrows(driver, row)
+    for _ in range(30):
         before = set(collected)
         collect()
         if len(collected) == len(before):
             break
-        nxt = arrows("next")
         if not nxt:
             break
         try:
-            real_click(driver, nxt[0])
+            real_click(driver, nxt)
         except Exception:
             break
         time.sleep(0.5)
+        prev, nxt = row_arrows(driver, row)
     collect()
     return list(collected.items())
 
 
-def parse_items(body_text, category, tag):
+def bring_chip_into_view(driver, row_class_frag, name, attempts=30):
+    """点击行内箭头把目标 chip 滚入可视区，返回该 chip 元素"""
+    row = next((r for r in driver.find_elements(By.XPATH, f"//div[contains(@class,'{row_class_frag}')]") if r.is_displayed()), None)
+    if row is None:
+        return None
+    row_rect = row.rect
+    for _ in range(attempts):
+        slides = row.find_elements(By.XPATH, ".//*[contains(@class,'swiper-slide')]")
+        for sl in slides:
+            if (sl.text or "").strip() == name:
+                r = sl.rect
+                if row_rect["x"] - 5 <= r["x"] and r["x"] + r["width"] <= row_rect["x"] + row_rect["width"] + 5:
+                    return sl
+        prev, nxt = row_arrows(driver, row)
+        if not prev or not nxt:
+            return None
+        target = None
+        for sl in slides:
+            if (sl.text or "").strip() == name:
+                target = sl
+                break
+        if target is None:
+            return None
+        tr = target.rect
+        if tr["x"] + tr["width"] / 2 < row_rect["x"] + row_rect["width"] / 2:
+            real_click(driver, prev)
+        else:
+            real_click(driver, nxt)
+        time.sleep(0.4)
+    return None
+
+
+def click_chip_verified(driver, name, row_class_frag, attempts=3):
+    """滚入可视区 → 真实点击 → 轮询校验 active 迁移；失败重试"""
+    for _ in range(attempts):
+        el = bring_chip_into_view(driver, row_class_frag, name)
+        if el is None:
+            time.sleep(1)
+            continue
+        real_click(driver, el)
+        deadline = time.time() + 8
+        while time.time() < deadline:
+            cur = next((r for r in driver.find_elements(By.XPATH, f"//div[contains(@class,'{row_class_frag}')]") if r.is_displayed()), None)
+            if cur is not None:
+                sel = [s for s in cur.find_elements(By.XPATH, ".//*[contains(@class,'swiper-slide')]")
+                       if (s.text or "").strip() == name and "active" in (s.get_attribute("class") or "")]
+                if sel:
+                    return True
+            time.sleep(0.5)
+    return False
+
+
+def parse_items(body_text, gallery, category, tag):
     try:
         j = json.loads(body_text)
         rows = j.get("data") if isinstance(j.get("data"), list) else []
@@ -255,12 +324,15 @@ def parse_items(body_text, category, tag):
         return []
     out = []
     for r in rows:
+        if not isinstance(r, dict):
+            continue
         url = r.get("largeUrl") or r.get("thumbUrl") or ""
         if not url:
             continue
         stem = Path(urlparse(url).path).stem  # UUID 文件名 = 稳定 source_id
         out.append({
-            "source_id": stem, "category": category, "tag": tag,
+            "source_id": stem, "gallery": gallery, "category": category,
+            "tag": norm_tag(tag),
             "name": r.get("name"),
             "width": r.get("width"), "height": r.get("height"),
             "url": url, "thumb": r.get("thumbUrl"),
@@ -268,14 +340,15 @@ def parse_items(body_text, category, tag):
     return out
 
 
-def parse_grid(rows, category, tag):
+def parse_grid(rows, gallery, category, tag):
     out = []
     for r in rows or []:
         url = r.get("url") or ""
         if not url:
             continue
         out.append({
-            "source_id": r["source_id"], "category": category, "tag": tag,
+            "source_id": r["source_id"], "gallery": gallery, "category": category,
+            "tag": norm_tag(tag),
             "name": r.get("name"), "width": r.get("width"), "height": r.get("height"),
             "url": url, "thumb": r.get("thumb"),
         })
@@ -313,7 +386,8 @@ def upload_item(cfg, item):
     if not put.ok:
         return f"upload_http_{put.status_code}"
     row = {
-        "source_id": item["source_id"], "category": item["category"], "tag": item["tag"],
+        "source_id": item["source_id"], "gallery": item.get("gallery"),
+        "category": item["category"], "tag": item["tag"],
         "name": item["name"], "width": item["width"], "height": item["height"],
         "preview_path": path, "file_path": path, "source_url": item["url"],
         "content_hash": content_hash,
@@ -356,6 +430,26 @@ def _service(cfg):
     return Service(cd) if cd else Service()
 
 
+def click_chip_verified(driver, name, row_class_frag, attempts=3):
+    """点击 chip 并校验 active 迁移到目标；数据加载时 active 可能延迟，轮询最多 8s/次"""
+    for attempt in range(attempts):
+        fresh = dict(panel_chips(driver, row_class_frag))
+        el = fresh.get(name)
+        if el is None:
+            time.sleep(1)
+            continue
+        real_click(driver, el)
+        deadline = time.time() + 8
+        while time.time() < deadline:
+            again = dict(panel_chips(driver, row_class_frag))
+            sel = again.get(name)
+            if sel is not None and "active" in (sel.get_attribute("class") or ""):
+                return True
+            time.sleep(0.5)
+        log(f"    [retry] {name}: active 未迁移（当前 {[t for t, e in again.items() if 'active' in (e.get_attribute('class') or '')]}）")
+    return False
+
+
 def crawl():
     cfg = load_config()
     page_url = cfg.get("page_url", PAGE_URL)
@@ -388,9 +482,17 @@ def crawl():
         time.sleep(1)
         driver.execute_script(CAPTURE_HOOK)
         # 打开编辑对话框：本地上传格子 → 探针图
-        boxes = [e for e in driver.find_elements(By.XPATH, "//*[contains(@class,'upload_btn_box')]") if e.is_displayed()]
+        boxes = []
+        deadline = time.time() + 25
+        while time.time() < deadline:
+            boxes = [e for e in driver.find_elements(By.XPATH, "//*[contains(@class,'upload_btn_box')]") if e.is_displayed()]
+            if boxes:
+                break
+            # 可能有弹窗遮挡，尝试关闭
+            driver.execute_script("document.querySelector(\"button[class*='close']\")?.click();")
+            time.sleep(2)
         if not boxes:
-            sys.exit("未找到本地上传入口（upload_btn_box）")
+            sys.exit("未找到本地上传入口（upload_btn_box，25s 超时）")
         mouse_click(driver, boxes[0])
         time.sleep(2)
         DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -415,89 +517,145 @@ def crawl():
         driver.execute_script(CAPTURE_HOOK)
         log("贴图面板已就绪")
 
-        cate_chips = panel_chips(driver, "first_cate_list")
-        if categories:
-            cate_chips = [(t, e) for (t, e) in cate_chips if t in categories]
-        log(f"分类：{[t for t, _ in cate_chips]}")
+        for gallery in GALLERIES:
+            tab_spans = [e for e in driver.find_elements(
+                By.XPATH, f"//span[contains(@class,'tab_btn')][normalize-space(text())='{gallery}']") if e.is_displayed()]
+            if not tab_spans:
+                log(f"[warn] {gallery}: tab 不可见，跳过")
+                continue
+            real_click(driver, tab_spans[0])
+            time.sleep(3)
+            drain(driver)
 
-        for cate, cate_el in cate_chips:
-            real_click(driver, cate_el)
-            time.sleep(2)
-            tag_chips = panel_chips(driver, "sub_cate_list")
-            log(f"== {cate} == tags({len(tag_chips)}): {[t for t, _ in tag_chips]}")
-            for tag, _ in tag_chips:
-                # 每次点击前重新取元素（防 React 重渲染导致引用失效）
-                fresh = dict(panel_chips(driver, "sub_cate_list"))
-                tag_el = fresh.get(tag)
-                if tag_el is None:
-                    continue
-                real_click(driver, tag_el)
-                time.sleep(3)
-                got = wait_any(driver, cate, timeout=8)
-                matched = [(tg, it) for tg, it in got if tg == f"免抠-{tag}."]
-                # 双通道合并：网络捕获 + DOM 网格收割（应用命中内存/本地缓存时不发请求）
-                dom_items = parse_grid(json.loads(driver.execute_script(
-                        "return JSON.stringify((" + HARVEST_GRID + ")());") or "[]"), cate, tag)
-                if not matched and dom_items:
-                    log(f"  {cate}/{tag}: 网络无请求（缓存命中），DOM 收割 {len(dom_items)} 条")
-                    matched = [(f"免抠-{tag}.", dom_items)]
-                elif matched and dom_items:
-                    seen_ids = {i["source_id"] for i in matched[-1][1]}
-                    extra = [i for i in dom_items if i["source_id"] not in seen_ids]
-                    if extra:
-                        matched[-1] = (matched[-1][0], matched[-1][1] + extra)
-                if not matched:
-                    # 诊断：截图 + 面板状态
-                    try:
-                        shot = DATA_DIR / f"fail-{tag}.png"
-                        driver.save_screenshot(str(shot))
-                        diag = json.loads(driver.execute_script(
-                            "return JSON.stringify((" + HARVEST_GRID + ")());") or "[]")
-                        active = [e.text.strip() for e in driver.find_elements(
-                            By.XPATH, "//div[contains(@class,'sub_cate_list')]//*[contains(@class,'active')]") if e.is_displayed()]
-                        log(f"  [diag] {tag}: 网格img={len(diag)} active={active} 截图={shot.name}")
-                    except Exception as de:
-                        log(f"  [diag] 失败: {de}")
-                    continue
-                known_streak = 0
-                for _round in range(max_pages):
-                    tg, items = matched[-1]
+            if gallery != "配景库":
+                # 家居库/植物库：无分类行，属性筛选直翻页
+                log(f"== {gallery} ==（属性筛选库，直接翻页）")
+                for page in range(max_pages):
+                    got = wait_any(driver, gallery, timeout=10)
+                    items = [it for _, its in got for it in its]
+                    dom_items = parse_grid(json.loads(driver.execute_script(
+                        "return JSON.stringify((" + HARVEST_GRID + ")());") or "[]"),
+                        gallery, None, None)
+                    merged = {i["source_id"]: i for i in items}
+                    for i in dom_items:
+                        merged.setdefault(i["source_id"], i)
+                    items = list(merged.values())
                     if not items:
-                        log(f"  {cate}/{tag}: 空页，到库尾")
+                        log(f"  {gallery}: 无数据，到库尾")
                         break
                     n, new_n = process_batch(cfg, items, stats, all_items)
-                    log(f"  {cate}/{tag}：{n} 条（新 {new_n}）")
-                    if stop_known > 0 and n >= 5 and new_n == 0:
-                        known_streak += 1
-                        if known_streak >= stop_known:
-                            log(f"  {cate}/{tag}: 连续 {known_streak} 页全已知，提前收尾")
-                            break
-                    else:
-                        known_streak = 0
+                    log(f"  {gallery} 第 {page + 1} 轮：{n} 条（新 {new_n}）")
                     nxt = [e for e in driver.find_elements(
                         By.XPATH,
                         "//div[normalize-space(text())='下一页'] | //span[normalize-space(text())='下一页'] | //button[normalize-space(text())='下一页']")
                         if e.is_displayed()]
                     if not nxt:
-                        log(f"  {cate}/{tag}: 无下一页，到库尾")
+                        log(f"  {gallery}: 无下一页，到库尾")
                         break
                     real_click(driver, nxt[0])
-                    time.sleep(3)
-                    got = wait_any(driver, cate, timeout=8)
-                    matched = [(tg, it) for tg, it in got if tg == f"免抠-{tag}."]
-                    dom_items = parse_grid(json.loads(driver.execute_script(
-                        "return JSON.stringify((" + HARVEST_GRID + ")());") or "[]"), cate, tag)
-                    if matched and dom_items:
-                        seen_ids = {i["source_id"] for i in matched[-1][1]}
-                        extra = [i for i in dom_items if i["source_id"] not in seen_ids]
-                        if extra:
-                            matched[-1] = (matched[-1][0], matched[-1][1] + extra)
-                    elif not matched and dom_items:
-                        matched = [(f"免抠-{tag}.", dom_items)]
-                    if not matched:
-                        log(f"  {cate}/{tag}: 翻页无响应，到库尾")
-                        break
                     time.sleep(delay)
+                continue
+
+            # 配景库：分类行(first_cate_list) × tag 行(sub_cate_list) 两级
+            cate_chips = panel_chips(driver, "first_cate_list")
+            if categories:
+                cate_chips = [(t, e) for (t, e) in cate_chips if t in categories]
+            log(f"== 配景库 == 分类：{[t for t, _ in cate_chips]}")
+            for cate, cate_el in cate_chips:
+                cate_pending = cate
+                # 冗余双击提升点击命中率；若未生效，本 tag 批次安全跳过（已知项去重），
+                # 每日重跑自然补覆盖
+                real_click(driver, cate_el)
+                time.sleep(1.5)
+                real_click(driver, cate_el)
+                time.sleep(2)
+                log(f"  -- {cate} --")
+                processed_tags = set()
+                stale_rounds = 0
+                while True:
+                    # 收割当前可见批：未处理且在可视窗内的 tag chips
+                    tag_chips = panel_chips(driver, "sub_cate_list")
+                    row = next((rr for rr in driver.find_elements(By.XPATH, "//div[contains(@class,'sub_cate_list')]") if rr.is_displayed()), None)
+                    fresh = []
+                    if row is not None:
+                        rr_ = row.rect
+                        for t, el in tag_chips:
+                            if t in processed_tags:
+                                continue
+                            r = el.rect
+                            if rr_["x"] - 5 <= r["x"] and r["x"] + r["width"] <= rr_["x"] + rr_["width"] + 5:
+                                fresh.append((t, el))
+                    if not fresh:
+                        # 可视窗内无新 tag：滚动一行（行内 next 箭头），连空 3 轮即到行尾
+                        stale_rounds += 1
+                        nxt_arrow = None
+                        if row is not None:
+                            _, nxt_arrow = row_arrows(driver, row)
+                        if stale_rounds > 3 or not nxt_arrow:
+                            break
+                        real_click(driver, nxt_arrow)
+                        time.sleep(1)
+                        continue
+                    stale_rounds = 0
+                    # 处理可视批（每个 tag：点击 → 等响应/DOM 收割 → 翻页至库尾）
+                    for tag, tag_el in fresh:
+                        processed_tags.add(tag)
+                        real_click(driver, tag_el)
+                        time.sleep(3)
+                        got = wait_any(driver, gallery, timeout=8)
+                        matched = [(tg, its) for tg, its in got if norm_tag(tg) == tag]
+                        dom_items = parse_grid(json.loads(driver.execute_script(
+                            "return JSON.stringify((" + HARVEST_GRID + ")());") or "[]"),
+                            gallery, cate, tag)
+                        if matched and dom_items:
+                            seen_ids = {i["source_id"] for i in matched[-1][1]}
+                            extra = [i for i in dom_items if i["source_id"] not in seen_ids]
+                            if extra:
+                                matched[-1] = (matched[-1][0], matched[-1][1] + extra)
+                        elif not matched and dom_items:
+                            matched = [(None, dom_items)]
+                        if not matched:
+                            log(f"    [warn] {cate}/{tag}: 无响应且无网格，跳过")
+                            continue
+                        known_streak = 0
+                        for _round in range(max_pages):
+                            tg, items = matched[-1]
+                            if not items:
+                                log(f"    {cate}/{tag}: 空页，到库尾")
+                                break
+                            n, new_n = process_batch(cfg, items, stats, all_items)
+                            log(f"    {cate}/{tag}：{n} 条（新 {new_n}）")
+                            if stop_known > 0 and n >= 5 and new_n == 0:
+                                known_streak += 1
+                                if known_streak >= stop_known:
+                                    log(f"    {cate}/{tag}: 连续 {known_streak} 页全已知，提前收尾")
+                                    break
+                            else:
+                                known_streak = 0
+                            nxt2 = [e for e in driver.find_elements(
+                                By.XPATH,
+                                "//div[normalize-space(text())='下一页'] | //span[normalize-space(text())='下一页'] | //button[normalize-space(text())='下一页']")
+                                if e.is_displayed()]
+                            if not nxt2:
+                                log(f"    {cate}/{tag}: 无下一页，到库尾")
+                                break
+                            real_click(driver, nxt2[0])
+                            time.sleep(delay)
+                            got = wait_any(driver, gallery, timeout=8)
+                            matched = [(tg, its) for tg, its in got if norm_tag(tg) == tag]
+                            dom_items = parse_grid(json.loads(driver.execute_script(
+                                "return JSON.stringify((" + HARVEST_GRID + ")());") or "[]"),
+                                gallery, cate, tag)
+                            if matched and dom_items:
+                                seen_ids = {i["source_id"] for i in matched[-1][1]}
+                                extra = [i for i in dom_items if i["source_id"] not in seen_ids]
+                                if extra:
+                                    matched[-1] = (matched[-1][0], matched[-1][1] + extra)
+                            elif not matched and dom_items:
+                                matched = [(None, dom_items)]
+                            if not matched:
+                                log(f"    {cate}/{tag}: 翻页无响应，到库尾")
+                                break
 
         log(f"汇总：页面 {stats['pages']}，条目 {stats['items']}，新下载 {stats['downloaded']}，"
             f"已知跳过 {stats['skipped_known']}，失败 {stats['failed']}")

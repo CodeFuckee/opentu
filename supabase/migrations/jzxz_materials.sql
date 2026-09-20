@@ -17,8 +17,9 @@
 create table if not exists public.jzxz_materials (
   id            uuid primary key default gen_random_uuid(),
   source_id     text not null,                     -- 上游素材唯一标识
-  category      text not null,                     -- 归属库：家居库/植物库/配景库
-  tag           text,                              -- 采集时的上游 tag（如 免扣-绿树.）
+  gallery       text,                              -- 顶级库：家居库/植物库/配景库
+  category      text,                              -- 二级分类（仅配景库有，如 植物配景）
+  tag           text,                              -- 三级 tag（归一化为 chip 文本，如 绿树）
   name          text,                              -- 素材名（如 F-Affair）
   width         integer,
   height        integer,
@@ -33,6 +34,7 @@ create table if not exists public.jzxz_materials (
 );
 create index if not exists jzxz_materials_category_idx on public.jzxz_materials (category);
 create index if not exists jzxz_materials_tag_idx on public.jzxz_materials (tag);
+create index if not exists jzxz_materials_gallery_idx on public.jzxz_materials (gallery);
 
 comment on table public.jzxz_materials is '建筑学长贴图素材库爬取归档（本机 selenium 爬虫写入）';
 comment on column public.jzxz_materials.source_id is '上游素材唯一标识（upsert 键）';
@@ -58,3 +60,12 @@ create policy "jzxz_materials_select_authenticated"
 insert into storage.buckets (id, name, public)
 values ('jzxz-materials', 'jzxz-materials', true)
 on conflict (id) do nothing;
+
+-- 5. 增量升级（2026-09-20）：gallery 列 + category 放宽可空 + 存量 tag 归一化
+alter table public.jzxz_materials add column if not exists gallery text;
+alter table public.jzxz_materials alter column category drop not null;
+update public.jzxz_materials set tag = regexp_replace(regexp_replace(tag, '^免抠-', ''), '。*$')
+  where tag like '免抠-%' or tag like '%.';
+update public.jzxz_materials set gallery = '配景库'
+  where gallery is null and category in
+  ('植物配景','人物配景','交通配景','室内家具','室内物品','建筑构件','城市建筑','景观小品','动物配景','自然环境','总平素材');
