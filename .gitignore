@@ -70,3 +70,9 @@ test-files/test.png
 
 # 本地凭据笔记（评审后下架，勿再提交）
 secret.md
+
+# jzxz 素材爬虫本机配置与产物
+scripts/jzxz-crawler.local.json
+data/jzxz-chrome-profile/
+data/jzxz-captured/
+data/chromedriver/

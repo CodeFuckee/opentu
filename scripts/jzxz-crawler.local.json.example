@@ -1,0 +1,11 @@
+{
+  "supabase_url": "http://10.37.80.25:8021",
+  "service_key": "<在此填入 service_role key，dry-run 可留空>",
+  "page_url": "https://www.jianzhuxuezhang.com/home",
+  "headless": true,
+  "max_pages_per_tag": 60,
+  "page_delay_ms": 1500,
+  "stop_known_pages": 2,
+  "chrome_profile_dir": "data/jzxz-chrome-profile",
+  "categories": ""
+}

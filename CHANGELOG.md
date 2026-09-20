@@ -1,5 +1,25 @@
 ## Unreleased
 
+### feat: 建筑学长贴图素材库本机爬虫——素材入库 Supabase（2026-09-20）
+
+- **背景**：贴图网关 `wallpaper.soutushenqi.com` 的签名与 community 网关不同源且含
+  时间因子（抓包重放 + ~1550 组参数穷举均无法复现），放弃逆向，改为**本机 selenium
+  无头驱动真实页面**（签名由页面自身完成），边缘函数方案作废。
+- **迁移** `supabase/migrations/jzxz_materials.sql`：新表 `jzxz_materials`
+  （source_id 唯一、分类/tag/宽高/桶路径/内容哈希，RLS 登录可读）+ 公开读桶
+  `jzxz-materials`（贴图选择器可直链）。已在自托管库执行。
+- **爬虫** `scripts/jzxz-material-crawler.py`（本机跑，Python+Selenium，零新增依赖）：
+  无头打开 home → 本地上传塞探针图触发贴图面板 → 页面注入 fetch/XHR 钩子捕获
+  `wallpaper/reference` 响应 → 遍历 11 个分类 × tag chips（箭头滚动全量收集）×
+  分页翻页；**双通道收割**：网络捕获 + DOM 网格扫描（面板命中内存/localStorage
+  缓存时不发请求，直接收割渲染出的 img）；图片按 `{分类}/{md5}.{ext}` 内容寻址
+  上传桶（upsert 幂等），元数据按 source_id upsert 表；增量跳过已知 id。
+- **实测**：植物配景 5 tags × 2 页 dry-run 全通过（网络捕获 2 页 + 缓存 tag DOM
+  收割 12 条/页）；全量 dry-run 验证 11 分类。
+- **配置/文档**：`scripts/jzxz-crawler.local.json.example`（gitignored 本机配置，
+  含 service_key）、`docs/jzxz-material-crawler.md`（架构/部署/命令/边界）。
+- **每日定时**：验证后用 ZCode 定时任务执行（同模板同步模式）。
+
 ### feat: 数据看板新增「推送测试」按钮——完整周报链路推开发群（2026-09-20）
 
 - **端点** `POST /dashboard-stats/push-test`（管理员门禁，与 push-report 同权限）：
