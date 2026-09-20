@@ -1,5 +1,16 @@
 ## Unreleased
 
+### feat: 数据看板新增「推送测试」按钮——完整周报链路推开发群（2026-09-20）
+
+- **端点** `POST /dashboard-stats/push-test`（管理员门禁，与 push-report 同权限）：
+  `pushReport` 新增 `opts.dev` 目标——configs 键 `DEV_DINGTALK_WEBHOOK`（开发群），
+  **强制 `DEV_DINGTALK_SECRET` 加签**（缺失视为配置错误，不发钉钉请求），钉钉标题带
+  「（推送测试）」标识；链路与生产推送完全一致（截图 → Gitee 图床 → markdown）。
+- **按钮**：看板「推送」旁新增「推送测试」（悬浮提示配置要求）；按约定页面不回显
+  结果——是否收到以开发群实际消息为准，失败仅落浏览器控制台/函数日志。
+- **测试**：dashboard-stats 24 例全绿（新增 dev 模式：读 DEV 键不读生产键/强制加签/
+  标题标识；缺 DEV_DINGTALK_SECRET 不发请求）。
+
 ### refactor: 第四轮全仓库代码评审落地——行为保持重构五批（2026-09-20）
 
 - **评审报告**：`docs/code-review-2026-09-20.md`。按 code-review-skill 清单分 6 分区

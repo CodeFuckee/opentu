@@ -525,6 +525,51 @@ test('pushReport：gitee 上传后钉钉加签发送；缺 webhook 报错', asyn
   assert.ok((r2.error || '').includes('DINGTALK_WEBHOOK'));
 });
 
+test('pushReport dev 模式：读 DEV_DINGTALK_* 配置、强制加签、标题带推送测试标识', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = [];
+  const fetchImpl = (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    calls.push({ url, init });
+    if (url.includes('/rest/v1/configs?key=eq.GITEE_TOKEN')) return Promise.resolve(json(200, [{ value: 'gtok' }]));
+    if (url.includes('/rest/v1/configs?key=eq.GITEE_REPO')) return Promise.resolve(json(200, [{ value: 'tju-kdj_admin/dingding-talk-images' }]));
+    if (url.includes('/rest/v1/configs?key=eq.DEV_DINGTALK_WEBHOOK')) return Promise.resolve(json(200, [{ value: 'https://oapi.dingtalk.com/robot/send?access_token=dev' }]));
+    if (url.includes('/rest/v1/configs?key=eq.DEV_DINGTALK_SECRET')) return Promise.resolve(json(200, [{ value: 'DEVSEC' }]));
+    if (url.includes('/repos/tju-kdj_admin/dingding-talk-images?')) return Promise.resolve(json(200, { default_branch: 'master' }));
+    if (url.includes('/contents/dashboard-stats/')) return Promise.resolve(json(200, { content: { download_url: 'https://gitee.com/tju-kdj_admin/dingding-talk-images/raw/master/dashboard-stats/x.png' } }));
+    if (url.includes('oapi.dingtalk.com/robot/send')) return Promise.resolve(json(200, { errcode: 0, errmsg: 'ok' }));
+    return Promise.reject(new Error('unrouted: ' + url));
+  };
+  const res = await pushReport(ENV, { fetch: fetchImpl }, 'data:image/png;base64,AAAA', '测试内容', { dev: true });
+  assert.equal(res.ok, true);
+  const ding = calls.find((c) => c.url.includes('oapi.dingtalk.com/robot/send'));
+  assert.ok(ding, '应调用钉钉接口');
+  assert.ok(ding.url.includes('access_token=dev'), '应推 DEV webhook');
+  assert.ok(ding.url.includes('timestamp=') && ding.url.includes('sign='), 'DEV 通道强制加签');
+  const body = JSON.parse(String(ding.init?.body));
+  assert.equal(body.markdown.title, 'YUE 画布使用周报（推送测试）');
+  assert.ok(body.markdown.text.includes('测试内容'));
+  // 生产键不得被读取
+  assert.ok(!calls.some((c) => c.url.includes('key=eq.DINGTALK_WEBHOOK')), 'dev 模式不应读生产 webhook 配置');
+});
+
+test('pushReport dev 模式：缺 DEV_DINGTALK_SECRET 视为配置错误（强制加签）', async () => {
+  let dingCalls = 0;
+  const fetchImpl = (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.includes('/rest/v1/configs?key=eq.GITEE_TOKEN')) return Promise.resolve(json(200, [{ value: 'gtok' }]));
+    if (url.includes('/rest/v1/configs?key=eq.GITEE_REPO')) return Promise.resolve(json(200, [{ value: 'tju-kdj_admin/dingding-talk-images' }]));
+    if (url.includes('/rest/v1/configs?key=eq.DEV_DINGTALK_WEBHOOK')) return Promise.resolve(json(200, [{ value: 'https://oapi.dingtalk.com/robot/send?access_token=dev' }]));
+    if (url.includes('/rest/v1/configs?key=eq.DEV_DINGTALK_SECRET')) return Promise.resolve(json(200, []));
+    if (url.includes('oapi.dingtalk.com/robot/send')) { dingCalls += 1; return Promise.resolve(json(200, { errcode: 0 })); }
+    if (url.includes('/repos/') || url.includes('/contents/')) return Promise.resolve(json(200, { content: { download_url: 'https://gitee.com/x.png' } }));
+    return Promise.reject(new Error('unrouted: ' + url));
+  };
+  const res = await pushReport(ENV, { fetch: fetchImpl }, 'data:image/png;base64,AAAA', '测试内容', { dev: true });
+  assert.equal(res.ok, false);
+  assert.ok((res.error || '').includes('DEV_DINGTALK_SECRET'));
+  assert.equal(dingCalls, 0, '缺 secret 时不得发起钉钉请求');
+});
+
 test('buildDashboardHtml：自包含页面，内嵌 anon key，自带管理员登录，无外部脚本依赖', () => {
   const html = buildDashboardHtml(ANON_KEY);
   assert.ok(html.includes('<!DOCTYPE html>'));

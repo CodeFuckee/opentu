@@ -215,6 +215,9 @@ export async function fetchCanvasUsage(
 /** 钉钉机器人与 Gitee 图片中转的 configs 键 */
 export const DING_WEBHOOK_CONFIG_KEY = 'DINGTALK_WEBHOOK';
 export const DING_SECRET_CONFIG_KEY = 'DINGTALK_SECRET';
+/** 推送测试目标（开发群）：DEV 开头的钉钉 webhook 配置 */
+export const DEV_DING_WEBHOOK_CONFIG_KEY = 'DEV_DINGTALK_WEBHOOK';
+export const DEV_DING_SECRET_CONFIG_KEY = 'DEV_DINGTALK_SECRET';
 export const GITEE_TOKEN_CONFIG_KEY = 'GITEE_TOKEN';
 export const GITEE_REPO_CONFIG_KEY = 'GITEE_REPO';
 export const DEFAULT_GITEE_REPO = 'tju-kdj_admin/dingding-talk-images';
@@ -310,14 +313,26 @@ export async function sendDingTalkMarkdown(
   env: DashboardEnv,
   deps: DashboardDeps,
   text: string,
-  imageUrl?: string
+  imageUrl?: string,
+  opts: {
+    webhookKey?: string;
+    secretKey?: string;
+    /** 强制要求加签 secret（推送测试用；缺失视为配置错误） */
+    requireSecret?: boolean;
+    title?: string;
+  } = {}
 ): Promise<{ ok: boolean; error?: string }> {
   const doFetch = deps.fetch || fetch;
   try {
-    const webhook = await readDashboardConfig(env, DING_WEBHOOK_CONFIG_KEY, deps);
-    const secret = await readDashboardConfig(env, DING_SECRET_CONFIG_KEY, deps);
+    const webhookKey = opts.webhookKey ?? DING_WEBHOOK_CONFIG_KEY;
+    const secretKey = opts.secretKey ?? DING_SECRET_CONFIG_KEY;
+    const webhook = await readDashboardConfig(env, webhookKey, deps);
+    const secret = await readDashboardConfig(env, secretKey, deps);
     if (!webhook) {
-      return { ok: false, error: 'configs 缺少 DINGTALK_WEBHOOK 配置' };
+      return { ok: false, error: `configs 缺少 ${webhookKey} 配置` };
+    }
+    if (opts.requireSecret && !secret) {
+      return { ok: false, error: `configs 缺少 ${secretKey} 配置（推送测试要求强制加签）` };
     }
     let url = webhook;
     if (secret) {
@@ -331,7 +346,7 @@ export async function sendDingTalkMarkdown(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         msgtype: 'markdown',
-        markdown: { title: 'YUE 画布使用周报', text: content },
+        markdown: { title: opts.title ?? 'YUE 画布使用周报', text: content },
       }),
     });
     if (!res.ok) {
@@ -347,12 +362,15 @@ export async function sendDingTalkMarkdown(
   }
 }
 
-/** 推送周报：图片上传 Gitee 中转 → 钉钉机器人发送 markdown（文字 + 图片） */
+/** 推送周报：图片上传 Gitee 中转 → 钉钉机器人发送 markdown（文字 + 图片）；
+ *  opts.dev=true 时改推 DEV_DINGTALK_WEBHOOK（强制 DEV_DINGTALK_SECRET 加签，
+ *  标题带「推送测试」标识），走完整周报链路供开发群验证。 */
 export async function pushReport(
   env: DashboardEnv,
   deps: DashboardDeps,
   imageBase64: string,
-  text: string
+  text: string,
+  opts: { dev?: boolean } = {}
 ): Promise<DingPushResult> {
   let imageUrl: string | undefined;
   if (imageBase64) {
@@ -367,7 +385,20 @@ export async function pushReport(
   if (!text) {
     return { ok: false, error: '报告内容为空' };
   }
-  const sent = await sendDingTalkMarkdown(env, deps, text, imageUrl);
+  const sent = await sendDingTalkMarkdown(
+    env,
+    deps,
+    text,
+    imageUrl,
+    opts.dev
+      ? {
+          webhookKey: DEV_DING_WEBHOOK_CONFIG_KEY,
+          secretKey: DEV_DING_SECRET_CONFIG_KEY,
+          requireSecret: true,
+          title: 'YUE 画布使用周报（推送测试）',
+        }
+      : {}
+  );
   return sent.ok ? { ok: true, imageUrl } : sent;
 }
 
@@ -1541,6 +1572,7 @@ export function buildDashboardHtml(anonKey: string): string {
     <button id="refreshBtn">刷新</button>
     <button id="exportBtn">导出图片</button>
     <button id="pushBtn">推送</button>
+    <button id="pushTestBtn" title="用 DEV_DINGTALK_WEBHOOK 配置向开发群推送完整周报（需 DEV_DINGTALK_SECRET 强制加签；结果以钉钉群实际收到为准，页面不回显）">推送测试</button>
     <button id="copyReportBtn">复制报告</button>
     <button id="logoutBtn" title="退出登录">退出</button>
   </div>
@@ -2067,6 +2099,43 @@ document.getElementById('pushBtn').addEventListener('click', function(){
     btn.disabled = false;
     btn.textContent = '推送';
     alert('推送失败：'+(e && e.message ? e.message : e));
+  });
+});
+
+// 推送测试：走完整周报链路（截图+Gitee 图床），但目标为 DEV_DINGTALK_WEBHOOK（开发群，
+// 强制 DEV_DINGTALK_SECRET 加签）。按约定页面不回显结果——是否收到以开发群实际消息为准。
+document.getElementById('pushTestBtn').addEventListener('click', function(){
+  var btn = this;
+  btn.disabled = true;
+  btn.textContent = '推送中…';
+  (async function(){
+    if(!LAST_OVERVIEW) throw new Error('数据尚未加载');
+    var text = buildReportText(LAST_OVERVIEW, CURRENT_RANGE_LABEL);
+    var canvas = await buildExportCanvas(2);
+    var dataUrl = canvas.toDataURL('image/png');
+    // Gitee 单文件上限 1MB，超限改用 1 倍采样
+    if(dataUrl.length > 1200000){
+      canvas = await buildExportCanvas(1);
+      dataUrl = canvas.toDataURL('image/png');
+    }
+    var res = await fetch(basePath() + 'push-test', {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ imageBase64: dataUrl, text: text })
+    });
+    var j = await res.json().catch(function(){ return null; });
+    if(!(j && j.ok)){
+      // 不回显约定：失败只落控制台（配置缺失/钉钉拒绝等原因查函数日志与控制台）
+      console.warn('[dashboard-stats] 推送测试未成功:', j && j.error ? j.error : ('HTTP ' + res.status));
+    }
+  })().then(function(){
+    btn.disabled = false;
+    btn.textContent = '已触发';
+    setTimeout(function(){ btn.textContent = '推送测试'; }, 2000);
+  }).catch(function(e){
+    btn.disabled = false;
+    btn.textContent = '推送测试';
+    console.warn('[dashboard-stats] 推送测试请求失败:', e && e.message ? e.message : e);
   });
 });
 

@@ -8,12 +8,14 @@
  * SUPABASE_ANON_KEY，容器内已配置）：
  *   GET  /functions/v1/dashboard-stats/            → 200 自包含 HTML 看板页面
  *   GET  /functions/v1/dashboard-stats/overview?days=N → 200 JSON 四类聚合统计
+ *   POST /functions/v1/dashboard-stats/push-report → 推送周报到生产群（DINGTALK_WEBHOOK）
+ *   POST /functions/v1/dashboard-stats/push-test   → 完整周报链路推开发群（DEV_DINGTALK_WEBHOOK，强制 DEV_DINGTALK_SECRET 加签）
  *   OPTIONS                                        → 204 CORS
  *   其他方法/路径                                   → 405/404
  *
- * 鉴权（2026-09-16 起强制）：页面是匿名可取的登录壳（不含数据）；/overview 与
- * /push-report 要求「有效用户 JWT + is_admin()=true」（未登录/无效 401、非管理员
- * 403）。页面自带 oa账号+密码登录，登录后以 access_token 调用。
+ * 鉴权（2026-09-16 起强制）：页面是匿名可取的登录壳（不含数据）；/overview、
+ * /push-report 与 /push-test 要求「有效用户 JWT + is_admin()=true」（未登录/无效 401、
+ * 非管理员 403）。页面自带 oa账号+密码登录，登录后以 access_token 调用。
  * SUPABASE_ANON_KEY 缺失时拒绝启动（不再硬编码兜底）。
  */
 import {
@@ -133,6 +135,26 @@ Deno.serve(async (request: Request) => {
       });
     }
 
+    if (route.kind === 'push-test' && request.method === 'POST') {
+      // 门禁：仅管理员。推送测试：完整周报链路推 DEV_DINGTALK_WEBHOOK（开发群），
+      // 强制 DEV_DINGTALK_SECRET 加签；结果由开发群实际收到情况验证，页面不回显。
+      const gate = await verifyDashboardAdmin(env, request);
+      if (!gate.ok) {
+        return jsonError(gate.status, gate.error);
+      }
+      const body = (await request.json().catch(() => ({}))) as {
+        imageBase64?: unknown;
+        text?: unknown;
+      };
+      const imageBase64 = typeof body.imageBase64 === 'string' ? body.imageBase64 : '';
+      const text = typeof body.text === 'string' ? body.text : '';
+      const result = await pushReport(env, {}, imageBase64, text, { dev: true });
+      return new Response(JSON.stringify(result), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+      });
+    }
+
     return jsonError(405, 'Method not allowed');
   } catch (error) {
     // 内部细节（表名/RPC/PostgREST 报文）只进日志，不回传客户端
@@ -142,10 +164,10 @@ Deno.serve(async (request: Request) => {
   }
 });
 
-/** 解析路径：页面（BASE 本身 / index.html / 尾部斜杠）或数据接口（overview） */
+/** 解析路径：页面（BASE 本身 / index.html / 尾部斜杠）或数据接口（overview/push-report/push-test） */
 function parseRoute(
   urlPath: string
-): { kind: 'page' } | { kind: 'overview' } | { kind: 'push' } | { kind: 'unknown' } {
+): { kind: 'page' } | { kind: 'overview' } | { kind: 'push' } | { kind: 'push-test' } | { kind: 'unknown' } {
   const suffix = urlPath.startsWith('/functions/v1' + BASE)
     ? urlPath.slice(('/functions/v1' + BASE).length)
     : urlPath.startsWith(BASE)
@@ -164,6 +186,9 @@ function parseRoute(
   }
   if (clean === '/push-report') {
     return { kind: 'push' };
+  }
+  if (clean === '/push-test') {
+    return { kind: 'push-test' };
   }
   return { kind: 'unknown' };
 }
