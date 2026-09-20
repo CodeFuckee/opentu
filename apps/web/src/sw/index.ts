@@ -1033,25 +1033,43 @@ function normalizeVersionState(value: unknown): SWVersionState {
   };
 }
 
-function openServiceWorkerDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(
-      SERVICE_WORKER_DB_NAME,
-      SERVICE_WORKER_DB_VERSION
-    );
+// 连接缓存：handleStaticRequest 每个静态请求都会读版本状态，
+// 每次新开连接会堆积连接并重复付出 open 开销（失败时重置允许重试，
+// 其他库占用升级时关闭并重置避免阻塞 upgrade）。
+let serviceWorkerDBPromise: Promise<IDBDatabase> | null = null;
 
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-    request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(FAILED_DOMAINS_STORE)) {
-        db.createObjectStore(FAILED_DOMAINS_STORE, { keyPath: 'domain' });
-      }
-      if (!db.objectStoreNames.contains(VERSION_STATE_STORE)) {
-        db.createObjectStore(VERSION_STATE_STORE, { keyPath: 'key' });
-      }
-    };
-  });
+function openServiceWorkerDB(): Promise<IDBDatabase> {
+  if (!serviceWorkerDBPromise) {
+    serviceWorkerDBPromise = new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open(
+        SERVICE_WORKER_DB_NAME,
+        SERVICE_WORKER_DB_VERSION
+      );
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result;
+        db.onversionchange = () => {
+          db.close();
+          serviceWorkerDBPromise = null;
+        };
+        resolve(db);
+      };
+      request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
+        const db = (event.target as IDBOpenDBRequest).result;
+        if (!db.objectStoreNames.contains(FAILED_DOMAINS_STORE)) {
+          db.createObjectStore(FAILED_DOMAINS_STORE, { keyPath: 'domain' });
+        }
+        if (!db.objectStoreNames.contains(VERSION_STATE_STORE)) {
+          db.createObjectStore(VERSION_STATE_STORE, { keyPath: 'key' });
+        }
+      };
+    }).catch((error) => {
+      serviceWorkerDBPromise = null;
+      throw error;
+    });
+  }
+  return serviceWorkerDBPromise;
 }
 
 async function readVersionState(): Promise<SWVersionState> {
@@ -1104,13 +1122,43 @@ async function updateVersionState(
     | Partial<SWVersionState>
     | ((current: SWVersionState) => Partial<SWVersionState>)
 ): Promise<SWVersionState> {
-  const current = await readVersionState();
-  const nextPatch = typeof patch === 'function' ? patch(current) : patch;
-  return writeVersionState({
-    ...current,
-    ...nextPatch,
-    updatedAt: Date.now(),
-  });
+  try {
+    const db = await openServiceWorkerDB();
+    // 读改写放在同一 readwrite 事务内：install 预热与 COMMIT_UPGRADE/
+    // FORCE_UPGRADE 消息并发时，跨两个事务的读改写会互相覆盖 patch。
+    return await new Promise<SWVersionState>((resolve, reject) => {
+      const transaction = db.transaction([VERSION_STATE_STORE], 'readwrite');
+      const store = transaction.objectStore(VERSION_STATE_STORE);
+      const getRequest = store.get(VERSION_STATE_KEY);
+
+      getRequest.onsuccess = () => {
+        const current = normalizeVersionState(
+          getRequest.result?.state || createDefaultVersionState()
+        );
+        const nextPatch = typeof patch === 'function' ? patch(current) : patch;
+        const next = normalizeVersionState({
+          ...current,
+          ...nextPatch,
+          updatedAt: Date.now(),
+        });
+        store.put({ key: VERSION_STATE_KEY, state: next });
+        transaction.oncomplete = () => resolve(next);
+      };
+      getRequest.onerror = () => reject(getRequest.error);
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
+  } catch (error) {
+    console.warn('Service Worker: 无法更新版本状态:', error);
+    // 与旧实现一致：写失败时返回按当前值打补丁的结果（不落盘）
+    const current = await readVersionState();
+    const nextPatch = typeof patch === 'function' ? patch(current) : patch;
+    return normalizeVersionState({
+      ...current,
+      ...nextPatch,
+      updatedAt: Date.now(),
+    });
+  }
 }
 
 async function postVersionState(
@@ -3521,8 +3569,8 @@ sw.addEventListener('message', (event: ExtendableMessageEvent) => {
         type: 'SW_DEBUG_STATUS',
         debugModeEnabled,
         swVersion: APP_VERSION,
-        logs: debugLogs.slice(-100), // 只发送最近 100 条
-        consoleLogs: consoleLogs.slice(-100),
+        logs: debugLogs.slice(0, 100), // 数组最新在前，发送最近 100 条
+        consoleLogs: consoleLogs.slice(0, 100),
       });
     }
     return;
@@ -4539,7 +4587,9 @@ sw.addEventListener('fetch', (event: FetchEvent) => {
   }
 
   // 拦截字体请求（Google Fonts CSS 和字体文件）
-  if (isFontRequest(url, event.request)) {
+  // 注意必须是 GET：与图片/音频/视频分支同理，非 GET 请求（如上传到 .woff2
+  // 结尾 URL）不能被当作字体处理，handleFontRequest 会强制以 GET 重新 fetch。
+  if (event.request.method === 'GET' && isFontRequest(url, event.request)) {
     // console.log('Service Worker: Intercepting font request:', url.href);
     const startTime = Date.now();
     const debugId = addDebugLog({
@@ -5700,7 +5750,9 @@ async function handleStaticRequest(request: Request): Promise<Response> {
         response.status === 200 &&
         request.url.startsWith('http')
       ) {
-        cache.put(request, response.clone());
+        cache.put(request, response.clone()).catch((error) => {
+          console.warn('Service Worker: Dev 模式缓存写入失败:', error);
+        });
         return response;
       }
 
@@ -5772,7 +5824,12 @@ async function handleStaticRequest(request: Request): Promise<Response> {
           response.status === 200 &&
           request.url.startsWith('http')
         ) {
-          cache.put(request, response.clone());
+          cache.put(request, response.clone()).catch((error) => {
+            console.warn(
+              'Service Worker: 恢复路径壳缓存写入失败:',
+              error
+            );
+          });
 
           logSWDebug('handleStaticRequest: refreshed app shell for recovery', {
             requestUrl: request.url,
@@ -5842,7 +5899,9 @@ async function handleStaticRequest(request: Request): Promise<Response> {
         request.url.startsWith('http') &&
         committedVersion === APP_VERSION
       ) {
-        cache.put(request, response.clone());
+        cache.put(request, response.clone()).catch((error) => {
+          console.warn('Service Worker: 壳缓存回写失败:', error);
+        });
         return response;
       }
 

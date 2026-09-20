@@ -154,6 +154,66 @@ async function updateLogInDB(log: LLMApiLog): Promise<void> {
 }
 
 /**
+ * 从 IndexedDB 按 id 读取单条日志
+ * （内存环形缓冲 MAX_MEMORY_LOGS 淘汰后的补更新路径使用）
+ */
+async function getLogByIdFromDB(logId: string): Promise<LLMApiLog | null> {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const request = tx.objectStore(STORE_NAME).get(logId);
+    const result = await new Promise<LLMApiLog | undefined>(
+      (resolve, reject) => {
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      }
+    );
+    return result ?? null;
+  } catch (error) {
+    console.warn('[LLMApiLogger] Failed to read log from DB:', error);
+    return null;
+  }
+}
+
+/**
+ * 统一更新入口：内存命中走「改内存 → 落库 → 广播」；未命中（长任务期间
+ * 该条目已被内存环形缓冲淘汰）时从 IndexedDB 读回补更新，避免日志永久
+ * 停留 pending。内存路径的执行顺序与广播语义与既有实现一致。
+ */
+function applyLLMApiLogUpdate(
+  logId: string,
+  mutate: (log: LLMApiLog) => void
+): void {
+  const log = memoryLogs.find((l) => l.id === logId);
+  if (log) {
+    mutate(log);
+
+    // 更新 IndexedDB
+    updateLogInDB(log);
+
+    // 广播
+    if (broadcastCallback) {
+      broadcastCallback({ ...log });
+    }
+    return;
+  }
+
+  void (async () => {
+    try {
+      const stored = await getLogByIdFromDB(logId);
+      if (!stored) return;
+      mutate(stored);
+      await updateLogInDB(stored);
+    } catch (error) {
+      console.warn(
+        '[LLMApiLogger] Failed to update evicted log from DB:',
+        error
+      );
+    }
+  })();
+}
+
+/**
  * 从 IndexedDB 获取所有日志
  */
 export async function getAllLLMApiLogs(): Promise<LLMApiLog[]> {
@@ -555,8 +615,7 @@ export function completeLLMApiLog(
     remoteId?: string;
   }
 ): void {
-  const log = memoryLogs.find((l) => l.id === logId);
-  if (log) {
+  applyLLMApiLogUpdate(logId, (log) => {
     log.status = 'success';
     log.httpStatus = params.httpStatus;
     log.duration = params.duration;
@@ -570,15 +629,7 @@ export function completeLLMApiLog(
       ? truncateResponseBody(params.responseBody)
       : undefined;
     if (params.remoteId) log.remoteId = params.remoteId;
-
-    // 更新 IndexedDB
-    updateLogInDB(log);
-
-    // 广播
-    if (broadcastCallback) {
-      broadcastCallback({ ...log });
-    }
-  }
+  });
 }
 
 /**
@@ -593,21 +644,12 @@ export function updateLLMApiLogMetadata(
     httpStatus?: number;
   }
 ): void {
-  const log = memoryLogs.find((l) => l.id === logId);
-  if (log) {
+  applyLLMApiLogUpdate(logId, (log) => {
     if (params.remoteId) log.remoteId = params.remoteId;
     if (params.responseBody)
       log.responseBody = truncateResponseBody(params.responseBody);
     if (params.httpStatus) log.httpStatus = params.httpStatus;
-
-    // 更新 IndexedDB
-    updateLogInDB(log);
-
-    // 广播
-    if (broadcastCallback) {
-      broadcastCallback({ ...log });
-    }
-  }
+  });
 }
 
 /**
@@ -623,8 +665,7 @@ export function failLLMApiLog(
     remoteId?: string;
   }
 ): void {
-  const log = memoryLogs.find((l) => l.id === logId);
-  if (log) {
+  applyLLMApiLogUpdate(logId, (log) => {
     log.status = 'error';
     log.httpStatus = params.httpStatus;
     log.duration = params.duration;
@@ -633,15 +674,7 @@ export function failLLMApiLog(
       ? truncateResponseBody(params.responseBody)
       : undefined;
     if (params.remoteId) log.remoteId = params.remoteId;
-
-    // 更新 IndexedDB
-    updateLogInDB(log);
-
-    // 广播
-    if (broadcastCallback) {
-      broadcastCallback({ ...log });
-    }
-  }
+  });
 }
 
 /**

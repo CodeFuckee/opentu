@@ -571,12 +571,13 @@ async function isValidCDNResponse(
       reader.cancel();
       if (value) {
         const textSample = new TextDecoder().decode(value.slice(0, 200));
+        // 仅按 HTML 结构标记判定错误页：'404'/'Not Found' 子串在合法
+        // JS/CSS/JSON 产物中常见（如错误码常量），按子串判定会把正常
+        // 资源误判为 CDN 错误页并累计降级冷却。
         const looksLikeHtml =
           textSample.includes('<!DOCTYPE') ||
           textSample.includes('<html') ||
-          textSample.includes('<HTML') ||
-          textSample.includes('Not Found') ||
-          textSample.includes('404');
+          textSample.includes('<HTML');
 
         if (isTextResource && looksLikeHtml) {
           markCDNFailure(cdnName, 'html-error-page');

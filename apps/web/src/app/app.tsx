@@ -997,7 +997,8 @@ const addDebugLog = async (board: PlaitBoard, value: string) => {
 async function recoverVideoUrlsInElements(
   elements: PlaitElement[]
 ): Promise<PlaitElement[]> {
-  return elements.map((element) => {
+  let changed = false;
+  const result = elements.map((element) => {
     const url = (element as any).url as string | undefined;
 
     // 新格式：稳定 URL，无需处理
@@ -1018,12 +1019,16 @@ async function recoverVideoUrlsInElements(
         // 转换为新格式的稳定 URL（带 .mp4 后缀）
         const newUrl = `/__aitu_cache__/video/${taskId}.mp4`;
         // console.log(`[App] Migrating video URL: ${taskId}`);
+        changed = true;
         return { ...element, url: newUrl };
       }
     }
 
     return element;
   });
+  // 无可恢复项时返回原数组引用，让调用方的「有恢复才更新」守卫真正生效，
+  // 避免启动时多一轮全量 setValue 重渲染。
+  return changed ? result : elements;
 }
 
 /**
