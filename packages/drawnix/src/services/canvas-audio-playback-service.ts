@@ -545,7 +545,9 @@ export class CanvasAudioPlaybackService {
       pulseLevel: 0,
     });
 
-    void this.continueQueueAfterCurrentEnd();
+    this.continueQueueAfterCurrentEnd().catch((error) => {
+      console.warn('[CanvasAudio] 队列续播失败:', error);
+    });
   };
 
   private handleTimeUpdate = (): void => {
@@ -1039,7 +1041,9 @@ export class CanvasAudioPlaybackService {
           currentTime: segment.endMs / 1000,
           activeReadingSegmentIndex: segmentIndex,
         });
-        void this.continueQueueAfterCurrentEnd();
+        this.continueQueueAfterCurrentEnd().catch((error) => {
+          console.warn('[CanvasAudio] 朗读段落后续播失败:', error);
+        });
         return;
       }
 
@@ -1120,7 +1124,9 @@ export class CanvasAudioPlaybackService {
       if (this.state.playing) {
         this.pausePlayback();
       } else {
-        void this.resumePlayback();
+        this.resumePlayback().catch((error) => {
+          console.warn('[CanvasAudio] 恢复播放失败:', error);
+        });
       }
       return;
     }

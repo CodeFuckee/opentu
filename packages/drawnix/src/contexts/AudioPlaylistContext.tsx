@@ -37,6 +37,8 @@ export const AudioPlaylistProvider: React.FC<{ children: React.ReactNode }> = ({
       ]);
       setPlaylists(nextPlaylists);
       setPlaylistItems(nextItems);
+    } catch (error) {
+      console.warn('[AudioPlaylist] 加载播放列表失败:', error);
     } finally {
       setLoading(false);
     }

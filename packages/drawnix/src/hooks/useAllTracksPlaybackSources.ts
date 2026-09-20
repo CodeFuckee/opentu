@@ -16,7 +16,9 @@ export function useAllTracksPlaybackSources() {
   }, []);
 
   useEffect(() => {
-    void refresh();
+    refresh().catch((error) => {
+      console.warn('[useAllTracksPlaybackSources] 加载笔记元数据失败:', error);
+    });
   }, [refresh]);
 
   const loadReadingSource = useCallback(
@@ -34,6 +36,13 @@ export function useAllTracksPlaybackSources() {
         origin: { kind: 'kb-note', id: note.id },
       });
       if (source) {
+        // 简单上限防缓存只增不减（淘汰条目可按需重建）
+        if (cacheRef.current.size >= 50) {
+          const oldest = cacheRef.current.keys().next().value;
+          if (oldest !== undefined) {
+            cacheRef.current.delete(oldest);
+          }
+        }
         cacheRef.current.set(noteId, source);
       }
       return source;

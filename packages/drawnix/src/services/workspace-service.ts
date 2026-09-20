@@ -1002,7 +1002,9 @@ class WorkspaceService {
       resolve: resolvePending,
     };
     this.currentBoardSaveTimer = setTimeout(() => {
-      void this.flushPendingCurrentBoardSave();
+      this.flushPendingCurrentBoardSave().catch((error) => {
+        console.warn('[Workspace] 当前画板防抖落盘失败:', error);
+      });
     }, 400);
 
     await pendingPromise;

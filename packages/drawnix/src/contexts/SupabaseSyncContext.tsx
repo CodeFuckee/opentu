@@ -395,7 +395,11 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
       // 仍用旧基线比对，制造大量假冲突
       syncRef.current.last = Date.now();
       setLastSyncTime(syncRef.current.last);
-      void kvStorageService.set(LAST_SYNC_KEY, syncRef.current.last);
+      kvStorageService
+        .set(LAST_SYNC_KEY, syncRef.current.last)
+        .catch((error) => {
+          console.warn('[SupabaseSync] 同步基线写入 kv 失败:', error);
+        });
       setSyncStatus(result.success ? 'synced' : 'error');
       setError(result.error ?? null);
     } finally {
@@ -457,7 +461,11 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
       // 同步更新 syncRef 基线（同 pushToRemote）
       syncRef.current.last = Date.now();
       setLastSyncTime(syncRef.current.last);
-      void kvStorageService.set(LAST_SYNC_KEY, syncRef.current.last);
+      kvStorageService
+        .set(LAST_SYNC_KEY, syncRef.current.last)
+        .catch((error) => {
+          console.warn('[SupabaseSync] 同步基线写入 kv 失败:', error);
+        });
       setSyncStatus('synced');
       setError(null);
       return {

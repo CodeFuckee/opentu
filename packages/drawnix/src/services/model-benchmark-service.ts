@@ -531,11 +531,15 @@ class ModelBenchmarkService {
 
   private persist() {
     const current = this.state$.value;
-    void kvStorageService.set(STORAGE_KEY, {
-      sessions: trimSessions(current.sessions),
-      activeSessionId: current.activeSessionId,
-      ready: true,
-    });
+    kvStorageService
+      .set(STORAGE_KEY, {
+        sessions: trimSessions(current.sessions),
+        activeSessionId: current.activeSessionId,
+        ready: true,
+      })
+      .catch((error) => {
+        console.warn('[ModelBenchmark] 状态落盘失败:', error);
+      });
   }
 
   private mutate(

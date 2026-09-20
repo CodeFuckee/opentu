@@ -115,6 +115,8 @@ class ToolbarConfigService {
         if (this.config && loadedConfig) {
           this.config = loadedConfig;
         }
+      }).catch((error) => {
+        console.warn('[ToolbarConfig] 配置加载失败，保留默认配置:', error);
       });
     }
 

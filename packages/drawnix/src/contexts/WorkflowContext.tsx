@@ -102,11 +102,15 @@ export function useWorkflowState(): WorkflowState {
 
 /**
  * Hook to get workflow control methods only (for action components)
+ *
+ * 返回值 useMemo 化：消费方（AIInputBar 等每键击重渲染的大组件）把它传入
+ * useTaskWorkflowSync 等 effect 依赖，若每次渲染返回新字面量会导致 effect
+ * 每渲染重订阅并清空事件缓冲，丢失缓冲中的任务终态事件。
  */
 export function useWorkflowControl() {
   const context = useWorkflowContext();
-  
-  return {
+
+  return useMemo(() => ({
     startWorkflow: context.startWorkflow,
     restoreWorkflow: context.restoreWorkflow,
     updateStep: context.updateStep,
@@ -116,7 +120,17 @@ export function useWorkflowControl() {
     abortWorkflow: context.abortWorkflow,
     resumeWorkflow: context.resumeWorkflow,
     getWorkflow: context.getWorkflow,
-  };
+  }), [
+    context.startWorkflow,
+    context.restoreWorkflow,
+    context.updateStep,
+    context.addSteps,
+    context.addStepsFromAIResponse,
+    context.resetWorkflow,
+    context.abortWorkflow,
+    context.resumeWorkflow,
+    context.getWorkflow,
+  ]);
 }
 
 export default WorkflowContext;

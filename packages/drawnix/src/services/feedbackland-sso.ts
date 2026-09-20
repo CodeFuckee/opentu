@@ -117,6 +117,9 @@ function installFeedbacklandSsoTokenBridge(): void {
           event.origin
         );
       }
+    }).catch((error) => {
+      // 与既有失败路径一致：不向 iframe 回包（其等待超时自行处理），仅留痕
+      console.warn('[FeedbacklandSSO] token 获取失败:', error);
     });
   });
 }

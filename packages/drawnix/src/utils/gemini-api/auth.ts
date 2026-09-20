@@ -247,11 +247,15 @@ export function initializeSettings(): void {
   const apiKey = getApiKeyFromUrl();
 
   if (settings?.apiKey || settings?.baseUrl || apiKey) {
-    geminiSettings.update({
-      ...(settings?.apiKey && { apiKey: settings.apiKey }),
-      ...(settings?.baseUrl && { baseUrl: settings.baseUrl }),
-      ...(apiKey && { apiKey: apiKey }),
-    });
+    geminiSettings
+      .update({
+        ...(settings?.apiKey && { apiKey: settings.apiKey }),
+        ...(settings?.baseUrl && { baseUrl: settings.baseUrl }),
+        ...(apiKey && { apiKey: apiKey }),
+      })
+      .catch((error) => {
+        console.warn('[GeminiAuth] URL 参数写入设置失败:', error);
+      });
 
     // Remove parameters from URL after processing
     const url = new URL(window.location.href);
