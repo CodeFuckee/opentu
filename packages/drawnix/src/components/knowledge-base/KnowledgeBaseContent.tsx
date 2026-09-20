@@ -71,7 +71,8 @@ const KnowledgeBaseContent: React.FC<KnowledgeBaseContentProps> = ({ initialNote
   const [expandedDirIds, setExpandedDirIds] = useState<Set<string>>(new Set());
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortOptions, setSortOptions] = useState<KBSortOptions>(
+  const [sortOptions, setSortOptions] = useState<KBSortOptions>(() =>
+    // 惰性初始化：避免每次渲染都读 localStorage
     knowledgeBaseService.loadSortPreference
       ? knowledgeBaseService.loadSortPreference()
       : { field: 'updatedAt', order: 'desc' }
@@ -852,10 +853,20 @@ const KnowledgeBaseContent: React.FC<KnowledgeBaseContentProps> = ({ initialNote
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
       if (!files || !selectedDirId) return;
+      // 单文件失败不中断后续文件，并给出用户可见提示
+      let failedCount = 0;
       for (const file of Array.from(files)) {
         if (!file.name.endsWith('.md') && !file.name.endsWith('.markdown')) continue;
-        const content = await file.text();
-        await importKnowledgeBaseNoteFromMarkdown(content, selectedDirId, file.name);
+        try {
+          const content = await file.text();
+          await importKnowledgeBaseNoteFromMarkdown(content, selectedDirId, file.name);
+        } catch (error) {
+          failedCount++;
+          console.error('[KnowledgeBase] 导入失败:', file.name, error);
+        }
+      }
+      if (failedCount > 0) {
+        MessagePlugin.error(`${failedCount} 个文件导入失败，请检查文件内容`);
       }
       await refreshData();
       if (fileInputRef.current) fileInputRef.current.value = '';

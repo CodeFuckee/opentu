@@ -159,7 +159,9 @@ export const DialogTaskList: React.FC<DialogTaskListProps> = ({
     }
 
     // Sort by creation time - newest first
-    return filtered.sort((a, b) => b.createdAt - a.createdAt);
+    // 复制后再排序：无过滤条件时 filtered === tasks（hook state 数组），
+    // 原地 sort 会在 render 期间突变 hook state
+    return [...filtered].sort((a, b) => b.createdAt - a.createdAt);
   }, [tasks, taskIds, searchText]);
 
   // Task action handlers

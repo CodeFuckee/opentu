@@ -422,11 +422,13 @@ export const GeneratePage: React.FC<GeneratePageProps> = ({
       duration: splitParams.duration,
       size: splitParams.size,
     });
-    void applyRecordPatch({
+    applyRecordPatch({
       videoModel,
       videoModelRef: videoModelRef || null,
       segmentDuration: Number.parseFloat(splitParams.duration) || 8,
       videoSize: splitParams.size,
+    }).catch((error) => {
+      console.warn('[MVGenerate] 模型参数持久化失败:', error);
     });
   }, [
     applyRecordPatch,
@@ -475,6 +477,10 @@ export const GeneratePage: React.FC<GeneratePageProps> = ({
     try {
       const currentRecord = latestRecordRef.current;
       const currentShots = latestShotsRef.current;
+      if (!board) {
+        // 与 video-analyzer 同款守卫：无画布时不能把模块级 boardRef 置空
+        throw new Error('画布未就绪');
+      }
       setCanvasBoard(board);
       const result = await quickInsert('text', formatMVShotsMarkdown(currentRecord, currentShots));
       if (!result.success) {
@@ -645,7 +651,9 @@ export const GeneratePage: React.FC<GeneratePageProps> = ({
             const charId = suffix.slice(0, refIdx);
             const base = latestRecordRef.current.characters || [];
             const updatedChars = base.map(c => c.id === charId ? { ...c, referenceImageUrl: resultUrl } : c);
-            void applyRecordPatch({ characters: updatedChars });
+            applyRecordPatch({ characters: updatedChars }).catch((error) => {
+              console.warn('[MVGenerate] 角色参考图回填持久化失败:', error);
+            });
           }
         }
         continue;
@@ -1069,7 +1077,9 @@ export const GeneratePage: React.FC<GeneratePageProps> = ({
     });
   }, [record.id, pseudoAnalysis, pseudoProductInfo, characters, knowledgeContextRefs, openDialog, getLastFrameUrl, imageModel, imageModelRef, mergeReferenceImages, getShotCharacterReferenceImages, saveShotDraft, selectedImageAspectRatio, toDraftImages]);
 
-  const handleShotGenerateVideo = useCallback(async (shot: VideoShot, index: number) => {
+  // 同步函数（体内无 await）：buildVideoPrompt 抛错时经 onClick 正常暴露，
+  // async 会把 rejection 丢进被 onClick 丢弃的 promise
+  const handleShotGenerateVideo = useCallback((shot: VideoShot, index: number) => {
     analytics.trackUIInteraction({
       area: 'popular_mv_tool',
       action: 'shot_video_generation_opened',

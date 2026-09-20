@@ -327,18 +327,23 @@ export const ImageEditorCore = forwardRef<
     useEffect(() => {
       if (!imageUrl) return;
 
+      // cancelled 守卫：快速切换图片时旧 onload 不得把陈旧 img 写回
+      let cancelled = false;
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
+        if (cancelled) return;
         imageRef.current = img;
         setImageSize({ width: img.naturalWidth, height: img.naturalHeight });
       };
       img.onerror = () => {
+        if (cancelled) return;
         MessagePlugin.error('图片加载失败');
       };
       img.src = imageUrl;
 
       return () => {
+        cancelled = true;
         imageRef.current = null;
       };
     }, [imageUrl]);

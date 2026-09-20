@@ -110,8 +110,8 @@ const MermaidToDrawnix = () => {
       ];
       const zoom = board.viewport.zoom;
       const origination = getViewportOrigination(board);
-      const centerX = origination![0] + focusPoint[0] / zoom;
-      const centerY = origination![1] + focusPoint[1] / zoom;
+      const centerX = (origination?.[0] ?? 0) + focusPoint[0] / zoom;
+      const centerY = (origination?.[1] ?? 0) + focusPoint[1] / zoom;
       const elements = value;
       const elementRectangle = RectangleClient.getBoundingRectangle(
         elements

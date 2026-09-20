@@ -434,19 +434,18 @@ export const AnalyzePage: React.FC<AnalyzePageProps> = ({
   }, []);
 
   const clearPdfAttachment = useCallback(() => {
-    const shouldDeleteCache = !pendingAnalyzeTaskId;
-    setPdfAttachment((prev) => {
-      if (shouldDeleteCache && prev?.cacheUrl) {
-        void unifiedCacheService
-          .deleteCache(prev.cacheUrl)
-          .catch(() => undefined);
-      }
-      return null;
-    });
+    // 副作用（删缓存）放在 updater 外：StrictMode 下 updater 可能双触发，
+    // 重复执行 deleteCache（第四轮 F16 同款整改）
+    const cacheUrlToDelete =
+      !pendingAnalyzeTaskId ? pdfAttachment?.cacheUrl : undefined;
+    setPdfAttachment(null);
+    if (cacheUrlToDelete) {
+      unifiedCacheService.deleteCache(cacheUrlToDelete).catch(() => undefined);
+    }
     if (pdfInputRef.current) {
       pdfInputRef.current.value = '';
     }
-  }, [pendingAnalyzeTaskId]);
+  }, [pendingAnalyzeTaskId, pdfAttachment]);
 
   const handlePdfFileChange = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -473,19 +472,19 @@ export const AnalyzePage: React.FC<AnalyzePageProps> = ({
       try {
         const cacheUrl = `video-prompt-pdf-${generateUUID()}.pdf`;
         await unifiedCacheService.cacheToCacheStorageOnly(cacheUrl, file);
-        setPdfAttachment((prev) => {
-          if (!pendingAnalyzeTaskId && prev?.cacheUrl) {
-            void unifiedCacheService
-              .deleteCache(prev.cacheUrl)
-              .catch(() => undefined);
-          }
-          return {
-            cacheUrl,
-            name: file.name,
-            size: file.size,
-            mimeType: file.type || 'application/pdf',
-          };
+        // 副作用（删旧缓存）放在 updater 外，理由同 clearPdfAttachment
+        const prevCacheUrl = !pendingAnalyzeTaskId
+          ? pdfAttachment?.cacheUrl
+          : undefined;
+        setPdfAttachment({
+          cacheUrl,
+          name: file.name,
+          size: file.size,
+          mimeType: file.type || 'application/pdf',
         });
+        if (prevCacheUrl) {
+          unifiedCacheService.deleteCache(prevCacheUrl).catch(() => undefined);
+        }
         MessagePlugin.success('PDF 已添加，将作为提示词上下文提交给 Gemini');
       } catch (error) {
         MessagePlugin.error(
@@ -493,7 +492,7 @@ export const AnalyzePage: React.FC<AnalyzePageProps> = ({
         );
       }
     },
-    [geminiTextModels.length, pendingAnalyzeTaskId]
+    [geminiTextModels.length, pendingAnalyzeTaskId, pdfAttachment]
   );
 
   const [extractingFrames, setExtractingFrames] = useState(false);

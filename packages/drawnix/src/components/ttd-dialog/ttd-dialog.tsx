@@ -174,10 +174,12 @@ const TTDDialogComponent = ({
     }
     lastPersistedImageSelectionRef.current = selectionKey;
 
-    void updateActiveInvocationRouteModel(
+    updateActiveInvocationRouteModel(
       'image',
       createModelRef(selectedImageModelRef?.profileId, selectedImageModel)
-    );
+    ).catch((error) => {
+      console.warn('[TTDDialog] 图片路由模型持久化失败:', error);
+    });
   }, [selectedImageModel, selectedImageModelRef]);
 
   useEffect(() => {
@@ -194,10 +196,12 @@ const TTDDialogComponent = ({
     }
     lastPersistedVideoSelectionRef.current = selectionKey;
 
-    void updateActiveInvocationRouteModel(
+    updateActiveInvocationRouteModel(
       'video',
       createModelRef(selectedVideoModelRef?.profileId, selectedVideoModel)
-    );
+    ).catch((error) => {
+      console.warn('[TTDDialog] 视频路由模型持久化失败:', error);
+    });
   }, [selectedVideoModel, selectedVideoModelRef]);
 
   // AI 图片生成的初始数据

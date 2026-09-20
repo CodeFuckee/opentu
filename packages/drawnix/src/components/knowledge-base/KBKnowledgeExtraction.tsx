@@ -5,7 +5,13 @@
  * 复用 Chat Drawer 的视觉风格
  */
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, {
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+  useMemo,
+} from 'react';
 import {
   Sparkles,
   Send,
@@ -185,7 +191,9 @@ export const KBKnowledgeExtraction: React.FC<KBKnowledgeExtractionProps> = ({
   onInsertToNote,
   onSaved,
 }) => {
-  const initialRoute = resolveInvocationRoute('text');
+  // 初始路由仅被下方 useState 初始值消费，惰性化避免每次渲染全量解析
+  // settings-manager（F7 同族）
+  const initialRoute = useMemo(() => resolveInvocationRoute('text'), []);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [selectedModel, setSelectedModel] = useState(
@@ -203,6 +211,15 @@ export const KBKnowledgeExtraction: React.FC<KBKnowledgeExtractionProps> = ({
   const [abortController, setAbortController] =
     useState<AbortController | null>(null);
   const loadingRef = useRef(false);
+  // 在途请求的 ref 镜像：组件卸载/切笔记重挂（key=noteId）时中止流式请求，
+  // 避免 onProgress 对已卸载组件持续 setState、网络流空跑到结束
+  const activeAbortControllerRef = useRef<AbortController | null>(null);
+  useEffect(
+    () => () => {
+      activeAbortControllerRef.current?.abort();
+    },
+    []
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -326,6 +343,7 @@ export const KBKnowledgeExtraction: React.FC<KBKnowledgeExtractionProps> = ({
     }
 
     const controller = new AbortController();
+    activeAbortControllerRef.current = controller;
     setAbortController(controller);
 
     try {
@@ -458,6 +476,7 @@ export const KBKnowledgeExtraction: React.FC<KBKnowledgeExtractionProps> = ({
     setMessages((prev) => [...prev, userMsg]);
 
     const controller = new AbortController();
+    activeAbortControllerRef.current = controller;
     setAbortController(controller);
 
     // 添加 AI 消息占位

@@ -102,6 +102,8 @@ export const SkillDropdown: React.FC<SkillDropdownProps> = ({
   }, []);
 
   // 打开时加载用户 Skill 和外部 Skill，并重置高亮和搜索
+  // （依赖补全 externalSkills/userSkills：打开瞬间列表常为空/陈旧，
+  // 异步加载完成后按 value 重算高亮，否则初始高亮定位错误）
   useEffect(() => {
     if (isOpen) {
       loadUserSkills();
@@ -113,7 +115,7 @@ export const SkillDropdown: React.FC<SkillDropdownProps> = ({
       // 聚焦搜索框
       setTimeout(() => searchRef.current?.focus(), 50);
     }
-  }, [isOpen, value]);
+  }, [isOpen, value, externalSkills, userSkills, loadUserSkills, loadExternalSkills]);
 
   // 确保高亮项可见
   useEffect(() => {

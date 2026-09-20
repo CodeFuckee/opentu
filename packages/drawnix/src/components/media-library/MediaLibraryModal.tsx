@@ -132,6 +132,10 @@ export function MediaLibraryModal({
         setIsSelecting(true);
         await onSelect(asset);
         onClose();
+      } catch (error) {
+        // 上游 onSelect（如记录持久化）失败时提示而非静默弹窗卡住
+        console.error('[MediaLibrary] 使用素材失败:', error);
+        MessagePlugin.error('使用素材失败，请重试');
       } finally {
         isSelectingRef.current = false;
         if (isMountedRef.current) {
@@ -160,6 +164,9 @@ export function MediaLibraryModal({
         setIsSelecting(true);
         await onSelectMultiple(assets);
         onClose();
+      } catch (error) {
+        console.error('[MediaLibrary] 批量使用素材失败:', error);
+        MessagePlugin.error('批量使用素材失败，请重试');
       } finally {
         isSelectingRef.current = false;
         if (isMountedRef.current) {

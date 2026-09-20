@@ -730,7 +730,9 @@ export const TaskQueuePanel: React.FC<TaskQueuePanelProps> = ({
     }
   };
 
-  const handleRegenerate = async (taskId: string) => {
+  // useCallback 化：TaskItem 的 memo 比较器含 onRegenerate 引用比较，
+  // 每渲染新建会使 memo 形同虚设（任务进度高频更新时全部重渲染）
+  const handleRegenerate = useCallback(async (taskId: string) => {
     const task =
       (await taskStorageReader.getTask(taskId)) ||
       taskQueueService.getTask(taskId) ||
@@ -745,7 +747,7 @@ export const TaskQueuePanel: React.FC<TaskQueuePanelProps> = ({
       source: 'task-queue',
     });
     onTaskAction?.('regenerate', taskId);
-  };
+  }, [tasks, onTaskAction]);
 
   const handleEdit = (taskId: string) => {
     const task = tasks.find((t) => t.id === taskId);

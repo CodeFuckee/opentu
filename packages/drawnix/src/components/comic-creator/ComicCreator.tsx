@@ -2131,14 +2131,19 @@ const ComicCreator: React.FC = () => {
         starred: !record.starred,
         ...getComicRecordAnalytics(record),
       });
-      const nextRecords = await updateRecord(record.id, {
-        starred: !record.starred,
-        updatedAt: Date.now(),
-      });
-      setRecords(nextRecords);
-      const nextRecord = nextRecords.find((item) => item.id === record.id);
-      if (nextRecord && currentRecord?.id === record.id) {
-        updateCurrentRecord(nextRecord);
+      try {
+        const nextRecords = await updateRecord(record.id, {
+          starred: !record.starred,
+          updatedAt: Date.now(),
+        });
+        setRecords(nextRecords);
+        const nextRecord = nextRecords.find((item) => item.id === record.id);
+        if (nextRecord && currentRecord?.id === record.id) {
+          updateCurrentRecord(nextRecord);
+        }
+      } catch (error) {
+        console.error('[ComicCreator] 收藏状态更新失败:', error);
+        MessagePlugin.error('收藏状态更新失败，请重试');
       }
     },
     [currentRecord?.id, setRecords, updateCurrentRecord]
@@ -2150,11 +2155,16 @@ const ComicCreator: React.FC = () => {
       trackComicCreatorClick('delete_history_record', {
         ...getComicRecordAnalytics(record),
       });
-      const nextRecords = await deleteRecord(recordId);
-      setRecords(nextRecords);
-      if (currentRecord?.id === recordId) {
-        restart();
-        goToDefaultPage();
+      try {
+        const nextRecords = await deleteRecord(recordId);
+        setRecords(nextRecords);
+        if (currentRecord?.id === recordId) {
+          restart();
+          goToDefaultPage();
+        }
+      } catch (error) {
+        console.error('[ComicCreator] 历史记录删除失败:', error);
+        MessagePlugin.error('历史记录删除失败，请重试');
       }
     },
     [currentRecord?.id, goToDefaultPage, records, restart, setRecords]

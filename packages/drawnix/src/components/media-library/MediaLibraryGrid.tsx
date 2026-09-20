@@ -11,7 +11,14 @@ import {
   useEffect,
   useTransition,
 } from 'react';
-import { Loading, Input, Button, Checkbox, Dialog } from 'tdesign-react';
+import {
+  Loading,
+  Input,
+  Button,
+  Checkbox,
+  Dialog,
+  MessagePlugin,
+} from 'tdesign-react';
 import {
   Search,
   Trash2,
@@ -395,6 +402,9 @@ export function MediaLibraryGrid({
     import('../../services/supabase-sync/media-sync-adapter').then(
       ({ mediaSyncAdapter }) => {
         mediaSyncAdapter.addSyncCompletedListener(handleSyncCompleted);
+      },
+      (error) => {
+        console.warn('[MediaLibraryGrid] 同步监听模块加载失败:', error);
       }
     );
 
@@ -404,6 +414,9 @@ export function MediaLibraryGrid({
       import('../../services/supabase-sync/media-sync-adapter').then(
         ({ mediaSyncAdapter }) => {
           mediaSyncAdapter.removeSyncCompletedListener(handleSyncCompleted);
+        },
+        (error) => {
+          console.warn('[MediaLibraryGrid] 同步监听模块加载失败:', error);
         }
       );
     };
@@ -498,7 +511,12 @@ export function MediaLibraryGrid({
   }, [playlistItems]);
 
   const handleAssetDownload = useCallback(async (asset: Asset) => {
-    await smartDownload([buildAssetDownloadItem(asset)]);
+    try {
+      await smartDownload([buildAssetDownloadItem(asset)]);
+    } catch (error) {
+      console.error('[MediaLibraryGrid] 素材下载失败:', error);
+      MessagePlugin.error('素材下载失败，请重试');
+    }
   }, []);
 
   const assetContextMenuItems = useMemo<ContextMenuEntry<Asset>[]>(
@@ -1007,7 +1025,12 @@ export function MediaLibraryGrid({
     });
 
     if (confirmed) {
-      await handleBatchDelete();
+      try {
+        await handleBatchDelete();
+      } catch (error) {
+        console.error('[MediaLibraryGrid] 批量删除失败:', error);
+        MessagePlugin.error('批量删除失败，请重试');
+      }
     }
   }, [
     batchDeleteWarningInfo,
@@ -1030,7 +1053,12 @@ export function MediaLibraryGrid({
         return;
       }
 
-      await deletePlaylist(playlist.id);
+      try {
+        await deletePlaylist(playlist.id);
+      } catch (error) {
+        console.error('[MediaLibraryGrid] 播放列表删除失败:', error);
+        MessagePlugin.error('播放列表删除失败，请重试');
+      }
     },
     [confirm, deletePlaylist]
   );
@@ -1182,17 +1210,23 @@ export function MediaLibraryGrid({
 
   const handleSubmitPlaylistDialog = useCallback(async () => {
     if (!playlistDialog) return;
-    if (playlistDialog.mode === 'rename' && playlistDialog.playlistId) {
-      await renamePlaylist(playlistDialog.playlistId, playlistNameInput);
-    } else {
-      const playlist = await createPlaylist(playlistNameInput);
-      if (
-        playlistDialog.mode === 'create-and-add' &&
-        playlistDialog.targetAssetId
-      ) {
-        await addAssetToPlaylist(playlistDialog.targetAssetId, playlist.id);
+    try {
+      if (playlistDialog.mode === 'rename' && playlistDialog.playlistId) {
+        await renamePlaylist(playlistDialog.playlistId, playlistNameInput);
+      } else {
+        const playlist = await createPlaylist(playlistNameInput);
+        if (
+          playlistDialog.mode === 'create-and-add' &&
+          playlistDialog.targetAssetId
+        ) {
+          await addAssetToPlaylist(playlistDialog.targetAssetId, playlist.id);
+        }
+        handleSelectPlaylist(playlist.id);
       }
-      handleSelectPlaylist(playlist.id);
+    } catch (error) {
+      console.error('[MediaLibraryGrid] 播放列表保存失败:', error);
+      MessagePlugin.error('播放列表保存失败，请重试');
+      return;
     }
     setPlaylistDialog(null);
     setPlaylistNameInput('');

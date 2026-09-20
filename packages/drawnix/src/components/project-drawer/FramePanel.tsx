@@ -3268,7 +3268,13 @@ export const FramePanel: React.FC<FramePanelProps> = ({
     activePPTOutlineRuntime = runtime;
     emitPPTOutlineRuntimeChange();
 
-    persistOutlineDrafts();
+    // 位于下方 try 之外的预落盘：失败不能以 unhandled rejection 冒出
+    // （本函数经 onClick 的 void 调用消费）
+    try {
+      persistOutlineDrafts();
+    } catch (error) {
+      console.error('[FramePanel] 大纲草稿持久化失败:', error);
+    }
     analytics.trackPPTAction({
       action: 'generate_outline_slides',
       source: 'project_drawer_outline',

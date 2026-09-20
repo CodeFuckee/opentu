@@ -149,9 +149,14 @@ export const AnalyzePage: React.FC<AnalyzePageProps> = ({
         videoModelRef,
         segmentDuration,
       };
-      const updated = await updateRecord(existingRecordId, patch);
-      onRecordsChange(updated);
-      onComplete({ ...currentRecord, ...patch });
+      try {
+        const updated = await updateRecord(existingRecordId, patch);
+        onRecordsChange(updated);
+        onComplete({ ...currentRecord, ...patch });
+      } catch (error) {
+        // 定时器回调内的 rejection 无人接住，留痕即可（下次输入会重试）
+        console.warn('[MVAnalyze] 参数自动保存失败:', error);
+      }
     }, 500);
     return () => clearTimeout(saveTimerRef.current);
   }, [

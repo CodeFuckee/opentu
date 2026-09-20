@@ -185,17 +185,21 @@ export const CreatePage: React.FC<CreatePageProps> = ({
     []
   );
 
-  const audioPreviewUrl = useMemo(() => {
+  // objectURL 的创建/吊销属于副作用，放 useEffect 管理：
+  // useMemo 内执行会在并发渲染丢弃时悬空 ref、泄漏对象 URL
+  const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
+  useEffect(() => {
     if (previewUrlRef.current) {
       URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
     }
     if (!audioFile) {
-      previewUrlRef.current = null;
-      return null;
+      setAudioPreviewUrl(null);
+      return;
     }
     const url = URL.createObjectURL(audioFile);
     previewUrlRef.current = url;
-    return url;
+    setAudioPreviewUrl(url);
   }, [audioFile]);
 
   useEffect(
@@ -310,11 +314,16 @@ export const CreatePage: React.FC<CreatePageProps> = ({
       ) {
         return;
       }
-      const updated = await updateRecord(existingRecord.id, patch);
-      onRecordsChange(updated);
-      const nextRecord = updated.find((item) => item.id === existingRecord.id);
-      if (nextRecord) {
-        onComplete(nextRecord);
+      try {
+        const updated = await updateRecord(existingRecord.id, patch);
+        onRecordsChange(updated);
+        const nextRecord = updated.find((item) => item.id === existingRecord.id);
+        if (nextRecord) {
+          onComplete(nextRecord);
+        }
+      } catch (error) {
+        // 定时器回调内的 rejection 无人接住，留痕即可（下次输入会重试）
+        console.warn('[MusicCreate] 草稿自动保存失败:', error);
       }
     }, 400);
 

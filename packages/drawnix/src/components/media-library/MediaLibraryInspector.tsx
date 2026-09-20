@@ -194,7 +194,12 @@ export function MediaLibraryInspector({
       return;
     }
 
-    await onSelectMultiple(selectedAssets);
+    try {
+      await onSelectMultiple(selectedAssets);
+    } catch (error) {
+      console.error('[MediaLibraryInspector] 批量使用素材失败:', error);
+      MessagePlugin.error('批量使用素材失败，请重试');
+    }
   }, [onSelectMultiple, selectedAssets, selecting]);
 
   // 复制提示词

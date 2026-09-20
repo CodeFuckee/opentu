@@ -502,11 +502,13 @@ export const GeneratePage: React.FC<GeneratePageProps> = ({
       duration: splitParams.duration,
       size: splitParams.size,
     });
-    void applyProductInfoPatch({
+    applyProductInfoPatch({
       videoModel,
       videoModelRef: videoModelRef || null,
       segmentDuration: Number.parseFloat(splitParams.duration) || 8,
       videoSize: splitParams.size,
+    }).catch((error) => {
+      console.warn('[VideoGenerate] 产品信息持久化失败:', error);
     });
   }, [
     applyProductInfoPatch,
@@ -679,7 +681,9 @@ export const GeneratePage: React.FC<GeneratePageProps> = ({
             const charId = suffix.slice(0, refIdx);
             const base = latestRecordRef.current.characters || latestRecordRef.current.analysis.characters || [];
             const updatedChars = base.map(c => c.id === charId ? { ...c, referenceImageUrl: resultUrl } : c);
-            void applyRecordPatch({ characters: updatedChars });
+            applyRecordPatch({ characters: updatedChars }).catch((error) => {
+              console.warn('[VideoGenerate] 角色参考图回填持久化失败:', error);
+            });
           }
         }
         continue;

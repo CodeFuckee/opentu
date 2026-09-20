@@ -496,9 +496,12 @@ export const CanvasAudioPlayer: React.FC = () => {
           type="button"
           className="canvas-audio-player__toggle canvas-audio-player__player-switch canvas-audio-player__switch-toggle"
           onClick={() => {
-            void import('../../services/tool-launch-service').then(
+            import('../../services/tool-launch-service').then(
               ({ openMusicPlayerTool }) => {
                 openMusicPlayerTool();
+              },
+              (error) => {
+                console.warn('[CanvasAudioPlayer] 播放器工具模块加载失败:', error);
               }
             );
           }}

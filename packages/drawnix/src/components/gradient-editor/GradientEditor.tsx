@@ -158,6 +158,20 @@ export const GradientEditor: React.FC<GradientEditorProps> = ({
   const [activeColorPickerIndex, setActiveColorPickerIndex] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const gradientBarRef = useRef<HTMLDivElement>(null);
+  // 拖拽监听在 pointerdown 时注册、仅 mouseup 移除：卸载落在拖拽中会泄漏，
+  // 用 ref 记录清理函数并在卸载时执行
+  const dragCleanupRef = useRef<(() => void) | null>(null);
+  const dragResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      dragCleanupRef.current?.();
+      dragCleanupRef.current = null;
+      if (dragResetTimerRef.current) {
+        clearTimeout(dragResetTimerRef.current);
+      }
+    },
+    []
+  );
 
   // 同步外部 value 变化
   useEffect(() => {
@@ -302,22 +316,26 @@ export const GradientEditor: React.FC<GradientEditorProps> = ({
       };
 
       const handleMouseUp = () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-        
+        dragCleanupRef.current?.();
+        dragCleanupRef.current = null;
+
         // 如果没有移动，则是点击行为，打开颜色选择器
         if (!hasMoved) {
           setActiveColorPickerIndex(index);
         }
-        
+
         // 延迟重置 isDragging，避免影响其他逻辑
-        setTimeout(() => {
+        dragResetTimerRef.current = setTimeout(() => {
           setIsDragging(false);
         }, 0);
       };
 
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
+      dragCleanupRef.current = () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
     },
     [handleStopDrag]
   );

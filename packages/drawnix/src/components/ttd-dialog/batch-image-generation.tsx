@@ -503,18 +503,27 @@ const BatchImageGeneration: React.FC<BatchImageGenerationProps> = ({
   }, [previewUrls]);
 
   // 模型选择
-  const initialRoute = resolveInvocationRoute('image');
-  const initialMatchedModel =
-    findMatchingSelectableModel(
-      imageModels,
-      initialRoute.modelId,
-      createModelRef(initialRoute.profileId, initialRoute.modelId)
-    ) ||
-    getPinnedSelectableModel(
-      'image',
-      initialRoute.modelId,
-      createModelRef(initialRoute.profileId, initialRoute.modelId)
-    );
+  // 初始路由/匹配模型仅被下方两个 useState 的初始值消费，useMemo 惰性化：
+  // 本组件近 3900 行且随父级每键击重渲染，裸执行会在每次渲染全量解析
+  // settings-manager（第四轮 F7 在同族组件修过同类问题，此处为漏网点）。
+  const initialRouteAndModel = useMemo(() => {
+    const route = resolveInvocationRoute('image');
+    const matchedModel =
+      findMatchingSelectableModel(
+        imageModels,
+        route.modelId,
+        createModelRef(route.profileId, route.modelId)
+      ) ||
+      getPinnedSelectableModel(
+        'image',
+        route.modelId,
+        createModelRef(route.profileId, route.modelId)
+      );
+    return { route, matchedModel };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 初始值语义：仅首渲染计算
+  }, []);
+  const initialRoute = initialRouteAndModel.route;
+  const initialMatchedModel = initialRouteAndModel.matchedModel;
   const [selectedModel, setSelectedModel] = useState<string>(
     initialMatchedModel?.id ||
       imageModels[0]?.id ||

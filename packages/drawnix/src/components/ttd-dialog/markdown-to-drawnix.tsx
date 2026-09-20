@@ -147,7 +147,7 @@ const MarkdownToDrawnix = () => {
           api: Promise.resolve(module),
         });
       } catch (err) {
-        console.error('Failed to load mermaid library:', err);
+        console.error('Failed to load markdown library:', err);
         setError(new Error(t('dialog.error.loadMermaid')));
       }
     };
@@ -209,8 +209,8 @@ const MarkdownToDrawnix = () => {
       ];
       const zoom = board.viewport.zoom;
       const origination = getViewportOrigination(board);
-      const focusX = origination![0] + focusPoint[0] / zoom;
-      const focusY = origination![1] + focusPoint[1] / zoom;
+      const focusX = (origination?.[0] ?? 0) + focusPoint[0] / zoom;
+      const focusY = (origination?.[1] ?? 0) + focusPoint[1] / zoom;
       insertionPoint = [focusX, focusY] as Point;
     }
     

@@ -82,12 +82,17 @@ export const OpenFile = () => {
       data-testid="open-button"
       data-track="toolbar_click_menu_open"
       onSelect={() => {
-        loadFromJSON(board).then((data) => {
-          if (!data) {
-            return;
-          }
-          clearAndLoad(data.elements, data.viewport);
-        });
+        loadFromJSON(board)
+          .then((data) => {
+            if (!data) {
+              return;
+            }
+            clearAndLoad(data.elements, data.viewport);
+          })
+          .catch((error) => {
+            console.error('[Menu] 打开文件失败:', error);
+            MessagePlugin.error('打开文件失败，请检查文件格式');
+          });
       }}
       icon={<OpenFileIcon />}
       aria-label={t('menu.open')}

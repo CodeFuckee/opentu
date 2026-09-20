@@ -464,18 +464,21 @@ export const ChatDrawer = forwardRef<ChatDrawerRef, ChatDrawerProps>(
 
     // Send pending message when session is ready
     useEffect(() => {
-      if (activeSessionId && pendingMessageRef.current) {
-        const msg = pendingMessageRef.current;
-        pendingMessageRef.current = null;
-        // Use setTimeout to ensure handler is updated
-        setTimeout(() => {
-          sendMessageRef.current(msg);
-        }, 100);
+      if (!(activeSessionId && pendingMessageRef.current)) {
+        return;
       }
+      const msg = pendingMessageRef.current;
+      pendingMessageRef.current = null;
+      // Use setTimeout to ensure handler is updated
+      const timer = setTimeout(() => {
+        sendMessageRef.current(msg);
+      }, 100);
+      return () => clearTimeout(timer);
     }, [activeSessionId]);
 
     // Send pending message when API key is configured and settings dialog closes
     useEffect(() => {
+      let cleanup: (() => void) | undefined;
       // When settings dialog closes, check if we have a pending message and API key
       if (!appState.openSettings && pendingMessageRef.current) {
         const settings = geminiSettings.get();
@@ -493,12 +496,14 @@ export const ChatDrawer = forwardRef<ChatDrawerRef, ChatDrawerProps>(
             })();
           } else {
             // Send immediately if session exists
-            setTimeout(() => {
+            const timer = setTimeout(() => {
               sendMessageRef.current(msg);
             }, 100);
+            cleanup = () => clearTimeout(timer);
           }
         }
       }
+      return () => cleanup?.();
     }, [appState.openSettings, activeSessionId]);
 
     // Handle Escape key to close drawer
@@ -719,12 +724,10 @@ export const ChatDrawer = forwardRef<ChatDrawerRef, ChatDrawerProps>(
 
     // Toggle drawer
     const handleToggle = useCallback(() => {
-      setIsOpen((prev) => {
-        const newValue = !prev;
-        onOpenChange?.(newValue);
-        return newValue;
-      });
-    }, [onOpenChange]);
+      const newValue = !isOpen;
+      setIsOpen(newValue);
+      onOpenChange?.(newValue);
+    }, [isOpen, onOpenChange]);
 
     // Close drawer
     const handleClose = useCallback(() => {
@@ -1285,36 +1288,56 @@ export const ChatDrawer = forwardRef<ChatDrawerRef, ChatDrawerProps>(
         const msgId = currentWorkflowMsgIdRef.current;
         if (!msgId) return;
 
+        // 持久化属于副作用：记录 payload、在 updater 外执行，
+        // 避免 StrictMode 双触发 updater 造成重复写库
+        let logPersistPayload: {
+          msgId: string;
+          workflow: WorkflowMessageData;
+        } | null = null;
         setWorkflowMessages((prev) => {
           const newMap = new Map(prev);
           const workflow = newMap.get(msgId);
           if (workflow) {
-            const logs = workflow.logs || [];
             const updatedWorkflow = {
               ...workflow,
-              logs: [...logs, log],
+              logs: [...(workflow.logs || []), log],
             };
             newMap.set(msgId, updatedWorkflow);
-            // 持久化到本地存储
-            chatStorageService.updateMessage(msgId, {
-              workflow: updatedWorkflow,
-            });
-            // 同步更新 chatHandler 中的原始消息
-            chatHandler.updateRawMessageWorkflow?.(msgId, updatedWorkflow);
+            logPersistPayload = { msgId, workflow: updatedWorkflow };
           }
           return newMap;
         });
+        if (logPersistPayload) {
+          const { msgId: persistMsgId, workflow: persistWorkflow } =
+            logPersistPayload;
+          chatStorageService.updateMessage(persistMsgId, {
+            workflow: persistWorkflow,
+          });
+          // 同步更新 chatHandler 中的原始消息
+          chatHandler.updateRawMessageWorkflow?.(persistMsgId, persistWorkflow);
+        }
       },
       [chatHandler]
     );
 
     // 更新 AI 思考内容（流式追加，使用防抖减少存储频率）
     const thinkingUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    useEffect(
+      () => () => {
+        if (thinkingUpdateTimeoutRef.current) {
+          clearTimeout(thinkingUpdateTimeoutRef.current);
+        }
+      },
+      []
+    );
     const handleUpdateThinkingContent = useCallback(
       (content: string) => {
         const msgId = currentWorkflowMsgIdRef.current;
         if (!msgId) return;
 
+        // 持久化属于副作用：updater 保持纯函数（StrictMode 双触发只记录
+        // 不执行），防抖调度移到 updater 外
+        let thinkingPersistPayload: WorkflowMessageData | null = null;
         setWorkflowMessages((prev) => {
           const newMap = new Map(prev);
           const workflow = newMap.get(msgId);
@@ -1353,21 +1376,25 @@ export const ChatDrawer = forwardRef<ChatDrawerRef, ChatDrawerProps>(
               };
             }
             newMap.set(msgId, updatedWorkflow);
-
-            // 防抖持久化（500ms 内只保存一次）
-            if (thinkingUpdateTimeoutRef.current) {
-              clearTimeout(thinkingUpdateTimeoutRef.current);
-            }
-            thinkingUpdateTimeoutRef.current = setTimeout(() => {
-              chatStorageService.updateMessage(msgId, {
-                workflow: updatedWorkflow,
-              });
-              // 同步更新 chatHandler 中的原始消息
-              chatHandler.updateRawMessageWorkflow?.(msgId, updatedWorkflow);
-            }, 500);
+            thinkingPersistPayload = updatedWorkflow;
           }
           return newMap;
         });
+
+        // 防抖持久化（500ms 内只保存一次）
+        if (thinkingPersistPayload) {
+          const workflowToPersist = thinkingPersistPayload;
+          if (thinkingUpdateTimeoutRef.current) {
+            clearTimeout(thinkingUpdateTimeoutRef.current);
+          }
+          thinkingUpdateTimeoutRef.current = setTimeout(() => {
+            chatStorageService.updateMessage(msgId, {
+              workflow: workflowToPersist,
+            });
+            // 同步更新 chatHandler 中的原始消息
+            chatHandler.updateRawMessageWorkflow?.(msgId, workflowToPersist);
+          }, 500);
+        }
       },
       [chatHandler]
     );

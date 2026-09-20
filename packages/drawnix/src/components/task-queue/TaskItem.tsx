@@ -381,20 +381,27 @@ export const TaskItem: React.FC<TaskItemProps> = React.memo(
 
     // Load image to get actual dimensions
     useEffect(() => {
-      if (isCompleted && previewMediaUrl && task.type === TaskType.IMAGE) {
-        const img = new Image();
-        img.onload = () => {
-          setImageDimensions({
-            width: img.naturalWidth,
-            height: img.naturalHeight,
-          });
-        };
-        img.onerror = () => {
-          // If image fails to load, keep dimensions null
-          setImageDimensions(null);
-        };
-        img.src = previewMediaUrl;
+      if (!(isCompleted && previewMediaUrl && task.type === TaskType.IMAGE)) {
+        return;
       }
+      let cancelled = false;
+      const img = new Image();
+      img.onload = () => {
+        if (cancelled) return;
+        setImageDimensions({
+          width: img.naturalWidth,
+          height: img.naturalHeight,
+        });
+      };
+      img.onerror = () => {
+        if (cancelled) return;
+        // If image fails to load, keep dimensions null
+        setImageDimensions(null);
+      };
+      img.src = previewMediaUrl;
+      return () => {
+        cancelled = true;
+      };
     }, [isCompleted, previewMediaUrl, task.type]);
 
     // Build detailed tooltip content

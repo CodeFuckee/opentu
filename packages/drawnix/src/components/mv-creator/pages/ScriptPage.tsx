@@ -307,7 +307,7 @@ export const ScriptPage: React.FC<ScriptPageProps> = ({
       return;
     }
     if (currentTask?.status === 'completed') {
-      void syncMVRewriteTask(currentTask).then(synced => {
+      syncMVRewriteTask(currentTask).then(synced => {
         if (synced) {
           onRecordsChange(synced.records);
           onRecordUpdate(synced.record);
@@ -316,6 +316,10 @@ export const ScriptPage: React.FC<ScriptPageProps> = ({
         } else {
           setError('改编任务已完成，但未找到可回填的记录');
         }
+      }).catch((error) => {
+        setError(
+          (error as Error)?.message || '改编任务回填失败，请稍后重试'
+        );
       }).finally(() => { setPendingRewriteTaskId(null); setRewriteProgress(''); });
       return;
     }

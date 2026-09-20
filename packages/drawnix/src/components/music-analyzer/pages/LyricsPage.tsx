@@ -119,24 +119,29 @@ export const LyricsPage: React.FC<LyricsPageProps> = ({
         .split(',')
         .map((item) => item.trim())
         .filter(Boolean);
-      const updated = await updateRecord(record.id, {
-        rewritePrompt,
-        lyricsDraft,
-        title,
-        styleTags,
-        musicBrief: normalizeMusicBrief(musicBrief),
-        pendingRewriteTaskId,
-      });
-      onRecordsChange(updated);
-      onRecordUpdate({
-        ...record,
-        rewritePrompt,
-        lyricsDraft,
-        title,
-        styleTags,
-        musicBrief: normalizeMusicBrief(musicBrief),
-        pendingRewriteTaskId,
-      });
+      try {
+        const updated = await updateRecord(record.id, {
+          rewritePrompt,
+          lyricsDraft,
+          title,
+          styleTags,
+          musicBrief: normalizeMusicBrief(musicBrief),
+          pendingRewriteTaskId,
+        });
+        onRecordsChange(updated);
+        onRecordUpdate({
+          ...record,
+          rewritePrompt,
+          lyricsDraft,
+          title,
+          styleTags,
+          musicBrief: normalizeMusicBrief(musicBrief),
+          pendingRewriteTaskId,
+        });
+      } catch (error) {
+        // 定时器回调内的 rejection 无人接住，留痕即可（下次输入会重试）
+        console.warn('[MusicLyrics] 歌词草稿自动保存失败:', error);
+      }
     }, 400);
     return () => clearTimeout(saveTimerRef.current);
   }, [

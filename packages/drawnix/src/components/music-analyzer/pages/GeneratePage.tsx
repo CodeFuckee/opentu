@@ -145,12 +145,17 @@ export const GeneratePage: React.FC<GeneratePageProps> = ({
         infillStartS,
         infillEndS,
       };
-      const updated = await updateRecord(record.id, patch);
-      onRecordsChange(updated);
-      onRecordUpdate({
-        ...record,
-        ...patch,
-      });
+      try {
+        const updated = await updateRecord(record.id, patch);
+        onRecordsChange(updated);
+        onRecordUpdate({
+          ...record,
+          ...patch,
+        });
+      } catch (error) {
+        // 定时器回调内的 rejection 无人接住，留痕即可（下次输入会重试）
+        console.warn('[MusicGenerate] 参数自动保存失败:', error);
+      }
     }, 400);
     return () => clearTimeout(saveTimerRef.current);
   }, [

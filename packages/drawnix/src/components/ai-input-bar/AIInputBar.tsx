@@ -382,17 +382,13 @@ function enrichStepArgsWithPromptMeta<
   };
 }
 
-// 初始化 MCP 模块和长视频链服务
-let mcpInitialized = false;
-if (!mcpInitialized) {
-  initializeMCP();
-  initializeLongVideoChainService();
-  // 初始化外部 Skill 服务（异步，会自动加载预构建 bundle）
-  externalSkillService.initialize().catch((err) => {
-    console.warn('[AIInputBar] 外部 Skill 服务初始化失败（非致命）:', err);
-  });
-  mcpInitialized = true;
-}
+// 初始化 MCP 模块和长视频链服务（模块级代码只执行一次，无需守卫标记）
+initializeMCP();
+initializeLongVideoChainService();
+// 初始化外部 Skill 服务（异步，会自动加载预构建 bundle）
+externalSkillService.initialize().catch((err) => {
+  console.warn('[AIInputBar] 外部 Skill 服务初始化失败（非致命）:', err);
+});
 
 // 选中内容类型：图片、视频、图形、文字
 type SelectedContentType = 'image' | 'video' | 'graphics' | 'text';
@@ -698,10 +694,14 @@ const SelectionWatcher: React.FC<{
     onFrameSelectedRef.current = onFrameSelected;
 
     useEffect(() => {
+      // 竞态守卫：processSelectedContentForAI（含图形离屏渲染）可能较慢，
+      // 先触发但后返回的旧选区结果不得覆盖新选区
+      let selectionChangeToken = 0;
       const handleSelectionChange = async () => {
         const currentBoard = boardRef.current;
         if (!currentBoard) return;
 
+        const token = ++selectionChangeToken;
         const selectedElements = getSelectedElements(currentBoard);
 
         // 检测是否选中了单个 Frame，通知父组件
@@ -729,6 +729,9 @@ const SelectionWatcher: React.FC<{
           const processedContent = await processSelectedContentForAI(
             currentBoard
           );
+          if (token !== selectionChangeToken) {
+            return;
+          }
           const content: SelectedContent[] = [];
 
           if (processedContent.graphicsImage) {
@@ -771,6 +774,9 @@ const SelectionWatcher: React.FC<{
 
           onSelectionChangeRef.current(content);
         } catch (error) {
+          if (token !== selectionChangeToken) {
+            return;
+          }
           console.error('Failed to process selected content:', error);
           onSelectionChangeRef.current([]);
         }
@@ -820,11 +826,9 @@ export const AIInputBar: React.FC<AIInputBarProps> = React.memo(
     const workflowControl = useWorkflowControl();
     const { setActiveSelections: setActiveHealthSelections } =
       useModelHealthContext();
-    const {
-      addHistory: addPromptHistory,
-      history: promptHistory,
-      removeHistory: deletePromptHistory,
-    } = usePromptHistory();
+    // 只取 addHistory：history/removeHistory 在本组件无消费方，
+    // 解构会让 usePromptHistory 的 state 变化连带触发本组件无效重渲染
+    const { addHistory: addPromptHistory } = usePromptHistory();
     const { addAsset } = useAssets();
     const { confirm, confirmDialog } = useConfirmDialog();
     // 使用 ref 存储，避免依赖变化
