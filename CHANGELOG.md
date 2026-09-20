@@ -1,5 +1,36 @@
 ## Unreleased
 
+### refactor: 第五轮全仓库代码评审落地——行为保持重构五批（2026-09-21）
+
+- **评审**：9 分区约 30 万行（apps/web 含 SW 全量、drawnix components 三分区/services/
+  utils/hooks/contexts/plugins、supabase functions+migrations、scripts+CI/部署、
+  apps/web-e2e、公共包 react-board/react-text/utils），按 code-review-skill 五维度清单
+  与前四轮报告逐条去重。完整报告见 `docs/code-review-2026-09-21.md`。
+- **结论**：新增 1 条 P0（supabase-sync collector-core failedSources 无消费方 → 收集失败
+  静默缺失被墓碑化，是已知「多设备互删」P0 的独立触角）、6 条 P1、约 60 条 P2；
+  其中 **66 条行为保持问题分五批修复**（F1-F66），全部通过本地 typecheck+lint+全量
+  单测，待确认/暂缓项（含在途 WIP 文件的问题）在报告中逐条留痕。
+- **批次1 SW 层**（0c84b11d）：字体分支 GET 守卫（F1 同族漏网）；IDB 连接模块级缓存；
+  版本状态读改写收敛单事务；调试日志 slice(-100)→slice(0,100)；cache.put×3 留痕；
+  LLM 日志内存淘汰后从 DB 读回补更新（不再永久 pending）；CDN 响应校验去掉
+  '404'/'Not Found' 子串误判；启动视频 URL 恢复「有变更才 setValue」守卫修活。
+- **批次2 hooks/contexts/services**（b9530470）：useWorkflowControl 返回值 useMemo 化
+  （修复 useTaskWorkflowSync 每键击重订阅清空事件缓冲）；删除零引用死文件
+  useModelHealth.ts 与空操作 logStartupPrefetch；10 处浮动 promise 补 catch 留痕；
+  useAllTracksPlaybackSources 缓存上限。
+- **批次3 components**（2ea29bd6）：batch-image-generation F7 惰性化漏网；SelectionWatcher
+  竞态 token 守卫；DialogTaskList 渲染期原地 sort 突变 state；TaskItem memo 失效
+  （handleRegenerate useCallback 化）；ImageEditorCore/TaskItem 图片加载 cancelled 守卫；
+  ChatDrawer 三处 updater 内副作用移出 + 定时器清理；music/mv 防抖落盘兜底；
+  media-library/comic-creator 错误提示；audioPreviewUrl 渲染期副作用改 effect；
+  GradientEditor 拖拽监听卸载清理；markdown/mermaid 非空断言防崩；KB 惰性化与流式 abort。
+- **批次4 E2E/公共包/scripts**：template-gallery afterAll 补种子失败守卫；
+  cloud-sync-helpers 分页拉全+确认弹窗等待；删除硬编码本机绝对路径与两个零引用死文件；
+  react-board 视口恢复监听卸载清理；utils clearStore 以事务完成为准；
+  reconcile 双脚本 mkstemp + psql 变量参数化防注入；reconcile-upstream 通知去重
+  改推送成功后落盘（推送失败不再吞掉资损告警）；preview 脚本 replace 未命中告警。
+- **批次5 supabase**：ai-proxy safeRefund 退款失败补留痕（资损路径可观测）。
+
 ### feat: 建筑学长贴图素材库本机爬虫——素材入库 Supabase（2026-09-20）
 
 - **背景**：贴图网关 `wallpaper.soutushenqi.com` 的签名与 community 网关不同源且含
