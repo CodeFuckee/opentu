@@ -54,12 +54,30 @@ CATE_SLUGS = {
 }
 
 
-def cate_slug(category: str) -> str:
+def cate_slug(category):
+    """storage key 仅 ASCII：分类→slug；无分类（家居/植物库）用 misc"""
+    if not category:
+        return "misc"
     if category in CATE_SLUGS:
         return CATE_SLUGS[category]
     return "c" + hashlib.md5(category.encode("utf-8")).hexdigest()[:10]
 TABLE = "jzxz_materials"
 GALLERIES = ["家居库", "植物库", "配景库"]  # 配景库有两级分类，其余两库为属性筛选直翻页
+
+
+# 分类切换校验用的已知 tag 种子（随每日爬取动态补充，见 cate_tags.json）
+CATE_TAGS = {
+    "植物配景": {"绿树", "彩树", "枯树", "前景树", "鸟瞰树", "总平植物", "植物百科", "灌木",
+               "花坛绿篱", "竹子", "盆栽", "古风植物", "拼贴植物", "插画植物-纹理", "攀爬植物", "线稿植物"},
+    "动物配景": {"牛马驴", "猫", "羊", "鸡鸭鹅", "鹿"},
+    "自然环境": {"假山", "山体", "石头", "自然远景"},
+    "总平素材": {"铺装素材", "交通车辆", "运动场地"},
+}
+
+
+def subcate_texts(driver):
+    return json.loads(driver.execute_script(
+        "return JSON.stringify(Array.from(document.querySelectorAll('div[class*=sub_cate_list] div[class*=swiper-slide]')).map(s => (s.innerText||'').trim()))") or "[]")
 
 
 def norm_tag(tag: str) -> str:
@@ -170,7 +188,7 @@ def drain(driver):
     return driver.execute_script("return window.__jzxzCapture ? window.__jzxzCapture.splice(0) : [];")
 
 
-def wait_any(driver, gallery, timeout=20):
+def wait_any(driver, gallery, category=None, timeout=20):
     """等待任意新 reference 响应；返回 [(tag_param, items), ...]。
     面板会按 tag 记忆翻页位置（点击 tag 不一定回到第 0 页），故只做事件驱动收割，
     乱序页按 source_id 去重，不影响最终覆盖。"""
@@ -180,7 +198,7 @@ def wait_any(driver, gallery, timeout=20):
         for cap in drain(driver):
             q = parse_qs(urlparse(cap["url"]).query)
             tag = q.get("tag", [""])[0]
-            out.append((tag, parse_items(cap["body"], gallery, None, tag)))
+            out.append((tag, parse_items(cap["body"], gallery, category, tag)))
         if not out:
             time.sleep(0.5)
     return out
@@ -368,11 +386,25 @@ def known_source_ids(cfg, ids):
 
 
 def upload_item(cfg, item):
-    img = requests.get(item["url"], timeout=90, headers={"User-Agent": "Mozilla/5.0"})
-    img.raise_for_status()
-    data = img.content
+    """下载→上传→upsert；任何失败返回状态串（不抛异常，不中断全量）"""
+    data = None
+    last_err = ""
+    for headers in (
+        {"User-Agent": "Mozilla/5.0", "Referer": "https://www.jianzhuxuezhang.com/"},
+        {"User-Agent": "Mozilla/5.0"},
+    ):
+        try:
+            img = requests.get(item["url"], timeout=90, headers=headers)
+            img.raise_for_status()
+            data = img.content
+            if data:
+                break
+        except Exception as e:
+            last_err = str(e)[:80]
     if not data:
-        return "empty"
+        host = urlparse(item["url"]).hostname or ""
+        log(f"    [warn] 下载失败 ({host}): {last_err}")
+        return "download_failed"
     content_hash = hashlib.md5(data).hexdigest()
     mime = (img.headers.get("content-type") or "").split(";")[0] or "image/png"
     ext = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}.get(mime, "png")
@@ -471,6 +503,10 @@ def crawl():
     opts.add_argument("--disable-blink-features=AutomationControlled")
     opts.add_argument("--window-size=1600,1000")
     driver = webdriver.Chrome(options=opts, service=_service(cfg))
+    try:
+        driver.set_script_timeout(45)
+    except Exception:
+        pass
     all_items = []
     stats = {"pages": 0, "items": 0, "downloaded": 0, "skipped_known": 0, "failed": 0}
 
@@ -523,13 +559,25 @@ def crawl():
             if not tab_spans:
                 log(f"[warn] {gallery}: tab 不可见，跳过")
                 continue
-            real_click(driver, tab_spans[0])
-            time.sleep(3)
+            tab_ok = False
+            for _tab_try in range(4):
+                real_click(driver, tab_spans[0])
+                time.sleep(2.5)
+                tabs_now = [e for e in driver.find_elements(
+                    By.XPATH, f"//span[contains(@class,'tab_btn')][normalize-space(text())='{gallery}']") if e.is_displayed()]
+                if tabs_now and "active" in (tabs_now[0].get_attribute("class") or ""):
+                    tab_ok = True
+                    break
+            if not tab_ok:
+                log(f"[warn] {gallery}: tab 点击未生效（active 未迁移），跳过")
+                continue
+            time.sleep(1)
             drain(driver)
 
             if gallery != "配景库":
                 # 家居库/植物库：无分类行，属性筛选直翻页
                 log(f"== {gallery} ==（属性筛选库，直接翻页）")
+                flat_stall = 0
                 for page in range(max_pages):
                     got = wait_any(driver, gallery, timeout=10)
                     items = [it for _, its in got for it in its]
@@ -545,6 +593,13 @@ def crawl():
                         break
                     n, new_n = process_batch(cfg, items, stats, all_items)
                     log(f"  {gallery} 第 {page + 1} 轮：{n} 条（新 {new_n}）")
+                    if new_n == 0:
+                        flat_stall = flat_stall + 1
+                        if flat_stall >= 3:
+                            log(f"  {gallery}: 连续 {flat_stall} 轮零新增，熔断")
+                            break
+                    else:
+                        flat_stall = 0
                     nxt = [e for e in driver.find_elements(
                         By.XPATH,
                         "//div[normalize-space(text())='下一页'] | //span[normalize-space(text())='下一页'] | //button[normalize-space(text())='下一页']")
@@ -556,20 +611,70 @@ def crawl():
                     time.sleep(delay)
                 continue
 
-            # 配景库：分类行(first_cate_list) × tag 行(sub_cate_list) 两级
-            cate_chips = panel_chips(driver, "first_cate_list")
-            if categories:
-                cate_chips = [(t, e) for (t, e) in cate_chips if t in categories]
-            log(f"== 配景库 == 分类：{[t for t, _ in cate_chips]}")
-            for cate, cate_el in cate_chips:
+            # 配景库：分类行(first_cate_list) × tag 行(sub_cate_list) 两级。
+            # 分类点击：轻量收集（不做箭头滚动——实测会弄乱 swiper 状态），
+            # ActionChains 点击 + 校验「子分类行内容变化」（探针验证此法可靠）
+            processed_cate = set()
+            stale_cate = 0
+            while True:
+                # 轻量扫描当前可见的分类 chips（不做箭头滚动）
+                cate_slide_all = driver.find_elements(
+                    By.XPATH, "//div[contains(@class,'first_cate_list')]//*[contains(@class,'swiper-slide')]")
+                fresh = []
+                row_cate = next((r for r in driver.find_elements(By.XPATH, "//div[contains(@class,'first_cate_list')]") if r.is_displayed()), None)
+                rr_ = row_cate.rect if row_cate is not None else None
+                for s_el in cate_slide_all:
+                    t = (s_el.text or "").strip()
+                    if not t or len(t) > 12 or t in processed_cate:
+                        continue
+                    if rr_ is not None:
+                        r = s_el.rect
+                        if not (rr_["x"] - 5 <= r["x"] and r["x"] + r["width"] <= rr_["x"] + rr_["width"] + 5):
+                            continue
+                    fresh.append((t, s_el))
+                if not fresh:
+                    stale_cate += 1
+                    nxt_cate = None
+                    if row_cate is not None:
+                        _, nxt_cate = row_arrows(driver, row_cate)
+                    if stale_cate > 3 or not nxt_cate:
+                        break
+                    real_click(driver, nxt_cate)
+                    time.sleep(1)
+                    continue
+                stale_cate = 0
+            # 逐个处理可见批（点击 + 校验子分类变化）
+            for cate, slide_el in fresh:
                 cate_pending = cate
-                # 冗余双击提升点击命中率；若未生效，本 tag 批次安全跳过（已知项去重），
-                # 每日重跑自然补覆盖
-                real_click(driver, cate_el)
-                time.sleep(1.5)
-                real_click(driver, cate_el)
+                processed_cate.add(cate)
+                before_sub = subcate_texts(driver)
+                ok = False
+                for _attempt in range(4):
+                    slide = next((e for e in driver.find_elements(
+                        By.XPATH, "//div[contains(@class,'first_cate_list')]//*[contains(@class,'swiper-slide')]")
+                        if (e.text or "").strip() == cate), None)
+                    if slide is None:
+                        time.sleep(1)
+                        continue
+                    ActionChains(driver).move_to_element(slide).click().perform()
+                    deadline = time.time() + 8
+                    while time.time() < deadline:
+                        cur_sub = subcate_texts(driver)
+                        if any(t in CATE_TAGS.get(cate, set()) for t in cur_sub):
+                            ok = True
+                            break
+                        if before_sub is not None and cur_sub != before_sub and cur_sub:
+                            ok = True
+                            break
+                        time.sleep(0.5)
+                    if ok:
+                        break
+                if not ok:
+                    log(f"  [warn] {cate}: 分类点击未生效（子分类行未变化），跳过")
+                    continue
                 time.sleep(2)
                 log(f"  -- {cate} --")
+                CATE_TAGS.setdefault(cate, set()).update(subcate_texts(driver))
                 processed_tags = set()
                 stale_rounds = 0
                 while True:

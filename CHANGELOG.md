@@ -14,8 +14,14 @@
   分页翻页；**双通道收割**：网络捕获 + DOM 网格扫描（面板命中内存/localStorage
   缓存时不发请求，直接收割渲染出的 img）；图片按 `{分类}/{md5}.{ext}` 内容寻址
   上传桶（upsert 幂等），元数据按 source_id upsert 表；增量跳过已知 id。
-- **实测**：植物配景 5 tags × 2 页 dry-run 全通过（网络捕获 2 页 + 缓存 tag DOM
-  收割 12 条/页）；全量 dry-run 验证 11 分类。
+- **实测与结构修正**：两级分类仅配景库有（11 分类），家居/植物库为属性筛选直翻页；
+  swiper 虚拟渲染会移除滚出视口的 slide → 配景库「滚一批、点一批、收一批」推进；
+  swiper transform 导致 ActionChains 坐标偏移 → 点击前用行内箭头把目标 chip 滚入可视区；
+  面板命中内存/localStorage 缓存时不发请求 → DOM 网格文档级扫描兜底（双通道合并）；
+  分类切换加「子分类行出现本分类已知 tag」强校验（CATE_TAGS 种子随爬取累积）+ 重试；
+  gallery tab 点击同样 active 校验；非配景库连续 3 轮零新增熔断防空转；
+  execute_script 设 45s 页面超时防阻塞；第三方图床素材下载失败计 failed 不中断。
+  植物配景 16 tags 全遍历验证通过；真实首爬+补爬累计入库 2156+ 张（0 失败）。
 - **配置/文档**：`scripts/jzxz-crawler.local.json.example`（gitignored 本机配置，
   含 service_key）、`docs/jzxz-material-crawler.md`（架构/部署/命令/边界）。
 - **每日定时**：验证后用 ZCode 定时任务执行（同模板同步模式）。

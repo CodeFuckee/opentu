@@ -22,6 +22,12 @@ Supabase 公开桶 `jzxz-materials`，元数据 upsert 到表 `jzxz_materials`�
 
 - 面板按 tag 记忆翻页位置：点击 tag 不一定回到第 0 页，脚本为事件驱动收割
   （等任意新响应、按 tag 归账），乱序页靠 source_id 去重，不影响覆盖。
+- swiper 虚拟渲染移除滚出视口的 slide：配景库「滚一批、点一批、收一批」；
+  点击前用行内箭头把目标 chip 滚入可视区（transform 偏移会让 ActionChains 落空）。
+- 面板命中内存/localStorage 缓存时不发网络请求：DOM 网格文档级扫描兜底
+  （网络捕获与 DOM 收割双通道合并，按 source_id 去重）。
+- 分类切换强校验：点击后 sub_cate 行须出现该分类已知 tag（CATE_TAGS 种子随爬取累积），
+  未生效重取元素重试；连续零新增熔断防空转。
 - 网格图片可能在 iframe/shadow DOM：收割为文档级扫描，域名过滤
   `image(-assets)?.soutushenqi.com`。
 - 已知素材无名称字段（响应仅 largeUrl/thumbUrl/width/height），
