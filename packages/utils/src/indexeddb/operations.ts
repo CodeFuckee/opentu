@@ -349,14 +349,19 @@ export function clearStore(db: IDBDatabase, storeName: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([storeName], 'readwrite');
     const store = transaction.objectStore(storeName);
-    const request = store.clear();
+    store.clear();
 
-    request.onsuccess = () => {
+    // 与 put/deleteById 一致：以事务完成（而非单条请求成功）为准，
+    // 事务 abort 时数据可能未真正清空
+    transaction.oncomplete = () => {
       resolve();
     };
 
-    request.onerror = () => {
-      reject(request.error);
+    transaction.onerror = () => {
+      reject(transaction.error);
+    };
+    transaction.onabort = () => {
+      reject(transaction.error);
     };
   });
 }

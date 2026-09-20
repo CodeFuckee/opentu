@@ -399,13 +399,17 @@ async function waitForMediaBlob(
 async function manuallyRunMediaSync(
   page: Page
 ): Promise<Record<string, unknown>> {
-  return page.evaluate(async () => {
+  // vite dev server 的 /@fs/ 需要绝对路径：运行时从本文件位置推导仓库根，
+  // 不硬编码本机用户名（他人机器 / CI 上必 404 后静默降级）
+  const mediaSyncModuleUrl = `/@fs/${resolvePath(
+    __dirname,
+    '../../../../packages/drawnix/src/services/supabase-sync/media-sync.ts'
+  ).replace(/\\/g, '/')}`;
+  return page.evaluate(async (mediaSyncUrl: string) => {
     try {
       const supabaseClientUrl = '/src/supabase/supabase-client.ts';
-      const mediaSyncUrl =
-        '/@fs/C:/Users/Administrator/codes/opentu/packages/drawnix/src/services/supabase-sync/media-sync.ts';
-      const { getSupabaseClient } = await import(supabaseClientUrl);
-      const { syncMediaToSupabase } = await import(mediaSyncUrl);
+      const { getSupabaseClient } = await import(/* @vite-ignore */ supabaseClientUrl);
+      const { syncMediaToSupabase } = await import(/* @vite-ignore */ mediaSyncUrl);
       const client = getSupabaseClient();
       const session = await client.auth.getSession();
       const user = session.data.session?.user;

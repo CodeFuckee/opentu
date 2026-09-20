@@ -299,6 +299,9 @@ test.describe('模板中心（复制提示词，Chromium）', () => {
   });
 
   test.afterAll(async () => {
+    // 与 beforeAll 的 seedFailed 守卫对称：种子未准备成功时无数据可清，
+    // 直接清理会因缺 service key 抛错把整套件标红
+    if (seedFailed) return;
     await cleanupE2eTemplates();
   });
 

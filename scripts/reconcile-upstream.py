@@ -93,7 +93,9 @@ def fetch_platform_tasks(days: int) -> list:
 
 def fetch_upstream_logs(since_epoch: int) -> list:
     """拷贝 new-api SQLite 后只读查询（避免锁）。"""
-    tmp = tempfile.mktemp(prefix="newapi-reconcile-", suffix=".db")
+    # mkstemp 代替已废弃的 mktemp：可预测文件名 + TOCTOU
+    fd, tmp = tempfile.mkstemp(prefix="newapi-reconcile-", suffix=".db")
+    os.close(fd)
     shutil.copy2(NEWAPI_DB, tmp)
     try:
         con = sqlite3.connect(f"file:{tmp}?mode=ro", uri=True)
@@ -272,14 +274,14 @@ def main() -> int:
     fresh_log_ids = {lg["log_id"] for lg in bill_no_task} - seen
     fresh_bill_no_task = [lg for lg in bill_no_task if lg["log_id"] in fresh_log_ids]
 
-    if not args.dry_run:
-        state["notified"] = sorted(
-            seen
-            | {t["task_id"] for t in billed_but_failed + billed_but_stuck}
-            | fresh_log_ids
-        )[-2000:]
-        with open(STATE_FILE, "w", encoding="utf-8") as f:
-            json.dump(state, f)
+    # 去重基线改为「推送成功（或无需推送）后」落盘：原先先写 notified 再推送，
+    # 推送失败会让本次发现被永久标记、资损告警不再发出
+    notified_ids = sorted(
+        seen
+        | {t["task_id"] for t in billed_but_failed + billed_but_stuck}
+        | fresh_log_ids
+    )[-2000:]
+    push_done = False
 
     if (has_findings and fresh) or args.always_notify:
         try:
@@ -315,12 +317,19 @@ def main() -> int:
                 try:
                     with urllib.request.urlopen(req, timeout=15) as resp:
                         print(f"[钉钉] 推送完成 http={resp.status}")
+                        push_done = True
                 except Exception as e:
                     print(f"[warn] 钉钉推送失败: {e}")
         else:
             print("[warn] 未配置 DEV_DINGTALK_WEBHOOK，跳过推送")
     else:
         print("[钉钉] 无新发现，未推送")
+        push_done = True
+
+    if not args.dry_run and push_done:
+        state["notified"] = notified_ids
+        with open(STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(state, f)
 
     return 0
 

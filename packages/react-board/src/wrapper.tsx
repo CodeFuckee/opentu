@@ -221,6 +221,15 @@ export const Wrapper: React.FC<WrapperProps> = ({
     }
   }, [viewport, board, value]);
 
+  // 卸载时清理视口恢复期间挂在 window 上的交互取消监听：restore 窗口
+  // （≤30 帧）内卸载组件，监听器闭包持 board 会滞留至页面关闭
+  useEffect(
+    () => () => {
+      clearViewportRestoreInteractionCancel(board);
+    },
+    [board]
+  );
+
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;

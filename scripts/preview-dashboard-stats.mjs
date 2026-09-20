@@ -94,9 +94,16 @@ const fixture = {
   },
 };
 
-const html = buildDashboardHtml('preview-anon-key-not-real')
-  // 预览专用：跳过登录壳，直接加载数据（线上页面不受影响）
-  .replace('if(session){ load(); } else { showLogin(); }', 'load();');
+// 预览专用：跳过登录壳，直接加载数据（线上页面不受影响）。
+// 精确字符串 replace：源文案变化即静默退化成「预览页要登录」，未命中时告警
+const loginShellSource = 'if(session){ load(); } else { showLogin(); }';
+let html = buildDashboardHtml('preview-anon-key-not-real');
+if (!html.includes(loginShellSource)) {
+  console.warn(
+    '[preview-dashboard-stats] 登录壳代码片段未命中，预览页将停在登录界面（dashboard-stats/core.ts 文案可能已变化）'
+  );
+}
+html = html.replace(loginShellSource, 'load();');
 
 const server = createServer((req, res) => {
   const url = new URL(req.url, `http://localhost:${port}`);

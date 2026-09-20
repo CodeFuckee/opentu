@@ -214,7 +214,12 @@ export async function clickSyncAction(
   const confirmBtn = page.getByRole('button', {
     name: buttonName === '上传本地' ? /继续上传/ : /继续下载/,
   });
-  if (await confirmBtn.isVisible().catch(() => false)) {
+  // 确认框可能有渲染延迟：可见性短轮询（isVisible 立即返回会漏掉慢一帧的弹窗）
+  const confirmVisible = await confirmBtn
+    .waitFor({ state: 'visible', timeout: 2000 })
+    .then(() => true)
+    .catch(() => false);
+  if (confirmVisible) {
     await confirmBtn.click();
   }
 
@@ -347,19 +352,32 @@ async function fetchBoardRows(
   if (!accessToken) {
     return [];
   }
-  const res = await fetch(
-    `${SUPABASE.url}/rest/v1/user_sync_data?select=entity_type,entity_id,content,checksum&entity_type=eq.board&order=updated_at.desc`,
-    {
-      headers: {
-        apikey: SUPABASE.anonKey,
-        Authorization: `Bearer ${accessToken}`,
-      },
+  // REST 默认 1000 行静默截断：按 range 显式分页拉全
+  const PAGE_SIZE = 500;
+  const rows: Array<Record<string, unknown>> = [];
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const res = await fetch(
+      `${SUPABASE.url}/rest/v1/user_sync_data?select=entity_type,entity_id,content,checksum&entity_type=eq.board&order=updated_at.desc&range=${offset}-${offset + PAGE_SIZE - 1}`,
+      {
+        headers: {
+          apikey: SUPABASE.anonKey,
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+    if (!res.ok) {
+      console.warn(
+        `[cloud-sync-helpers] 拉取 board 记录失败: HTTP ${res.status} (offset=${offset})`
+      );
+      return offset === 0 ? [] : rows;
     }
-  );
-  if (!res.ok) {
-    return [];
+    const batch = (await res.json()) as Array<Record<string, unknown>>;
+    rows.push(...batch);
+    if (batch.length < PAGE_SIZE) {
+      break;
+    }
   }
-  return (await res.json()) as Array<Record<string, unknown>>;
+  return rows;
 }
 
 /** 通过 Supabase REST 验证云端 user_sync_data 中存在画板记录 */

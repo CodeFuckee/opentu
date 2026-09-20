@@ -47,11 +47,15 @@ REMOTE_ID_KEYS = ("remoteId", "remote_id", "upstreamId", "upstream_id",
                   "taskId", "task_id", "uid")
 
 
-def run_psql(sql: str) -> str:
-    out = subprocess.run(
-        ["docker", "exec", "supabase-db", "psql", "-U", "supabase_admin",
-         "-d", "postgres", "-tAc", sql],
-        capture_output=True, text=True, timeout=120)
+def run_psql(sql: str, vars: dict | None = None) -> str:
+    cmd = ["docker", "exec", "supabase-db", "psql", "-U", "supabase_admin",
+           "-d", "postgres", "-tAc"]
+    # 值经 psql 变量（:'var'）注入，由 psql 负责引号转义，避免 SQL 拼接
+    if vars:
+        for k, v in vars.items():
+            cmd += ["-v", f"{k}={v}"]
+    cmd.append(sql)
+    out = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
     if out.returncode != 0:
         raise RuntimeError(f"psql failed: {out.stderr.strip()[:300]}")
     return out.stdout.strip()
@@ -95,13 +99,16 @@ def fetch_task_detail(task_id: str) -> dict:
     raw = run_psql(
         "SELECT coalesce(json_agg(t), '[]'::json)::text FROM (SELECT params, "
         "upstream_response FROM task_submissions "
-        f"WHERE task_id='{task_id}') t")
+        "WHERE task_id=:'task_id') t",
+        {"task_id": task_id})
     rows = json.loads(raw)
     return rows[0] if rows else {}
 
 
 def lookup_upstream_task(remote_id: str) -> dict | None:
-    tmp = tempfile.mktemp(prefix="na-fix-", suffix=".db")
+    # mkstemp 代替已废弃的 mktemp：可预测文件名 + TOCTOU
+    fd, tmp = tempfile.mkstemp(prefix="na-fix-", suffix=".db")
+    os.close(fd)
     shutil.copy2(NEWAPI_DB, tmp)
     try:
         con = sqlite3.connect(f"file:{tmp}?mode=ro", uri=True)
@@ -252,7 +259,8 @@ def notify_dingtalk(text: str):
 def get_reconcile_action(task_id: str) -> str | None:
     raw = run_psql(
         "SELECT coalesce(error->'reconciled'->>'action','') FROM "
-        f"task_submissions WHERE task_id='{task_id}'")
+        "task_submissions WHERE task_id=:'task_id'",
+        {"task_id": task_id})
     return raw.strip() or None
 
 
