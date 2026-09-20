@@ -352,12 +352,13 @@ async function fetchBoardRows(
   if (!accessToken) {
     return [];
   }
-  // REST 默认 1000 行静默截断：按 range 显式分页拉全
+  // REST 默认 1000 行静默截断：limit/offset 显式分页拉全
+  // （注意不能用 range= 查询参数：会被 PostgREST 当作不存在的列过滤器 400）
   const PAGE_SIZE = 500;
   const rows: Array<Record<string, unknown>> = [];
   for (let offset = 0; ; offset += PAGE_SIZE) {
     const res = await fetch(
-      `${SUPABASE.url}/rest/v1/user_sync_data?select=entity_type,entity_id,content,checksum&entity_type=eq.board&order=updated_at.desc&range=${offset}-${offset + PAGE_SIZE - 1}`,
+      `${SUPABASE.url}/rest/v1/user_sync_data?select=entity_type,entity_id,content,checksum&entity_type=eq.board&order=updated_at.desc&limit=${PAGE_SIZE}&offset=${offset}`,
       {
         headers: {
           apikey: SUPABASE.anonKey,

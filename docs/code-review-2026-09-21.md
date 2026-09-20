@@ -85,7 +85,7 @@
 | # | 位置 | 问题 | 修法 |
 |---|------|------|------|
 | F55 | apps/web-e2e/src/functional/template-gallery.spec.ts:301 | 剪贴板组 afterAll 无条件 cleanup，缺 service key 时种子 skip 但清理抛错整套件报红（首组有 seedFailed 守卫） | 对齐补守卫 |
-| F56 | apps/web-e2e/src/fixtures/cloud-sync-helpers.ts:343 | fetchBoardRows 无分页（REST 默认 1000 行静默截断），账号 board 超限后校验漏报；!res.ok 静默返回 [] | range 分页拉全 + 失败 warn |
+| F56 | apps/web-e2e/src/fixtures/cloud-sync-helpers.ts:343 | fetchBoardRows 无分页（REST 默认 1000 行静默截断），账号 board 超限后校验漏报；!res.ok 静默返回 [] | limit/offset 分页拉全 + 失败 warn |
 | F57 | cloud-sync-helpers.ts:214 | clickSyncAction 用 isVisible() 立即检查确认弹窗，慢一帧即跳过、以 30s toBeEnabled 超时呈现误导失败 | waitFor visible 2s |
 | F58 | functional/cloud-sync-image-display.spec.ts:406 | 硬编码 `/@fs/C:/Users/Administrator/...` 模块绝对路径，他人机器/CI 必失败 | `__dirname` 运行时推导传入 evaluate |
 | F59 | fixtures/manual-helper.ts、utils/doc-metadata.ts | 全仓库零引用死文件 | 删除 |
