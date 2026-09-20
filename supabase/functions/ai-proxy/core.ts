@@ -647,8 +647,12 @@ async function safeRefund(
       { p_user_id: userId, p_count: count },
       deps
     );
-  } catch {
-    // 退回失败不打断响应，可由管理员补账
+  } catch (error) {
+    // 退回失败不打断响应，可由管理员补账；资损路径必须留痕可观测
+    console.warn(
+      `[ai-proxy] refund_image_quota failed user=${userId} count=${count}:`,
+      error instanceof Error ? error.message : error
+    );
   }
 }
 
