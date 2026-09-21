@@ -398,6 +398,45 @@ def scan_chips(driver):
         return {}
 
 
+def enumerate_row_texts(driver, row_class_frag, rounds=40):
+    """箭头翻页全量枚举行内 chip 文本（swiper 虚拟渲染安全）；
+    收集稳定或箭头消失即止，最后滚回行首"""
+    texts, seen = [], set()
+    row = next((r for r in driver.find_elements(
+        By.XPATH, f"//div[contains(@class,'{row_class_frag}')]") if r.is_displayed()), None)
+    if row is None:
+        return texts
+    # 滚回行首
+    for _ in range(40):
+        prv, _n = row_arrows(driver, row)
+        if not prv:
+            break
+        try:
+            real_click(driver, prv)
+        except Exception:
+            break
+        time.sleep(0.3)
+    for _ in range(rounds):
+        chips = scan_chips(driver).get(row_class_frag, [])
+        new = False
+        for t in chips:
+            if t and t not in seen:
+                seen.add(t)
+                texts.append(t)
+                new = True
+        row = next((r for r in driver.find_elements(
+            By.XPATH, f"//div[contains(@class,'{row_class_frag}')]") if r.is_displayed()), None)
+        _, nxt = row_arrows(driver, row)
+        if not nxt or not new:
+            break
+        try:
+            real_click(driver, nxt)
+        except Exception:
+            break
+        time.sleep(0.6)
+    return texts
+
+
 def chip_element(driver, row_class_frag, name):
     """把目标 chip 滚入可视区并返回其元素。
     文档级 XPath 定位（不受 swiper 重渲染/作用域影响）；
@@ -690,14 +729,7 @@ def crawl():
 
             # 配景库：两阶段（枚举映射 → 逐 tag 爬取）
             log("== 配景库 ==")
-            cate_slides = driver.find_elements(
-                By.XPATH, "//div[contains(@class,'first_cate_list')]//*[contains(@class,'swiper-slide')]")
-            cate_names, seen_cate = [], set()
-            for s_el in cate_slides:
-                t = (s_el.text or "").strip()
-                if t and len(t) <= 12 and t not in seen_cate:
-                    seen_cate.add(t)
-                    cate_names.append(t)
+            cate_names = [t for t in enumerate_row_texts(driver, "first_cate_list") if len(t) <= 12]
             if categories:
                 cate_names = [c for c in cate_names if c in categories]
             log(f"分类：{cate_names}")
@@ -728,7 +760,7 @@ def crawl():
                     if ok:
                         break
                 if ok:
-                    cat_tags[cate] = [t for t in subcate_texts(driver) if t]
+                    cat_tags[cate] = [t for t in enumerate_row_texts(driver, "sub_cate_list") if len(t) <= 12]
                     CATE_TAGS.setdefault(cate, set()).update(cat_tags[cate])
                     log(f"  枚举 {cate}: {len(cat_tags[cate])} tags")
                 else:
