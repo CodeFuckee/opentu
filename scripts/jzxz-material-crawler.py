@@ -500,17 +500,13 @@ def login_mode(cfg):
     opts.add_argument("--window-size=1600,1000")
     driver = webdriver.Chrome(options=opts, service=_service(cfg))
     driver.get(cfg.get("page_url", PAGE_URL))
-    print("请在打开的浏览器里完成登录（微信扫码/手机号均可）。登录成功后窗口自动关闭，最长等待 10 分钟…", flush=True)
-    for _ in range(600):
-        time.sleep(1)
-        try:
-            if not driver.find_elements(By.XPATH, "//*[contains(text(),'登录 / 注册')]"):
-                print("检测到已登录 ✓ 会话已保存到 profile。", flush=True)
-                break
-        except Exception:
-            pass
-    else:
-        print("[warn] 等待超时——若已登录请忽略。", flush=True)
+    print("请在打开的浏览器里完成登录（微信扫码/手机号均可）。", flush=True)
+    print("登录完成后，回到这个控制台按回车确认，浏览器会自动关闭。", flush=True)
+    try:
+        input("（按回车确认已完成登录）> ")
+    except EOFError:
+        pass
+    print("会话已保存到 profile ✓", flush=True)
     driver.quit()
 
 
