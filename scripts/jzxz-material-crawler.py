@@ -389,7 +389,9 @@ def scan_chips(driver):
 
 
 def chip_element(driver, row_class_frag, name):
-    """把目标 chip 滚入可视区并返回其元素（swiper 虚拟渲染安全）"""
+    """把目标 chip 滚入可视区并返回其元素。
+    文档级 XPath 定位（不受 swiper 重渲染/作用域影响）；
+    方向用行 y 配对的箭头：目标在可视窗左侧点 prev、右侧/未渲染点 next"""
     row = next((r for r in driver.find_elements(
         By.XPATH, f"//div[contains(@class,'{row_class_frag}')]") if r.is_displayed()), None)
     if row is None:
@@ -398,46 +400,74 @@ def chip_element(driver, row_class_frag, name):
         row_rect = row.rect
     except Exception:
         return None
+    base = f"//div[contains(@class,'{row_class_frag}')]//*[contains(@class,'swiper-slide')]"
 
-    def find():
-        try:
-            return row.find_element(
-                By.XPATH,
-                f".//*[contains(@class,'swiper-slide')][normalize-space(text())='{name}']")
-        except Exception:
-            return None
-
-    def arrows():
-        try:
-            return row_arrows(driver, row)
-        except Exception:
-            return None, None
-
-    for _ in range(40):
-        prv, _n = arrows()
-        if not prv:
-            break
-        try:
-            real_click(driver, prv)
-        except Exception:
-            break
-        time.sleep(0.3)
-    for _ in range(60):
-        el = find()
-        if el is not None:
+    def arrows_near(y):
+        arrs = driver.find_elements(By.XPATH, ".//*[contains(@class,'arrow_icon')]")
+        prv = nxt = None
+        for el in arrs:
             try:
                 r = el.rect
-                if row_rect["x"] - 5 <= r["x"] and r["x"] + r["width"] <= row_rect["x"] + row_rect["width"] + 5:
-                    return el
             except Exception:
-                pass
-        _, nxt = arrows()
-        if not nxt:
-            return None
+                continue
+            if abs(r["y"] - y) <= 25:
+                if "prev_" in (el.get_attribute("class") or ""):
+                    prv = el
+                elif "next_" in (el.get_attribute("class") or ""):
+                    nxt = el
+        return prv, nxt
+
+    def find_visible():
         try:
-            real_click(driver, nxt)
+            els = driver.find_elements(
+                By.XPATH,
+                base + f"[normalize-space(.)='{name}']")
         except Exception:
-            return None
+            return None, None
+        for el in els:
+            try:
+                r = el.rect
+                if row_rect["x"] - 5 <= r["x"] + r["width"] / 2 <= row_rect["x"] + row_rect["width"] + 5:
+                    return el, None
+            except Exception:
+                continue
+        # 存在但不在可视窗：返回第一个元素与其中心，供方向判断
+        if els:
+            return None, els[0]
+        return None, None
+
+    for _ in range(60):
+        el, off = find_visible()
+        if el is not None:
+            return el
+        if off is not None:
+            try:
+                r = off.rect
+                cx = r["x"] + r["width"] / 2
+            except Exception:
+                cx = None
+            prv, nxt = arrows_near(r["y"] if cx is None else r["y"])
+            if cx is not None and cx < row_rect["x"] + row_rect["width"] / 2:
+                use = prv
+            else:
+                use = nxt
+            if use is None:
+                use = nxt or prv
+            if use is None:
+                return None
+            try:
+                real_click(driver, use)
+            except Exception:
+                return None
+        else:
+            prv, nxt = arrows_near(row_rect["y"])
+            use = nxt or prv
+            if use is None:
+                return None
+            try:
+                real_click(driver, use)
+            except Exception:
+                return None
         time.sleep(0.4)
     return None
 
@@ -454,7 +484,7 @@ def click_chip_verified(driver, name, row_class_frag, attempts=3):
             sel = driver.find_elements(
                 By.XPATH,
                 f"//div[contains(@class,'{row_class_frag}')]//*[contains(@class,'swiper-slide')]"
-                f"[normalize-space(text())='{name}'][contains(@class,'active')]")
+                f"[normalize-space(.)='{name}'][contains(@class,'active')]")
             if sel:
                 return True
             time.sleep(0.5)
