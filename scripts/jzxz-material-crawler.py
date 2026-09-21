@@ -421,7 +421,7 @@ def chip_element(driver, row_class_frag, name):
         try:
             els = driver.find_elements(
                 By.XPATH,
-                base + f"[normalize-space(.)='{name}']")
+                base + f"[contains(normalize-space(.), '{name}')]")
         except Exception:
             return None, None
         for el in els:
@@ -484,7 +484,7 @@ def click_chip_verified(driver, name, row_class_frag, attempts=3):
             sel = driver.find_elements(
                 By.XPATH,
                 f"//div[contains(@class,'{row_class_frag}')]//*[contains(@class,'swiper-slide')]"
-                f"[normalize-space(.)='{name}'][contains(@class,'active')]")
+                f"[contains(normalize-space(.), '{name}')][contains(@class,'active')]")
             if sel:
                 return True
             time.sleep(0.5)
