@@ -592,6 +592,46 @@ def upload_from_json(path):
     log(f"上传完成：新 {stats['downloaded']}，已知跳过 {stats['skipped_known']}，失败 {stats['failed']}")
 
 
+def open_panel(driver, page_url):
+    """刷新页面并重开贴图面板（每次分类切换前调用，规避长会话面板状态漂移）"""
+    driver.get(page_url)
+    time.sleep(6)
+    driver.execute_script("document.querySelector(\"button[class*='close']\")?.click();")
+    time.sleep(1)
+    driver.execute_script(CAPTURE_HOOK)
+    boxes = []
+    deadline = time.time() + 25
+    while time.time() < deadline:
+        boxes = [e for e in driver.find_elements(By.XPATH, "//*[contains(@class,'upload_btn_box')]") if e.is_displayed()]
+        if boxes:
+            break
+        driver.execute_script("document.querySelector(\"button[class*='close']\")?.click();")
+        time.sleep(2)
+    if not boxes:
+        raise RuntimeError("本地上传入口未找到")
+    real_click(driver, boxes[0])
+    time.sleep(2)
+    probe = DATA_DIR / "_probe.png"
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    if not probe.exists():
+        import base64
+        probe.write_bytes(base64.b64decode(PROBE_PNG_B64))
+    inputs = driver.find_elements(By.CSS_SELECTOR, "input[type='file']")
+    if not inputs:
+        raise RuntimeError("file input 未找到")
+    driver.execute_script("arguments[0].style.display='block';", inputs[0])
+    inputs[0].send_keys(str(probe))
+    deadline = time.time() + 40
+    while time.time() < deadline:
+        if driver.find_elements(By.XPATH, "//div[contains(@class,'first_cate_list')]"):
+            break
+        time.sleep(1)
+    else:
+        raise RuntimeError("贴图面板未出现")
+    time.sleep(2)
+    driver.execute_script(CAPTURE_HOOK)
+
+
 def crawl():
     if ARGS.login:
         login_mode(load_config())
