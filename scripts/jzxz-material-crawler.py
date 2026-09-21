@@ -319,6 +319,15 @@ def merge_into_result(matched, dom_items, gallery, cate, tag):
     return matched
 
 
+def flush_dry(dry_items):
+    """dry-run 增量落盘（固定文件名，随时可取）"""
+    if not ARGS.dry_run:
+        return
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    out = DATA_DIR / "captured-dryrun.json"
+    out.write_text(json.dumps(dry_items, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
 def process_batch(cfg, items, stats, dry_items):
     known = known_source_ids(cfg, [i["source_id"] for i in items])
     stats["pages"] += 1
@@ -339,6 +348,7 @@ def process_batch(cfg, items, stats, dry_items):
             stats["failed"] += 1
             log(f"    [warn] {it['source_id']} 上传失败：{status}")
         time.sleep(0.2)
+    flush_dry(dry_items)
     return len(items), new_n
 
 
@@ -520,6 +530,27 @@ def merge_into_result(matched, dom_items, gallery, cate, tag):
     elif not matched and dom_items:
         matched = [(None, dom_items)]
     return matched
+
+
+def upload_from_json(path):
+    """从 dry-run 捕获 JSON 逐条上传（爬取与上传解耦：浏览器阶段 100% 可靠，上传阶段纯 HTTP）"""
+    cfg = load_config()
+    items = json.loads(Path(path).read_text(encoding="utf-8"))
+    log(f"上传模式：{len(items)} 条待处理")
+    stats = {"downloaded": 0, "skipped_known": 0, "failed": 0}
+    known = known_source_ids(cfg, [i["source_id"] for i in items])
+    for it in items:
+        if it["source_id"] in known:
+            stats["skipped_known"] += 1
+            continue
+        status = upload_item(cfg, it)
+        if status == "ok":
+            stats["downloaded"] += 1
+        else:
+            stats["failed"] += 1
+            log(f"  [warn] {it['source_id']} 上传失败：{status}")
+        time.sleep(0.2)
+    log(f"上传完成：新 {stats['downloaded']}，已知跳过 {stats['skipped_known']}，失败 {stats['failed']}")
 
 
 def crawl():
@@ -777,5 +808,9 @@ if __name__ == "__main__":
     parser.add_argument("--login", action="store_true", help="首次登录模式（有头，手动登录后保存会话）")
     parser.add_argument("--max-pages", type=int, help="每 tag 最大页数（覆盖配置）")
     parser.add_argument("--categories", help="逗号分隔分类，如 植物配景,人物配景")
+    parser.add_argument("--upload-json", help="读取 dry-run 捕获 JSON 并逐条上传（无浏览器）")
     ARGS = parser.parse_args()
-    crawl()
+    if ARGS.upload_json:
+        upload_from_json(Path(ARGS.upload_json))
+    else:
+        crawl()
