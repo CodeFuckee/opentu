@@ -1199,6 +1199,56 @@ export class TaskQueueService {
     }
   }
 
+  /**
+   * 启动模拟进度定时器：在 [startProgress, endProgress] 区间内按耗时线性推进，
+   * 由调用方在 finally 中 clearInterval。各 chat analyzer 的等待期进度共用此骨架。
+   */
+  private startSimulatedProgress(
+    taskId: string,
+    config: {
+      startProgress: number;
+      endProgress: number;
+      durationMs: number;
+      intervalMs: number;
+    }
+  ): number {
+    const startedAt = Date.now();
+    return window.setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      const ratio = Math.min(elapsed / config.durationMs, 1);
+      const nextProgress =
+        config.startProgress +
+        (config.endProgress - config.startProgress) * ratio;
+      this.updateTaskProgress(taskId, Math.floor(nextProgress));
+    }, config.intervalMs);
+  }
+
+  /**
+   * 歌词改写/歌词草稿共用的 markdown 组装：
+   * 有目标记录且带歌词草稿时生成结构化 markdown，否则返回 null 由调用方回退原文
+   */
+  private formatLyricsMarkdown(
+    parsed: ReturnType<typeof parseLyricsRewriteResult>,
+    targetRecord: Awaited<
+      ReturnType<typeof loadMusicRecords>
+    >[number] | null
+  ): string | null {
+    if (!targetRecord || !parsed.lyricsDraft) {
+      return null;
+    }
+    return [
+      `# ${parsed.title || targetRecord.title || '未命名歌曲'}`,
+      '',
+      `标签: ${
+        parsed.styleTags.length > 0
+          ? parsed.styleTags.join(', ')
+          : (targetRecord.styleTags || []).join(', ') || '-'
+      }`,
+      '',
+      parsed.lyricsDraft,
+    ].join('\n');
+  }
+
   private async finalizeChatTask(
     task: Task,
     payload: {
@@ -1288,17 +1338,12 @@ export class TaskQueueService {
 
     this.updateTaskProgress(task.id, VIDEO_ANALYZER_SIMULATED_START_PROGRESS);
 
-    const startedAt = Date.now();
-    const progressTimer = window.setInterval(() => {
-      const elapsed = Date.now() - startedAt;
-      const ratio = Math.min(elapsed / VIDEO_ANALYZER_SIMULATED_DURATION_MS, 1);
-      const nextProgress =
-        VIDEO_ANALYZER_SIMULATED_START_PROGRESS +
-        (VIDEO_ANALYZER_SIMULATED_END_PROGRESS -
-          VIDEO_ANALYZER_SIMULATED_START_PROGRESS) *
-          ratio;
-      this.updateTaskProgress(task.id, Math.floor(nextProgress));
-    }, VIDEO_ANALYZER_SIMULATED_INTERVAL_MS);
+    const progressTimer = this.startSimulatedProgress(task.id, {
+      startProgress: VIDEO_ANALYZER_SIMULATED_START_PROGRESS,
+      endProgress: VIDEO_ANALYZER_SIMULATED_END_PROGRESS,
+      durationMs: VIDEO_ANALYZER_SIMULATED_DURATION_MS,
+      intervalMs: VIDEO_ANALYZER_SIMULATED_INTERVAL_MS,
+    });
 
     try {
       const result = await executeVideoAnalysis({
@@ -1359,17 +1404,12 @@ export class TaskQueueService {
       'submitting'
     );
 
-    const startedAt = Date.now();
-    const progressTimer = window.setInterval(() => {
-      const elapsed = Date.now() - startedAt;
-      const ratio = Math.min(elapsed / VIDEO_REWRITE_SIMULATED_DURATION_MS, 1);
-      const nextProgress =
-        VIDEO_REWRITE_SIMULATED_START_PROGRESS +
-        (VIDEO_REWRITE_SIMULATED_END_PROGRESS -
-          VIDEO_REWRITE_SIMULATED_START_PROGRESS) *
-          ratio;
-      this.updateTaskProgress(task.id, Math.floor(nextProgress));
-    }, VIDEO_REWRITE_SIMULATED_INTERVAL_MS);
+    const progressTimer = this.startSimulatedProgress(task.id, {
+      startProgress: VIDEO_REWRITE_SIMULATED_START_PROGRESS,
+      endProgress: VIDEO_REWRITE_SIMULATED_END_PROGRESS,
+      durationMs: VIDEO_REWRITE_SIMULATED_DURATION_MS,
+      intervalMs: VIDEO_REWRITE_SIMULATED_INTERVAL_MS,
+    });
 
     try {
       const messages: GeminiMessage[] = [
@@ -1457,17 +1497,12 @@ export class TaskQueueService {
       'submitting'
     );
 
-    const startedAt = Date.now();
-    const progressTimer = window.setInterval(() => {
-      const elapsed = Date.now() - startedAt;
-      const ratio = Math.min(elapsed / VIDEO_PROMPT_SIMULATED_DURATION_MS, 1);
-      const nextProgress =
-        VIDEO_PROMPT_SIMULATED_START_PROGRESS +
-        (VIDEO_PROMPT_SIMULATED_END_PROGRESS -
-          VIDEO_PROMPT_SIMULATED_START_PROGRESS) *
-          ratio;
-      this.updateTaskProgress(task.id, Math.floor(nextProgress));
-    }, VIDEO_PROMPT_SIMULATED_INTERVAL_MS);
+    const progressTimer = this.startSimulatedProgress(task.id, {
+      startProgress: VIDEO_PROMPT_SIMULATED_START_PROGRESS,
+      endProgress: VIDEO_PROMPT_SIMULATED_END_PROGRESS,
+      durationMs: VIDEO_PROMPT_SIMULATED_DURATION_MS,
+      intervalMs: VIDEO_PROMPT_SIMULATED_INTERVAL_MS,
+    });
 
     try {
       const messages: GeminiMessage[] = [
@@ -1552,17 +1587,12 @@ export class TaskQueueService {
 
     this.updateTaskProgress(task.id, MUSIC_ANALYZER_SIMULATED_START_PROGRESS);
 
-    const startedAt = Date.now();
-    const progressTimer = window.setInterval(() => {
-      const elapsed = Date.now() - startedAt;
-      const ratio = Math.min(elapsed / MUSIC_ANALYZER_SIMULATED_DURATION_MS, 1);
-      const nextProgress =
-        MUSIC_ANALYZER_SIMULATED_START_PROGRESS +
-        (MUSIC_ANALYZER_SIMULATED_END_PROGRESS -
-          MUSIC_ANALYZER_SIMULATED_START_PROGRESS) *
-          ratio;
-      this.updateTaskProgress(task.id, Math.floor(nextProgress));
-    }, MUSIC_ANALYZER_SIMULATED_INTERVAL_MS);
+    const progressTimer = this.startSimulatedProgress(task.id, {
+      startProgress: MUSIC_ANALYZER_SIMULATED_START_PROGRESS,
+      endProgress: MUSIC_ANALYZER_SIMULATED_END_PROGRESS,
+      durationMs: MUSIC_ANALYZER_SIMULATED_DURATION_MS,
+      intervalMs: MUSIC_ANALYZER_SIMULATED_INTERVAL_MS,
+    });
 
     try {
       const result = await executeMusicAnalysis({
@@ -1625,17 +1655,12 @@ export class TaskQueueService {
       'submitting'
     );
 
-    const startedAt = Date.now();
-    const progressTimer = window.setInterval(() => {
-      const elapsed = Date.now() - startedAt;
-      const ratio = Math.min(elapsed / MUSIC_REWRITE_SIMULATED_DURATION_MS, 1);
-      const nextProgress =
-        MUSIC_REWRITE_SIMULATED_START_PROGRESS +
-        (MUSIC_REWRITE_SIMULATED_END_PROGRESS -
-          MUSIC_REWRITE_SIMULATED_START_PROGRESS) *
-          ratio;
-      this.updateTaskProgress(task.id, Math.floor(nextProgress));
-    }, MUSIC_REWRITE_SIMULATED_INTERVAL_MS);
+    const progressTimer = this.startSimulatedProgress(task.id, {
+      startProgress: MUSIC_REWRITE_SIMULATED_START_PROGRESS,
+      endProgress: MUSIC_REWRITE_SIMULATED_END_PROGRESS,
+      durationMs: MUSIC_REWRITE_SIMULATED_DURATION_MS,
+      intervalMs: MUSIC_REWRITE_SIMULATED_INTERVAL_MS,
+    });
 
     try {
       const messages: GeminiMessage[] = [
@@ -1660,19 +1685,7 @@ export class TaskQueueService {
         : null;
       const rewriteResult = parseLyricsRewriteResult(text);
       const formattedText =
-        targetRecord && rewriteResult.lyricsDraft
-          ? [
-              `# ${rewriteResult.title || targetRecord.title || '未命名歌曲'}`,
-              '',
-              `标签: ${
-                rewriteResult.styleTags.length > 0
-                  ? rewriteResult.styleTags.join(', ')
-                  : (targetRecord.styleTags || []).join(', ') || '-'
-              }`,
-              '',
-              rewriteResult.lyricsDraft,
-            ].join('\n')
-          : text;
+        this.formatLyricsMarkdown(rewriteResult, targetRecord) ?? text;
 
       options.onProgress({ progress: 100 });
       await this.finalizeChatTask(task, {
@@ -1721,17 +1734,12 @@ export class TaskQueueService {
       'submitting'
     );
 
-    const startedAt = Date.now();
-    const progressTimer = window.setInterval(() => {
-      const elapsed = Date.now() - startedAt;
-      const ratio = Math.min(elapsed / MUSIC_REWRITE_SIMULATED_DURATION_MS, 1);
-      const nextProgress =
-        MUSIC_REWRITE_SIMULATED_START_PROGRESS +
-        (MUSIC_REWRITE_SIMULATED_END_PROGRESS -
-          MUSIC_REWRITE_SIMULATED_START_PROGRESS) *
-          ratio;
-      this.updateTaskProgress(task.id, Math.floor(nextProgress));
-    }, MUSIC_REWRITE_SIMULATED_INTERVAL_MS);
+    const progressTimer = this.startSimulatedProgress(task.id, {
+      startProgress: MUSIC_REWRITE_SIMULATED_START_PROGRESS,
+      endProgress: MUSIC_REWRITE_SIMULATED_END_PROGRESS,
+      durationMs: MUSIC_REWRITE_SIMULATED_DURATION_MS,
+      intervalMs: MUSIC_REWRITE_SIMULATED_INTERVAL_MS,
+    });
 
     try {
       const messages: GeminiMessage[] = [
@@ -1756,19 +1764,7 @@ export class TaskQueueService {
         : null;
       const lyricsResult = parseLyricsRewriteResult(text);
       const formattedText =
-        targetRecord && lyricsResult.lyricsDraft
-          ? [
-              `# ${lyricsResult.title || targetRecord.title || '未命名歌曲'}`,
-              '',
-              `标签: ${
-                lyricsResult.styleTags.length > 0
-                  ? lyricsResult.styleTags.join(', ')
-                  : (targetRecord.styleTags || []).join(', ') || '-'
-              }`,
-              '',
-              lyricsResult.lyricsDraft,
-            ].join('\n')
-          : text;
+        this.formatLyricsMarkdown(lyricsResult, targetRecord) ?? text;
 
       options.onProgress({ progress: 100 });
       await this.finalizeChatTask(task, {
@@ -1838,17 +1834,12 @@ export class TaskQueueService {
       }
     }
 
-    const startedAt = Date.now();
-    const progressTimer = window.setInterval(() => {
-      const elapsed = Date.now() - startedAt;
-      const ratio = Math.min(elapsed / MUSIC_REWRITE_SIMULATED_DURATION_MS, 1);
-      const nextProgress =
-        MUSIC_REWRITE_SIMULATED_START_PROGRESS +
-        (MUSIC_REWRITE_SIMULATED_END_PROGRESS -
-          MUSIC_REWRITE_SIMULATED_START_PROGRESS) *
-          ratio;
-      this.updateTaskProgress(task.id, Math.floor(nextProgress));
-    }, MUSIC_REWRITE_SIMULATED_INTERVAL_MS);
+    const progressTimer = this.startSimulatedProgress(task.id, {
+      startProgress: MUSIC_REWRITE_SIMULATED_START_PROGRESS,
+      endProgress: MUSIC_REWRITE_SIMULATED_END_PROGRESS,
+      durationMs: MUSIC_REWRITE_SIMULATED_DURATION_MS,
+      intervalMs: MUSIC_REWRITE_SIMULATED_INTERVAL_MS,
+    });
 
     try {
       const contentParts: GeminiMessage['content'] = [

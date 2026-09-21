@@ -78,6 +78,56 @@ function hasAPIFailureTracked(error: unknown): boolean {
   );
 }
 
+/**
+ * 非流式/流式各调用方共用的上游错误响应处理：
+ * 尝试从响应体提取错误信息 → 上报埋点 → 抛出带 apiErrorBody/httpStatus 的 Error
+ */
+async function trackAndThrowResponseError(
+  response: Response,
+  context: {
+    endpoint: string;
+    model: string;
+    duration: number;
+    stream: boolean;
+    config: GeminiConfig;
+  }
+): Promise<never> {
+  // 尝试读取响应体中的错误信息
+  let errorBody = '';
+  let errorMessage = response.statusText;
+  try {
+    const errorJson = await response.json();
+    if (errorJson.error) {
+      errorMessage =
+        errorJson.error.message ||
+        errorJson.error.code ||
+        response.statusText;
+      errorBody = JSON.stringify(errorJson.error);
+    }
+  } catch (e) {
+    // 如果无法解析 JSON，尝试读取文本
+    try {
+      errorBody = await response.text();
+    } catch (e2) {
+      // 忽略读取错误
+    }
+  }
+  analytics.trackAPICallFailure({
+    endpoint: context.endpoint,
+    model: context.model,
+    duration: context.duration,
+    error: errorMessage,
+    httpStatus: response.status,
+    stream: context.stream,
+    ...buildAPIAnalyticsContext(context.config),
+  });
+  const error = new Error(`HTTP ${response.status}: ${errorMessage}`);
+  (error as any).apiErrorBody = errorBody;
+  (error as any).httpStatus = response.status;
+  markAPIFailureTracked(error);
+  throw error;
+}
+
 function resolveBindingPath(
   pathTemplate: string | null | undefined,
   model: string
@@ -608,41 +658,13 @@ export async function callApiRaw(
     );
 
     if (!response.ok) {
-      const duration = Date.now() - startTime;
-      // 尝试读取响应体中的错误信息
-      let errorBody = '';
-      let errorMessage = response.statusText;
-      try {
-        const errorJson = await response.json();
-        if (errorJson.error) {
-          errorMessage =
-            errorJson.error.message ||
-            errorJson.error.code ||
-            response.statusText;
-          errorBody = JSON.stringify(errorJson.error);
-        }
-      } catch (e) {
-        // 如果无法解析 JSON，尝试读取文本
-        try {
-          errorBody = await response.text();
-        } catch (e2) {
-          // 忽略读取错误
-        }
-      }
-      analytics.trackAPICallFailure({
+      await trackAndThrowResponseError(response, {
         endpoint,
         model,
-        duration,
-        error: errorMessage,
-        httpStatus: response.status,
+        duration: Date.now() - startTime,
         stream: false,
-        ...buildAPIAnalyticsContext(config),
+        config,
       });
-      const error = new Error(`HTTP ${response.status}: ${errorMessage}`);
-      (error as any).apiErrorBody = errorBody;
-      (error as any).httpStatus = response.status;
-      markAPIFailureTracked(error);
-      throw error;
     }
 
     // 处理非流式响应
@@ -749,41 +771,13 @@ async function callApiStreamDirect(
     );
 
     if (!response.ok) {
-      const duration = Date.now() - startTime;
-      // 尝试读取响应体中的错误信息
-      let errorBody = '';
-      let errorMessage = response.statusText;
-      try {
-        const errorJson = await response.json();
-        if (errorJson.error) {
-          errorMessage =
-            errorJson.error.message ||
-            errorJson.error.code ||
-            response.statusText;
-          errorBody = JSON.stringify(errorJson.error);
-        }
-      } catch (e) {
-        // 如果无法解析 JSON，尝试读取文本
-        try {
-          errorBody = await response.text();
-        } catch (e2) {
-          // 忽略读取错误
-        }
-      }
-      analytics.trackAPICallFailure({
+      await trackAndThrowResponseError(response, {
         endpoint,
         model,
-        duration,
-        error: errorMessage,
-        httpStatus: response.status,
+        duration: Date.now() - startTime,
         stream: true,
-        ...buildAPIAnalyticsContext(config),
+        config,
       });
-      const error = new Error(`HTTP ${response.status}: ${errorMessage}`);
-      (error as any).apiErrorBody = errorBody;
-      (error as any).httpStatus = response.status;
-      markAPIFailureTracked(error);
-      throw error;
     }
 
     // 处理流式响应
@@ -960,41 +954,13 @@ export async function callVideoApiStreamRaw(
     );
 
     if (!response.ok) {
-      const duration = Date.now() - startTime;
-      // 尝试读取响应体中的错误信息
-      let errorBody = '';
-      let errorMessage = response.statusText;
-      try {
-        const errorJson = await response.json();
-        if (errorJson.error) {
-          errorMessage =
-            errorJson.error.message ||
-            errorJson.error.code ||
-            response.statusText;
-          errorBody = JSON.stringify(errorJson.error);
-        }
-      } catch (e) {
-        // 如果无法解析 JSON，尝试读取文本
-        try {
-          errorBody = await response.text();
-        } catch (e2) {
-          // 忽略读取错误
-        }
-      }
-      analytics.trackAPICallFailure({
+      await trackAndThrowResponseError(response, {
         endpoint,
         model,
-        duration,
-        error: errorMessage,
-        httpStatus: response.status,
+        duration: Date.now() - startTime,
         stream: true,
-        ...buildAPIAnalyticsContext(config),
+        config,
       });
-      const error = new Error(`HTTP ${response.status}: ${errorMessage}`);
-      (error as any).apiErrorBody = errorBody;
-      (error as any).httpStatus = response.status;
-      markAPIFailureTracked(error);
-      throw error;
     }
 
     // 处理流式响应

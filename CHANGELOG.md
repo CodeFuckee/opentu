@@ -1,5 +1,22 @@
 ## Unreleased
 
+### refactor: 第六轮全仓库代码评审落地批次 1——服务/变换层去重（2026-09-22）
+
+- **评审**：按 code-review-skill 五维度清单对全仓库分区评审（supabase functions+scripts/
+  apps/web+公共包/drawnix services+data+mcp+engine/drawnix hooks+utils+plugins/
+  drawnix components 两分区），本批先落地**行为保持**的结构去重；行为变更类问题
+  （P0/P1 安全与资损路径）另行留档待确认。
+- **task-queue-service.ts**：7 段逐字复制的「模拟进度 setInterval」块提取为
+  `startSimulatedProgress(taskId, config)`；2 处重复的歌词 markdown 组装提取为
+  `formatLyricsMarkdown`。
+- **transforms/property.ts**：17 个文本 mark 设置/切换函数的「遍历编辑器+
+  setSelection+try/catch」复制骨架提取为 `forEachTextEditor`，各函数体逐字保留。
+- **transforms/precise-erase.ts**：3 个橡皮擦路径扫描函数的包围盒计算与相交遍历
+  提取为 `getEraserPathBounds`/`forEachIntersectingElement`。
+- **utils/gemini-api/apiCalls.ts**：3 处逐字复制的上游错误响应解析+埋点+抛错块
+  提取为 `trackAndThrowResponseError`。
+- 全部为等价变换：typecheck、全量单测、lint 零新增告警通过。
+
 ### feat: 素材库新增官方素材库——建筑学长素材三级分类展示（2026-09-21）
 
 - **背景**：建筑学长贴图爬虫已入库 2175+ 张素材（表 `jzxz_materials` + 公开读桶

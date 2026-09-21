@@ -479,6 +479,50 @@ function getElementBoundingBox(element: PlaitElement): RectangleClient | null {
 }
 
 /**
+ * 计算橡皮擦路径的包围盒（按橡皮擦宽度向外扩展）
+ */
+function getEraserPathBounds(eraserPath: Point[], eraserWidth: number) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const p of eraserPath) {
+    minX = Math.min(minX, p[0] - eraserWidth);
+    minY = Math.min(minY, p[1] - eraserWidth);
+    maxX = Math.max(maxX, p[0] + eraserWidth);
+    maxY = Math.max(maxY, p[1] + eraserWidth);
+  }
+  return { minX, minY, maxX, maxY };
+}
+
+/**
+ * 遍历与橡皮擦路径包围盒相交的元素并执行 visit；
+ * visit 显式返回 false 时提前终止整体扫描
+ */
+function forEachIntersectingElement(
+  board: PlaitBoard,
+  bounds: ReturnType<typeof getEraserPathBounds>,
+  visit: (element: PlaitElement) => boolean | void
+): void {
+  for (const element of board.children) {
+    // 获取元素边界框
+    const elementRect = getElementBoundingBox(element);
+    if (!elementRect) continue;
+
+    const { x: ex, y: ey, width: ew, height: eh } = elementRect;
+
+    // 检测包围盒是否相交
+    if (
+      ex + ew >= bounds.minX &&
+      ex <= bounds.maxX &&
+      ey + eh >= bounds.minY &&
+      ey <= bounds.maxY
+    ) {
+      if (visit(element) === false) {
+        return;
+      }
+    }
+  }
+}
+
+/**
  * 检测与橡皮擦路径相交的元素
  */
 export function findElementsInEraserPath(
@@ -488,34 +532,16 @@ export function findElementsInEraserPath(
 ): PlaitElement[] {
   if (eraserPath.length < 2) return [];
 
-  // 计算橡皮擦路径的包围盒（扩展宽度）
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  for (const p of eraserPath) {
-    minX = Math.min(minX, p[0] - eraserWidth);
-    minY = Math.min(minY, p[1] - eraserWidth);
-    maxX = Math.max(maxX, p[0] + eraserWidth);
-    maxY = Math.max(maxY, p[1] + eraserWidth);
-  }
-
+  const bounds = getEraserPathBounds(eraserPath, eraserWidth);
   const intersectingElements: PlaitElement[] = [];
 
-  for (const element of board.children) {
+  forEachIntersectingElement(board, bounds, (element) => {
     // 跳过不支持布尔运算的元素
     if (!canElementBePreciseErased(element)) {
-      continue;
+      return;
     }
-
-    // 获取元素边界框
-    const elementRect = getElementBoundingBox(element);
-    if (!elementRect) continue;
-
-    const { x: ex, y: ey, width: ew, height: eh } = elementRect;
-
-    // 检测包围盒是否相交
-    if (ex + ew >= minX && ex <= maxX && ey + eh >= minY && ey <= maxY) {
-      intersectingElements.push(element);
-    }
-  }
+    intersectingElements.push(element);
+  });
 
   return intersectingElements;
 }
@@ -615,33 +641,20 @@ export function findUnsupportedElementsInPath(
 ): UnsupportedEraseReason | null {
   if (eraserPath.length < 2) return null;
 
-  // 计算橡皮擦路径的包围盒（扩展宽度）
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  for (const p of eraserPath) {
-    minX = Math.min(minX, p[0] - eraserWidth);
-    minY = Math.min(minY, p[1] - eraserWidth);
-    maxX = Math.max(maxX, p[0] + eraserWidth);
-    maxY = Math.max(maxY, p[1] + eraserWidth);
-  }
+  const bounds = getEraserPathBounds(eraserPath, eraserWidth);
+  let firstReason: UnsupportedEraseReason | null = null;
 
-  for (const element of board.children) {
-    // 获取元素边界框
-    const elementRect = getElementBoundingBox(element);
-    if (!elementRect) continue;
-
-    const { x: ex, y: ey, width: ew, height: eh } = elementRect;
-
-    // 检测包围盒是否相交
-    if (ex + ew >= minX && ex <= maxX && ey + eh >= minY && ey <= maxY) {
-      // 检查是否不支持
-      const reason = getUnsupportedEraseReason(element);
-      if (reason) {
-        return reason;
-      }
+  forEachIntersectingElement(board, bounds, (element) => {
+    // 检查是否不支持
+    const reason = getUnsupportedEraseReason(element);
+    if (reason) {
+      firstReason = reason;
+      return false;
     }
-  }
+    return undefined;
+  });
 
-  return null;
+  return firstReason;
 }
 
 /**
@@ -654,26 +667,15 @@ export function findUnsupportedElementsInEraserPath(
 ): PlaitElement[] {
   if (eraserPath.length < 2) return [];
 
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  for (const p of eraserPath) {
-    minX = Math.min(minX, p[0] - eraserWidth);
-    minY = Math.min(minY, p[1] - eraserWidth);
-    maxX = Math.max(maxX, p[0] + eraserWidth);
-    maxY = Math.max(maxY, p[1] + eraserWidth);
-  }
-
+  const bounds = getEraserPathBounds(eraserPath, eraserWidth);
   const result: PlaitElement[] = [];
-  for (const element of board.children) {
-    const elementRect = getElementBoundingBox(element);
-    if (!elementRect) continue;
 
-    const { x: ex, y: ey, width: ew, height: eh } = elementRect;
-    if (ex + ew >= minX && ex <= maxX && ey + eh >= minY && ey <= maxY) {
-      if (getUnsupportedEraseReason(element)) {
-        result.push(element);
-      }
+  forEachIntersectingElement(board, bounds, (element) => {
+    if (getUnsupportedEraseReason(element)) {
+      result.push(element);
     }
-  }
+  });
+
   return result;
 }
 

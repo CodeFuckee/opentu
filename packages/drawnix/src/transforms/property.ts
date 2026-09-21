@@ -221,51 +221,49 @@ export const setTextFontSize = (
 };
 
 /**
- * 设置文本字体
+ * 文本 mark 写操作的统一骨架：遍历选中文本编辑器，
+ * 逐编辑器 setSelection 后执行 transform，单编辑器失败仅记日志不影响其余
  */
-export const setTextFontFamily = (board: PlaitBoard, fontFamily: string) => {
+const forEachTextEditor = (
+  board: PlaitBoard,
+  errorLabel: string,
+  transform: (
+    editor: NonNullable<ReturnType<typeof getTextEditors>>[number]
+  ) => void
+) => {
   const textEditors = getTextEditors(board);
-  // console.log('[setTextFontFamily] textEditors:', textEditors, 'fontFamily:', fontFamily);
   if (textEditors && textEditors.length > 0) {
     textEditors.forEach((editor) => {
       try {
-        // 确保有选区
         setSelection(editor);
-        // console.log('[setTextFontFamily] Adding mark to editor, selection:', editor.selection);
-        Editor.addMark(editor, 'font-family', fontFamily);
-        // console.log('[setTextFontFamily] Mark added successfully');
+        transform(editor);
       } catch (error) {
-        console.error('Failed to set font family:', error);
+        console.error(`${errorLabel}:`, error);
       }
     });
-  } else {
-    // console.warn('[setTextFontFamily] No text editors found');
   }
+};
+
+/**
+ * 设置文本字体
+ */
+export const setTextFontFamily = (board: PlaitBoard, fontFamily: string) => {
+  forEachTextEditor(board, 'Failed to set font family', (editor) => {
+    Editor.addMark(editor, 'font-family', fontFamily);
+  });
 };
 
 /**
  * 设置文本阴影
  */
 export const setTextShadow = (board: PlaitBoard, shadow: string | null) => {
-  const textEditors = getTextEditors(board);
-  // console.log('[setTextShadow] textEditors:', textEditors, 'shadow:', shadow);
-  if (textEditors && textEditors.length > 0) {
-    textEditors.forEach((editor) => {
-      try {
-        // 确保有选区
-        setSelection(editor);
-        if (shadow) {
-          Editor.addMark(editor, 'text-shadow', shadow);
-        } else {
-          Editor.removeMark(editor, 'text-shadow');
-        }
-      } catch (error) {
-        console.error('Failed to set text shadow:', error);
-      }
-    });
-  } else {
-    // console.warn('[setTextShadow] No text editors found');
-  }
+  forEachTextEditor(board, 'Failed to set text shadow', (editor) => {
+    if (shadow) {
+      Editor.addMark(editor, 'text-shadow', shadow);
+    } else {
+      Editor.removeMark(editor, 'text-shadow');
+    }
+  });
 };
 
 /**
@@ -273,44 +271,23 @@ export const setTextShadow = (board: PlaitBoard, shadow: string | null) => {
  * 使用统一的 text-gradient mark 存储渐变 CSS，在 Leaf 组件中解析渲染
  */
 export const setTextGradient = (board: PlaitBoard, gradient: string | null) => {
-  const textEditors = getTextEditors(board);
-  // console.log('[setTextGradient] textEditors:', textEditors, 'gradient:', gradient);
-  if (textEditors && textEditors.length > 0) {
-    textEditors.forEach((editor) => {
-      try {
-        // 确保有选区
-        setSelection(editor);
-        
-        if (gradient) {
-          // 使用统一的 text-gradient mark
-          Editor.addMark(editor, 'text-gradient', gradient);
-        } else {
-          Editor.removeMark(editor, 'text-gradient');
-        }
-      } catch (error) {
-        console.error('Failed to set text gradient:', error);
-      }
-    });
-  } else {
-    // console.warn('[setTextGradient] No text editors found');
-  }
+  forEachTextEditor(board, 'Failed to set text gradient', (editor) => {
+    if (gradient) {
+      // 使用统一的 text-gradient mark
+      Editor.addMark(editor, 'text-gradient', gradient);
+    } else {
+      Editor.removeMark(editor, 'text-gradient');
+    }
+  });
 };
 
 /**
  * 设置文本字重
  */
 export const setTextFontWeight = (board: PlaitBoard, fontWeight: number | string) => {
-  const textEditors = getTextEditors(board);
-  if (textEditors && textEditors.length > 0) {
-    textEditors.forEach((editor) => {
-      try {
-        setSelection(editor);
-        Editor.addMark(editor, 'font-weight', String(fontWeight));
-      } catch (error) {
-        console.error('Failed to set font weight:', error);
-      }
-    });
-  }
+  forEachTextEditor(board, 'Failed to set font weight', (editor) => {
+    Editor.addMark(editor, 'font-weight', String(fontWeight));
+  });
 };
 
 /**
@@ -338,287 +315,183 @@ export const setTextAlign = (board: PlaitBoard, textAlign: 'left' | 'center' | '
  * 设置行高
  */
 export const setTextLineHeight = (board: PlaitBoard, lineHeight: number | string) => {
-  const textEditors = getTextEditors(board);
-  if (textEditors && textEditors.length > 0) {
-    textEditors.forEach((editor) => {
-      try {
-        setSelection(editor);
-        Editor.addMark(editor, 'line-height', String(lineHeight));
-      } catch (error) {
-        console.error('Failed to set line height:', error);
-      }
-    });
-  }
+  forEachTextEditor(board, 'Failed to set line height', (editor) => {
+    Editor.addMark(editor, 'line-height', String(lineHeight));
+  });
 };
 
 /**
  * 设置字间距
  */
 export const setTextLetterSpacing = (board: PlaitBoard, letterSpacing: number | string) => {
-  const textEditors = getTextEditors(board);
-  if (textEditors && textEditors.length > 0) {
-    textEditors.forEach((editor) => {
-      try {
-        setSelection(editor);
-        // 如果是数字，添加 px 单位
-        const value = typeof letterSpacing === 'number' ? `${letterSpacing}px` : letterSpacing;
-        Editor.addMark(editor, 'letter-spacing', value);
-      } catch (error) {
-        console.error('Failed to set letter spacing:', error);
-      }
-    });
-  }
+  forEachTextEditor(board, 'Failed to set letter spacing', (editor) => {
+    // 如果是数字，添加 px 单位
+    const value = typeof letterSpacing === 'number' ? `${letterSpacing}px` : letterSpacing;
+    Editor.addMark(editor, 'letter-spacing', value);
+  });
 };
 
 /**
  * 切换文本加粗
  */
 export const toggleTextBold = (board: PlaitBoard) => {
-  const textEditors = getTextEditors(board);
-  if (textEditors && textEditors.length > 0) {
-    textEditors.forEach((editor) => {
-      try {
-        setSelection(editor);
-        const marks = Editor.marks(editor);
-        const isActive = marks ? !!(marks as any).bold : false;
-        if (isActive) {
-          Editor.removeMark(editor, 'bold');
-        } else {
-          Editor.addMark(editor, 'bold', true);
-        }
-      } catch (error) {
-        console.error('Failed to toggle bold:', error);
-      }
-    });
-  }
+  forEachTextEditor(board, 'Failed to toggle bold', (editor) => {
+    const marks = Editor.marks(editor);
+    const isActive = marks ? !!(marks as any).bold : false;
+    if (isActive) {
+      Editor.removeMark(editor, 'bold');
+    } else {
+      Editor.addMark(editor, 'bold', true);
+    }
+  });
 };
 
 /**
  * 切换文本斜体
  */
 export const toggleTextItalic = (board: PlaitBoard) => {
-  const textEditors = getTextEditors(board);
-  if (textEditors && textEditors.length > 0) {
-    textEditors.forEach((editor) => {
-      try {
-        setSelection(editor);
-        const marks = Editor.marks(editor);
-        const isActive = marks ? !!(marks as any).italic : false;
-        if (isActive) {
-          Editor.removeMark(editor, 'italic');
-        } else {
-          Editor.addMark(editor, 'italic', true);
-        }
-      } catch (error) {
-        console.error('Failed to toggle italic:', error);
-      }
-    });
-  }
+  forEachTextEditor(board, 'Failed to toggle italic', (editor) => {
+    const marks = Editor.marks(editor);
+    const isActive = marks ? !!(marks as any).italic : false;
+    if (isActive) {
+      Editor.removeMark(editor, 'italic');
+    } else {
+      Editor.addMark(editor, 'italic', true);
+    }
+  });
 };
 
 /**
  * 切换文本下划线
  */
 export const toggleTextUnderline = (board: PlaitBoard) => {
-  const textEditors = getTextEditors(board);
-  if (textEditors && textEditors.length > 0) {
-    textEditors.forEach((editor) => {
-      try {
-        setSelection(editor);
-        const marks = Editor.marks(editor);
-        const isActive = marks ? !!(marks as any).underlined : false;
-        if (isActive) {
-          Editor.removeMark(editor, 'underlined');
-        } else {
-          Editor.addMark(editor, 'underlined', true);
-        }
-      } catch (error) {
-        console.error('Failed to toggle underline:', error);
-      }
-    });
-  }
+  forEachTextEditor(board, 'Failed to toggle underline', (editor) => {
+    const marks = Editor.marks(editor);
+    const isActive = marks ? !!(marks as any).underlined : false;
+    if (isActive) {
+      Editor.removeMark(editor, 'underlined');
+    } else {
+      Editor.addMark(editor, 'underlined', true);
+    }
+  });
 };
 
 /**
  * 切换文本删除线
  */
 export const toggleTextStrikethrough = (board: PlaitBoard) => {
-  const textEditors = getTextEditors(board);
-  if (textEditors && textEditors.length > 0) {
-    textEditors.forEach((editor) => {
-      try {
-        setSelection(editor);
-        const marks = Editor.marks(editor);
-        const isActive = marks ? !!(marks as any).strikethrough : false;
-        if (isActive) {
-          Editor.removeMark(editor, 'strikethrough');
-        } else {
-          Editor.addMark(editor, 'strikethrough', true);
-        }
-      } catch (error) {
-        console.error('Failed to toggle strikethrough:', error);
-      }
-    });
-  }
+  forEachTextEditor(board, 'Failed to toggle strikethrough', (editor) => {
+    const marks = Editor.marks(editor);
+    const isActive = marks ? !!(marks as any).strikethrough : false;
+    if (isActive) {
+      Editor.removeMark(editor, 'strikethrough');
+    } else {
+      Editor.addMark(editor, 'strikethrough', true);
+    }
+  });
 };
 
 /**
  * 切换文本上标
  */
 export const toggleTextSuperscript = (board: PlaitBoard) => {
-  const textEditors = getTextEditors(board);
-  if (textEditors && textEditors.length > 0) {
-    textEditors.forEach((editor) => {
-      try {
-        setSelection(editor);
-        const marks = Editor.marks(editor);
-        const isActive = marks ? !!(marks as any).superscript : false;
-        if (isActive) {
-          Editor.removeMark(editor, 'superscript');
-        } else {
-          // 关闭下标
-          Editor.removeMark(editor, 'subscript');
-          Editor.addMark(editor, 'superscript', true);
-        }
-      } catch (error) {
-        console.error('Failed to toggle superscript:', error);
-      }
-    });
-  }
+  forEachTextEditor(board, 'Failed to toggle superscript', (editor) => {
+    const marks = Editor.marks(editor);
+    const isActive = marks ? !!(marks as any).superscript : false;
+    if (isActive) {
+      Editor.removeMark(editor, 'superscript');
+    } else {
+      // 关闭下标
+      Editor.removeMark(editor, 'subscript');
+      Editor.addMark(editor, 'superscript', true);
+    }
+  });
 };
 
 /**
  * 切换文本下标
  */
 export const toggleTextSubscript = (board: PlaitBoard) => {
-  const textEditors = getTextEditors(board);
-  if (textEditors && textEditors.length > 0) {
-    textEditors.forEach((editor) => {
-      try {
-        setSelection(editor);
-        const marks = Editor.marks(editor);
-        const isActive = marks ? !!(marks as any).subscript : false;
-        if (isActive) {
-          Editor.removeMark(editor, 'subscript');
-        } else {
-          // 关闭上标
-          Editor.removeMark(editor, 'superscript');
-          Editor.addMark(editor, 'subscript', true);
-        }
-      } catch (error) {
-        console.error('Failed to toggle subscript:', error);
-      }
-    });
-  }
+  forEachTextEditor(board, 'Failed to toggle subscript', (editor) => {
+    const marks = Editor.marks(editor);
+    const isActive = marks ? !!(marks as any).subscript : false;
+    if (isActive) {
+      Editor.removeMark(editor, 'subscript');
+    } else {
+      // 关闭上标
+      Editor.removeMark(editor, 'superscript');
+      Editor.addMark(editor, 'subscript', true);
+    }
+  });
 };
 
 /**
  * 设置文本背景色（高亮）
  */
 export const setTextBackgroundColor = (board: PlaitBoard, color: string | null) => {
-  const textEditors = getTextEditors(board);
-  if (textEditors && textEditors.length > 0) {
-    textEditors.forEach((editor) => {
-      try {
-        setSelection(editor);
-        if (color) {
-          Editor.addMark(editor, 'background-color', color);
-        } else {
-          Editor.removeMark(editor, 'background-color');
-        }
-      } catch (error) {
-        console.error('Failed to set background color:', error);
-      }
-    });
-  }
+  forEachTextEditor(board, 'Failed to set background color', (editor) => {
+    if (color) {
+      Editor.addMark(editor, 'background-color', color);
+    } else {
+      Editor.removeMark(editor, 'background-color');
+    }
+  });
 };
 
 /**
  * 设置文本大小写转换
  */
 export const setTextTransform = (board: PlaitBoard, transform: 'none' | 'uppercase' | 'lowercase' | 'capitalize' | null) => {
-  const textEditors = getTextEditors(board);
-  if (textEditors && textEditors.length > 0) {
-    textEditors.forEach((editor) => {
-      try {
-        setSelection(editor);
-        if (transform && transform !== 'none') {
-          Editor.addMark(editor, 'text-transform', transform);
-        } else {
-          Editor.removeMark(editor, 'text-transform');
-        }
-      } catch (error) {
-        console.error('Failed to set text transform:', error);
-      }
-    });
-  }
+  forEachTextEditor(board, 'Failed to set text transform', (editor) => {
+    if (transform && transform !== 'none') {
+      Editor.addMark(editor, 'text-transform', transform);
+    } else {
+      Editor.removeMark(editor, 'text-transform');
+    }
+  });
 };
 
 /**
  * 设置文字描边
  */
 export const setTextStroke = (board: PlaitBoard, width: number | null, color?: string) => {
-  const textEditors = getTextEditors(board);
-  if (textEditors && textEditors.length > 0) {
-    textEditors.forEach((editor) => {
-      try {
-        setSelection(editor);
-        if (width && width > 0) {
-          Editor.addMark(editor, 'text-stroke', width);
-          if (color) {
-            Editor.addMark(editor, 'text-stroke-color', color);
-          }
-        } else {
-          Editor.removeMark(editor, 'text-stroke');
-          Editor.removeMark(editor, 'text-stroke-color');
-        }
-      } catch (error) {
-        console.error('Failed to set text stroke:', error);
+  forEachTextEditor(board, 'Failed to set text stroke', (editor) => {
+    if (width && width > 0) {
+      Editor.addMark(editor, 'text-stroke', width);
+      if (color) {
+        Editor.addMark(editor, 'text-stroke-color', color);
       }
-    });
-  }
+    } else {
+      Editor.removeMark(editor, 'text-stroke');
+      Editor.removeMark(editor, 'text-stroke-color');
+    }
+  });
 };
 
 /**
  * 设置下划线/删除线样式
  */
 export const setTextDecorationStyle = (board: PlaitBoard, style: 'solid' | 'double' | 'dotted' | 'dashed' | 'wavy' | null) => {
-  const textEditors = getTextEditors(board);
-  if (textEditors && textEditors.length > 0) {
-    textEditors.forEach((editor) => {
-      try {
-        setSelection(editor);
-        if (style) {
-          Editor.addMark(editor, 'text-decoration-style', style);
-        } else {
-          Editor.removeMark(editor, 'text-decoration-style');
-        }
-      } catch (error) {
-        console.error('Failed to set text decoration style:', error);
-      }
-    });
-  }
+  forEachTextEditor(board, 'Failed to set text decoration style', (editor) => {
+    if (style) {
+      Editor.addMark(editor, 'text-decoration-style', style);
+    } else {
+      Editor.removeMark(editor, 'text-decoration-style');
+    }
+  });
 };
 
 /**
  * 设置下划线/删除线颜色
  */
 export const setTextDecorationColor = (board: PlaitBoard, color: string | null) => {
-  const textEditors = getTextEditors(board);
-  if (textEditors && textEditors.length > 0) {
-    textEditors.forEach((editor) => {
-      try {
-        setSelection(editor);
-        if (color) {
-          Editor.addMark(editor, 'text-decoration-color', color);
-        } else {
-          Editor.removeMark(editor, 'text-decoration-color');
-        }
-      } catch (error) {
-        console.error('Failed to set text decoration color:', error);
-      }
-    });
-  }
+  forEachTextEditor(board, 'Failed to set text decoration color', (editor) => {
+    if (color) {
+      Editor.addMark(editor, 'text-decoration-color', color);
+    } else {
+      Editor.removeMark(editor, 'text-decoration-color');
+    }
+  });
 };
 
 /**
