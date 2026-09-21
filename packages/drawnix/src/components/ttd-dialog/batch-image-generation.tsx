@@ -1572,7 +1572,6 @@ const BatchImageGeneration: React.FC<BatchImageGenerationProps> = ({
       // 清理状态
       setPendingImportFiles([]);
       setShowBatchImportModal(false);
-      endTrack();
 
       const message =
         language === 'zh'

@@ -2147,12 +2147,12 @@ export async function splitAndInsertImages(
       success: true,
       count: elements.length,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     endTrack();
     return {
       success: false,
       count: 0,
-      error: error.message || '拆分图片失败',
+      error: error instanceof Error ? error.message : '拆分图片失败',
     };
   }
 }

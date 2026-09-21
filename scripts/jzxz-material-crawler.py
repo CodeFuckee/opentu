@@ -307,18 +307,6 @@ def upload_item(cfg, item):
     return "ok" if up.ok else f"table_http_{up.status_code}"
 
 
-def merge_into_result(matched, dom_items, gallery, cate, tag):
-    """网络响应 + DOM 收割双通道合并（按 source_id 去重）"""
-    if matched and dom_items:
-        seen_ids = {i["source_id"] for i in matched[-1][1]}
-        extra = [i for i in dom_items if i["source_id"] not in seen_ids]
-        if extra:
-            matched[-1] = (matched[-1][0], matched[-1][1] + extra)
-    elif not matched and dom_items:
-        matched = [(None, dom_items)]
-    return matched
-
-
 def flush_dry(dry_items):
     """dry-run 增量落盘（固定文件名，随时可取）"""
     if not ARGS.dry_run:

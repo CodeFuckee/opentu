@@ -1236,7 +1236,7 @@ class SettingsManager {
     settings: AppSettings
   ): Promise<void> {
     for (const fieldPath of this.getSensitiveFieldPaths(settings)) {
-      const value = this.getSetting.call({ settings }, fieldPath);
+      const value = this.getSettingFromBag(settings, fieldPath);
       if (value && typeof value === 'string') {
         try {
           const decryptedValue = await this.decryptSensitiveData(
@@ -1385,7 +1385,7 @@ class SettingsManager {
     settings: AppSettings
   ): Promise<void> {
     for (const fieldPath of this.getSensitiveFieldPaths(settings)) {
-      const value = this.getSetting.call({ settings }, fieldPath);
+      const value = this.getSettingFromBag(settings, fieldPath);
       if (value && typeof value === 'string') {
         try {
           const encryptedValue = await this.encryptSensitiveData(
@@ -1419,8 +1419,17 @@ class SettingsManager {
    * 返回深拷贝，防止外部修改影响原始设置
    */
   public getSetting<T = any>(path: string): T {
+    return this.getSettingFromBag(this.settings, path);
+  }
+
+  /**
+   * getSetting 的多装载变体：以指定 settings 包为根按点路径取值。
+   * 供加密/迁移/重置等需要读取非当前装载（解密前原始包、DEFAULT_SETTINGS）的场景复用，
+   * 避免 getSetting.call({ settings }) 的伪造 this 写法
+   */
+  private getSettingFromBag<T = any>(bag: AppSettings, path: string): T {
     const keys = path.split('.');
-    let value: any = this.settings;
+    let value: any = bag;
 
     for (const key of keys) {
       if (value && typeof value === 'object' && key in value) {
@@ -1622,10 +1631,7 @@ class SettingsManager {
    * 重置特定设置为默认值
    */
   public async resetSetting(path: string): Promise<void> {
-    const defaultValue = this.getSetting.call(
-      { settings: DEFAULT_SETTINGS },
-      path
-    );
+    const defaultValue = this.getSettingFromBag(DEFAULT_SETTINGS, path);
     if (defaultValue !== undefined) {
       await this.updateSetting(path, defaultValue);
     }

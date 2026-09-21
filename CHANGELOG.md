@@ -1,5 +1,21 @@
 ## Unreleased
 
+### refactor: 第六轮评审批次 2——死代码与微清理（2026-09-22）
+
+- **useMediaCache**：移除 `blobUrl` 死状态与两处 `URL.revokeObjectURL` no-op
+  （`getCachedUrl` 只会返回原 URL，从不产生 blob: URL，相关清理逻辑自始为死代码）。
+- **settings-manager**：三处 `getSetting.call({ settings }, …)` 伪造 this 的调用
+  （解密装载/加密存储/重置默认值）改为显式 `getSettingFromBag(bag, path)` 纯参数方法，
+  `getSetting` 委托之，行为等价。
+- **batch-image-generation**：批量导入成功路径与 finally 各调一次 `endTrack` 导致
+  trackMemory 计时被双重结束，删去 try 内那次，统一由 finally 收口。
+- **image-splitter**：`catch (error: any)` 收敛为 `unknown` + instanceof 窄化。
+- **scripts/jzxz-material-crawler.py**：删除重复定义的 `merge_into_result`
+  （310 行与 562 行同体，后者运行时遮蔽前者）。
+- 删除误提交的死临时文件 `ttd-dialog/ai-video-generation.tsx.tmp`（495 行组件旧拷贝，
+  无任何引用）。
+- 全部为等价变换：typecheck、全量单测通过。
+
 ### refactor: 第六轮全仓库代码评审落地批次 1——服务/变换层去重（2026-09-22）
 
 - **评审**：按 code-review-skill 五维度清单对全仓库分区评审（supabase functions+scripts/

@@ -114,7 +114,6 @@ export function useMediaUrl(
   const [url, setUrl] = useState<string | null>(originalUrl || null);
   const [isFromCache, setIsFromCache] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
   // Track the last known cache status to detect changes for THIS task only
   const lastStatusRef = useRef<CacheStatus>('none');
 
@@ -133,11 +132,6 @@ export function useMediaUrl(
     const cachedUrl = await unifiedCacheService.getCachedUrl(originalUrl);
 
     if (cachedUrl) {
-      // Revoke old blob URL if exists
-      if (blobUrl && blobUrl !== cachedUrl) {
-        URL.revokeObjectURL(blobUrl);
-      }
-      setBlobUrl(cachedUrl);
       setUrl(cachedUrl);
       setIsFromCache(true);
     } else if (originalUrl) {
@@ -149,7 +143,7 @@ export function useMediaUrl(
     }
 
     setIsLoading(false);
-  }, [originalUrl, blobUrl]);
+  }, [originalUrl]);
 
   // Initial load
   useEffect(() => {
@@ -181,15 +175,6 @@ export function useMediaUrl(
 
     return unsubscribe;
   }, [originalUrl, loadUrl]);
-
-  // Cleanup blob URL on unmount
-  useEffect(() => {
-    return () => {
-      if (blobUrl) {
-        URL.revokeObjectURL(blobUrl);
-      }
-    };
-  }, [blobUrl]);
 
   return { url, isFromCache, isLoading };
 }
