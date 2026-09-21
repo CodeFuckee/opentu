@@ -739,7 +739,13 @@ def crawl():
                 before_sub = subcate_texts(driver)
                 known = CATE_TAGS.get(cate, set())
                 ok = False
-                for _attempt in range(4):
+                cur_sub0 = subcate_texts(driver)
+                if any(t in known for t in cur_sub0 if t):
+                    # 已是该分类（面板默认选中/重进面板）：无需点击
+                    ok = True
+                for _attempt in range(6):
+                    if ok:
+                        break
                     slide = next((e for e in driver.find_elements(
                         By.XPATH, "//div[contains(@class,'first_cate_list')]//*[contains(@class,'swiper-slide')]")
                         if (e.text or "").strip() == cate), None)
@@ -747,7 +753,7 @@ def crawl():
                         time.sleep(1)
                         continue
                     real_click(driver, slide)
-                    deadline = time.time() + 8
+                    deadline = time.time() + 15
                     while time.time() < deadline:
                         cur_sub = subcate_texts(driver)
                         if known and any(t in known for t in cur_sub):
@@ -759,6 +765,7 @@ def crawl():
                         time.sleep(0.5)
                     if ok:
                         break
+                    time.sleep(1.5)
                 if ok:
                     cat_tags[cate] = [t for t in enumerate_row_texts(driver, "sub_cate_list") if len(t) <= 12]
                     CATE_TAGS.setdefault(cate, set()).update(cat_tags[cate])
