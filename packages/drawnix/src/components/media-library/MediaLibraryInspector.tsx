@@ -140,6 +140,7 @@ export function MediaLibraryInspector({
     }
 
     try {
+      if (!onRename) return;
       await onRename(asset.id, trimmedName);
       setIsRenaming(false);
       // Toast 已在 Context 中显示，这里不重复
@@ -164,7 +165,7 @@ export function MediaLibraryInspector({
 
   // 确认删除（成功提示由 AssetContext 统一展示，此处不再重复）
   const handleConfirmDelete = useCallback(async () => {
-    if (!asset) return;
+    if (!asset || !onDelete) return;
 
     try {
       await onDelete(asset.id);
@@ -414,13 +415,15 @@ export function MediaLibraryInspector({
             <HoverTip content={asset.name} showArrow={false}>
               <h3 className="media-library-inspector__name">{asset.name}</h3>
             </HoverTip>
-            <Button
-              size="small"
-              variant="text"
-              icon={<Edit2 size={14} />}
-              onClick={handleStartRename}
-              data-track="inspector_rename_start"
-            />
+            {onRename && (
+              <Button
+                size="small"
+                variant="text"
+                icon={<Edit2 size={14} />}
+                onClick={handleStartRename}
+                data-track="inspector_rename_start"
+              />
+            )}
           </div>
         )}
       </div>
@@ -436,7 +439,11 @@ export function MediaLibraryInspector({
         <div className="media-library-inspector__meta-item">
           <span className="media-library-inspector__meta-label">来源</span>
           <span className="media-library-inspector__meta-value">
-            {asset.source === 'AI_GENERATED' ? 'AI生成' : '本地上传'}
+            {asset.source === 'AI_GENERATED'
+              ? 'AI生成'
+              : asset.source === 'OFFICIAL'
+              ? '官方'
+              : '本地上传'}
           </span>
         </div>
         {isSubjectAsset && (
@@ -555,18 +562,20 @@ export function MediaLibraryInspector({
         >
           下载
         </Button>
-        <Button
-          theme="danger"
-          variant="outline"
-          block
-          icon={<Trash2 size={16} />}
-          onClick={handleOpenDeleteDialog}
-          data-track="inspector_delete"
-          data-track-params={inspectorTrackParams}
-          className="inspector-btn-delete"
-        >
-          删除
-        </Button>
+        {onDelete && (
+          <Button
+            theme="danger"
+            variant="outline"
+            block
+            icon={<Trash2 size={16} />}
+            onClick={handleOpenDeleteDialog}
+            data-track="inspector_delete"
+            data-track-params={inspectorTrackParams}
+            className="inspector-btn-delete"
+          >
+            删除
+          </Button>
+        )}
       </div>
 
       <Dialog

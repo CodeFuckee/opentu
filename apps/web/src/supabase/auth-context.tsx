@@ -26,6 +26,7 @@ import {
   configureTaskArchive,
   configureSupabaseSync,
   configureTemplateGallery,
+  configureOfficialLibrary,
 } from '@drawnix/drawnix/runtime';
 
 export type AuthStatus =
@@ -177,11 +178,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       configureSupabaseSync({ client: getSupabaseClient() });
       // 登录后注册模板中心（读 ai_templates + use_template RPC）
       configureTemplateGallery({ client: getSupabaseClient() });
+      // 登录后注册官方素材库（读 jzxz_materials，公开桶直链展示）
+      configureOfficialLibrary({
+        client: getSupabaseClient(),
+        supabaseUrl: SUPABASE_URL,
+      });
     } else {
       configureManagedRouting(null);
       configureTaskArchive(null);
       configureSupabaseSync(null);
       configureTemplateGallery(null);
+      configureOfficialLibrary(null);
     }
   }, [status]);
 

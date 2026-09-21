@@ -52,6 +52,10 @@ interface VirtualAssetGridProps {
   isFavorite?: (assetId: string) => boolean;
   onToggleFavorite?: (asset: Asset, event: React.MouseEvent) => void;
   syncedUrls?: Set<string>; // 已同步到 Gist 的 URL 集合
+  /** 滚动近底部时触发（懒加载分页）；是否还有更多由调用方通过不再追加数据表达 */
+  onLoadMore?: () => void;
+  /** 触发 onLoadMore 的距底阈值（px） */
+  loadMoreThresholdPx?: number;
 }
 
 interface MarqueeRect {
@@ -100,6 +104,8 @@ export function VirtualAssetGrid({
   isFavorite,
   onToggleFavorite,
   syncedUrls,
+  onLoadMore,
+  loadMoreThresholdPx = 600,
 }: VirtualAssetGridProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const marqueeDragRef = useRef<MarqueeDragState | null>(null);
@@ -227,6 +233,21 @@ export function VirtualAssetGrid({
 
   const virtualItems = rowVirtualizer.getVirtualItems();
 
+  // 滚动近底部触发懒加载（调用方用 loading/hasMore 状态防抖，这里只做原始通知）
+  const lastLoadMoreAtRef = useRef(0);
+  const handleScrollNearBottom = useCallback(() => {
+    if (!onLoadMore) return;
+    const container = parentRef.current;
+    if (!container) return;
+    const distanceToBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    if (distanceToBottom > loadMoreThresholdPx) return;
+    const now = Date.now();
+    if (now - lastLoadMoreAtRef.current < 300) return;
+    lastLoadMoreAtRef.current = now;
+    onLoadMore();
+  }, [onLoadMore, loadMoreThresholdPx]);
+
   const stopMarqueeDrag = useCallback(() => {
     marqueeDragRef.current = null;
     setMarqueeRect(null);
@@ -337,6 +358,7 @@ export function VirtualAssetGrid({
       className={`virtual-asset-grid virtual-asset-grid--${viewMode} ${marqueeRect ? 'virtual-asset-grid--marquee-active' : ''}`}
       onPointerDownCapture={handlePointerDownCapture}
       onClickCapture={handleClickCapture}
+      onScroll={onLoadMore ? handleScrollNearBottom : undefined}
       style={{
         height: '100%',
         overflow: 'auto',

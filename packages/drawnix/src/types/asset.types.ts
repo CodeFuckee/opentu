@@ -25,6 +25,7 @@ export enum AssetType {
 export enum AssetSource {
   LOCAL = 'LOCAL', // 本地上传
   AI_GENERATED = 'AI_GENERATED', // AI生成
+  OFFICIAL = 'OFFICIAL', // 官方素材库（只读远程引用，不落本地库）
 }
 
 /**
@@ -377,8 +378,10 @@ export interface MediaLibraryInspectorProps {
   asset: Asset | null;
   selectedAssets?: Asset[];
   isSelectionMode?: boolean;
-  onRename: (assetId: string, newName: string) => void;
-  onDelete: (assetId: string) => void;
+  /** 重命名（不传时隐藏重命名入口，官方素材等只读场景使用） */
+  onRename?: (assetId: string, newName: string) => void;
+  /** 删除（不传时隐藏删除按钮，官方素材等只读场景使用） */
+  onDelete?: (assetId: string) => void;
   onDownload: (asset: Asset) => void;
   onMarkAsSubject?: (
     asset: Asset,

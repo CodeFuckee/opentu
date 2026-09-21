@@ -1,5 +1,30 @@
 ## Unreleased
 
+### feat: 素材库新增官方素材库——建筑学长素材三级分类展示（2026-09-21）
+
+- **背景**：建筑学长贴图爬虫已入库 2175+ 张素材（表 `jzxz_materials` + 公开读桶
+  `jzxz-materials`，每日 03:00 增量补爬），但前端素材库无入口使用。本次在素材库面板
+  主区顶部新增「我的素材 / 官方素材库」双模式切换，官方模式按建筑学长面板方式
+  三级分类展示：库 tab（家居库/植物库/配景库，带计数徽标）→ 分类 chips（仅配景库）→
+  tag chips → 素材网格；设计决策（展示形态/分页策略/插入行为/空分类处理）经 grill-me
+  访谈逐点确认，提案见 `openspec/changes/add-official-material-library/`。
+- **服务层** `packages/drawnix/src/components/official-library/`：runtime 注册表
+  （宿主登录时注入 client+supabaseUrl，照抄 template-gallery 模式）；数据服务
+  facets 组合分页扫描+客户端去重（5 分钟缓存，只渲染实际有数据的分类/tag）+
+  素材服务端分页（每页 60，count=exact，`created_at desc, id asc` 稳定 tiebreaker）+
+  公开桶直链拼接 + `OfficialMaterialRow → Asset` 视图映射（`official-` 前缀，不进
+  AssetContext/IndexedDB）；链式 mock 单测 11 例锁定查询形态。
+- **UI**：`OfficialLibraryView` 复用 `VirtualAssetGrid`/`AssetItem`/`UnifiedMediaViewer`；
+  搜索防抖 300ms 服务端 `ilike`（名称/tag）；滚动近底自动加载下一页
+  （`VirtualAssetGrid` 新增可选 `onLoadMore`）；未注册/加载失败/空结果三态降级。
+- **行为**：官方素材只读——`AssetSource` 新增 `OFFICIAL`（Inspector 来源显示「官方」，
+  重命名/删除/设为主体按钮按回调门控隐藏，保留下载与使用）；BROWSE 模式 + 按钮/
+  预览器直插画布（`insertImageFromUrl` 自动缓存外链）；SELECT 模式「使用」回传
+  宿主公开直链，不膨胀个人素材库配额。
+- **接线**：`apps/web` auth-context 登录态变化时注册/注销 `configureOfficialLibrary`；
+  `packages/drawnix/src/runtime.ts` 导出。本地 typecheck+lint（新文件 0 告警）+
+  全仓单测通过；HTTP 内网直链可用性已实测（匿名 GET 200）。
+
 ### refactor: 第五轮全仓库代码评审落地——行为保持重构五批（2026-09-21）
 
 - **评审**：9 分区约 30 万行（apps/web 含 SW 全量、drawnix components 三分区/services/

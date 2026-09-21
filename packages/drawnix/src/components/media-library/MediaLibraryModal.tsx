@@ -5,10 +5,12 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { MessagePlugin, Drawer } from 'tdesign-react';
+import { HardDrive, Library } from 'lucide-react';
 import { MediaLibraryIcon } from '../icons';
 import { useAssets } from '../../contexts/AssetContext';
 import { MediaLibraryGrid } from './MediaLibraryGrid';
 import { MediaLibraryInspector } from './MediaLibraryInspector';
+import { OfficialLibraryView } from '../official-library/OfficialLibraryView';
 import { WinBoxWindow } from '../winbox/WinBoxWindow';
 import type {
   MediaLibraryModalProps,
@@ -19,6 +21,7 @@ import { useDrawnix } from '../../hooks/use-drawnix';
 import { removeElementsByAssetIds, removeElementsByAssetUrls, isCacheUrl } from '../../utils/asset-cleanup';
 import { isZipFile, extractMediaFromZip } from '../../utils/zip-utils';
 import { buildAssetDownloadItem, smartDownload } from '../../utils/download-utils';
+import { insertImageFromUrl } from '../../data/image';
 import './MediaLibraryModal.scss';
 
 export function MediaLibraryModal({
@@ -50,6 +53,10 @@ export function MediaLibraryModal({
   const [localSelectedAssetId, setLocalSelectedAssetId] = useState<string | null>(
     null,
   );
+  // 素材库双模式：我的素材（本地三源）/ 官方素材库（jzxz_materials 只读）
+  const [libraryMode, setLibraryMode] = useState<'mine' | 'official'>('mine');
+  const [officialSelectedAsset, setOfficialSelectedAsset] =
+    useState<Asset | null>(null);
   const [showMobileInspector, setShowMobileInspector] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
@@ -300,9 +307,33 @@ export function MediaLibraryModal({
     [handleFileUpload],
   );
 
-  // 获取当前选中的资产
+  // 获取当前选中的资产（官方模式走独立选中态，官方素材不在 AssetContext 中）
   const selectedAsset =
-    assets.find((a) => a.id === localSelectedAssetId) || null;
+    libraryMode === 'official'
+      ? officialSelectedAsset
+      : assets.find((a) => a.id === localSelectedAssetId) || null;
+
+  // 模式切换：清空另一模式的选中，避免 Inspector 残留高亮
+  const handleSwitchLibraryMode = useCallback((mode: 'mine' | 'official') => {
+    setLibraryMode(mode);
+    setOfficialSelectedAsset(null);
+    setLocalSelectedAssetId(null);
+  }, []);
+
+  // BROWSE 模式下官方素材直插画布（SELECT 模式走 handleUseAsset 回传宿主）
+  const handleOfficialInsertToCanvas = useCallback(
+    async (asset: Asset) => {
+      if (!board) return;
+      try {
+        await insertImageFromUrl(board, asset.url);
+        MessagePlugin.success(`已插入官方素材「${asset.name}」`);
+      } catch (error) {
+        console.error('[MediaLibrary] 官方素材插入画布失败:', error);
+        MessagePlugin.error('插入画布失败，请重试');
+      }
+    },
+    [board],
+  );
 
   // 显示选择按钮的条件：SELECT模式且有onSelect回调
   const showSelectButton = mode === 'SELECT' && !!onSelect;
@@ -362,17 +393,63 @@ export function MediaLibraryModal({
         <div className="media-library-layout">
           {/* 主网格区域 */}
           <div className="media-library-layout__main">
-            <MediaLibraryGrid
-              filterType={filterType}
-              filterCategory={filterCategory}
-              selectedAssetId={localSelectedAssetId}
-              onSelectAsset={handleSelectAsset}
-              onDoubleClick={handleDoubleClick}
-              onFileUpload={handleFileUpload}
-              onUploadClick={handleUploadClick}
-              storageStatus={storageStatus}
-              onSelectionChange={handleSelectionChange}
-            />
+            {/* 双模式切换：我的素材 / 官方素材库 */}
+            <div className="media-library-mode-switch">
+              <button
+                type="button"
+                aria-pressed={libraryMode === 'mine'}
+                className={`media-library-mode-switch__option ${
+                  libraryMode === 'mine'
+                    ? 'media-library-mode-switch__option--active'
+                    : ''
+                }`}
+                onClick={() => handleSwitchLibraryMode('mine')}
+                data-testid="media-library-mode-mine"
+                data-track="media_library_mode_mine"
+              >
+                <HardDrive size={14} />
+                我的素材
+              </button>
+              <button
+                type="button"
+                aria-pressed={libraryMode === 'official'}
+                className={`media-library-mode-switch__option ${
+                  libraryMode === 'official'
+                    ? 'media-library-mode-switch__option--active'
+                    : ''
+                }`}
+                onClick={() => handleSwitchLibraryMode('official')}
+                data-testid="media-library-mode-official"
+                data-track="media_library_mode_official"
+              >
+                <Library size={14} />
+                官方素材库
+              </button>
+            </div>
+
+            {libraryMode === 'official' ? (
+              <OfficialLibraryView
+                selectedAssetId={officialSelectedAsset?.id ?? null}
+                onSelectAsset={setOfficialSelectedAsset}
+                onUseAsset={
+                  mode === 'SELECT' && onSelect
+                    ? handleUseAsset
+                    : handleOfficialInsertToCanvas
+                }
+              />
+            ) : (
+              <MediaLibraryGrid
+                filterType={filterType}
+                filterCategory={filterCategory}
+                selectedAssetId={localSelectedAssetId}
+                onSelectAsset={handleSelectAsset}
+                onDoubleClick={handleDoubleClick}
+                onFileUpload={handleFileUpload}
+                onUploadClick={handleUploadClick}
+                storageStatus={storageStatus}
+                onSelectionChange={handleSelectionChange}
+              />
+            )}
           </div>
 
           {/* 右侧详情面板 - 仅桌面端显示 */}
@@ -382,10 +459,12 @@ export function MediaLibraryModal({
                 asset={selectedAsset}
                 selectedAssets={selectedAssetsForAction}
                 isSelectionMode={selectionModeActive}
-                onRename={renameAsset}
-                onDelete={handleRemoveAsset}
+                onRename={libraryMode === 'mine' ? renameAsset : undefined}
+                onDelete={libraryMode === 'mine' ? handleRemoveAsset : undefined}
                 onDownload={handleDownloadAsset}
-                onMarkAsSubject={markAssetAsSubject}
+                onMarkAsSubject={
+                  libraryMode === 'mine' ? markAssetAsSubject : undefined
+                }
                 onSelect={showSelectButton ? handleUseAsset : undefined}
                 onSelectMultiple={
                   showSelectButton && onSelectMultiple
@@ -416,10 +495,12 @@ export function MediaLibraryModal({
             asset={selectedAsset}
             selectedAssets={selectedAssetsForAction}
             isSelectionMode={selectionModeActive}
-            onRename={renameAsset}
-            onDelete={handleRemoveAsset}
+            onRename={libraryMode === 'mine' ? renameAsset : undefined}
+            onDelete={libraryMode === 'mine' ? handleRemoveAsset : undefined}
             onDownload={handleDownloadAsset}
-            onMarkAsSubject={markAssetAsSubject}
+            onMarkAsSubject={
+              libraryMode === 'mine' ? markAssetAsSubject : undefined
+            }
             onSelect={showSelectButton ? handleUseAsset : undefined}
             onSelectMultiple={
               showSelectButton && onSelectMultiple ? handleBatchUse : undefined

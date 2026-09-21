@@ -1,0 +1,125 @@
+/**
+ * Official Library Styles
+ * 官方素材库视图专属样式 - 素材库双模式切换 + 官方库状态区
+ *
+ * 网格/筛选 chips/页脚复用 .media-library-grid 及其 BEM 子类样式；
+ * 本文件只补官方库独有结构与模式切换。
+ */
+
+// 素材库主区顶部「我的素材 / 官方素材库」模式切换
+.media-library-mode-switch {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 20px 0;
+  flex-shrink: 0;
+
+  &__option {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border: 1px solid var(--aitu-ui-border, #e2e8f0);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--aitu-ui-text-secondary, #64748b);
+    font-size: 13px;
+    line-height: 1.4;
+    cursor: pointer;
+    transition:
+      color 0.15s ease,
+      background 0.15s ease,
+      border-color 0.15s ease;
+
+    &:hover {
+      color: var(--aitu-ui-text, #1e293b);
+      border-color: var(--aitu-ui-border-strong, #cbd5e1);
+    }
+
+    &--active {
+      background: var(--aitu-ui-brand-softer, rgba(243, 156, 18, 0.1));
+      border-color: var(--aitu-ui-brand, #f39c12);
+      color: var(--aitu-ui-brand, #f39c12);
+
+      &:hover {
+        color: var(--aitu-ui-brand, #f39c12);
+        border-color: var(--aitu-ui-brand, #f39c12);
+      }
+    }
+  }
+
+  &__badge {
+    font-size: 11px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--aitu-ui-brand, #f39c12);
+    color: #fff;
+    line-height: 16px;
+  }
+}
+
+.official-library {
+  // facets 加载中（与搜索框同行右侧）
+  &__facets-loading {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  // 状态区（错误/加载/空结果）
+  &__status {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    min-height: 0;
+  }
+
+  &__status-text {
+    margin: 0;
+    color: var(--aitu-ui-text-secondary, #64748b);
+    font-size: 14px;
+  }
+
+  &__retry-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 16px;
+    border: 1px solid var(--aitu-ui-border, #e2e8f0);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--aitu-ui-text, #1e293b);
+    font-size: 13px;
+    cursor: pointer;
+
+    &:hover {
+      border-color: var(--aitu-ui-brand, #f39c12);
+      color: var(--aitu-ui-brand, #f39c12);
+    }
+  }
+
+  // 未注册降级空态
+  &__unavailable {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--aitu-ui-text-secondary, #64748b);
+
+    h3 {
+      margin: 8px 0 0;
+      font-size: 16px;
+      color: var(--aitu-ui-text, #1e293b);
+    }
+
+    p {
+      margin: 0;
+      font-size: 13px;
+    }
+  }
+}

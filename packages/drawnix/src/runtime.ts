@@ -42,6 +42,7 @@ export {
 export type { RemoteModelCatalogConfig } from './utils/remote-model-catalog';
 export { configureTaskArchive } from './services/task-supabase-archive/runtime';
 export { configureTemplateGallery } from './components/template-gallery/runtime';
+export { configureOfficialLibrary } from './components/official-library/runtime';
 export type { TaskArchiveConfig } from './services/task-supabase-archive/runtime';
 export { configureSupabaseSync } from './services/supabase-sync/runtime';
 export type { SupabaseSyncConfig } from './services/supabase-sync/types';
