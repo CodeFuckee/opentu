@@ -509,7 +509,8 @@ export function getBottomMostInsertionPoint(
 
   let bottomRect: { x: number; y: number; width: number; height: number } | null =
     null;
-  let maxBottomY = 0;
+  // 初值 -Infinity：画布内容可能整体位于 y<0（上移视口后常见），初值 0 会导致 bottomRect 恒 null
+  let maxBottomY = -Infinity;
 
   for (const element of board.children as PlaitElement[]) {
     try {

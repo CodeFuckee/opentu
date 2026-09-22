@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import classNames from 'classnames';
-import { PlaitBoard } from '@plait/core';
+import { PlaitBoard, getSelectedElements } from '@plait/core';
 import { FontSizes, TextTransforms } from '@plait/text-plugins';
 import { useI18n } from '../../../i18n';
 import { UnifiedColorPicker } from '../../unified-color-picker';
@@ -158,6 +158,11 @@ export const TextPropertyPanel: React.FC<TextPropertyPanelProps> = ({
     return () => { mounted = false; };
   }, []);
 
+  // 选区标识：面板保持打开时切换选中元素（如 shift 点选另一文本）也需要重新反显 marks
+  const selectionKey = getSelectedElements(board)
+    .map((element) => element.id)
+    .join(',');
+
   // 面板打开时,从文本 marks 中读取当前样式进行反显
   useEffect(() => {
     if (isOpen) {
@@ -243,7 +248,7 @@ export const TextPropertyPanel: React.FC<TextPropertyPanelProps> = ({
       setDecorationStyle(marks['text-decoration-style'] || null);
       setDecorationColor(marks['text-decoration-color'] || null);
     }
-  }, [isOpen, board]);
+  }, [isOpen, board, selectionKey]);
 
   // 预加载 Google Fonts（当面板打开时）
   useEffect(() => {

@@ -505,12 +505,8 @@ export const withArrowLineAutoCompleteExtend = (board: PlaitBoard) => {
       }
     }
 
-    const elementRef = PlaitElement.getElementRef(originElement);
-    const generator = (elementRef as any)?.getGenerator?.(ArrowLineAutoCompleteGenerator.key);
-    if (!generator) {
-      return;
-    }
-
+    // 无论选中元素是否存在 ArrowLineAutoCompleteGenerator，都必须先走默认
+    // pointerMove 链路——提前 return 会吞掉 hover/框选等默认行为
     pointerMove(event);
   };
 

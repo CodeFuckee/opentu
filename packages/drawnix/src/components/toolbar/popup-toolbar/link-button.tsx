@@ -35,6 +35,8 @@ export const PopupLinkButton: React.FC<PopupLinkButtonProps> = ({
         }
         setTimeout(() => {
           const linkElementEntry = LinkEditor.getLinkElement(editor);
+          // wrapLink 未生效/选区已失时拿不到链接元素，直接放弃本次弹窗，避免 setTimeout 内抛未捕获异常
+          if (!linkElementEntry) return;
           const linkElement = linkElementEntry[0] as LinkElement;
           const targetDom = ReactEditor.toDOMNode(editor, linkElement);
           setAppState({

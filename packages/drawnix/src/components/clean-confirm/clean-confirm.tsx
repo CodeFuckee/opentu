@@ -21,7 +21,7 @@ export const CleanConfirm = ({
       cancelText={t('cleanConfirm.cancel')}
       danger
       onOpenChange={(open) => {
-        setAppState({ ...appState, openCleanConfirm: open });
+        setAppState((prev) => ({ ...prev, openCleanConfirm: open }));
       }}
       onConfirm={() => {
         board.deleteFragment(board.children);

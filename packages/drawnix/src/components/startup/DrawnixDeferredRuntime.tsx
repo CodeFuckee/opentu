@@ -288,6 +288,7 @@ export function DrawnixDeferredRuntime({
       return;
     }
 
+    let disposed = false;
     let subscription: { unsubscribe: () => void } | null = null;
 
     const setupWorkflowSync = async () => {
@@ -299,7 +300,11 @@ export function DrawnixDeferredRuntime({
       );
       const { workflowSubmissionService } = workflowModule;
 
+      // 动态 import 期间组件可能已卸载：此时订阅无人注销会造成事件重复处理
+      if (disposed) return;
+
       subscription = workflowSubmissionService.subscribeToAllEvents((event) => {
+        if (disposed) return;
         const workflowEvent = event as {
           type: string;
           workflowId: string;
@@ -422,6 +427,7 @@ export function DrawnixDeferredRuntime({
     });
 
     return () => {
+      disposed = true;
       subscription?.unsubscribe();
     };
   }, [board]);
@@ -431,6 +437,7 @@ export function DrawnixDeferredRuntime({
       return;
     }
 
+    let disposed = false;
     let subscription: { unsubscribe: () => void } | null = null;
 
     const setupTaskQueueSync = async () => {
@@ -440,9 +447,13 @@ export function DrawnixDeferredRuntime({
       );
       const { TaskStatus } = await import('../../types/task.types');
 
+      // 动态 import 期间组件可能已卸载：此时订阅无人注销会造成事件重复处理
+      if (disposed) return;
+
       subscription = taskQueueService
         .observeTaskUpdates()
         .subscribe((event) => {
+          if (disposed) return;
           if (
             event.type !== 'taskUpdated' &&
             event.type !== 'taskCompleted' &&
@@ -526,6 +537,7 @@ export function DrawnixDeferredRuntime({
     });
 
     return () => {
+      disposed = true;
       subscription?.unsubscribe();
     };
   }, [board, isTaskStorageReady]);

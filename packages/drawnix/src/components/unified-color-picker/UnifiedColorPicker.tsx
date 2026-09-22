@@ -83,6 +83,9 @@ export const UnifiedColorPicker: React.FC<UnifiedColorPickerProps> = ({
 
   // 上一次的透明度值，用于检测透明度是否真的变化了
   const prevAlphaRef = React.useRef(initialAlpha);
+  // 最近一次「用户交互」产生的候选色：外部 value 同步（如切换选中对象）不设置它，
+  // 从而不污染最近使用列表
+  const recentCandidateRef = React.useRef<string | null>(null);
 
   // 通知颜色变化（只在透明度真正变化时调用 onOpacityChange）
   const notifyChange = useCallback((hex: string, newAlpha: number, forceOpacityChange = false) => {
@@ -100,6 +103,7 @@ export const UnifiedColorPicker: React.FC<UnifiedColorPickerProps> = ({
     const newHsv = { ...hsv, s: saturation, v: value };
     setHsv(newHsv);
     const newHex = hsvToHex(newHsv);
+    recentCandidateRef.current = newHex;
     notifyChange(newHex, alpha);
   }, [hsv, alpha, notifyChange]);
 
@@ -108,6 +112,7 @@ export const UnifiedColorPicker: React.FC<UnifiedColorPickerProps> = ({
     const newHsv = { ...hsv, h: hue };
     setHsv(newHsv);
     const newHex = hsvToHex(newHsv);
+    recentCandidateRef.current = newHex;
     notifyChange(newHex, alpha);
   }, [hsv, alpha, notifyChange]);
 
@@ -122,6 +127,7 @@ export const UnifiedColorPicker: React.FC<UnifiedColorPickerProps> = ({
     if (isValidHex(hex)) {
       const newHsv = hexToHsv(hex);
       setHsv(newHsv);
+      recentCandidateRef.current = hex;
       notifyChange(hex, alpha);
     }
   }, [alpha, notifyChange]);
@@ -133,6 +139,7 @@ export const UnifiedColorPicker: React.FC<UnifiedColorPickerProps> = ({
       const newAlpha = getAlphaFromHex(color);
       setHsv(newHsv);
       setAlpha(newAlpha);
+      recentCandidateRef.current = removeAlphaFromHex(color);
       notifyChange(removeAlphaFromHex(color), newAlpha);
     } else {
       // NO_COLOR 等特殊值直接传递
@@ -156,11 +163,18 @@ export const UnifiedColorPicker: React.FC<UnifiedColorPickerProps> = ({
     }
   }, [notifyChange, addRecentColor]);
 
-  // 颜色变化时添加到最近使用
+  // 颜色稳定 500ms 后加入最近使用：仅记录用户交互产生的颜色（候选色匹配当前色），
+  // 外部 value 同步（如切换选中对象）不会污染最近使用列表
   useEffect(() => {
-    // 只在用户操作后添加，避免初始化时添加
     const timer = setTimeout(() => {
-      if (currentHex && currentHex !== DEFAULT_COLOR) {
+      const candidate = recentCandidateRef.current;
+      recentCandidateRef.current = null;
+      if (
+        candidate &&
+        currentHex &&
+        candidate === currentHex &&
+        currentHex !== DEFAULT_COLOR
+      ) {
         addRecentColor(currentHex);
       }
     }, 500);

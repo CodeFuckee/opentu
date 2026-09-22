@@ -217,7 +217,7 @@ export const PopoverContent = React.forwardRef<
       <FloatingFocusManager context={floatingContext} modal={context.modal}>
         <div
           ref={ref}
-          style={{ ...context.floatingStyles, ...style, zIndex: 5000 }}
+          style={{ ...context.floatingStyles, zIndex: 5000, ...style }}
           aria-labelledby={context.labelId}
           aria-describedby={context.descriptionId}
           {...context.getFloatingProps(props)}

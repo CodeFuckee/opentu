@@ -23,6 +23,8 @@ export const withPinchZoom = (board: PlaitBoard) => {
   let initializeZoom = 0;
   let isPinching = false;
 
+  const { pointerCancel } = board;
+
   board.pointerDown = (event: PointerEvent) => {
     const point: Point = [event.clientX, event.clientY];
 
@@ -172,6 +174,19 @@ export const withPinchZoom = (board: PlaitBoard) => {
     }
 
     globalPointerUp(event);
+  };
+
+  // 触摸被系统取消（边缘手势/来电/palm rejection）时也要清记录：
+  // 否则残留幽灵触点会让后续单指操作误入双指缩放分支
+  board.pointerCancel = (event: PointerEvent) => {
+    const index = pointerRecords.findIndex(
+      (r) => r.pointerId === event.pointerId
+    );
+    if (index !== -1) {
+      pointerRecords.splice(index, 1);
+    }
+
+    pointerCancel(event);
   };
 
   return board;

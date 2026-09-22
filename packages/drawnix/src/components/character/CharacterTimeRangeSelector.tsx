@@ -242,6 +242,8 @@ export const CharacterTimeRangeSelector: React.FC<CharacterTimeRangeSelectorProp
     setDragType('left');
 
     const currentEndTime = endTime;
+    // 拖拽终值的局部镜像：mouseup 闭包里的 state 是 mousedown 时的旧值，直接用会回跳
+    let latestStart = startTime;
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const newStart = getTimeFromMouseEvent(moveEvent);
@@ -250,6 +252,7 @@ export const CharacterTimeRangeSelector: React.FC<CharacterTimeRangeSelectorProp
       const minStart = Math.max(0, currentEndTime - MAX_DURATION);
       const clampedStart = Math.max(minStart, Math.min(maxStart, newStart));
 
+      latestStart = clampedStart;
       setStartTime(clampedStart);
       setCurrentPreviewTime(clampedStart);
       seekToTime(clampedStart);
@@ -260,7 +263,7 @@ export const CharacterTimeRangeSelector: React.FC<CharacterTimeRangeSelectorProp
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
       // Final seek with exact time
-      seekToTime(startTime);
+      seekToTime(latestStart);
     };
 
     document.addEventListener('mousemove', handleMouseMove);
@@ -275,6 +278,8 @@ export const CharacterTimeRangeSelector: React.FC<CharacterTimeRangeSelectorProp
     setDragType('right');
 
     const currentStartTime = startTime;
+    // 拖拽终值的局部镜像：mouseup 闭包里的 state 是 mousedown 时的旧值，直接用会回跳
+    let latestEnd = endTime;
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const newEnd = getTimeFromMouseEvent(moveEvent);
@@ -283,6 +288,7 @@ export const CharacterTimeRangeSelector: React.FC<CharacterTimeRangeSelectorProp
       const maxEnd = Math.min(duration, currentStartTime + MAX_DURATION);
       const clampedEnd = Math.max(minEnd, Math.min(maxEnd, newEnd));
 
+      latestEnd = clampedEnd;
       setEndTime(clampedEnd);
       setCurrentPreviewTime(clampedEnd);
       seekToTime(clampedEnd);
@@ -292,7 +298,7 @@ export const CharacterTimeRangeSelector: React.FC<CharacterTimeRangeSelectorProp
       setDragType(null);
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
-      seekToTime(endTime);
+      seekToTime(latestEnd);
     };
 
     document.addEventListener('mousemove', handleMouseMove);
@@ -312,6 +318,8 @@ export const CharacterTimeRangeSelector: React.FC<CharacterTimeRangeSelectorProp
     const startX = e.clientX;
     const startStartTime = startTime;
     const currentDuration = endTime - startTime;
+    // 拖拽终值的局部镜像：mouseup 闭包里的 state 是 mousedown 时的旧值，直接用会回跳
+    let latestStart = startStartTime;
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const deltaX = moveEvent.clientX - startX;
@@ -321,6 +329,7 @@ export const CharacterTimeRangeSelector: React.FC<CharacterTimeRangeSelectorProp
       // Keep range within bounds
       newStart = Math.max(0, Math.min(duration - currentDuration, newStart));
 
+      latestStart = newStart;
       setStartTime(newStart);
       setEndTime(newStart + currentDuration);
       setCurrentPreviewTime(newStart);
@@ -331,7 +340,7 @@ export const CharacterTimeRangeSelector: React.FC<CharacterTimeRangeSelectorProp
       setDragType(null);
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
-      seekToTime(startTime);
+      seekToTime(latestStart);
     };
 
     document.addEventListener('mousemove', handleMouseMove);

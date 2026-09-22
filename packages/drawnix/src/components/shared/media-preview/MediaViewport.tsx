@@ -45,7 +45,7 @@ const VIDEO_VERTICAL_RESERVE = 140;
 const clampZoomLevel = (zoom: number) =>
   Math.max(MIN_ZOOM_LEVEL, Math.min(MAX_ZOOM_LEVEL, zoom));
 
-const normalizeWheelDeltaY = (event: React.WheelEvent) => {
+const normalizeWheelDeltaY = (event: { deltaMode: number; deltaY: number }) => {
   if (event.deltaMode === WHEEL_DELTA_MODE_LINE) {
     return event.deltaY * WHEEL_LINE_HEIGHT;
   }
@@ -207,6 +207,8 @@ export const MediaViewport = forwardRef<MediaViewportRef, MediaViewportProps>(({
   } | null>(toolbarState.position);
   const [isToolbarDragging, setIsToolbarDragging] = useState(false);
   const toolbarDragStartRef = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
+  // 拖拽中卸载时的 document 监听兜底清理（mouseup/touchend 之外的逃生通道）
+  const toolbarDragCleanupRef = useRef<(() => void) | null>(null);
   const isVideo = item?.type === 'video';
   const isAudio = item?.type === 'audio';
   const promptText = item?.prompt?.trim() || '';
@@ -270,6 +272,15 @@ export const MediaViewport = forwardRef<MediaViewportRef, MediaViewportProps>(({
   useEffect(() => () => {
     clearPromptHideTimer();
   }, [clearPromptHideTimer]);
+
+  // 组件卸载时兜底移除拖拽期间挂在 document 上的监听
+  useEffect(
+    () => () => {
+      toolbarDragCleanupRef.current?.();
+      toolbarDragCleanupRef.current = null;
+    },
+    []
+  );
 
   // 保存工具栏状态到缓存 - 仅单图模式
   useEffect(() => {
@@ -463,9 +474,13 @@ export const MediaViewport = forwardRef<MediaViewportRef, MediaViewportProps>(({
     setIsDragging(false);
   }, []);
 
-  // 滚轮缩放
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
+  // 滚轮缩放：React 合成 onWheel 是根级 passive 监听，preventDefault 无效，
+  // 需挂原生非 passive 监听才能真正阻止页面/容器滚动
+  useEffect(() => {
+    if (isAudio) return;
+    const container = containerRef.current;
+    if (!container) return;
+    const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       const normalizedDeltaY = normalizeWheelDeltaY(e);
       if (!Number.isFinite(normalizedDeltaY) || normalizedDeltaY === 0) {
@@ -475,9 +490,10 @@ export const MediaViewport = forwardRef<MediaViewportRef, MediaViewportProps>(({
         -normalizedDeltaY * WHEEL_ZOOM_SENSITIVITY
       );
       applyZoom(localZoomRef.current + zoomDelta);
-    },
-    [applyZoom]
-  );
+    };
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
+  }, [applyZoom, isAudio, item]);
 
   // 缩放控制
   const handleZoomIn = useCallback(() => {
@@ -563,7 +579,16 @@ export const MediaViewport = forwardRef<MediaViewportRef, MediaViewportProps>(({
         setIsToolbarDragging(false);
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
+        if (toolbarDragCleanupRef.current === cleanup) {
+          toolbarDragCleanupRef.current = null;
+        }
       };
+
+      const cleanup = () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+      toolbarDragCleanupRef.current = cleanup;
 
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
@@ -605,7 +630,17 @@ export const MediaViewport = forwardRef<MediaViewportRef, MediaViewportProps>(({
         document.removeEventListener('touchmove', handleTouchMove);
         document.removeEventListener('touchend', handleTouchEnd);
         document.removeEventListener('touchcancel', handleTouchEnd);
+        if (toolbarDragCleanupRef.current === cleanup) {
+          toolbarDragCleanupRef.current = null;
+        }
       };
+
+      const cleanup = () => {
+        document.removeEventListener('touchmove', handleTouchMove);
+        document.removeEventListener('touchend', handleTouchEnd);
+        document.removeEventListener('touchcancel', handleTouchEnd);
+      };
+      toolbarDragCleanupRef.current = cleanup;
 
       document.addEventListener('touchmove', handleTouchMove, { passive: false });
       document.addEventListener('touchend', handleTouchEnd);
@@ -647,7 +682,6 @@ export const MediaViewport = forwardRef<MediaViewportRef, MediaViewportProps>(({
       onMouseDown={isAudio ? undefined : handleMouseDown}
       onMouseMove={isAudio ? undefined : handleMouseMove}
       onMouseUp={isAudio ? undefined : handleMouseUp}
-      onWheel={isAudio ? undefined : handleWheel}
       onMouseLeave={() => {
         if (!isAudio) {
           handleMouseUp();

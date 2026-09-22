@@ -176,12 +176,6 @@ export const BUTTONS: AppToolButtonProps[] = [
     visibilityKey: 'ai-video',
   },
   {
-    icon: <MindIcon />,
-    pointer: MindPointerType.mind,
-    titleKey: 'toolbar.mind',
-    visibilityKey: 'mind',
-  },
-  {
     icon: <FeltTipPenIcon />,
     pointer: FreehandShape.feltTipPen,
     titleKey: 'toolbar.pen',

@@ -22,6 +22,7 @@ const loadWinBox = async (): Promise<any> => {
   if (loadingPromise) return loadingPromise;
 
   // 使用动态导入，Vite 会正确处理这个 bundle
+  // 失败不缓存 rejected promise：否则此后所有窗口静默打不开且无重试机会
   loadingPromise = (async () => {
     try {
       // 动态导入 winbox bundle，Vite 会将其作为外部资源处理
@@ -52,11 +53,14 @@ const loadWinBox = async (): Promise<any> => {
         document.head.appendChild(script);
       });
     }
-  })();
+  })().catch((error) => {
+    // 失败不缓存 rejected promise，下次调用可重试
+    loadingPromise = null;
+    throw error;
+  });
 
   return loadingPromise;
 };
-
 export interface WinBoxWindowProps {
   /** 窗口是否可见 */
   visible: boolean;
@@ -520,7 +524,11 @@ export const WinBoxWindow: React.FC<WinBoxWindowProps> = ({
   // 加载 WinBox
   useEffect(() => {
     if (!winboxLoaded) {
-      loadWinBox().then(() => setWinboxLoaded(true));
+      loadWinBox()
+        .then(() => setWinboxLoaded(true))
+        .catch((error) => {
+          console.error('[WinBoxWindow] Failed to load WinBox:', error);
+        });
     }
   }, [winboxLoaded]);
 

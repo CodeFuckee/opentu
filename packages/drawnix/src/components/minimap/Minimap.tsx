@@ -100,7 +100,6 @@ export const Minimap: React.FC<MinimapProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const autoHideTimerRef = useRef<NodeJS.Timeout | null>(null);
   const previewHideTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // 合并配置（useMemo 保持引用稳定，避免依赖 config 的回调/定时器每渲染重建）
@@ -148,6 +147,24 @@ export const Minimap: React.FC<MinimapProps> = ({
   // 记录上次交互时间和视口状态
   const lastInteractionRef = useRef<number>(0);
   const lastViewportRef = useRef<ViewportSnapshot | null>(null);
+  const autoHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // （重）武装自动隐藏定时器：持续交互时由 watcher 反复重置，实现「交互停止后 N 秒才隐藏」
+  const armAutoHideTimer = useCallback(() => {
+    if (autoHideTimerRef.current) {
+      clearTimeout(autoHideTimerRef.current);
+    }
+    autoHideTimerRef.current = setTimeout(() => {
+      autoHideTimerRef.current = null;
+      setState((prev) => {
+        // 再次检查条件，避免误隐藏
+        if (!prev.autoMode || prev.manuallyExpanded || prev.dragging) {
+          return prev;
+        }
+        return { ...prev, expanded: false };
+      });
+    }, autoTriggerConfig.autoHideDelay);
+  }, [autoTriggerConfig.autoHideDelay]);
 
   /**
    * 获取所有元素的边界
@@ -259,6 +276,11 @@ export const Minimap: React.FC<MinimapProps> = ({
             return { ...prev, expanded: true, manuallyExpanded: false };
           });
         }
+
+        // 持续交互期间重置自动隐藏倒计时，避免「隐藏→展开」周期性闪烁
+        if (expandedRef.current && displayMode === 'auto') {
+          armAutoHideTimer();
+        }
       }
     }, 100); // 每 100ms 检查一次
 
@@ -281,26 +303,21 @@ export const Minimap: React.FC<MinimapProps> = ({
     if (state.manuallyExpanded) return; // 用户手动展开，不自动隐藏
     if (state.dragging) return; // 正在拖拽小地图，不自动隐藏
 
-    // 设置自动隐藏定时器：交互停止后 X 秒自动隐藏
-    const timer = setTimeout(() => {
-      setState((prev) => {
-        // 再次检查条件，避免误隐藏
-        if (!prev.autoMode || prev.manuallyExpanded || prev.dragging) {
-          return prev;
-        }
-        return { ...prev, expanded: false };
-      });
-    }, autoTriggerConfig.autoHideDelay);
+    // 设置自动隐藏定时器：交互停止后 X 秒自动隐藏（持续交互时 watcher 会重置）
+    armAutoHideTimer();
 
     return () => {
-      clearTimeout(timer);
+      if (autoHideTimerRef.current) {
+        clearTimeout(autoHideTimerRef.current);
+        autoHideTimerRef.current = null;
+      }
     };
   }, [
     displayMode,
     state.expanded,
     state.manuallyExpanded,
     state.dragging,
-    autoTriggerConfig.autoHideDelay,
+    armAutoHideTimer,
   ]);
 
   /**

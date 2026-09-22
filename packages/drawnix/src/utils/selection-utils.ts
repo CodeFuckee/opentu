@@ -673,8 +673,10 @@ const copyFillDefsToElements = async (board: PlaitBoard, elements: PlaitElement[
     await Promise.all(
       imageFillTasks.map(async ({ element, fillConfig, elementG, defId }) => {
         // 将图片 URL 转换为 base64（支持虚拟路径和外部 URL）
+        // 显式超时：虚拟 URL fetch 挂起时不无限阻塞导出（失败自动降级原 URL）
         const base64Url = await convertImageUrlToBase64(
-          fillConfig.image.imageUrl
+          fillConfig.image.imageUrl,
+          15_000
         );
 
         // 创建使用 userSpaceOnUse 坐标的 pattern

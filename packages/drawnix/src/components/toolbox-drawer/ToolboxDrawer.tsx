@@ -65,6 +65,7 @@ export const ToolboxDrawer: React.FC<ToolboxDrawerProps> = ({
     tool: ToolDefinition;
     action: 'insert' | 'window';
   } | null>(null);
+  const pendingToolTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   /**
    * 关闭抽屉
@@ -72,31 +73,6 @@ export const ToolboxDrawer: React.FC<ToolboxDrawerProps> = ({
   const handleClose = useCallback(() => {
     onOpenChange(false);
   }, [onOpenChange]);
-
-  /**
-   * 监听设置弹窗关闭，如果有待处理的工具操作，检查 API Key 是否已配置
-   */
-  useEffect(() => {
-    if (!appState.openSettings && pendingToolRef.current) {
-      const settings = geminiSettings.get();
-      if (settings?.apiKey) {
-        const { tool, action } = pendingToolRef.current;
-        pendingToolRef.current = null;
-
-        // 延迟执行，确保设置已保存
-        setTimeout(() => {
-          if (action === 'insert') {
-            executeToolInsert(tool);
-          } else if (action === 'window') {
-            executeToolOpenWindow(tool);
-          }
-        }, 100);
-      } else {
-        // 用户关闭了设置但没有配置 API Key，取消操作
-        pendingToolRef.current = null;
-      }
-    }
-  }, [appState.openSettings]);
 
   /**
    * 执行工具插入到画布（实际执行逻辑）
@@ -118,9 +94,13 @@ export const ToolboxDrawer: React.FC<ToolboxDrawerProps> = ({
         boardContainerRect.height / 2,
       ];
       const zoom = board.viewport.zoom;
-      const origination = getViewportOrigination(board);
-      const centerX = origination![0] + focusPoint[0] / zoom;
-      const centerY = origination![1] + focusPoint[1] / zoom;
+      // 视口未就绪时回退画布原点，避免非空断言在异常路径抛 TypeError
+      const origination = getViewportOrigination(board) ?? ([0, 0] as [
+        number,
+        number,
+      ]);
+      const centerX = origination[0] + focusPoint[0] / zoom;
+      const centerY = origination[1] + focusPoint[1] / zoom;
 
       // 工具尺寸
       const width = tool.defaultWidth || DEFAULT_TOOL_CONFIG.defaultWidth;
@@ -262,6 +242,38 @@ export const ToolboxDrawer: React.FC<ToolboxDrawerProps> = ({
     },
     [handleClose]
   );
+
+  /**
+   * 监听设置弹窗关闭，如果有待处理的工具操作，检查 API Key 是否已配置
+   * （置于两个执行回调之后声明，依赖才能正确进入 deps 数组）
+   */
+  useEffect(() => {
+    if (!appState.openSettings && pendingToolRef.current) {
+      const settings = geminiSettings.get();
+      if (settings?.apiKey) {
+        const { tool, action } = pendingToolRef.current;
+        pendingToolRef.current = null;
+
+        // 延迟执行，确保设置已保存
+        pendingToolTimerRef.current = setTimeout(() => {
+          if (action === 'insert') {
+            executeToolInsert(tool);
+          } else if (action === 'window') {
+            executeToolOpenWindow(tool);
+          }
+        }, 100);
+      } else {
+        // 用户关闭了设置但没有配置 API Key，取消操作
+        pendingToolRef.current = null;
+      }
+    }
+    return () => {
+      if (pendingToolTimerRef.current) {
+        clearTimeout(pendingToolTimerRef.current);
+        pendingToolTimerRef.current = undefined;
+      }
+    };
+  }, [appState.openSettings, executeToolInsert, executeToolOpenWindow]);
 
   /**
    * 处理在窗口中打开工具（入口，检查是否需要配置 API Key）
