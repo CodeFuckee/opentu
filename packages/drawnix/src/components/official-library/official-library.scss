@@ -101,6 +101,49 @@
     }
   }
 
+  // 家居库品类上百个：chips 行单行横向滚动
+  .media-library-grid__filter-tags--scrollable {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+
+    &::-webkit-scrollbar {
+      height: 4px;
+    }
+
+    .media-library-grid__filter-chip {
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+  }
+
+  // 家居库选中条目元信息条（品类/标签/尺寸 + glb 下载）
+  &__home-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    padding: 8px 16px;
+    border-top: 1px solid var(--aitu-ui-border, #e2e8f0);
+    font-size: 12px;
+    color: var(--aitu-ui-text-secondary, #64748b);
+
+    &-item {
+      white-space: nowrap;
+    }
+
+    &-glb {
+      margin-left: auto;
+      color: var(--aitu-ui-brand, #f39c12);
+      text-decoration: none;
+      white-space: nowrap;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  }
+
   // 未注册降级空态
   &__unavailable {
     flex: 1;

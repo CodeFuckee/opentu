@@ -21,10 +21,19 @@ import { useDrawnix } from '../../hooks/use-drawnix';
 import { HoverTip } from '../shared/hover';
 import { getOfficialLibraryConfig } from './runtime';
 import {
+  homeGlbUrl,
+  homeImageUrls,
+  homeMaterialToAsset,
+  listHomeFacets,
+  listHomeMaterials,
   listOfficialFacets,
   listOfficialMaterials,
   officialMaterialToAsset,
+  type HomeFacets,
+  type HomeMaterialPage,
+  type HomeMaterialRow,
   type OfficialFacets,
+  type OfficialMaterialPage,
 } from './official-library-service';
 import type { Asset } from '../../types/asset.types';
 import '../media-library/MediaLibraryGrid.scss';
@@ -55,6 +64,15 @@ export function OfficialLibraryView({
   const [facetsError, setFacetsError] = useState<string | null>(null);
   const [facetsLoading, setFacetsLoading] = useState(false);
 
+  // 家居库（jzxz_home_materials 产品模型，独立于贴图 facets）
+  const [homeFacets, setHomeFacets] = useState<HomeFacets | null>(null);
+  const homeExtrasRef = useRef(
+    new Map<
+      string,
+      { imageUrls: string[]; glbUrl: string | null; row: HomeMaterialRow }
+    >()
+  );
+
   // 三级筛选 + 搜索
   const [activeGallery, setActiveGallery] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -82,9 +100,19 @@ export function OfficialLibraryView({
     setFacetsLoading(true);
     setFacetsError(null);
     try {
-      const result = await listOfficialFacets();
+      const [result, home] = await Promise.all([
+        listOfficialFacets(),
+        listHomeFacets().catch((error) => {
+          // 家居库（新表）失败不拖垮贴图三库，仅隐藏其 tab
+          console.error('[OfficialLibrary] 家居库加载失败:', error);
+          return null;
+        }),
+      ]);
       setFacets(result);
-      setActiveGallery((prev) => prev ?? result.galleries[0] ?? null);
+      setHomeFacets(home);
+      setActiveGallery(
+        (prev) => prev ?? (home && home.total > 0 ? '家居库' : result.galleries[0] ?? null)
+      );
     } catch (error) {
       setFacetsError(error instanceof Error ? error.message : '官方素材库加载失败');
     } finally {
@@ -104,26 +132,63 @@ export function OfficialLibraryView({
     return () => window.clearTimeout(timer);
   }, [searchInput]);
 
+  // 家居库 tab 读产品模型表，其余库读贴图表
+  const isHomeGallery = activeGallery === '家居库' && !!homeFacets;
+
+  const fetchPage = useCallback(
+    (offset: number) =>
+      isHomeGallery
+        ? listHomeMaterials({
+            category: activeCategory ?? undefined,
+            search,
+            limit: PAGE_SIZE,
+            offset,
+          })
+        : listOfficialMaterials({
+            gallery: activeGallery ?? undefined,
+            category: activeCategory ?? undefined,
+            tag: activeTag ?? undefined,
+            search,
+            limit: PAGE_SIZE,
+            offset,
+          }),
+    [isHomeGallery, activeGallery, activeCategory, activeTag, search]
+  );
+
+  const applyPage = useCallback(
+    (page: HomeMaterialPage | OfficialMaterialPage, append: boolean) => {
+      if (isHomeGallery) {
+        const homeRows = (page as HomeMaterialPage).items;
+        const next = homeRows.map((row) => {
+          const asset = homeMaterialToAsset(row, supabaseUrl);
+          homeExtrasRef.current.set(asset.id, {
+            imageUrls: homeImageUrls(row, supabaseUrl),
+            glbUrl: homeGlbUrl(row, supabaseUrl),
+            row,
+          });
+          return asset;
+        });
+        setAssets((prev) => (append ? [...prev, ...next] : next));
+      } else {
+        const next = (page as OfficialMaterialPage).items.map((row) =>
+          officialMaterialToAsset(row, supabaseUrl)
+        );
+        setAssets((prev) => (append ? [...prev, ...next] : next));
+      }
+      setTotal(page.total);
+    },
+    [isHomeGallery, supabaseUrl]
+  );
+
   // 筛选/搜索变化 → 重置到第一页
   useEffect(() => {
     if (!facets || !activeGallery) return;
     const seq = ++requestSeqRef.current;
-    const offsetOfPage = 0;
     setLoading(true);
-    listOfficialMaterials({
-      gallery: activeGallery,
-      category: activeCategory ?? undefined,
-      tag: activeTag ?? undefined,
-      search,
-      limit: PAGE_SIZE,
-      offset: offsetOfPage,
-    })
+    fetchPage(0)
       .then((page) => {
         if (requestSeqRef.current !== seq) return;
-        setAssets(
-          page.items.map((row) => officialMaterialToAsset(row, supabaseUrl))
-        );
-        setTotal(page.total);
+        applyPage(page, false);
       })
       .catch((error) => {
         if (requestSeqRef.current !== seq) return;
@@ -134,7 +199,7 @@ export function OfficialLibraryView({
       .finally(() => {
         if (requestSeqRef.current === seq) setLoading(false);
       });
-  }, [facets, activeGallery, activeCategory, activeTag, search, supabaseUrl]);
+  }, [facets, activeGallery, fetchPage, applyPage]);
 
   const hasMore = assets.length < total;
 
@@ -143,21 +208,10 @@ export function OfficialLibraryView({
     if (!facets || !activeGallery || !hasMore || loading || loadingMore) return;
     const seq = requestSeqRef.current;
     setLoadingMore(true);
-    listOfficialMaterials({
-      gallery: activeGallery,
-      category: activeCategory ?? undefined,
-      tag: activeTag ?? undefined,
-      search,
-      limit: PAGE_SIZE,
-      offset: assets.length,
-    })
+    fetchPage(assets.length)
       .then((page) => {
         if (requestSeqRef.current !== seq) return;
-        setAssets((prev) => [
-          ...prev,
-          ...page.items.map((row) => officialMaterialToAsset(row, supabaseUrl)),
-        ]);
-        setTotal(page.total);
+        applyPage(page, true);
       })
       .catch((error) => {
         console.error('[OfficialLibrary] 加载更多失败:', error);
@@ -168,14 +222,12 @@ export function OfficialLibraryView({
   }, [
     facets,
     activeGallery,
-    activeCategory,
-    activeTag,
-    search,
+    fetchPage,
+    applyPage,
     assets.length,
     hasMore,
     loading,
     loadingMore,
-    supabaseUrl,
   ]);
 
   // 切换库：清空分类/tag
@@ -195,9 +247,25 @@ export function OfficialLibraryView({
     setActiveTag((prev) => (prev === tag ? null : tag));
   }, []);
 
-  // 预览：以当前网格全部素材为上下文（可左右切换）
+  // 预览：贴图库以当前网格全部素材为上下文；家居库预览单个素材的全部视图图
   const handlePreview = useCallback(
     (asset: Asset) => {
+      const extra = homeExtrasRef.current.get(asset.id);
+      if (extra) {
+        const items: UnifiedMediaItem[] = extra.imageUrls.map((url, index) => ({
+          id: `${asset.id}#view-${index}`,
+          type: 'image',
+          url,
+          title: asset.name
+            ? `${asset.name}（${index + 1}/${extra.imageUrls.length}）`
+            : undefined,
+          alt: asset.name,
+        }));
+        setPreviewItems(items);
+        setPreviewInitialIndex(0);
+        setPreviewVisible(true);
+        return;
+      }
       const items: UnifiedMediaItem[] = assets.map((a) => ({
         id: a.id,
         type: 'image',
@@ -218,8 +286,26 @@ export function OfficialLibraryView({
   }, []);
 
   // 预览器插入：优先走宿主使用回调，否则直插画布（公开直链）
+  // 家居库素材预览项为“单素材多视图”（id 带 #view-N 后缀），插入当前翻到的视图
   const handleInsertFromViewer = useCallback(
     async (item: UnifiedMediaItem) => {
+      const viewMatch = item.id.match(/^(.+)#view-\d+$/);
+      if (viewMatch) {
+        const asset = assets.find((a) => a.id === viewMatch[1]);
+        if (onUseAsset && asset) {
+          onUseAsset({ ...asset, url: item.url });
+          return;
+        }
+        if (board) {
+          try {
+            await insertImageFromUrl(board, item.url);
+            setPreviewVisible(false);
+          } catch (error) {
+            console.error('[OfficialLibrary] 插入画布失败:', error);
+          }
+        }
+        return;
+      }
       if (onUseAsset) {
         const asset = assets.find((a) => a.id === item.id);
         if (asset) {
@@ -240,13 +326,47 @@ export function OfficialLibraryView({
   );
 
   const galleryCategories = useMemo(
-    () => (activeGallery ? facets?.categoriesByGallery.get(activeGallery) ?? [] : []),
-    [facets, activeGallery]
+    () =>
+      isHomeGallery
+        ? homeFacets?.categories ?? []
+        : activeGallery
+        ? facets?.categoriesByGallery.get(activeGallery) ?? []
+        : [],
+    [isHomeGallery, homeFacets, facets, activeGallery]
   );
   const activeTags = useMemo(
-    () => (activeCategory ? facets?.tagsByCategory.get(activeCategory) ?? [] : []),
-    [facets, activeCategory]
+    () =>
+      isHomeGallery || !activeCategory
+        ? []
+        : facets?.tagsByCategory.get(activeCategory) ?? [],
+    [isHomeGallery, facets, activeCategory]
   );
+
+  // 库 tab 列表：家居库（产品模型）+ 贴图三库（去重）
+  const mergedGalleries = useMemo(() => {
+    const list: string[] = [];
+    if (homeFacets && homeFacets.total > 0) list.push('家居库');
+    for (const gallery of facets?.galleries ?? []) {
+      if (gallery !== '家居库') list.push(gallery);
+    }
+    return list;
+  }, [facets, homeFacets]);
+
+  const galleryCountFor = useCallback(
+    (gallery: string) =>
+      gallery === '家居库'
+        ? homeFacets?.total
+        : facets?.countsByGallery.get(gallery),
+    [facets, homeFacets]
+  );
+
+  // 选中条目的家居库元信息（品类/标签/尺寸 + glb 下载）
+  const selectedHomeExtra = useMemo(() => {
+    if (!selectedAssetId) return null;
+    return homeExtrasRef.current.get(selectedAssetId) ?? null;
+    // assets 依赖：确保网格加载后再查映射
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAssetId, assets]);
 
   // ── 未注册（未登录/宿主未接入）：空态降级 ──
   if (!configured) {
@@ -286,10 +406,10 @@ export function OfficialLibraryView({
         </div>
         <div className="media-library-grid__header-bottom">
           <div className="media-library-grid__filter-island">
-            {/* 库 tab（建筑学长层级第一级） */}
+            {/* 库 tab（家居库=产品模型，其余=贴图库） */}
             <div className="media-library-grid__type-tabs">
-              {(facets?.galleries ?? []).map((gallery) => {
-                const count = facets?.countsByGallery.get(gallery);
+              {mergedGalleries.map((gallery) => {
+                const count = galleryCountFor(gallery);
                 const isActive = activeGallery === gallery;
                 return (
                   <HoverTip
@@ -323,10 +443,16 @@ export function OfficialLibraryView({
               })}
             </div>
 
-            {/* 分类 chips（该库存在分类才显示） */}
+            {/* 品类/分类 chips（家居库品类上百个，单行横向滚动） */}
             {galleryCategories.length > 0 && (
-              <div className="media-library-grid__filter-tags">
-                <span className="media-library-grid__filter-tags-label">分类</span>
+              <div
+                className={`media-library-grid__filter-tags${
+                  isHomeGallery ? ' media-library-grid__filter-tags--scrollable' : ''
+                }`}
+              >
+                <span className="media-library-grid__filter-tags-label">
+                  {isHomeGallery ? '品类' : '分类'}
+                </span>
                 {galleryCategories.map((category) => {
                   const isActive = activeCategory === category;
                   return (
@@ -421,6 +547,38 @@ export function OfficialLibraryView({
               onDoubleClick={onUseAsset}
             />
           </div>
+
+          {/* 家居库选中条目元信息条（品类/标签/尺寸 + glb 下载） */}
+          {selectedHomeExtra && (
+            <div
+              className="official-library__home-meta"
+              data-testid="official-library-home-meta"
+            >
+              <span className="official-library__home-meta-item">
+                品类：{selectedHomeExtra.row.category || '—'}
+              </span>
+              <span className="official-library__home-meta-item">
+                标签：
+                {selectedHomeExtra.row.tags?.length
+                  ? selectedHomeExtra.row.tags.join(' / ')
+                  : '—'}
+              </span>
+              <span className="official-library__home-meta-item">
+                尺寸：{selectedHomeExtra.row.size_text || '—'}
+              </span>
+              {selectedHomeExtra.glbUrl && (
+                <a
+                  className="official-library__home-meta-glb"
+                  href={selectedHomeExtra.glbUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  data-track="official_library_home_glb_download"
+                >
+                  下载 3D 模型（glb）
+                </a>
+              )}
+            </div>
+          )}
 
           {/* 底部工具栏 */}
           <div className="media-library-grid__footer">

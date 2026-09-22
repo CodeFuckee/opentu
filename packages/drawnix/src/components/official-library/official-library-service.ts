@@ -262,3 +262,160 @@ export function officialMaterialToAsset(
     prompt: undefined,
   };
 }
+
+// ── 家居库产品模型（jzxz_home_materials，jzxz-home-crawler 归档）──
+// 与贴图素材（jzxz_materials）的差异：一个素材有多张视图图与可选 glb 模型，
+// 无 gallery/width/height；公开桶为 jzxz-home-materials。
+
+export interface HomeMaterialRow {
+  source_id: string;
+  name: string | null;
+  category: string | null;
+  tags: string[] | null;
+  size_text: string | null;
+  image_paths: string[] | null;
+  glb_path: string | null;
+  glb_name: string | null;
+  created_at: string;
+}
+
+export interface HomeFacets {
+  /** 实际有数据的品类（中文字典序） */
+  categories: string[];
+  total: number;
+}
+
+export interface HomeMaterialQuery {
+  category?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface HomeMaterialPage {
+  items: HomeMaterialRow[];
+  total: number;
+}
+
+let homeFacetsCache: { facets: HomeFacets; at: number } | null = null;
+
+/** @internal 仅测试用：清空家居库 facets 模块缓存 */
+export function __clearHomeFacetsCacheForTests(): void {
+  homeFacetsCache = null;
+}
+
+/** 家居库公开桶直链（匿名可读） */
+export function homePublicUrl(supabaseUrl: string, path: string): string {
+  return `${supabaseUrl.replace(/\/$/, '')}/storage/v1/object/public/jzxz-home-materials/${path}`;
+}
+
+/** 家居库行 → 视图用 Asset（url 取第一张视图图） */
+export function homeMaterialToAsset(
+  row: HomeMaterialRow,
+  supabaseUrl: string
+): Asset {
+  const path = row.image_paths?.[0] ?? '';
+  return {
+    id: `official-home-${row.source_id}`,
+    type: AssetType.IMAGE,
+    source: AssetSource.OFFICIAL,
+    url: path ? homePublicUrl(supabaseUrl, path) : '',
+    name: row.name || row.category || '家居模型',
+    mimeType: path.endsWith('.webp')
+      ? 'image/webp'
+      : path.endsWith('.jpg')
+      ? 'image/jpeg'
+      : 'image/png',
+    createdAt: row.created_at ? Date.parse(row.created_at) : 0,
+    prompt: undefined,
+  };
+}
+
+/** 行 → 全部视图图直链（预览翻页用） */
+export function homeImageUrls(row: HomeMaterialRow, supabaseUrl: string): string[] {
+  return (row.image_paths ?? [])
+    .filter(Boolean)
+    .map((path) => homePublicUrl(supabaseUrl, path));
+}
+
+/** 行 → glb 模型直链（无模型返回 null） */
+export function homeGlbUrl(row: HomeMaterialRow, supabaseUrl: string): string | null {
+  return row.glb_path ? homePublicUrl(supabaseUrl, row.glb_path) : null;
+}
+
+/** 家居库 facets：品类去重 + 总数（表为千行级，单页扫描即可） */
+export async function listHomeFacets(forceRefresh = false): Promise<HomeFacets> {
+  if (
+    !forceRefresh &&
+    homeFacetsCache &&
+    Date.now() - homeFacetsCache.at < FACETS_CACHE_TTL_MS
+  ) {
+    return homeFacetsCache.facets;
+  }
+  const client = requireClient();
+  const { count, error } = await client
+    .from('jzxz_home_materials')
+    .select('id', { count: 'exact', head: true });
+  if (error) {
+    throw new Error(`家居库统计失败: ${error.message}`);
+  }
+  const categories = new Set<string>();
+  for (let offset = 0; ; offset += FACETS_SCAN_PAGE_SIZE) {
+    const { data, error: scanError } = await client
+      .from('jzxz_home_materials')
+      .select('category')
+      .order('source_id', { ascending: true })
+      .range(offset, offset + FACETS_SCAN_PAGE_SIZE - 1);
+    if (scanError) {
+      throw new Error(`家居库分类查询失败: ${scanError.message}`);
+    }
+    const rows = (data ?? []) as Array<{ category: string | null }>;
+    for (const row of rows) {
+      const category = row.category?.trim();
+      if (category) categories.add(category);
+    }
+    if (rows.length < FACETS_SCAN_PAGE_SIZE) break;
+  }
+  const facets: HomeFacets = {
+    categories: [...categories].sort((a, b) => a.localeCompare(b, 'zh-Hans-CN')),
+    total: count ?? 0,
+  };
+  homeFacetsCache = { facets, at: Date.now() };
+  return facets;
+}
+
+/** 按品类/搜索分页查询家居库（排序 created_at desc + source_id 稳定 tiebreaker） */
+export async function listHomeMaterials(
+  query: HomeMaterialQuery = {}
+): Promise<HomeMaterialPage> {
+  const client = requireClient();
+  const { category, search = '', limit = 60, offset = 0 } = query;
+
+  let builder = client
+    .from('jzxz_home_materials')
+    .select(
+      'source_id, name, category, tags, size_text, image_paths, glb_path, glb_name, created_at',
+      { count: 'exact' }
+    )
+    .order('created_at', { ascending: false })
+    .order('source_id', { ascending: true })
+    .range(offset, offset + limit - 1);
+
+  if (category) {
+    builder = builder.eq('category', category);
+  }
+  // 搜索词里的 PostgREST or 语法保留字符会导致过滤器断裂，替换为空格
+  const keyword = search.trim().replace(/[,()]/g, ' ').trim();
+  if (keyword) {
+    // 名称/品类模糊命中；标签为数组列用 cs 包含
+    builder = builder.or(
+      `name.ilike.%${keyword}%,category.ilike.%${keyword}%,tags.cs.{${keyword}}`
+    );
+  }
+
+  const { data, error, count } = await builder;
+  if (error) {
+    throw new Error(`家居库查询失败: ${error.message}`);
+  }
+  return { items: (data ?? []) as HomeMaterialRow[], total: count ?? 0 };
+}

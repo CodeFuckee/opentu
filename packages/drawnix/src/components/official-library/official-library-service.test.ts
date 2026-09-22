@@ -9,7 +9,14 @@ import {
   getOfficialLibraryConfig,
 } from './runtime';
 import {
+  __clearHomeFacetsCacheForTests,
   __clearOfficialFacetsCacheForTests,
+  homeGlbUrl,
+  homeImageUrls,
+  homeMaterialToAsset,
+  homePublicUrl,
+  listHomeFacets,
+  listHomeMaterials,
   listOfficialFacets,
   listOfficialMaterials,
   officialMaterialToAsset,
@@ -281,5 +288,102 @@ describe('URL 拼接与 Asset 映射', () => {
     expect(asset.url).toContain('/storage/v1/object/public/jzxz-materials/');
     expect(asset.mimeType).toBe('image/png');
     expect(asset.createdAt).toBe(0);
+  });
+});
+
+describe('家居库产品模型（jzxz_home_materials）', () => {
+  const row = {
+    source_id: 'sid-1',
+    name: '现代吊灯',
+    category: '灯具',
+    tags: ['现代', '北欧'],
+    size_text: '1200x300',
+    image_paths: ['home/sid-1/img-0.png', 'home/sid-1/img-1.jpg'],
+    glb_path: 'home/sid-1/model.glb',
+    glb_name: 'model.glb',
+    created_at: '2026-09-22T00:00:00Z',
+  };
+
+  beforeEach(() => {
+    configureOfficialLibrary(null);
+    __clearHomeFacetsCacheForTests();
+  });
+
+  it('homePublicUrl：拼 jzxz-home-materials 公开桶直链', () => {
+    expect(homePublicUrl('http://h:8021/', 'home/a.png')).toBe(
+      'http://h:8021/storage/v1/object/public/jzxz-home-materials/home/a.png'
+    );
+  });
+
+  it('homeMaterialToAsset：id 前缀 official-home-，url 取第一张视图图', () => {
+    const asset = homeMaterialToAsset(row, 'http://h:8021');
+    expect(asset.id).toBe('official-home-sid-1');
+    expect(asset.url).toBe(
+      'http://h:8021/storage/v1/object/public/jzxz-home-materials/home/sid-1/img-0.png'
+    );
+    expect(asset.name).toBe('现代吊灯');
+    expect(asset.mimeType).toBe('image/png');
+  });
+
+  it('homeImageUrls/homeGlbUrl：多视图与模型直链，无模型返回 null', () => {
+    const urls = homeImageUrls(row, 'http://h:8021');
+    expect(urls).toHaveLength(2);
+    expect(urls[1]).toContain('img-1.jpg');
+    expect(homeGlbUrl(row, 'http://h:8021')).toContain('model.glb');
+    expect(homeGlbUrl({ ...row, glb_path: null }, 'http://h:8021')).toBeNull();
+  });
+
+  it('listHomeMaterials：查询形态（count=exact/排序/range/品类 eq/or 搜索含 tags.cs）', async () => {
+    const { client, queries } = makeMultiClient([
+      [{ data: [row], error: null, count: 1 }],
+    ]);
+    configureOfficialLibrary({ client: client as never, supabaseUrl: 'http://10.37.80.25:8021' });
+
+    const page = await listHomeMaterials({ category: '灯具', search: '吊灯', limit: 60, offset: 60 });
+
+    expect(page.total).toBe(1);
+    expect(page.items[0].source_id).toBe('sid-1');
+    const q = queries[0];
+    expect(q.table).toBe('jzxz_home_materials');
+    expect(q.select).toContain('image_paths');
+    expect(q.selectOpts).toMatchObject({ count: 'exact' });
+    expect(q.orders).toEqual([
+      { column: 'created_at', ascending: false },
+      { column: 'source_id', ascending: true },
+    ]);
+    expect(q.range).toEqual([60, 119]);
+    expect(q.filters).toContainEqual({ op: 'eq', args: ['category', '灯具'] });
+    const or = q.filters.find((f) => f.op === 'or');
+    expect(or).toBeDefined();
+    expect(String((or as { args: unknown[] }).args[0])).toContain('tags.cs.{吊灯}');
+  });
+
+  it('listHomeFacets：head 总数 + 品类扫描去重 + 空品类跳过 + 缓存', async () => {
+    const rows = [
+      { category: '灯具' },
+      { category: '灯具' },
+      { category: '沙发' },
+      { category: null },
+    ];
+    const { client } = makeMultiClient([
+      [{ data: null, error: null, count: 4 }],
+      [{ data: rows, error: null, count: null }],
+    ]);
+    configureOfficialLibrary({ client: client as never, supabaseUrl: 'http://10.37.80.25:8021' });
+
+    const facets = await listHomeFacets();
+    expect(facets.total).toBe(4);
+    expect(facets.categories).toEqual(['灯具', '沙发']);
+
+    // 第二次命中缓存：换一个会抛错的客户端也不应发请求
+    const broken = {
+      supabaseUrl: 'http://h',
+      from: () => {
+        throw new Error('should not query');
+      },
+    };
+    configureOfficialLibrary({ client: broken as never, supabaseUrl: 'http://h' });
+    const cached = await listHomeFacets();
+    expect(cached.total).toBe(4);
   });
 });
