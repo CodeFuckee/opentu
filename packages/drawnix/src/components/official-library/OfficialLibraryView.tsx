@@ -289,7 +289,7 @@ export function OfficialLibraryView({
   // 家居库素材预览项为“单素材多视图”（id 带 #view-N 后缀），插入当前翻到的视图
   const handleInsertFromViewer = useCallback(
     async (item: UnifiedMediaItem) => {
-      const viewMatch = item.id.match(/^(.+)#view-\d+$/);
+      const viewMatch = item.id?.match(/^(.+)#view-\d+$/);
       if (viewMatch) {
         const asset = assets.find((a) => a.id === viewMatch[1]);
         if (onUseAsset && asset) {
