@@ -29,15 +29,14 @@ test.describe('素材库', () => {
     const modal = page.locator('.winbox-media-library');
     await expect(modal).toBeVisible({ timeout: 8000 });
 
-    // 筛选分类
-    const bodyText = await page.evaluate(() =>
-      (document.body.innerText || '').replace(/\n+/g, '|')
-    );
-    expect(bodyText).toMatch(/图片|视频|音频/);
-    expect(bodyText).toMatch(/本地|AI/);
+    // 筛选分类（以弹窗为作用域断言：body 全文会被工具栏常驻文案污染成永真断言）
+    const modalText = await modal.innerText();
+    const modalTextNormalized = modalText.replace(/\n+/g, '|');
+    expect(modalTextNormalized).toMatch(/图片|视频|音频/);
+    expect(modalTextNormalized).toMatch(/本地|AI/);
 
     // 空态（新账号无素材）
-    expect(bodyText).toContain('暂无素材');
+    expect(modalTextNormalized).toContain('暂无素材');
 
     // 视图切换按钮
     await expect(page.locator('[data-track="view_mode_grid"]')).toBeVisible();

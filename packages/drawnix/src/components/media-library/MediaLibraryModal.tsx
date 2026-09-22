@@ -193,7 +193,12 @@ export function MediaLibraryModal({
   );
 
   const handleDownloadAsset = useCallback(async (asset: Asset) => {
-    await smartDownload([buildAssetDownloadItem(asset)]);
+    try {
+      await smartDownload([buildAssetDownloadItem(asset)]);
+    } catch (error) {
+      console.error('[MediaLibraryModal] Download failed:', error);
+      MessagePlugin.error('下载失败，请重试');
+    }
   }, []);
 
   // 处理文件上传

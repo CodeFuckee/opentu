@@ -113,6 +113,9 @@ const FPS_CHECK_INTERVAL = 5000; // 5 秒
 /** FPS 警告阈值 */
 const FPS_WARNING_THRESHOLD = 10; // 低于 10 FPS 时警告
 
+/** 低帧率快照最小上报间隔：SW 端崩溃快照环形缓冲仅 50 条，无间隔连发会挤掉真正的 crash 快照 */
+const FPS_REPORT_MIN_INTERVAL = 60_000;
+
 /** 白屏检测延迟（毫秒）- 页面加载后多久开始检测 */
 const WHITESCREEN_CHECK_DELAY = 5000; // 5 秒
 
@@ -534,9 +537,22 @@ function startQueueCheck(): void {
     return; // 已经在运行
   }
 
+  // SW 不可用环境（内网 HTTP 非 localhost、sw=0）通道永远不会就绪，
+  // 连续多次未就绪即放弃轮询，降级为仅本地队列，避免 2s 间隔永久空转
+  let consecutiveUnreadyChecks = 0;
+
   queueCheckInterval = setInterval(() => {
     if (swChannelClient.isInitialized()) {
+      consecutiveUnreadyChecks = 0;
       flushPendingSnapshots();
+      return;
+    }
+    consecutiveUnreadyChecks += 1;
+    if (consecutiveUnreadyChecks >= 30) {
+      if (queueCheckInterval) {
+        clearInterval(queueCheckInterval);
+        queueCheckInterval = null;
+      }
     }
   }, QUEUE_CHECK_INTERVAL);
 }
@@ -961,12 +977,19 @@ export function setupFpsMonitoring(): void {
   lastFrameTime = performance.now();
   requestAnimationFrame(measureFps);
 
-  // 定期检查 FPS 并在过低时记录
+  // 定期检查 FPS 并在过低时记录（带最小上报间隔，避免持续低帧率刷爆 SW 端环形缓冲）
+  let lastLowFpsReportAt = 0;
   fpsCheckInterval = window.setInterval(() => {
-    if (currentFps < FPS_WARNING_THRESHOLD && currentFps > 0) {
+    const now = Date.now();
+    if (
+      currentFps < FPS_WARNING_THRESHOLD &&
+      currentFps > 0 &&
+      now - lastLowFpsReportAt >= FPS_REPORT_MIN_INTERVAL
+    ) {
+      lastLowFpsReportAt = now;
       const snapshot: CrashSnapshot = {
-        id: `lowfps-${Date.now()}`,
-        timestamp: Date.now(),
+        id: `lowfps-${now}`,
+        timestamp: now,
         type: 'freeze',
         memory: getMemoryInfo(),
         performance: {

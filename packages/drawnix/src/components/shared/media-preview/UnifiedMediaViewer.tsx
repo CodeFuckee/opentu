@@ -6,6 +6,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { MessagePlugin } from 'tdesign-react';
 import { normalizeImageDataUrl } from '@aitu/utils';
 import type { UnifiedMediaViewerProps, CompareLayout, ViewerMode, MediaItem, MediaViewportRef } from './types';
 import { useViewerState } from './useViewerState';
@@ -430,27 +431,32 @@ export const UnifiedMediaViewer: React.FC<UnifiedMediaViewerProps> = ({
       return;
     }
 
-    // 普通 URL，使用 smartDownload
+    // 普通 URL，使用 smartDownload；失败给出提示而非 unhandled rejection
     const { smartDownload, buildDownloadFilename } = await import('../../../utils/download-utils');
-    await smartDownload([{
-      url,
-      type: currentItem.type,
-      filename:
-        currentItem.type === 'audio'
-          ? buildDownloadFilename(currentItem.title, 'audio', 'mp3')
-          : undefined,
-      audioMetadata:
-        currentItem.type === 'audio'
-          ? {
-              title: currentItem.title,
-              prompt: currentItem.prompt,
-              tags: currentItem.tags,
-              coverUrl: currentItem.posterUrl,
-              artist: currentItem.artist,
-              album: currentItem.album,
-            }
-          : undefined,
-    }]);
+    try {
+      await smartDownload([{
+        url,
+        type: currentItem.type,
+        filename:
+          currentItem.type === 'audio'
+            ? buildDownloadFilename(currentItem.title, 'audio', 'mp3')
+            : undefined,
+        audioMetadata:
+          currentItem.type === 'audio'
+            ? {
+                title: currentItem.title,
+                prompt: currentItem.prompt,
+                tags: currentItem.tags,
+                coverUrl: currentItem.posterUrl,
+                artist: currentItem.artist,
+                album: currentItem.album,
+              }
+            : undefined,
+      }]);
+    } catch (error) {
+      console.error('[UnifiedMediaViewer] Download failed:', error);
+      MessagePlugin.error('下载失败，请重试');
+    }
   }, [items, currentIndex]);
 
   // 处理编辑当前媒体

@@ -34,11 +34,15 @@ export const InspirationBoard: React.FC<InspirationBoardProps> = ({
   const [selectedTemplate, setSelectedTemplate] =
     useState<InspirationTemplate | null>(null);
 
-  // 组件加载时从 localStorage 读取用户设置
+  // 组件加载时从 localStorage 读取用户设置（隐私模式/存储禁用时静默降级）
   useEffect(() => {
-    const hidePreference = localStorage.getItem(HIDE_INSPIRATION_KEY);
-    if (hidePreference === 'true') {
-      setIsHidden(true);
+    try {
+      const hidePreference = localStorage.getItem(HIDE_INSPIRATION_KEY);
+      if (hidePreference === 'true') {
+        setIsHidden(true);
+      }
+    } catch {
+      // localStorage 不可用时忽略，面板照常显示
     }
   }, []);
 
@@ -102,7 +106,11 @@ export const InspirationBoard: React.FC<InspirationBoardProps> = ({
     setViewMode('board');
     setSelectedTemplate(null);
     setIsHidden(true);
-    localStorage.setItem(HIDE_INSPIRATION_KEY, 'true');
+    try {
+      localStorage.setItem(HIDE_INSPIRATION_KEY, 'true');
+    } catch {
+      // 本会话内已隐藏；持久化失败（配额/隐私模式）可接受
+    }
   }, []);
 
   const handleGuidePreviewClick = useCallback((e: React.MouseEvent) => {

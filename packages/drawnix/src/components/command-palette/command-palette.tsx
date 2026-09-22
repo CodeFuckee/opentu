@@ -4,6 +4,7 @@ import { CommandItem, CommandCategory, CATEGORY_ORDER, CATEGORY_LABELS } from '.
 import { buildDefaultCommands } from './command-registry';
 import { useDrawnix } from '../../hooks/use-drawnix';
 import { useI18n } from '../../i18n';
+import { MessagePlugin } from 'tdesign-react';
 import { Search as SearchIcon } from 'lucide-react';
 import './command-palette.scss';
 
@@ -152,8 +153,25 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, b
     (cmd: CommandItem) => {
       if (!board) return;
       onClose();
-      // 延迟执行，让面板先关闭
-      requestAnimationFrame(() => cmd.perform(board));
+      // 延迟执行，让面板先关闭；命令失败给出提示而非 unhandled rejection
+      requestAnimationFrame(() => {
+        try {
+          // perform 签名为同步 void，运行时防御性兼容返回 Promise 的实现
+          const result = cmd.perform(board) as unknown;
+          if (
+            result &&
+            typeof (result as { catch?: unknown }).catch === 'function'
+          ) {
+            (result as Promise<void>).catch((error) => {
+              console.error('[command-palette] command failed:', error);
+              MessagePlugin.error(`命令执行失败: ${cmd.label}`);
+            });
+          }
+        } catch (error) {
+          console.error('[command-palette] command failed:', error);
+          MessagePlugin.error(`命令执行失败: ${cmd.label}`);
+        }
+      });
     },
     [board, onClose],
   );

@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Dialog, Input } from 'tdesign-react';
+import { Dialog, Input, MessagePlugin } from 'tdesign-react';
 import { Music4 } from 'lucide-react';
 import { AudioTrackList } from '../shared/AudioTrackList';
 import { AudioTrackContextMenu } from '../shared/AudioTrackContextMenu';
@@ -36,6 +36,14 @@ interface CanvasAudioPlayerPlaylistProps {
 }
 
 const ASSET_ELEMENT_ID_PREFIX = 'asset:';
+
+// AudioPlaylistContext 的操作会 rethrow，fire-and-forget 调用点统一走此包装留痕
+const runPlaylistOperationQuietly = (operation: () => Promise<unknown>) => {
+  operation().catch((error) => {
+    console.error('[CanvasAudioPlayerPlaylist] playlist operation failed:', error);
+    MessagePlugin.error('播放列表操作失败，请重试');
+  });
+};
 
 function getAssetIdFromSource(item?: CanvasAudioPlaybackSource): string | null {
   if (!item?.elementId?.startsWith(ASSET_ELEMENT_ID_PREFIX)) {
@@ -291,7 +299,7 @@ export const CanvasAudioPlayerPlaylist: React.FC<CanvasAudioPlayerPlaylistProps>
           const nextItem = audioQueue.find((item, index) => `${item.audioUrl}-${index}` === selectedItem.id);
           const assetId = resolveAssetId(nextItem);
           if (assetId) {
-            void toggleFavorite(assetId);
+            runPlaylistOperationQuietly(() => toggleFavorite(assetId));
           }
         }}
         onTogglePlayback={(selectedItem) => {
@@ -320,15 +328,15 @@ export const CanvasAudioPlayerPlaylist: React.FC<CanvasAudioPlayerPlaylistProps>
         selectedPlaylistId={selectedPlaylistId === AUDIO_PLAYLIST_ALL_ID ? null : selectedPlaylistId}
         currentPlaylistItemKeys={currentPlaylistItemKeys}
         onClose={closeContextMenu}
-        onToggleFavorite={(assetId) => void toggleFavorite(assetId)}
+        onToggleFavorite={(assetId) => runPlaylistOperationQuietly(() => toggleFavorite(assetId))}
         onAddToPlaylist={(item, playlistId) => {
           if (item.kind === 'asset') {
-            void addAssetToPlaylist(item.assetId, playlistId);
+            runPlaylistOperationQuietly(() => addAssetToPlaylist(item.assetId, playlistId));
           }
         }}
         onRemoveFromPlaylist={(item, playlistId) => {
           if (item.kind === 'asset') {
-            void removeAssetFromPlaylist(item.assetId, playlistId);
+            runPlaylistOperationQuietly(() => removeAssetFromPlaylist(item.assetId, playlistId));
           }
         }}
         onCreatePlaylistAndAdd={(item) => {
@@ -345,13 +353,19 @@ export const CanvasAudioPlayerPlaylist: React.FC<CanvasAudioPlayerPlaylistProps>
         header="新建播放列表"
         onClose={() => setCreateDialogVisible(false)}
         onConfirm={async () => {
-          const playlist = await createPlaylist(playlistName);
-          if (pendingAssetId) {
-            await addAssetToPlaylist(pendingAssetId, playlist.id);
+          try {
+            const playlist = await createPlaylist(playlistName);
+            if (pendingAssetId) {
+              await addAssetToPlaylist(pendingAssetId, playlist.id);
+            }
+            setCreateDialogVisible(false);
+            setPlaylistName('');
+            setPendingAssetId(null);
+          } catch (error) {
+            // 失败保持弹窗打开，便于用户重试
+            console.error('[CanvasAudioPlayerPlaylist] create playlist failed:', error);
+            MessagePlugin.error('新建播放列表失败，请重试');
           }
-          setCreateDialogVisible(false);
-          setPlaylistName('');
-          setPendingAssetId(null);
         }}
         onCancel={() => {
           setCreateDialogVisible(false);

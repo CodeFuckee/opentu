@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Input, Dialog, Dropdown } from 'tdesign-react';
+import { Input, Dialog, Dropdown, MessagePlugin } from 'tdesign-react';
 import {
   Pause,
   Play,
@@ -892,16 +892,22 @@ export const MusicPlayerTool: React.FC<MusicPlayerToolProps> = ({
         header={playlistDialogMode === 'rename' ? '重命名播放列表' : '新建播放列表'}
         onClose={closePlaylistDialog}
         onConfirm={async () => {
-          if (playlistDialogMode === 'rename' && editingPlaylistId) {
-            await renamePlaylist(editingPlaylistId, playlistName);
-          } else {
-            const playlist = await createPlaylist(playlistName);
-            if (pendingPlaylistItem) {
-              await addItemToPlaylist(pendingPlaylistItem, playlist.id);
+          try {
+            if (playlistDialogMode === 'rename' && editingPlaylistId) {
+              await renamePlaylist(editingPlaylistId, playlistName);
+            } else {
+              const playlist = await createPlaylist(playlistName);
+              if (pendingPlaylistItem) {
+                await addItemToPlaylist(pendingPlaylistItem, playlist.id);
+              }
+              setSelectedPlaylistId(playlist.id);
             }
-            setSelectedPlaylistId(playlist.id);
+            closePlaylistDialog();
+          } catch (error) {
+            // 失败保持弹窗打开，便于用户重试
+            console.error('[MusicPlayerTool] playlist dialog confirm failed:', error);
+            MessagePlugin.error('操作失败，请重试');
           }
-          closePlaylistDialog();
         }}
         onCancel={closePlaylistDialog}
         confirmBtn="确定"

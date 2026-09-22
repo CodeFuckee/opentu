@@ -1273,12 +1273,17 @@ export const PopupToolbar = () => {
                     if (playback.playing) {
                       playback.pausePlayback();
                     } else {
-                      void playback.resumePlayback();
+                      // 自动播放策略拒绝等失败由全局 playback store 呈现，这里接住 rejection
+                      playback
+                        .resumePlayback()
+                        .catch(() => {
+                          // Error feedback is surfaced globally from the playback store.
+                        });
                     }
                     return;
                   }
 
-                  void openMusicPlayerToolAndPlay({
+                  openMusicPlayerToolAndPlay({
                     source: readingSource,
                     queue:
                       readingQueue.length > 0 ? readingQueue : [readingSource],
@@ -1286,6 +1291,11 @@ export const PopupToolbar = () => {
                       queueId: AUDIO_PLAYLIST_CANVAS_READING_ID,
                       queueName: AUDIO_PLAYLIST_CANVAS_READING_LABEL,
                     },
+                  }).catch((error) => {
+                    console.error(
+                      '[popup-toolbar] open music player failed:',
+                      error
+                    );
                   });
                 }}
               />
@@ -1582,7 +1592,17 @@ export const PopupToolbar = () => {
                         ? '未找到可自适应的PPT素材'
                         : 'No media item can be fitted to PPT'
                     );
-                  })();
+                  })().catch((error) => {
+                    console.error(
+                      '[popup-toolbar] media fit PPT failed:',
+                      error
+                    );
+                    MessagePlugin.error(
+                      language === 'zh'
+                        ? '素材自适应PPT失败'
+                        : 'Failed to fit media to PPT'
+                    );
+                  });
                 }}
               />
             )}

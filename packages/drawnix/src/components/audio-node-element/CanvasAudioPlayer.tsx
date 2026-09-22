@@ -85,6 +85,14 @@ function formatDuration(duration?: number): string {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
+// 播放服务失败时错误反馈由全局 playback store 呈现（对齐 handleToggle），
+// 此处仅需接住 rejection，避免 unhandled rejection
+const runPlaybackQuietly = (operation: () => Promise<unknown>) => {
+  operation().catch(() => {
+    // Error feedback is surfaced globally from the playback store.
+  });
+};
+
 export const CanvasAudioPlayer: React.FC = () => {
   const playback = useCanvasAudioPlayback();
   const playerRef = useRef<HTMLDivElement>(null);
@@ -402,7 +410,7 @@ export const CanvasAudioPlayer: React.FC = () => {
           <button
             type="button"
             className="canvas-audio-player__action canvas-audio-player__action--previous"
-            onClick={() => void playback.playPrevious()}
+            onClick={() => runPlaybackQuietly(() => playback.playPrevious())}
             disabled={!canPlayPrevious}
           >
             <SkipBack size={14} />
@@ -421,7 +429,7 @@ export const CanvasAudioPlayer: React.FC = () => {
           <button
             type="button"
             className="canvas-audio-player__action canvas-audio-player__action--next"
-            onClick={() => void playback.playNext()}
+            onClick={() => runPlaybackQuietly(() => playback.playNext())}
             disabled={!canPlayNext}
           >
             <SkipForward size={14} />
@@ -552,7 +560,7 @@ export const CanvasAudioPlayer: React.FC = () => {
             if (isReadingPlaybackSource(item)) {
               playback.toggleReadingPlayback(item);
             } else {
-              void playback.togglePlayback(item);
+              runPlaybackQuietly(() => playback.togglePlayback(item));
             }
             setPlaylistOpen(false);
           }}

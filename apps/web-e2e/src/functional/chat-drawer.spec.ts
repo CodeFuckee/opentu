@@ -33,13 +33,12 @@ test.describe('聊天抽屉', () => {
       drawer.locator('.enhanced-chat-input__textarea').first()
     ).toBeVisible();
 
-    // 收起
+    // 收起（关闭按钮是抽屉结构的一部分：缺失即结构异常，显式失败而非静默跳过）
     const closeBtn = drawer.locator('[data-track="chat_click_drawer_close"]');
-    if ((await closeBtn.count()) > 0) {
-      await closeBtn.click();
-      await page.waitForTimeout(600);
-      await expect(drawer).toBeHidden({ timeout: 5000 });
-    }
+    await expect(closeBtn).toBeVisible({ timeout: 5000 });
+    await closeBtn.click();
+    await page.waitForTimeout(600);
+    await expect(drawer).toBeHidden({ timeout: 5000 });
   });
 
   test('新对话：点击创建空对话', async ({ page }) => {

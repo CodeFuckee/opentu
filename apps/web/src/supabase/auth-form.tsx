@@ -94,6 +94,10 @@ export function AuthForm({ mode, onModeChange }: AuthFormProps) {
         }
         MessagePlugin.success('登录成功');
       }
+    } catch (error) {
+      // 网络/函数异常等未预期失败：给出提示并复位提交态，rejection 不再逃逸
+      console.error('[auth-form] submit failed:', error);
+      MessagePlugin.error('操作失败，请检查网络后重试');
     } finally {
       setSubmitting(false);
     }

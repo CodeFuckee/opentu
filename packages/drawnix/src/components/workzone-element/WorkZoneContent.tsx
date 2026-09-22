@@ -13,6 +13,7 @@ import React, {
   useCallback,
 } from 'react';
 import { Trash2, RotateCcw, EyeOff } from 'lucide-react';
+import { MessagePlugin } from 'tdesign-react';
 import type { WorkflowMessageData } from '../../types/chat.types';
 import { ConfirmDialog } from '../dialog/ConfirmDialog';
 import { HoverTip } from '../shared/hover';
@@ -296,6 +297,9 @@ export const WorkZoneContent: React.FC<WorkZoneContentProps> = ({
     setIsRetrying(true);
     try {
       await onRetry(workflow, firstFailedStepIndex);
+    } catch (error) {
+      console.error('[WorkZoneContent] Retry failed:', error);
+      MessagePlugin.error('重试失败，请稍后再试');
     } finally {
       setIsRetrying(false);
     }

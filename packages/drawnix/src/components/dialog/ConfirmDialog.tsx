@@ -118,6 +118,9 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         if (closeOnConfirm) {
           requestClose();
         }
+      } catch (error) {
+        // async onConfirm 失败：保持弹窗打开并留痕，rejection 不再逃逸成 unhandled
+        console.error('[ConfirmDialog] onConfirm failed:', error);
       } finally {
         setInnerLoading(false);
       }

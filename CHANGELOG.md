@@ -1,5 +1,38 @@
 ## Unreleased
 
+### refactor: 第七轮全仓库代码评审——行为保持修复三批（2026-09-23）
+
+- 评审方法与完整问题清单见 `docs/code-review-2026-09-23.md`：8 分区只读深评
+  （第五/六轮之后的增量），新增 1 P0 + 8 P1 + 约 40 P2；行为改变类全部列为
+  待确认/暂缓，未混入本轮修复。
+- 批次 1（P0/P1 安全与正确性）：link-popup 画布链接补 `sanitizeLinkUrl` 消毒
+  （存储型 XSS，正常链接零变化）；canvas-search 搜索正则去 g 标志（lastIndex
+  残留导致「隔一漏一」）；workflow record-storage 复合写按 key 串行化（并发
+  任务回填丢记录，附并发回归测试）；prompt-storage 三处云端合并补删除墓碑
+  过滤（删除的提示词不再被云同步复活）；useChatHandler 发送锁死锁修复；
+  kling 轮询查询补 200+错误体守卫；workflow-engine saveWorkflow 补 catch；
+  video/audio API 失败路径 finalize LLM 日志。
+- 批次 2（组件层守卫/监听/定时器卫生）：ToolboxDrawer 视口守卫与 effect
+  依赖/定时器清理；MediaViewport 拖拽监听卸载兜底 + 滚轮缩放改原生非
+  passive 监听（preventDefault 真正生效）；link-button setTimeout 判空；
+  canvas-insertion-layout maxBottomY 初值 -Infinity（内容在 y<0 时插入点
+  错位）；selection-utils 图片填充导出补 15s 超时；with-arrow-line 恢复默认
+  pointerMove 链路（无 generator 不再吞 hover/框选）；CharacterTimeRange
+  Selector 拖拽 mouseup 用最新值 seek；Minimap 自动隐藏定时器持续交互重置
+  （修周期性闪烁）；DrawnixDeferredRuntime 异步订阅 disposed 标志（修
+  StrictMode 双挂载重复事件）；with-pinch-zoom 补 pointercancel 触点清理
+  （修幽灵触点致单指误入双指缩放）；popover zIndex 改默认值（调用方分层
+  意图恢复）；creation-toolbar 去重 mind 配置；clean-confirm 函数式 setState；
+  UnifiedColorPicker 最近颜色仅记录用户交互；text-property-panel 切换选区
+  重新反显；WinBoxWindow 加载失败可重试。
+- 批次 3（错误路径加固 + E2E 断言收紧）：ConfirmDialog/command-palette/
+  UnifiedMediaViewer/MediaLibraryModal/WorkZoneContent/播放列表上下文
+  调用点等 unhandled rejection 逐一接住并给出反馈；auth-form 提交补 catch；
+  crash-logger SW 永不可用时停表降级 + 低帧率快照 60s 最小上报间隔（防刷爆
+  SW 端环形缓冲）；freehand 两份 ~80 行重复轮廓函数合一；E2E 素材库/
+  任务队列改弹窗/面板作用域断言（原 body 全文断言永真）、聊天抽屉收起
+  缺按钮显式失败（原静默跳过）。
+
 ### feat: 素材库「家居库」切换为家居产品模型数据源（2026-09-22）
 
 - 官方素材库家居库 tab 此前读贴图表 jzxz_materials 的家居库分区（仅 59 条

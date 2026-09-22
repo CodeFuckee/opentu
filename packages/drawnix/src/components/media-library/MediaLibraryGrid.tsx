@@ -241,6 +241,15 @@ interface SelectionScopeSnapshot {
   playlistId: string | null;
 }
 
+// AudioPlaylistContext 的操作会 rethrow（handleSubmitPlaylistDialog 依赖该语义），
+// fire-and-forget 调用点统一走此包装，失败留痕而非 unhandled rejection
+const runPlaylistOperationQuietly = (operation: () => Promise<unknown>) => {
+  operation().catch((error) => {
+    console.error('[MediaLibraryGrid] playlist operation failed:', error);
+    MessagePlugin.error('播放列表操作失败，请重试');
+  });
+};
+
 interface SelectionState {
   scope: SelectionScopeSnapshot | null;
   selectedIds: Set<string>;
@@ -571,7 +580,7 @@ export function MediaLibraryGrid({
         icon: <Heart size={14} />,
         onSelect: (asset) => {
           if (asset.type === AssetType.AUDIO) {
-            void toggleFavorite(asset.id);
+            runPlaylistOperationQuietly(() => toggleFavorite(asset.id));
           }
         },
       },
@@ -593,7 +602,9 @@ export function MediaLibraryGrid({
               icon: <ListMusic size={14} />,
               disabled: exists,
               onSelect: () => {
-                void addAssetToPlaylist(asset.id, playlist.id);
+                runPlaylistOperationQuietly(() =>
+                  addAssetToPlaylist(asset.id, playlist.id)
+                );
               },
             };
           }),
@@ -612,7 +623,9 @@ export function MediaLibraryGrid({
             selectedPlaylistId &&
             selectedPlaylistId !== AUDIO_PLAYLIST_ALL_ID
           ) {
-            void removeAssetFromPlaylist(asset.id, selectedPlaylistId);
+            runPlaylistOperationQuietly(() =>
+              removeAssetFromPlaylist(asset.id, selectedPlaylistId!)
+            );
           }
         },
       },
@@ -1169,7 +1182,12 @@ export function MediaLibraryGrid({
   const handleToggleFavorite = useCallback(
     async (asset: Asset) => {
       if (asset.type !== AssetType.AUDIO) return;
-      await toggleFavorite(asset.id);
+      try {
+        await toggleFavorite(asset.id);
+      } catch (error) {
+        console.error('[MediaLibraryGrid] toggle favorite failed:', error);
+        MessagePlugin.error('收藏操作失败，请重试');
+      }
     },
     [toggleFavorite]
   );

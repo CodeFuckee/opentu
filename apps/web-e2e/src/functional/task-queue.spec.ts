@@ -18,17 +18,15 @@ test.describe('任务队列', () => {
     const panel = page.getByTestId('task-queue-panel');
     await expect(panel).toBeVisible({ timeout: 8000 });
 
-    // 状态标签
-    const bodyText = await page.evaluate(() =>
-      (document.body.innerText || '').replace(/\n+/g, '|')
-    );
-    expect(bodyText).toMatch(/全部/);
-    expect(bodyText).toMatch(/生成中/);
-    expect(bodyText).toMatch(/失败/);
-    expect(bodyText).toMatch(/已完成/);
+    // 状态标签（以面板为作用域断言：body 全文会被页面其它文本污染成永真断言）
+    const panelText = (await panel.innerText()).replace(/\n+/g, '|');
+    expect(panelText).toMatch(/全部/);
+    expect(panelText).toMatch(/生成中/);
+    expect(panelText).toMatch(/失败/);
+    expect(panelText).toMatch(/已完成/);
 
     // 新账号无任务 -> 空态
-    expect(bodyText).toContain('暂无任务');
+    expect(panelText).toContain('暂无任务');
   });
 
   test('收起任务队列', async ({ page }) => {
