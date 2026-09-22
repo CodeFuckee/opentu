@@ -116,6 +116,21 @@ const fixture = {
       { path: '(任务无归档结果路径)', issue: 'not_archived', oa: 'wangyl', size: null },
     ],
   },
+  bucketUsage: {
+    buckets: [
+      { bucketId: 'huabu', public: false, objectCount: 18432, totalBytes: 128 * 1024 ** 3 + 512 * 1024 ** 2 },
+      { bucketId: 'jzxz-materials', public: true, objectCount: 642, totalBytes: 2 * 1024 ** 3 + 400 * 1024 ** 2 },
+      { bucketId: 'templates', public: true, objectCount: 1307, totalBytes: 800 * 1024 ** 2 },
+      { bucketId: 'user-avatars', public: true, objectCount: 58, totalBytes: 3 * 1024 ** 2 + 200 * 1024 },
+      { bucketId: 'empty-private', public: false, objectCount: 0, totalBytes: 0 },
+    ],
+    totalObjects: 18432 + 642 + 1307 + 58,
+    totalBytes:
+      128 * 1024 ** 3 + 512 * 1024 ** 2 +
+      2 * 1024 ** 3 + 400 * 1024 ** 2 +
+      800 * 1024 ** 2 +
+      3 * 1024 ** 2 + 200 * 1024,
+  },
 };
 
 // 预览专用：跳过登录壳，直接加载数据（线上页面不受影响）。

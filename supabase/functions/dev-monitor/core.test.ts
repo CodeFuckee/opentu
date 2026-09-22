@@ -7,6 +7,7 @@
  * - probeHealth：并行探测、401=存活、GoTrue 降级、网关缺配置=未配置、超时=down
  * - verifyDevAdmin：无/无效 token 401、非管理员与 RPC 失败 403、放行带调用者 JWT
  * - buildDevMonitorHtml：自包含页面、登录壳、自动刷新、区块齐全、不泄露 service_role
+ * - fetchBucketUsage：storage.objects 分页聚合、bucket 清单合并、失败降级
  * - aggregateStatus：编排（窗口行/失败样本/花名册/探测并行）
  */
 import { test } from 'node:test';
@@ -20,6 +21,7 @@ import {
   classifyFailureCategory,
   classifyFailureDetail,
   collectResultPrefixes,
+  fetchBucketUsage,
   probeHealth,
   stuckThresholdMs,
   summarizeError,
@@ -42,7 +44,7 @@ type Route = {
   respond: (url: string, init?: RequestInit) => Response;
 };
 
-function routeFetch(routes: Route[], calls: string[]) {
+function routeFetch(routes: Route[], calls: string[] = []) {
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = String(input);
     calls.push(url);
@@ -731,14 +733,116 @@ test('buildDevMonitorHtml：自包含、内嵌 anon key、登录壳、自动刷�
   assert.ok(html.includes('loadSession();'));
   assert.ok(html.includes('id="logoutBtn"'));
   // 区块
-  for (const block of ['服务健康', '任务管线', '成功率', '按模型失败', '失败样本', '卡死任务', 'id="probeGrid"', 'id="failTable"', 'id="stuckTable"']) {
+  for (const block of ['服务健康', '任务管线', '成功率', '按模型失败', '失败样本', '卡死任务', '存储桶占用', 'id="probeGrid"', 'id="failTable"', 'id="stuckTable"', 'id="bucketUsage"']) {
     assert.ok(html.includes(block), `页面缺少区块：${block}`);
   }
+  // 存储桶占用渲染逻辑（含字节格式化与拉取失败降级提示）
+  assert.ok(html.includes('function renderBucketUsage'));
+  assert.ok(html.includes('function fmtBytes'));
+  assert.ok(html.includes('storage schema'));
   // 自动刷新：默认开启的 30s 轮询，可开关
   assert.ok(html.includes('setInterval'));
   assert.ok(html.includes('autoRefresh'));
   // 敏感信息不进页面
   assert.ok(!html.includes('service-role-key'), '页面不得包含 service_role key');
+});
+
+// ============================================================
+// fetchBucketUsage：storage.objects 分页聚合 + bucket 清单合并
+// ============================================================
+
+test('fetchBucketUsage：分页聚合字节数/对象数，按占用降序，合并空桶与公开标志', async () => {
+  const calls: string[] = [];
+  const profileHeaders: string[] = [];
+  const fetchImpl = routeFetch(
+    [
+      {
+        // pageSize=2 时：第一页 2 行 → offset 推进 2；第二页 1 行 → 推进 1；第三页空 → 结束
+        match: (u, init) => {
+          if (!u.includes('/rest/v1/objects?')) return false;
+          profileHeaders.push(((init?.headers as Record<string, string>) || {})['Accept-Profile'] || '');
+          return true;
+        },
+        respond: (u) => {
+          const offset = Number(new URL(u).searchParams.get('offset') || 0);
+          if (offset === 0) {
+            return json(200, [
+              { bucket_id: 'huabu', size: '1024' },
+              { bucket_id: 'huabu', size: null },
+            ]);
+          }
+          if (offset === 2) {
+            return json(200, [{ bucket_id: 'templates', size: '2048' }]);
+          }
+          return json(200, []);
+        },
+      },
+      {
+        match: (u) => u.includes('/storage/v1/bucket'),
+        respond: () =>
+          json(200, [
+            { id: 'huabu', name: 'huabu', public: false },
+            { id: 'templates', name: 'templates', public: true },
+            { id: 'empty-bucket', name: 'empty-bucket', public: false },
+          ]),
+      },
+    ],
+    calls
+  );
+
+  const usage = await fetchBucketUsage(ENV, { fetch: fetchImpl }, { pageSize: 2 });
+  assert.ok(usage);
+  // 按占用降序：templates 2048 > huabu 1024 > empty-bucket 0
+  assert.deepEqual(
+    usage.buckets.map((b) => [b.bucketId, b.public, b.objectCount, b.totalBytes]),
+    [
+      ['templates', true, 1, 2048],
+      ['huabu', false, 2, 1024],
+      ['empty-bucket', false, 0, 0],
+    ]
+  );
+  assert.equal(usage.totalObjects, 3);
+  assert.equal(usage.totalBytes, 3072);
+  // 偏移分页：offset 按实收行数推进（0 → 2 → 3），且带 Accept-Profile: storage
+  const offsets = calls
+    .filter((u) => u.includes('/rest/v1/objects?'))
+    .map((u) => new URL(u).searchParams.get('offset'));
+  assert.deepEqual(offsets, ['0', '2', '3']);
+  assert.ok(profileHeaders.every((h) => h === 'storage'), 'storage.objects 查询必须走 storage schema');
+});
+
+test('fetchBucketUsage：bucket 清单失败降级 public=null，占用仍聚合；对象表失败整体 null', async () => {
+  // 清单 500 → public 记 null；对象表正常
+  const usage = await fetchBucketUsage(
+    ENV,
+    {
+      fetch: routeFetch([
+        { match: (u) => u.includes('/rest/v1/objects?'), respond: (u) => json(200, new URL(u).searchParams.get('offset') === '0' ? [{ bucket_id: 'huabu', size: '4096' }] : []) },
+        { match: (u) => u.includes('/storage/v1/bucket'), respond: () => json(500, { message: 'boom' }) },
+      ]),
+    },
+    { pageSize: 10 }
+  );
+  assert.ok(usage);
+  assert.deepEqual(usage.buckets, [{ bucketId: 'huabu', public: null, objectCount: 1, totalBytes: 4096 }]);
+
+  // 对象表 404（storage schema 未暴露等）→ 整体 null
+  const failed = await fetchBucketUsage(ENV, {
+    fetch: routeFetch([
+      { match: (u) => u.includes('/rest/v1/objects?'), respond: () => json(404, { code: '42P01' }) },
+      { match: (u) => u.includes('/storage/v1/bucket'), respond: () => json(200, []) },
+    ]),
+  });
+  assert.equal(failed, null);
+
+  // 对象表网络异常 → 整体 null
+  const netFail = await fetchBucketUsage(ENV, {
+    fetch: routeFetch([
+      { match: (u) => u.includes('/rest/v1/objects?'), respond: () => { throw new Error('reset'); } },
+      { match: (u) => u.includes('/storage/v1/bucket'), respond: () => json(200, []) },
+    ]),
+  });
+  assert.equal(netFail, null);
 });
 
 // ============================================================
@@ -769,6 +873,11 @@ test('aggregateStatus：编排管线/失败样本/探测并输出完整状态 JS
         match: (u) => u.includes('/storage/v1/object/list/huabu'),
         respond: () => json(200, [{ name: 'ok.png', metadata: { size: 2048 } }]),
       },
+      {
+        match: (u) => u.includes('/rest/v1/objects?'),
+        respond: (u) => json(200, new URL(u).searchParams.get('offset') === '0' ? [{ bucket_id: 'huabu', size: '2048' }] : []),
+      },
+      { match: (u) => u.includes('/storage/v1/bucket'), respond: () => json(200, [{ id: 'huabu', public: false }]) },
       {
         match: (u) => u.includes('/rest/v1/task_submissions?select=id&limit=1'),
         respond: () => json(200, []),
@@ -820,6 +929,13 @@ test('aggregateStatus：编排管线/失败样本/探测并输出完整状态 JS
   assert.equal(status.resultIntegrity.notArchived, 0);
   assert.equal(status.resultIntegrity.missingFromBucket, 0);
   assert.equal(status.resultIntegrity.zeroSize, 0);
+
+  // 存储桶占用：随 /status 一并输出（storage.objects 聚合）
+  assert.deepEqual(status.bucketUsage, {
+    buckets: [{ bucketId: 'huabu', public: false, objectCount: 1, totalBytes: 2048 }],
+    totalObjects: 1,
+    totalBytes: 2048,
+  });
 
   // 窗口行查询须带 model 提取、error 列、response_file_paths（结果完整性数据源）与时间下界
   assert.ok(calls.some((u) => u.includes('model:params-%3E%3Emodel')));

@@ -1,5 +1,17 @@
 ## Unreleased
 
+### feat: dev-monitor 看板新增「存储桶占用」区块（2026-09-22）
+
+- `GET /functions/v1/dev-monitor/status` 新增 `bucketUsage`：经 PostgREST storage
+  schema（`Accept-Profile: storage`）全量分页读 `storage.objects`，按 bucket 聚合
+  对象数与 `metadata->>size` 字节合计；`/storage/v1/bucket` 清单补充公开/私有标志与
+  空桶（清单失败降级显示 '-'）。
+- 页面在「结果完整性」下新增「存储桶占用」面板：桶名/可见性/对象数/占用/相对占比条 +
+  合计行；**全量口径，不随统计窗口变化**；查询失败显示拉取失败，不拖垮其余板块。
+- 分页健壮性：`order=id.asc` 稳定排序，offset 按实收行数推进、空页才结束，兼容
+  PostgREST `db-max-rows` 截断不漏页。
+- 单测：node:test 新增 fetchBucketUsage 分页聚合/降级 3 条（dev-monitor 34 条全绿）。
+
 ### refactor: 第六轮评审批次 2——死代码与微清理（2026-09-22）
 
 - **useMediaCache**：移除 `blobUrl` 死状态与两处 `URL.revokeObjectURL` no-op

@@ -7,6 +7,7 @@
  * - 任务管线：task_submissions 真实口径（成功率分母含 cancelled、卡死按类型阈值单列），
  *   与用户看板「只看成功任务」的口径刻意不同
  * - 失败样本：最近 50 条 failed 任务的 error 摘要（dev 专用，不上用户看板）
+ * - 存储桶占用：经 PostgREST storage schema 全量聚合 storage.objects 的对象数与字节数
  * - 鉴权：页面为匿名登录壳；/status 要求「有效用户 JWT + is_admin()」（fail-closed）
  */
 
@@ -939,6 +940,128 @@ export function auditResultIntegrity(
 }
 
 // ============================================================================
+// 存储桶占用：storage.objects 全量聚合（容量视图，不随统计窗口变化）
+// ============================================================================
+
+export interface BucketUsageRow {
+  bucketId: string;
+  /** true=公开 false=私有；bucket 清单拉取失败时为 null（页面显示 '-'） */
+  public: boolean | null;
+  objectCount: number;
+  totalBytes: number;
+}
+
+export interface BucketUsage {
+  /** 按 totalBytes 降序 */
+  buckets: BucketUsageRow[];
+  totalObjects: number;
+  totalBytes: number;
+}
+
+/**
+ * 各 bucket 占用统计：
+ * - 对象行走 PostgREST storage schema（`Accept-Profile: storage`）读 storage.objects
+ *   全量分页（order=id.asc 保证偏移分页稳定，offset 按实收行数推进以兼容 db-max-rows 截断），
+ *   JS 侧按 bucket_id 聚合对象数与 metadata->>size（->> 返回文本，Number() 归一）；
+ *   需要 PGRST_DB_SCHEMAS 含 storage（官方 docker 默认已含），未暴露时返回 null；
+ * - bucket 清单（/storage/v1/bucket）补充公开/私有标志与空桶；清单失败只降级 public=null，
+ *   不阻塞占用聚合；
+ * - 对象表查询失败返回 null（页面显示拉取失败），不拖垮 /status 其余板块。
+ */
+export async function fetchBucketUsage(
+  env: DevMonitorEnv,
+  deps: DevMonitorDeps = {},
+  opts: { pageSize?: number; maxObjects?: number } = {}
+): Promise<BucketUsage | null> {
+  const doFetch = deps.fetch || fetch;
+  const pageSize = opts.pageSize ?? 10000;
+  const maxObjects = opts.maxObjects ?? 2_000_000;
+  const base = baseUrl(env);
+
+  let bucketPublic = new Map<string, boolean>();
+  try {
+    const res = await doFetch(`${base}/storage/v1/bucket`, { headers: srkHeaders(env) });
+    if (res.ok) {
+      const body = (await res.json().catch(() => null)) as
+        | Array<{ id?: unknown; name?: unknown; public?: unknown }>
+        | null;
+      if (Array.isArray(body)) {
+        for (const bucket of body) {
+          const id =
+            typeof bucket?.id === 'string' && bucket.id
+              ? bucket.id
+              : typeof bucket?.name === 'string' && bucket.name
+                ? bucket.name
+                : '';
+          if (id) {
+            bucketPublic.set(id, bucket.public === true);
+          }
+        }
+      }
+    }
+  } catch {
+    // 降级：公开标志记 null，不影响占用数字
+  }
+
+  const counts = new Map<string, number>();
+  const bytes = new Map<string, number>();
+  let scanned = 0;
+  const select = encodeURIComponent('bucket_id,metadata->>size');
+  let offset = 0;
+  while (offset <= maxObjects) {
+    let res: Response;
+    try {
+      res = await doFetch(
+        `${base}/rest/v1/objects?select=${select}&order=id.asc&limit=${pageSize}&offset=${offset}`,
+        { headers: { ...srkHeaders(env), 'Accept-Profile': 'storage' } },
+      );
+    } catch {
+      return null;
+    }
+    if (!res.ok) {
+      return null;
+    }
+    const body = (await res.json().catch(() => null)) as
+      | Array<{ bucket_id?: unknown; size?: unknown }>
+      | null;
+    const rows = Array.isArray(body) ? body : [];
+    for (const row of rows) {
+      if (typeof row?.bucket_id !== 'string' || !row.bucket_id) {
+        continue;
+      }
+      const size = Number(row.size);
+      counts.set(row.bucket_id, (counts.get(row.bucket_id) ?? 0) + 1);
+      bytes.set(
+        row.bucket_id,
+        (bytes.get(row.bucket_id) ?? 0) + (Number.isFinite(size) ? Math.max(0, size) : 0)
+      );
+    }
+    scanned += rows.length;
+    // 空页才结束 + 按实收行数推进 offset：即使 PostgREST 按 db-max-rows 截断响应也不漏页
+    if (rows.length === 0 || scanned > maxObjects) {
+      break;
+    }
+    offset += rows.length;
+  }
+
+  const bucketIds = Array.from(new Set([...counts.keys(), ...bucketPublic.keys()]));
+  const buckets: BucketUsageRow[] = bucketIds
+    .map((bucketId) => ({
+      bucketId,
+      public: bucketPublic.has(bucketId) ? bucketPublic.get(bucketId)! : null,
+      objectCount: counts.get(bucketId) ?? 0,
+      totalBytes: bytes.get(bucketId) ?? 0,
+    }))
+    .sort((a, b) => b.totalBytes - a.totalBytes || a.bucketId.localeCompare(b.bucketId));
+
+  return {
+    buckets,
+    totalObjects: buckets.reduce((s, b) => s + b.objectCount, 0),
+    totalBytes: buckets.reduce((s, b) => s + b.totalBytes, 0),
+  };
+}
+
+// ============================================================================
 // 状态编排（/status 数据生产者）
 // ============================================================================
 
@@ -952,6 +1075,8 @@ export interface DevStatus {
   stuckList: StuckItem[];
   /** 结果完整性审计（窗口行拉取失败时为 null） */
   resultIntegrity: ResultIntegrityStats | null;
+  /** 存储桶占用（storage.objects 全量聚合；查询失败时为 null） */
+  bucketUsage: BucketUsage | null;
 }
 
 async function fetchJsonRows(
@@ -993,11 +1118,12 @@ export async function aggregateStatus(
   const failureQuery =
     `/rest/v1/task_submissions?select=created_at,completed_at,user_id,type,error,model:params-%3E%3Emodel&status=eq.failed&created_at=gte.${encodeURIComponent(fromIso)}&order=created_at.desc&limit=50`;
 
-  const [windowRows, failureRows, profileRows, probes] = await Promise.all([
+  const [windowRows, failureRows, profileRows, probes, bucketUsage] = await Promise.all([
     fetchJsonRows(env, windowQuery, deps),
     fetchJsonRows(env, failureQuery, deps),
     fetchJsonRows(env, `/rest/v1/user_profiles?select=user_id,oa_account&limit=50000`, deps),
     probeHealth(env, deps),
+    fetchBucketUsage(env, deps),
   ]);
 
   const oaByUser = new Map<string, string>(
@@ -1029,6 +1155,7 @@ export async function aggregateStatus(
     recentFailures: toFailureSamples((failureRows ?? []) as FailureRow[], oaByUser),
     stuckList: toStuckList((windowRows ?? []) as PipelineRow[], oaByUser),
     resultIntegrity,
+    bucketUsage,
   };
 }
 
@@ -1140,6 +1267,8 @@ export function buildDevMonitorHtml(anonKey: string): string {
   .bar-row .track { flex:1; height:12px; background:var(--card2); border-radius:6px; overflow:hidden; }
   .bar-row .fill { height:100%; background:linear-gradient(90deg,#f87171,#fbbf24); border-radius:6px; }
   .bar-row .num { width:130px; text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .minibar { height:10px; background:var(--card2); border-radius:5px; overflow:hidden; }
+  .minibar .fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:5px; }
   .muted { color:var(--muted); }
   .sk { min-height:80px; border-radius:10px; background:linear-gradient(100deg,rgba(255,255,255,.04) 30%,rgba(255,255,255,.09) 50%,rgba(255,255,255,.04) 70%); background-size:200% 100%; animation:shimmer 1.2s linear infinite; }
   @keyframes shimmer { to { background-position:-200% 0; } }
@@ -1194,6 +1323,8 @@ export function buildDevMonitorHtml(anonKey: string): string {
 
 <div class="panel"><h2>结果完整性（成功任务的图片/视频/音频结果核验）</h2><div class="cards" id="integrityCards"><div class="sk"></div></div>
 <table id="integritySamples" style="margin-top:12px"><thead><tr><th>问题</th><th>路径</th><th>用户</th><th>大小</th></tr></thead><tbody></tbody></table></div>
+
+<div class="panel"><h2>存储桶占用（storage.objects 全量聚合 · 不随统计窗口变化）</h2><div id="bucketUsage"><div class="sk"></div></div></div>
 
 </div>
 
@@ -1275,6 +1406,7 @@ function authHeaders(extra){
 
 function fmtDate(iso){ if(!iso) return '-'; var d=new Date(iso); if(isNaN(d)) return String(iso); var p=function(x){return String(x).padStart(2,'0')}; return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
 function fmtDur(ms){ if(ms==null) return '-'; if(!ms) return '0 秒'; var s=ms/1000; if(s<60) return Math.round(s)+' 秒'; if(s<3600) return (s/60).toFixed(1)+' 分钟'; return (s/3600).toFixed(1)+' 小时'; }
+function fmtBytes(v){ if(v==null) return '-'; var n=Number(v)||0; if(n<1024) return n+' B'; var u=['KB','MB','GB','TB'], i=-1; do { n/=1024; i++; } while(n>=1024 && i<u.length-1); return (n>=100?n.toFixed(0):n>=10?n.toFixed(1):n.toFixed(2))+' '+u[i]; }
 function esc(s){ return String(s==null?'-':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
 function pct(rate){ return rate==null ? '-' : (rate*100).toFixed(1)+'%'; }
 
@@ -1455,6 +1587,29 @@ function renderIntegrity(o){
     (anomaly ? '' : '<tr><td colspan="4" class="muted">未发现异常 👍</td></tr>');
 }
 
+function renderBucketUsage(o){
+  var g = o.bucketUsage;
+  var el = document.getElementById('bucketUsage');
+  if(!g){
+    el.innerHTML = '<div class="error">存储桶占用数据拉取失败（storage.objects 不可达，或 PostgREST 未暴露 storage schema）</div>';
+    return;
+  }
+  var rows = g.buckets || [];
+  var maxBytes = Math.max.apply(null, rows.map(function(b){ return b.totalBytes; }).concat([1]));
+  var body = rows.length ? rows.map(function(b){
+    var w = b.totalBytes > 0 ? Math.max(2, Math.round(b.totalBytes/maxBytes*100)) : 0;
+    return '<tr><td>'+esc(b.bucketId)+'</td>'+
+      '<td>'+(b.public==null ? '<span class="muted">-</span>' : (b.public ? '<span style="color:var(--warn)">公开</span>' : '私有'))+'</td>'+
+      '<td>'+b.objectCount.toLocaleString()+'</td>'+
+      '<td style="font-variant-numeric:tabular-nums">'+fmtBytes(b.totalBytes)+'</td>'+
+      '<td style="width:32%"><div class="minibar">'+(w?'<div class="fill" style="width:'+w+'%"></div>':'')+'</div></td></tr>';
+  }).join('') : '<tr><td colspan="5" class="muted">还没有任何存储对象</td></tr>';
+  el.innerHTML = '<table><thead><tr><th>存储桶</th><th>可见性</th><th>对象数</th><th>占用</th><th>相对占比</th></tr></thead>'+
+    '<tbody>'+body+
+    '<tr><td><b>合计</b></td><td class="muted">'+rows.length+' 个桶</td><td>'+g.totalObjects.toLocaleString()+'</td>'+
+    '<td style="font-variant-numeric:tabular-nums"><b>'+fmtBytes(g.totalBytes)+'</b></td><td></td></tr></tbody></table>';
+}
+
 function render(o){
   document.getElementById('generatedAt').textContent = '统计窗口 近 '+o.days+' 天 · 生成于 ' + fmtDate(o.generatedAt);
   renderProbes(o.probes);
@@ -1464,6 +1619,7 @@ function render(o){
   renderFailureBreakdown(o);
   renderStuck(o.stuckList);
   renderIntegrity(o);
+  renderBucketUsage(o);
 }
 
 function basePath(){

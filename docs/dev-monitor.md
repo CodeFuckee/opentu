@@ -21,6 +21,7 @@
 | 失败样本 | 最近 50 条 failed 任务：时间、用户 OA、类型、模型、耗时、error 摘要 |
 | 卡死任务 | submitted 超过类型阈值：按等待时长倒序，最多 20 条 |
 | 结果完整性 | 窗口内 completed 的 image/video/audio 任务结果核验：应产出文件任务数、结果未归档（response_file_paths 为空）、不在 bucket（按 {用户名}/{日期}/ 前缀并行列出 huabu 对象核验，路径找不到）、零字节（对象存在但 size=0）、未核验（前缀超 400 上限不计入异常）；附异常样本（前 10 条：问题/路径/用户/大小） |
+| 存储桶占用 | 各 bucket 的对象数、占用字节（metadata->>size 合计）、公开/私有、相对占比条与合计行；**全量口径，不随统计窗口变化**。数据经 PostgREST storage schema（`Accept-Profile: storage`）全量分页读 `storage.objects`，bucket 清单（/storage/v1/bucket）补公开标志与空桶（清单失败降级显示 '-'）。需要 PGRST_DB_SCHEMAS 含 storage（官方 docker 默认已含），未暴露或查询失败时该区块显示「拉取失败」，不拖垮其余板块 |
 
 页面默认**每 30 秒自动刷新**（可开关）；窗口天数切换：今日 / 7 / 14 / 30 天。
 
@@ -54,6 +55,9 @@
 - `supabase/functions/dev-monitor/core.test.ts`：node:test 单测（与 dashboard-stats 模式一致）
 - 聚合用 **service_role** 经 PostgREST 直查（绕过 RLS），JS 侧聚合，无新增数据库迁移；
   函数自包含目录（不跨函数 import），scp 单目录即可部署
+- 存储桶占用分页健壮性：`order=id.asc` 稳定排序 + offset 按实收行数推进 + 空页才结束，
+  即使 PostgREST 按 `db-max-rows` 截断响应也不漏页；`metadata->>size`（->> 返回文本）
+  经 Number() 归一
 - 60s 边缘函数超时约束：探测并行 + 单探测 5s 超时；窗口行 limit 20000、失败样本 50 条
 
 ## 部署（自托管 Supabase，热加载生效）
