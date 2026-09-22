@@ -564,7 +564,7 @@ export function mergePromptHistory(remoteHistory: PromptHistoryItem[]): number {
   
   let addedCount = 0;
   for (const remoteItem of remoteHistory) {
-    if (!localContents.has(remoteItem.content)) {
+    if (!localContents.has(remoteItem.content) && !isPromptContentDeleted(remoteItem.content)) {
       localHistory.push(remoteItem);
       addedCount++;
     }
@@ -990,7 +990,7 @@ export function mergeVideoPromptHistory(remoteHistory: VideoPromptHistoryItem[])
   
   let addedCount = 0;
   for (const remoteItem of remoteHistory) {
-    if (!localContents.has(remoteItem.content)) {
+    if (!localContents.has(remoteItem.content) && !isPromptContentDeleted(remoteItem.content)) {
       localHistory.push(remoteItem);
       addedCount++;
     }
@@ -1096,7 +1096,7 @@ export function mergeImagePromptHistory(remoteHistory: ImagePromptHistoryItem[])
   
   let addedCount = 0;
   for (const remoteItem of remoteHistory) {
-    if (!localContents.has(remoteItem.content)) {
+    if (!localContents.has(remoteItem.content) && !isPromptContentDeleted(remoteItem.content)) {
       localHistory.push(remoteItem);
       addedCount++;
     }

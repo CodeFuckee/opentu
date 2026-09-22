@@ -192,48 +192,82 @@ class VideoAPIService {
     // Handle multiple images - all models use input_reference
     // For veo3.1, multiple images can be passed with same field name (first frame, last frame)
     // console.log('[VideoAPI] Processing inputReferences:', params.inputReferences);
-    if (params.inputReferences && params.inputReferences.length > 0) {
-      // Sort by slot to ensure correct order (slot 0 = first frame, slot 1 = last frame)
-      const sortedImages = [...params.inputReferences].sort(
-        (a, b) => a.slot - b.slot
-      );
+    // 参考图处理失败也必须 finalize LLM 日志，否则日志永久滞留 pending
+    try {
+      if (params.inputReferences && params.inputReferences.length > 0) {
+        // Sort by slot to ensure correct order (slot 0 = first frame, slot 1 = last frame)
+        const sortedImages = [...params.inputReferences].sort(
+          (a, b) => a.slot - b.slot
+        );
 
-      for (const imageRef of sortedImages) {
-        // console.log('[VideoAPI] Processing image:', { slot: imageRef.slot, url: imageRef.url?.substring(0, 50), name: imageRef.name });
+        for (const imageRef of sortedImages) {
+          if (!imageRef.url) {
+            continue;
+          }
 
-        if (!imageRef.url) {
-          // console.log('[VideoAPI] Skipping image - no URL');
-          continue;
+          const fieldName = 'input_reference';
+
+          // 处理图片：虚拟路径和远程 URL 都需要转换为 base64/blob
+          // 使用 getImageForAI 统一处理，它会自动处理虚拟路径和远程 URL
+          const imageData = await unifiedCacheService.getImageForAI(
+            imageRef.url
+          );
+          const processedUrl = imageData.value;
+
+          // Convert to blob and append
+          if (processedUrl.startsWith('data:')) {
+            const response = await fetch(processedUrl);
+            const blob = await prepareVideoReferenceImageBlob(
+              await response.blob(),
+              params.size
+            );
+            formData.append(
+              fieldName,
+              blob,
+              imageRef.name || 'image.png'
+            );
+          } else if (processedUrl.startsWith('http')) {
+            const response = await fetch(processedUrl);
+            const blob = await prepareVideoReferenceImageBlob(
+              await response.blob(),
+              params.size
+            );
+            formData.append(
+              fieldName,
+              blob,
+              imageRef.name || 'image.png'
+            );
+          } else {
+            console.warn(
+              '[VideoAPI] Unknown URL format after processing, skipping:',
+              processedUrl?.substring(0, 50)
+            );
+          }
         }
-
-        const fieldName = 'input_reference';
-        // console.log('[VideoAPI] Using field name:', fieldName, 'for model:', params.model, 'slot:', imageRef.slot);
-
+      }
+      // Legacy single image support
+      else if (params.inputReference) {
         // 处理图片：虚拟路径和远程 URL 都需要转换为 base64/blob
         // 使用 getImageForAI 统一处理，它会自动处理虚拟路径和远程 URL
-        const imageData = await unifiedCacheService.getImageForAI(imageRef.url);
+        const imageData = await unifiedCacheService.getImageForAI(
+          params.inputReference
+        );
         const processedUrl = imageData.value;
-        // console.log(`[VideoAPI] Image processed: ${imageData.type === 'base64' ? 'converted to base64' : 'using URL'}`);
 
-        // Convert to blob and append
         if (processedUrl.startsWith('data:')) {
-          // console.log('[VideoAPI] Converting data URL to blob...');
           const response = await fetch(processedUrl);
           const blob = await prepareVideoReferenceImageBlob(
             await response.blob(),
             params.size
           );
-          // console.log('[VideoAPI] Appending blob:', { fieldName, blobSize: blob.size, fileName: imageRef.name || 'image.png' });
-          formData.append(fieldName, blob, imageRef.name || 'image.png');
+          formData.append('input_reference', blob, 'reference.png');
         } else if (processedUrl.startsWith('http')) {
-          // console.log('[VideoAPI] Fetching remote URL...');
           const response = await fetch(processedUrl);
           const blob = await prepareVideoReferenceImageBlob(
             await response.blob(),
             params.size
           );
-          // console.log('[VideoAPI] Appending blob:', { fieldName, blobSize: blob.size, fileName: imageRef.name || 'image.png' });
-          formData.append(fieldName, blob, imageRef.name || 'image.png');
+          formData.append('input_reference', blob, 'reference.png');
         } else {
           console.warn(
             '[VideoAPI] Unknown URL format after processing, skipping:',
@@ -241,37 +275,12 @@ class VideoAPIService {
           );
         }
       }
-    }
-    // Legacy single image support
-    else if (params.inputReference) {
-      // 处理图片：虚拟路径和远程 URL 都需要转换为 base64/blob
-      // 使用 getImageForAI 统一处理，它会自动处理虚拟路径和远程 URL
-      const imageData = await unifiedCacheService.getImageForAI(
-        params.inputReference
-      );
-      const processedUrl = imageData.value;
-      // console.log(`[VideoAPI] Legacy image processed: ${imageData.type === 'base64' ? 'converted to base64' : 'using URL'}`);
-
-      if (processedUrl.startsWith('data:')) {
-        const response = await fetch(processedUrl);
-        const blob = await prepareVideoReferenceImageBlob(
-          await response.blob(),
-          params.size
-        );
-        formData.append('input_reference', blob, 'reference.png');
-      } else if (processedUrl.startsWith('http')) {
-        const response = await fetch(processedUrl);
-        const blob = await prepareVideoReferenceImageBlob(
-          await response.blob(),
-          params.size
-        );
-        formData.append('input_reference', blob, 'reference.png');
-      } else {
-        console.warn(
-          '[VideoAPI] Unknown URL format after processing, skipping:',
-          processedUrl?.substring(0, 50)
-        );
-      }
+    } catch (error) {
+      failLLMApiLog(logId, {
+        duration: Date.now() - startTime,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
     }
 
     // Log FormData summary before sending
@@ -314,7 +323,17 @@ class VideoAPIService {
       throw error;
     }
 
-    const result = await response.json();
+    // 响应解析失败也必须 finalize LLM 日志，否则日志永久滞留 pending
+    let result: VideoSubmitResponse;
+    try {
+      result = await response.json();
+    } catch (error: any) {
+      failLLMApiLog(logId, {
+        duration: Date.now() - startTime,
+        errorMessage: error?.message || String(error),
+      });
+      throw error;
+    }
     const duration = Date.now() - startTime;
 
     // 记录视频提交成功（此时视频尚未生成完成，只是提交成功）

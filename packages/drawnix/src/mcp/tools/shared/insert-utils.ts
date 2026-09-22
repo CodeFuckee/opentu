@@ -269,9 +269,10 @@ export function getInsertionPoint(board: PlaitBoard, elements: PlaitElement[]): 
       boardContainerRect.height / 2,
     ];
     const zoom = board.viewport.zoom;
-    const origination = getViewportOrigination(board);
-    const centerX = origination![0] + focusPoint[0] / zoom;
-    const centerY = origination![1] + focusPoint[1] / zoom;
+    // 视口未就绪时回退画布原点，避免非空断言在异常路径抛 TypeError
+    const origination = getViewportOrigination(board) ?? ([0, 0] as Point);
+    const centerX = origination[0] + focusPoint[0] / zoom;
+    const centerY = origination[1] + focusPoint[1] / zoom;
 
     initialPoint = [
       centerX - newElementWidth / 2,
@@ -422,9 +423,10 @@ export function getInitialInsertionPoint(board: PlaitBoard): Point {
     boardContainerRect.height / 2,
   ];
   const zoom = board.viewport.zoom;
-  const origination = getViewportOrigination(board);
-  const centerX = origination![0] + focusPoint[0] / zoom;
-  const centerY = origination![1] + focusPoint[1] / zoom;
+  // 视口未就绪时回退画布原点，避免非空断言在异常路径抛 TypeError
+  const origination = getViewportOrigination(board) ?? ([0, 0] as Point);
+  const centerX = origination[0] + focusPoint[0] / zoom;
+  const centerY = origination[1] + focusPoint[1] / zoom;
 
   return [centerX, centerY] as Point;
 }

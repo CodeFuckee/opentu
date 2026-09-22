@@ -915,7 +915,17 @@ class AudioAPIService {
       throw error;
     }
 
-    const payload = await response.json();
+    // 响应解析失败也必须 finalize LLM 日志，否则日志永久滞留 pending
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch (error: any) {
+      failLLMApiLog(logId, {
+        duration: Date.now() - startTime,
+        errorMessage: error?.message || String(error),
+      });
+      throw error;
+    }
     const result = normalizeAudioTaskResponse(payload);
     const duration = Date.now() - startTime;
 

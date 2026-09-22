@@ -45,32 +45,54 @@ export async function saveRecordsByKey<TRecord>(
   await kvStorageService.set(storageKey, normalizeWorkflowRecords(records, options));
 }
 
+// 「读全量→改→写全量」的复合写操作按 storageKey 串行化：
+// useWorkflowTaskSync 等并发任务回填若交错执行，后写者会抹掉先写者的更新（丢记录）。
+const storageWriteLocks = new Map<string, Promise<unknown>>();
+
+function withStorageWriteLock<T>(
+  storageKey: string,
+  task: () => Promise<T>
+): Promise<T> {
+  const previous = storageWriteLocks.get(storageKey) ?? Promise.resolve();
+  const run = previous.then(task, task);
+  storageWriteLocks.set(
+    storageKey,
+    run.then(
+      () => undefined,
+      () => undefined
+    )
+  );
+  return run;
+}
+
 export async function addRecordWithCap<TRecord extends WorkflowRecordBase>(
   storageKey: string,
   record: TRecord,
   maxRecords: number,
   options?: WorkflowRecordStorageOptions<TRecord>
 ): Promise<TRecord[]> {
-  const records = await loadRecordsByKey<TRecord>(storageKey, options);
-  records.unshift(normalizeWorkflowRecord(record, options));
+  return withStorageWriteLock(storageKey, async () => {
+    const records = await loadRecordsByKey<TRecord>(storageKey, options);
+    records.unshift(normalizeWorkflowRecord(record, options));
 
-  while (records.length > maxRecords) {
-    let pruneIndex = -1;
-    for (let i = records.length - 1; i >= 0; i -= 1) {
-      if (!records[i].starred) {
-        pruneIndex = i;
+    while (records.length > maxRecords) {
+      let pruneIndex = -1;
+      for (let i = records.length - 1; i >= 0; i -= 1) {
+        if (!records[i].starred) {
+          pruneIndex = i;
+          break;
+        }
+      }
+      if (pruneIndex === -1) {
         break;
       }
+      const [removed] = records.splice(pruneIndex, 1);
+      await options?.onPruneRecord?.(removed);
     }
-    if (pruneIndex === -1) {
-      break;
-    }
-    const [removed] = records.splice(pruneIndex, 1);
-    await options?.onPruneRecord?.(removed);
-  }
 
-  await saveRecordsByKey(storageKey, records, options);
-  return records;
+    await saveRecordsByKey(storageKey, records, options);
+    return records;
+  });
 }
 
 export async function updateRecordById<TRecord extends WorkflowRecordBase>(
@@ -79,16 +101,18 @@ export async function updateRecordById<TRecord extends WorkflowRecordBase>(
   patch: Partial<TRecord>,
   options?: WorkflowRecordStorageOptions<TRecord>
 ): Promise<TRecord[]> {
-  const records = await loadRecordsByKey<TRecord>(storageKey, options);
-  const index = records.findIndex((record) => record.id === id);
-  if (index >= 0) {
-    records[index] = normalizeWorkflowRecord(
-      { ...records[index], ...patch },
-      options
-    );
-    await saveRecordsByKey(storageKey, records, options);
-  }
-  return records;
+  return withStorageWriteLock(storageKey, async () => {
+    const records = await loadRecordsByKey<TRecord>(storageKey, options);
+    const index = records.findIndex((record) => record.id === id);
+    if (index >= 0) {
+      records[index] = normalizeWorkflowRecord(
+        { ...records[index], ...patch },
+        options
+      );
+      await saveRecordsByKey(storageKey, records, options);
+    }
+    return records;
+  });
 }
 
 export async function deleteRecordById<TRecord extends WorkflowRecordBase>(
@@ -96,12 +120,14 @@ export async function deleteRecordById<TRecord extends WorkflowRecordBase>(
   id: string,
   options?: WorkflowRecordStorageOptions<TRecord>
 ): Promise<TRecord[]> {
-  const records = await loadRecordsByKey<TRecord>(storageKey, options);
-  const target = records.find((record) => record.id === id);
-  const filtered = records.filter((record) => record.id !== id);
-  await saveRecordsByKey(storageKey, filtered, options);
-  if (target) {
-    await options?.onDeleteRecord?.(target);
-  }
-  return filtered;
+  return withStorageWriteLock(storageKey, async () => {
+    const records = await loadRecordsByKey<TRecord>(storageKey, options);
+    const target = records.find((record) => record.id === id);
+    const filtered = records.filter((record) => record.id !== id);
+    await saveRecordsByKey(storageKey, filtered, options);
+    if (target) {
+      await options?.onDeleteRecord?.(target);
+    }
+    return filtered;
+  });
 }

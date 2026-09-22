@@ -143,19 +143,31 @@ export function useChatHandler(options: UseChatHandlerOptions): ChatHandler & {
       setStatus('submitted');
 
       // Convert to our format and save
+      // 前置持久化段失败必须复位发送锁，否则锁死后续所有消息发送（聊天假死）
       const ourMsg = fromChatUIMessage(msg, sessionId);
-      await chatStorageService.addMessage(ourMsg);
+      // done 事件分支的 messageCount 累加依赖 session，需提升到 try 外声明
+      let session: Awaited<
+        ReturnType<typeof chatStorageService.getSession>
+      > = null;
+      try {
+        await chatStorageService.addMessage(ourMsg);
 
-      // Update messages state
-      setMessages((prev) => [...prev, msg]);
+        // Update messages state
+        setMessages((prev) => [...prev, msg]);
 
-      // Get current session for message count
-      const session = await chatStorageService.getSession(sessionId);
+        // Get current session for message count
+        session = await chatStorageService.getSession(sessionId);
 
-      await chatStorageService.updateSession(sessionId, {
-        updatedAt: Date.now(),
-        messageCount: (session?.messageCount || 0) + 1,
-      });
+        await chatStorageService.updateSession(sessionId, {
+          updatedAt: Date.now(),
+          messageCount: (session?.messageCount || 0) + 1,
+        });
+      } catch (error: any) {
+        console.error('[useChatHandler] Failed to persist user message:', error);
+        isSendingRef.current = false;
+        setStatus('error');
+        return;
+      }
 
       // Create assistant message placeholder
       const assistantMsgId = chatStorageService.generateId();

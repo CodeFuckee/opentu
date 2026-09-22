@@ -312,14 +312,21 @@ export async function executeVideoViaAdapter(
             });
           },
           onSubmitted: (videoId: string) => {
-            void taskStorageWriter.updateRemoteId(
-              taskId,
-              videoId,
-              createTaskInvocationRouteSnapshot(
-                'video',
-                params.modelRef || params.model
+            taskStorageWriter
+              .updateRemoteId(
+                taskId,
+                videoId,
+                createTaskInvocationRouteSnapshot(
+                  'video',
+                  params.modelRef || params.model
+                )
               )
-            );
+              .catch((error) =>
+                console.error(
+                  '[fallback-adapter-routes] updateRemoteId failed:',
+                  error
+                )
+              );
           },
         },
       }

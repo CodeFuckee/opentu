@@ -547,6 +547,12 @@ export const klingAdapter: VideoModelAdapter = {
       attempts += 1;
 
       const status = await queryKlingVideo(context, action2, taskId);
+      // 网关可能返回 200 + 错误体：与提交处同型守卫，避免 TypeError 掩盖真实错误
+      if (!status.data?.task_status) {
+        throw new Error(
+          `可灵任务查询失败: ${JSON.stringify(status.data ?? status).slice(0, 200)}`
+        );
+      }
       const progress =
         status.data.task_status === 'submitted'
           ? 10

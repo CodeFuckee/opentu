@@ -72,7 +72,8 @@ export const CanvasSearch: React.FC<CanvasSearchProps> = ({
     if (!query.trim() || !board) return [];
 
     const allTextElements = collectTextElements(board.children, board);
-    const regex = new RegExp(escapeRegex(query), 'gi');
+    // 不带 g 标志：g 会让 lastIndex 在多次 .test() 间残留，连续命中文本会「隔一漏一」
+    const regex = new RegExp(escapeRegex(query), 'i');
 
     return allTextElements.filter(({ text }) => regex.test(text));
   }, [query, board]);
@@ -97,6 +98,7 @@ export const CanvasSearch: React.FC<CanvasSearchProps> = ({
   useEffect(() => {
     return () => {
       setSearchHighlightQuery('');
+      if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, []);
 

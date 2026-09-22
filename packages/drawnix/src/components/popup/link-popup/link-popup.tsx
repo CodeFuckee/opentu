@@ -12,6 +12,7 @@ import { ReactEditor } from 'slate-react';
 import { LinkEditor } from '@plait/text-plugins';
 import { LinkElement } from '@plait/common';
 import { useBoard } from '@plait-board/react-board';
+import { sanitizeLinkUrl } from '../../../utils/link-url-sanitize';
 
 export const LinkPopup = () => {
   const [url, setUrl] = useState('');
@@ -186,7 +187,7 @@ export const LinkPopup = () => {
           ) : (
             <>
               <a
-                href={url}
+                href={sanitizeLinkUrl(url) ?? undefined}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="link-popup__link"

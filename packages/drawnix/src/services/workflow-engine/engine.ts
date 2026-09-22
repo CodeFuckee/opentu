@@ -310,7 +310,12 @@ export class WorkflowEngine {
     // 更新步骤状态为 running
     step.status = 'running';
     workflow.updatedAt = Date.now();
-    await workflowStorageWriter.saveWorkflow(workflow);
+    // 状态标记持久化失败不应误杀整个步骤（真实执行尚未开始）
+    await workflowStorageWriter
+      .saveWorkflow(workflow)
+      .catch((error) =>
+        console.error('[workflow-engine] saveWorkflow(running) failed:', error)
+      );
 
     this.emitEvent({
       type: 'step',
@@ -405,7 +410,14 @@ export class WorkflowEngine {
           onTaskCreated: (taskId) => {
             // 提前持久化 taskId，页面刷新后 useTaskWorkflowSync 可通过此映射匹配事件
             step.result = { taskId };
-            workflowStorageWriter.saveWorkflow(workflow);
+            workflowStorageWriter
+              .saveWorkflow(workflow)
+              .catch((error) =>
+                console.error(
+                  '[workflow-engine] saveWorkflow(onTaskCreated) failed:',
+                  error
+                )
+              );
           },
         });
 
@@ -439,7 +451,14 @@ export class WorkflowEngine {
           onTaskCreated: (taskId) => {
             // 提前持久化 taskId，页面刷新后 useTaskWorkflowSync 可通过此映射匹配事件
             step.result = { taskId };
-            workflowStorageWriter.saveWorkflow(workflow);
+            workflowStorageWriter
+              .saveWorkflow(workflow)
+              .catch((error) =>
+                console.error(
+                  '[workflow-engine] saveWorkflow(onTaskCreated) failed:',
+                  error
+                )
+              );
           },
         });
 

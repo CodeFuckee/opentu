@@ -145,4 +145,31 @@ describe('record-storage', () => {
     ]);
     expect(onDeleteRecord).toHaveBeenCalledWith({ id: 'b', starred: true, label: 'B' });
   });
+
+  it('serializes concurrent writes so no record is lost', async () => {
+    // 模拟真实 KV 语义：get 读当前已存值，set 覆盖并持久化
+    let stored: TestRecord[] = [];
+    getMock.mockImplementation(async () => stored);
+    setMock.mockImplementation(async (_key: string, value: TestRecord[]) => {
+      stored = value;
+    });
+
+    await Promise.all([
+      addRecordWithCap<TestRecord>(
+        'workflow:concurrent',
+        { id: 'a', starred: false, label: 'A' },
+        10
+      ),
+      addRecordWithCap<TestRecord>(
+        'workflow:concurrent',
+        { id: 'b', starred: false, label: 'B' },
+        10
+      ),
+      updateRecordById<TestRecord>('workflow:concurrent', 'a', { label: 'A2' }),
+    ]);
+
+    const result = await loadRecordsByKey<TestRecord>('workflow:concurrent');
+    expect(result.map((record) => record.id).sort()).toEqual(['a', 'b']);
+    expect(result.find((record) => record.id === 'a')?.label).toBe('A2');
+  });
 });
