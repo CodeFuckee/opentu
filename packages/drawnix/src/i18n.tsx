@@ -35,6 +35,9 @@ export interface Translations {
   'toolbar.eraserShape.square': string;
   'toolbar.laserPointer': string;
   'toolbar.frame': string;
+  'toolbar.insert': string;
+  'toolbar.assetInserted': string;
+  'toolbar.assetInsertFailed': string;
   'toolbar.fillColor': string;
   'toolbar.fontColor': string;
   'toolbar.fontSize': string;
@@ -208,6 +211,9 @@ const translations: Record<Language, Translations> = {
     'toolbar.maskBrush': '蒙版画笔 — Shift+M',
     'toolbar.vectorPen': '钢笔 — Shift+P',
     'toolbar.eraser': '橡皮擦 — E',
+    'toolbar.insert': '插入',
+    'toolbar.assetInserted': '素材已插入到画板',
+    'toolbar.assetInsertFailed': '插入素材失败',
     'toolbar.anchorCorner': '角点',
     'toolbar.anchorSmooth': '平滑点',
     'toolbar.anchorSymmetric': '对称点',
@@ -398,6 +404,9 @@ const translations: Record<Language, Translations> = {
     'toolbar.maskBrush': 'Mask Brush — Shift+M',
     'toolbar.vectorPen': 'Vector Pen — Shift+P',
     'toolbar.eraser': 'Eraser — E',
+    'toolbar.insert': 'Insert',
+    'toolbar.assetInserted': 'Asset inserted to board',
+    'toolbar.assetInsertFailed': 'Failed to insert asset',
     'toolbar.anchorCorner': 'Corner',
     'toolbar.anchorSmooth': 'Smooth',
     'toolbar.anchorSymmetric': 'Symmetric',

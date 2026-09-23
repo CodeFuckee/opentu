@@ -41,6 +41,8 @@ export interface AssetItemProps {
   isSynced?: boolean; // 是否已同步到 Gist
   isFavorite?: boolean;
   onToggleFavorite?: (asset: Asset, event: React.MouseEvent) => void;
+  /** 视图图组数量（>1 时渲染"N 图"角标；官方素材库家居库一组一品用） */
+  imageCount?: number;
 }
 
 export const AssetItem = memo<AssetItemProps>(
@@ -56,6 +58,7 @@ export const AssetItem = memo<AssetItemProps>(
     isSynced,
     isFavorite,
     onToggleFavorite,
+    imageCount,
   }) => {
     // 获取实际文件大小（支持从缓存获取）
     const displaySize = useAssetSize(asset.id, asset.url, asset.size);
@@ -233,6 +236,13 @@ export const AssetItem = memo<AssetItemProps>(
                 <HoverTip content="已同步到云端" showArrow={false}>
                   <div className="asset-item__synced-badge">
                     <Cloud size={10} />
+                  </div>
+                </HoverTip>
+              )}
+              {imageCount != null && imageCount > 1 && (
+                <HoverTip content={`该产品共 ${imageCount} 张视图图`} showArrow={false}>
+                  <div className="asset-item__count-badge">
+                    <span>{imageCount} 图</span>
                   </div>
                 </HoverTip>
               )}

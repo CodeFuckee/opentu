@@ -61,6 +61,19 @@
 - 家居库品类上百个，品类 chips 行单行横向滚动；搜索匹配名称/品类/标签
   （PostgREST or+ilike+cs，supabase-js 自动包 or 括号）。
 - 植物库/配景库（贴图表）行为不变；旧家居库贴图不再展示（表内保留）。
+- （分组显性化）家居库卡片右下角新增"N 图"角标：一个产品一组视图图在网格
+  上可辨识（AssetItem 新增可选 imageCount 徽章，VirtualAssetGrid 经
+  imageCountOf 回调透传，不影响我的素材等其他使用方）；数据层本就一品
+  一行一组图（906 行，行内/跨行零重复），点击预览在组内翻图不变。
+- （Inspector 组图展示）选中家居库产品后，右侧详情面板新增"视图图（N）"
+  缩略图组：点击任一缩略图切换主预览图，"使用/下载"跟随当前选中的视图图；
+  元数据区补品类/标签/尺寸行与"3D 模型"glb 下载链接。实现：Asset 新增可选
+  viewImageUrls/homeMeta 字段（homeMaterialToAsset 填充），MediaLibraryInspector
+  检测到即渲染，其他素材类型不受影响。
+- （修复）快捷创作工具栏打开素材库时，右侧"使用"按钮显示原始键名
+  toolbar.insert：quick-creation-toolbar 走 i18n 取文案，但词典缺
+  toolbar.insert/assetInserted/assetInsertFailed 三键，t() 对缺失键原样
+  返回键名致 `|| '插入'` 兜底失效。已在 i18n 词典补齐三键（zh/en）。
 
 ### fix: 家居库爬虫翻页误判库尾（2026-09-22）
 

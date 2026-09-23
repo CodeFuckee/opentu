@@ -47,6 +47,66 @@
     }
   }
 
+  // ========== 家居库视图图组 ==========
+  &__view-group {
+    margin-top: 10px;
+  }
+
+  &__view-group-header {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--aitu-ui-text-secondary, #64748b);
+    margin-bottom: 6px;
+  }
+
+  &__view-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+
+  &__view-thumb {
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    overflow: hidden;
+    aspect-ratio: 1;
+    background: var(--aitu-ui-surface-subtle, #f8fafc);
+    cursor: pointer;
+    opacity: 0.78;
+    transition:
+      opacity 0.15s ease,
+      border-color 0.15s ease;
+
+    &:hover {
+      opacity: 1;
+    }
+
+    &--active {
+      border-color: var(--aitu-ui-brand, #f39c12);
+      opacity: 1;
+    }
+  }
+
+  &__view-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &__glb-link {
+    color: var(--aitu-ui-brand, #f39c12);
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
   // ========== 预览区域 ==========
   &__preview {
     width: 100%;

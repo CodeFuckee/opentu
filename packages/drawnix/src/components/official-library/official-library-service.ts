@@ -309,7 +309,7 @@ export function homePublicUrl(supabaseUrl: string, path: string): string {
   return `${supabaseUrl.replace(/\/$/, '')}/storage/v1/object/public/jzxz-home-materials/${path}`;
 }
 
-/** 家居库行 → 视图用 Asset（url 取第一张视图图） */
+/** 家居库行 → 视图用 Asset（url 取第一张视图图；携带整组视图与产品元信息） */
 export function homeMaterialToAsset(
   row: HomeMaterialRow,
   supabaseUrl: string
@@ -328,6 +328,14 @@ export function homeMaterialToAsset(
       : 'image/png',
     createdAt: row.created_at ? Date.parse(row.created_at) : 0,
     prompt: undefined,
+    viewImageUrls: homeImageUrls(row, supabaseUrl),
+    homeMeta: {
+      category: row.category,
+      tags: row.tags ?? [],
+      sizeText: row.size_text,
+      glbUrl: row.glb_path ? homePublicUrl(supabaseUrl, row.glb_path) : null,
+      glbName: row.glb_name,
+    },
   };
 }
 

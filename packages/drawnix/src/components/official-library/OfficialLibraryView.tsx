@@ -545,6 +545,11 @@ export function OfficialLibraryView({
               onPreview={handlePreview}
               onLoadMore={loadMore}
               onDoubleClick={onUseAsset}
+              imageCountOf={(asset) => {
+                const extra = homeExtrasRef.current.get(asset.id);
+                const paths = extra?.row.image_paths;
+                return paths && paths.length > 1 ? paths.length : undefined;
+              }}
             />
           </div>
 

@@ -81,6 +81,17 @@ export interface Asset {
   clipId?: string; // 音频片段 ID（仅 AI 音频）
   providerTaskId?: string; // 供应商任务 ID（仅 AI 音频）
   cacheWarning?: CacheWarning; // 缓存失败/不可用提醒
+  viewImageUrls?: string[]; // 视图图组（官方素材库家居库：一个产品一组图）
+  homeMeta?: HomeAssetMeta; // 家居库产品模型元信息（品类/标签/尺寸/glb）
+}
+
+/** 家居库产品模型元信息（官方素材库 home 素材专用，只读展示） */
+export interface HomeAssetMeta {
+  category?: string | null;
+  tags?: string[];
+  sizeText?: string | null;
+  glbUrl?: string | null;
+  glbName?: string | null;
 }
 
 /**

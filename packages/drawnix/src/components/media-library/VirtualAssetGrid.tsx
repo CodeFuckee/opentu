@@ -56,6 +56,8 @@ interface VirtualAssetGridProps {
   onLoadMore?: () => void;
   /** 触发 onLoadMore 的距底阈值（px） */
   loadMoreThresholdPx?: number;
+  /** 视图图组数量（>1 渲染"N 图"角标；不传或返回 undefined 则不显示） */
+  imageCountOf?: (asset: Asset) => number | undefined;
 }
 
 interface MarqueeRect {
@@ -106,6 +108,7 @@ export function VirtualAssetGrid({
   syncedUrls,
   onLoadMore,
   loadMoreThresholdPx = 600,
+  imageCountOf,
 }: VirtualAssetGridProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const marqueeDragRef = useRef<MarqueeDragState | null>(null);
@@ -225,11 +228,12 @@ export function VirtualAssetGrid({
             isSynced={isSynced}
             isFavorite={isFavorite?.(asset.id)}
             onToggleFavorite={onToggleFavorite}
+            imageCount={imageCountOf?.(asset)}
           />
         </div>
       );
     });
-  }, [assets, columns, viewMode, selectedAssetId, isAssetSelected, isSelectionMode, onSelectAsset, onDoubleClick, onPreview, onContextMenu, isFavorite, onToggleFavorite, itemSize.height, syncedUrls]);
+  }, [assets, columns, viewMode, selectedAssetId, isAssetSelected, isSelectionMode, onSelectAsset, onDoubleClick, onPreview, onContextMenu, isFavorite, onToggleFavorite, itemSize.height, syncedUrls, imageCountOf]);
 
   const virtualItems = rowVirtualizer.getVirtualItems();
 

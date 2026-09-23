@@ -3,7 +3,7 @@
  * 素材库详情面板组件
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Button, Dialog, Input, MessagePlugin } from 'tdesign-react';
 import {
   Download,
@@ -76,6 +76,17 @@ export function MediaLibraryInspector({
   const [subjectPrompt, setSubjectPrompt] = useState('');
   const [isSavingSubject, setIsSavingSubject] = useState(false);
   const { board } = useDrawnix();
+
+  // 家居库视图图组：当前主预览图（点击组内缩略图切换；使用/下载跟随当前图）
+  const [activeImageUrl, setActiveImageUrl] = useState<string | null>(null);
+  const activeAssetId = asset?.id;
+  useEffect(() => {
+    setActiveImageUrl(null);
+  }, [activeAssetId]);
+  const viewImageUrls = useMemo(
+    () => (asset?.viewImageUrls ?? []).filter((url) => Boolean(url)),
+    [asset?.viewImageUrls]
+  );
 
   // 获取实际文件大小（支持从缓存获取）
   const displaySize = useAssetSize(asset?.id, asset?.url, asset?.size);
@@ -175,20 +186,21 @@ export function MediaLibraryInspector({
     }
   }, [asset, onDelete]);
 
-  // 下载素材
+  // 下载素材（家居库多视图时下载当前选中的视图图）
   const handleDownload = useCallback(() => {
     if (asset) {
-      onDownload(asset);
+      onDownload(activeImageUrl ? { ...asset, url: activeImageUrl } : asset);
       MessagePlugin.success('开始下载');
     }
-  }, [asset, onDownload]);
+  }, [asset, onDownload, activeImageUrl]);
 
   // 使用到画板
   const handleSelect = useCallback(() => {
     if (asset && onSelect && !selecting) {
-      onSelect(asset);
+      const url = activeImageUrl || asset.url;
+      onSelect(url === asset.url ? asset : { ...asset, url });
     }
-  }, [asset, onSelect, selecting]);
+  }, [asset, onSelect, selecting, activeImageUrl]);
 
   const handleSelectMultiple = useCallback(async () => {
     if (!onSelectMultiple || selectedAssets.length === 0 || selecting) {
@@ -364,12 +376,12 @@ export function MediaLibraryInspector({
           </div>
         ) : asset.type === 'IMAGE' ? (
           <RetryImage
-            src={getThumbnailUrl(normalizedAssetUrl, 'large')}
+            src={getThumbnailUrl(activeImageUrl || normalizedAssetUrl, 'large')}
             alt={asset.name}
             className="media-library-inspector__image"
             fallback={
               <RetryImage
-                src={normalizedAssetUrl}
+                src={activeImageUrl || normalizedAssetUrl}
                 alt={asset.name}
                 className="media-library-inspector__image"
                 showSkeleton={false}
@@ -395,6 +407,39 @@ export function MediaLibraryInspector({
           />
         )}
       </div>
+
+      {/* 家居库视图图组：点击缩略图切换主预览图（使用/下载跟随当前图） */}
+      {viewImageUrls.length > 0 && (
+        <div className="media-library-inspector__view-group">
+          <div className="media-library-inspector__view-group-header">
+            视图图（{viewImageUrls.length}）
+          </div>
+          <div className="media-library-inspector__view-grid">
+            {viewImageUrls.map((url, index) => (
+              <button
+                key={url}
+                type="button"
+                className={`media-library-inspector__view-thumb ${
+                  (activeImageUrl || normalizedAssetUrl) === url
+                    ? 'media-library-inspector__view-thumb--active'
+                    : ''
+                }`}
+                onClick={() => setActiveImageUrl(url)}
+                title={`视图 ${index + 1}`}
+                data-track="inspector_home_view_thumb"
+              >
+                <RetryImage
+                  src={getThumbnailUrl(url, 'small')}
+                  alt={`${asset.name} 视图 ${index + 1}`}
+                  className="media-library-inspector__view-img"
+                  showSkeleton={false}
+                  eager
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 名称编辑 */}
       <div className="media-library-inspector__name-section">
@@ -461,6 +506,44 @@ export function MediaLibraryInspector({
               </div>
             )}
           </>
+        )}
+        {asset.homeMeta?.category && (
+          <div className="media-library-inspector__meta-item">
+            <span className="media-library-inspector__meta-label">品类</span>
+            <span className="media-library-inspector__meta-value">
+              {asset.homeMeta.category}
+            </span>
+          </div>
+        )}
+        {asset.homeMeta?.tags && asset.homeMeta.tags.length > 0 && (
+          <div className="media-library-inspector__meta-item">
+            <span className="media-library-inspector__meta-label">标签</span>
+            <span className="media-library-inspector__meta-value">
+              {asset.homeMeta.tags.join(' / ')}
+            </span>
+          </div>
+        )}
+        {asset.homeMeta?.sizeText && (
+          <div className="media-library-inspector__meta-item">
+            <span className="media-library-inspector__meta-label">尺寸</span>
+            <span className="media-library-inspector__meta-value">
+              {asset.homeMeta.sizeText}
+            </span>
+          </div>
+        )}
+        {asset.homeMeta?.glbUrl && (
+          <div className="media-library-inspector__meta-item">
+            <span className="media-library-inspector__meta-label">3D 模型</span>
+            <a
+              className="media-library-inspector__glb-link"
+              href={asset.homeMeta.glbUrl}
+              target="_blank"
+              rel="noreferrer"
+              data-track="inspector_home_glb_download"
+            >
+              下载 glb
+            </a>
+          </div>
         )}
         <div className="media-library-inspector__meta-item">
           <span className="media-library-inspector__meta-label">创建时间</span>
