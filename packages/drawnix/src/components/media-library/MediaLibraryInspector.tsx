@@ -416,26 +416,30 @@ export function MediaLibraryInspector({
           </div>
           <div className="media-library-inspector__view-grid">
             {viewImageUrls.map((url, index) => (
-              <button
+              <HoverTip
                 key={url}
-                type="button"
-                className={`media-library-inspector__view-thumb ${
-                  (activeImageUrl || normalizedAssetUrl) === url
-                    ? 'media-library-inspector__view-thumb--active'
-                    : ''
-                }`}
-                onClick={() => setActiveImageUrl(url)}
-                title={`视图 ${index + 1}`}
-                data-track="inspector_home_view_thumb"
+                content={`视图 ${index + 1}`}
+                showArrow={false}
               >
-                <RetryImage
-                  src={getThumbnailUrl(url, 'small')}
-                  alt={`${asset.name} 视图 ${index + 1}`}
-                  className="media-library-inspector__view-img"
-                  showSkeleton={false}
-                  eager
-                />
-              </button>
+                <button
+                  type="button"
+                  className={`media-library-inspector__view-thumb ${
+                    (activeImageUrl || normalizedAssetUrl) === url
+                      ? 'media-library-inspector__view-thumb--active'
+                      : ''
+                  }`}
+                  onClick={() => setActiveImageUrl(url)}
+                  data-track="inspector_home_view_thumb"
+                >
+                  <RetryImage
+                    src={getThumbnailUrl(url, 'small')}
+                    alt={`${asset.name} 视图 ${index + 1}`}
+                    className="media-library-inspector__view-img"
+                    showSkeleton={false}
+                    eager
+                  />
+                </button>
+              </HoverTip>
             ))}
           </div>
         </div>
