@@ -21,6 +21,34 @@ const VARIABLE_GETTERS: Record<TemplateVariable, () => string> = {
 };
 
 /**
+ * 允许注入敏感模板变量（${apiKey}/${baseUrl}）的可信工具源白名单。
+ *
+ * 工具元素 URL 随画板数据流转（导入/粘贴/自定义添加），来源不可信：
+ * 不设白名单时，恶意分享的画板可以用 ${apiKey} 模板把用户 Key 注入任意
+ * 第三方站点并收割。当前仅内置的 ChatGPT-Next-Web 式绘图工具需要在
+ * URL 中携带 Key（该站点的 settings 协议只认 URL 参数，属既定接受风险）。
+ */
+const TRUSTED_TEMPLATE_ORIGINS = new Set(['https://vercel.ddaiai.com']);
+
+function isTrustedTemplateOrigin(url: string): boolean {
+  try {
+    return TRUSTED_TEMPLATE_ORIGINS.has(new URL(url).origin);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 变量是否允许注入到该 URL：非敏感变量恒允许；敏感变量仅对可信源生效
+ */
+function canInjectVariable(url: string, variableName: string): boolean {
+  if (variableName !== 'apiKey' && variableName !== 'baseUrl') {
+    return true;
+  }
+  return isTrustedTemplateOrigin(url);
+}
+
+/**
  * 检查 URL 是否包含模板变量
  * @param url URL 字符串
  * @returns 是否包含模板变量
@@ -55,6 +83,10 @@ export function getMissingVariables(url: string): string[] {
   const missing: string[] = [];
 
   for (const variable of variables) {
+    // 不可信源的敏感变量不注入也不提示缺失（避免引导用户配置一个永远不会被使用的 Key）
+    if (!canInjectVariable(url, variable)) {
+      continue;
+    }
     const getter = VARIABLE_GETTERS[variable as TemplateVariable];
     if (getter) {
       const value = getter();
@@ -72,17 +104,22 @@ export function getMissingVariables(url: string): string[] {
 
 /**
  * 替换 URL 中的模板变量
+ * 敏感变量（apiKey/baseUrl）仅注入可信源白名单；其余来源一律替换为空串，
+ * 杜绝 Key 经画板流转的任意工具 URL 外发
  * @param url URL 字符串
  * @returns 替换后的 URL
  */
 export function replaceTemplateVariables(url: string): string {
   return url.replace(/\$\{(\w+)\}/g, (match, variableName) => {
     const getter = VARIABLE_GETTERS[variableName as TemplateVariable];
-    if (getter) {
-      const value = getter();
-      return value || match; // 如果值为空，保留原始模板
+    if (!getter) {
+      return match; // 不支持的变量保留原始模板
     }
-    return match; // 不支持的变量保留原始模板
+    if (!canInjectVariable(url, variableName)) {
+      return '';
+    }
+    const value = getter();
+    return value || match; // 如果值为空，保留原始模板
   });
 }
 

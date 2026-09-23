@@ -1283,10 +1283,21 @@ class SettingsManager {
     if (typeof window === 'undefined') return;
 
     try {
+      // hash 变体（#apiKey= / #settings=）为推荐形式：fragment 不会发送到
+      // 服务器，不进 Web 服务器/代理访问日志；query 变体（?apiKey=）仅保留
+      // 兼容既有分发链接，使用时给出一次提示。两者同时存在时 hash 优先。
+      const hashParams = new URLSearchParams(
+        window.location.hash.replace(/^#\//, '').replace(/^\?/, '')
+      );
       const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('apiKey') || urlParams.has('settings')) {
+        console.warn(
+          '[settings] 检测到 query 形式的密钥参数（?apiKey=/?settings=），会经服务器/代理访问日志泄露；请改用 #apiKey= / #settings= 形式'
+        );
+      }
 
       // 处理settings参数
-      const settingsParam = urlParams.get('settings');
+      const settingsParam = hashParams.get('settings') ?? urlParams.get('settings');
       if (settingsParam) {
         const decoded = decodeURIComponent(settingsParam);
         const urlSettings = JSON.parse(decoded);
@@ -1302,16 +1313,19 @@ class SettingsManager {
 
       // 处理apiKey参数
       // updateSetting 已有占位符检查，会自动忽略无效值
-      const apiKey = urlParams.get('apiKey');
+      const apiKey = hashParams.get('apiKey') ?? urlParams.get('apiKey');
       if (apiKey) {
         this.updateSetting('gemini.apiKey', apiKey);
       }
 
-      // 清除URL参数
+      // 清除 URL 中的密钥参数（query 与 hash 一并清掉，避免刷新/回退/引用泄露）
       if (settingsParam || apiKey) {
         const url = new URL(window.location.href);
         url.searchParams.delete('settings');
         url.searchParams.delete('apiKey');
+        if (hashParams.has('apiKey') || hashParams.has('settings')) {
+          url.hash = '';
+        }
         window.history.replaceState({}, document.title, url.toString());
       }
     } catch (error) {
@@ -1578,10 +1592,13 @@ class SettingsManager {
 
     // 触发全局事件，用于画布中的工具 URL 模板刷新
     // 当 gemini 相关设置变化时（如 apiKey、baseUrl）
+    // 注意：detail 只带变化路径，不带新旧值——事件对同窗口全部脚本可见，
+    // 携带明文 Key 等于向所有扩展/脚本广播凭据；消费方需要值时经
+    // geminiSettings.get() 按需读取
     if (path.startsWith('gemini') && typeof window !== 'undefined') {
       window.dispatchEvent(
         new CustomEvent('gemini-settings-changed', {
-          detail: { path, newValue, oldValue },
+          detail: { path },
         })
       );
     }

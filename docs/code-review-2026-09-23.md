@@ -154,6 +154,14 @@
 1. **[P0 家族，上两轮维持] apiKey 四路扩散**（built-in-manifests URL 拼接 / with-tool iframe 广播 /
    settings-manager URL 参数与 CustomEvent / newapi-key oaAccount 接管）——需「按需下发+仅内存持有」
    统一设计。
+   **→ 2026-09-23 用户拍板后已修（本地待过目推送）**：①模板注入加可信源白名单
+   （`url-template.ts` TRUSTED_TEMPLATE_ORIGINS，当前仅内置 vercel.ddaiai.com；画板流转的任意
+   URL/自定义工具不再注入敏感变量、也不诱导配置 Key，附 6 例单测）；②initTool 广播去掉
+   apiKey（协议在仓库内无第一方实现方，零功能影响）；③`?apiKey=` 保留兼容并提示改用新增的
+   `#apiKey=/#settings=` hash 形式（fragment 不进服务器访问日志），读后照旧清除 URL；④
+   `gemini-settings-changed` 事件 detail 去掉明文值只留 path（唯一消费方不读 detail，零行为
+   变化）。遗留：newapi-key oaAccount 接管（服务端）仍待拍板；ddaiai 内置工具本身向该第三方
+   提供Key 属既定接受风险，建议为该用途使用受限额度 Key。
 2. **[P0] WIP 明文密码回写**（auth-context.tsx recordAccountPassword + user_profiles_add_password.sql）：
    维持前两轮「建议放弃」原判。
 3. **[P1 资损族]** ai-proxy record_task_bill clone 必抛；reconcile-worker 补扣/退款静默吞错；

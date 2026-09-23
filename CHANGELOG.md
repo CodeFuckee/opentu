@@ -1,5 +1,22 @@
 ## Unreleased
 
+### fix: apiKey 不再经四路通道扩散（用户拍板待确认项 #1，2026-09-23）
+
+- **第三方工具 URL 模板白名单**：`${apiKey}/${baseUrl}` 模板变量只对可信源白名单
+  （当前仅内置 vercel.ddaiai.com 绘图工具）注入；随画板数据流转的任意 URL
+  （导入/粘贴/自定义添加）不再注入敏感变量、也不诱导用户为其配置 Key——
+  恶意分享的画板无法再把用户 Key 收割到任意第三方站点（新增 6 例单测）。
+- **工具 iframe 初始化广播去掉 apiKey**：with-tool 的 BOARD_TO_TOOL_INIT
+  载荷不再携带 apiKey（该消息协议在仓库内无第一方工具实现，零功能影响）。
+- **URL 密钥参数支持 hash 形式**：新增 `#apiKey=/#settings=`（fragment 不进
+  服务器/代理访问日志，推荐）；`?apiKey=` 保留兼容并给出一次迁移提示；
+  读取后照旧立即从地址栏清除。
+- **设置变更事件去载荷**：`gemini-settings-changed` 事件 detail 不再携带
+  明文新旧值，只留变化路径（唯一消费方 tool-generator 本就不读值，需要时
+  经 geminiSettings.get() 按需读取）。
+- 已知接受风险：内置 ddaiai 工具的协议本身要求把 Key 放进其 URL fragment，
+  该第三方页面可读取——建议为该用途使用受限额度的 Key。
+
 ### refactor: 第七轮全仓库代码评审——行为保持修复三批（2026-09-23）
 
 - 评审方法与完整问题清单见 `docs/code-review-2026-09-23.md`：8 分区只读深评

@@ -65,12 +65,13 @@ function setupCommunicationHandlers(
     // 获取当前的 Gemini 设置
     const settings = geminiSettings.get();
 
-    // 发送初始化配置（包含 API key 等敏感信息）
+    // 发送初始化配置。注意：不得携带 apiKey 等凭据——工具 iframe 来源不可信
+    //（画板数据可携带任意 URL），Key 广播会被第三方页面直接读取。
+    // 内置需要 Key 的工具（如 ddaiai 绘图）经 url-template 的可信源白名单按需注入。
     helper.initTool(toolId, {
       boardId: (board as any).id || 'default-board',
       theme: 'light', // TODO: 从应用状态获取实际主题
       config: {
-        apiKey: settings.apiKey,
         baseUrl: settings.baseUrl,
         imageModel: settings.imageModelName || 'gemini-2.5-flash-image-vip',
       },
