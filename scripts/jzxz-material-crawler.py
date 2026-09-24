@@ -108,7 +108,10 @@ HARVEST_GRID = r"""
   const seen = new Set();
   const push = (raw) => {
     if (!raw) return;
-    const m = raw.match(/https:\/\/[^"')]*soutushenqi\.com[^"')]*/);
+    // 素材图域名实测不止一个：贴图走 soutushenqi，动物/总平等分类走
+    // image-assets.jianzhuxuezhang.com（2026-09-25 探针实证）；其余
+    // ai-assets/web-assets 等是页面 UI 图，不能放行
+    const m = raw.match(/https:\/\/[^"')]*(soutushenqi\.com|image-assets\.jianzhuxuezhang\.com)[^"')]*/i);
     if (!m) return;
     const clean = m[0].split('?')[0];
     const stem = clean.split('/').pop().replace(/\.[a-z]+$/i, '');
@@ -633,6 +636,9 @@ def crawl():
     headless = (not ARGS.headed) and bool(cfg.get("headless", True))
 
     opts = Options()
+    bin_loc = cfg.get("chrome_binary")
+    if bin_loc:
+        opts.binary_location = bin_loc
     profile_dir = Path(cfg.get("chrome_profile_dir", str(PROFILE_DIR_DEFAULT))).resolve()
     profile_dir.mkdir(parents=True, exist_ok=True)
     opts.add_argument(f"--user-data-dir={profile_dir}")
@@ -683,6 +689,10 @@ def crawl():
             time.sleep(1)
             inputs = driver.find_elements(By.CSS_SELECTOR, "input[type='file']")
         if not inputs:
+            try:
+                driver.save_screenshot("data/jzxz-captured/entry-fail.png")
+            except Exception:
+                pass
             sys.exit("未找到 input[type=file]（上传对话框未弹出，20s 超时）")
         driver.execute_script("arguments[0].style.display='block';", inputs[0])
         inputs[0].send_keys(str(probe))
@@ -699,10 +709,25 @@ def crawl():
         log("贴图面板已就绪")
 
         for gallery in GALLERIES:
-            tab_spans = [e for e in driver.find_elements(
-                By.XPATH, f"//span[contains(@class,'tab_btn')][normalize-space(text())='{gallery}']") if e.is_displayed()]
+            # tab 行可能晚于面板就绪渲染，且有运营弹窗遮挡：重试等待可见
+            tab_spans = []
+            for _tab_wait in range(8):
+                tab_spans = [e for e in driver.find_elements(
+                    By.XPATH, f"//span[contains(@class,'tab_btn')][normalize-space(text())='{gallery}']") if e.is_displayed()]
+                if tab_spans:
+                    break
+                driver.execute_script(
+                    "document.querySelector(\"button[class*='close']\")?.click();")
+                time.sleep(2)
             if not tab_spans:
                 log(f"[warn] {gallery}: tab 不可见，跳过")
+                if gallery == GALLERIES[0]:
+                    try:
+                        DATA_DIR.mkdir(parents=True, exist_ok=True)
+                        driver.save_screenshot(str(DATA_DIR / "tab-invisible.png"))
+                        log("[diag] 现场已存 data/jzxz-captured/tab-invisible.png")
+                    except Exception:
+                        pass
                 continue
             tab_ok = False
             for _tab_try in range(4):
@@ -755,28 +780,44 @@ def crawl():
                     time.sleep(delay)
                 continue
 
-            # 配景库：两阶段（枚举映射 → 逐 tag 爬取）
+            # 配景库：逐分类处理——每个分类前重开面板（dd1b6f08 的设计意图，
+            # 此前 open_panel 未接线），分类 chip 用 chip_element 滚入可视区
+            # （swiper 虚拟渲染下屏幕外 slide 不在 DOM，按文本直找必然落空）
             log("== 配景库 ==")
             cate_names = [t for t in enumerate_row_texts(driver, "first_cate_list") if len(t) <= 12]
             if categories:
                 cate_names = [c for c in cate_names if c in categories]
             log(f"分类：{cate_names}")
 
-            cat_tags = {}
             for cate in cate_names:
+                try:
+                    open_panel(driver, page_url)
+                except Exception as exc:
+                    log(f"  [warn] {cate}: 面板重开失败（{exc}），跳过")
+                    continue
+                # 重开面板后回到配景库 tab
+                tab_ok = False
+                for _tab_try in range(5):
+                    tabs_now = [e for e in driver.find_elements(
+                        By.XPATH, "//span[contains(@class,'tab_btn')][normalize-space(text())='配景库']") if e.is_displayed()]
+                    if tabs_now and "active" in (tabs_now[0].get_attribute("class") or ""):
+                        tab_ok = True
+                        break
+                    if tabs_now:
+                        real_click(driver, tabs_now[0])
+                    time.sleep(2.5)
+                if not tab_ok:
+                    log(f"  [warn] {cate}: 重开面板后配景库 tab 未就位，跳过")
+                    continue
+                drain(driver)
+                # 点一级分类：chip_element 滚入可视区，以子分类行变化/已知 tag 验证
                 before_sub = subcate_texts(driver)
                 known = CATE_TAGS.get(cate, set())
-                ok = False
-                cur_sub0 = subcate_texts(driver)
-                if any(t in known for t in cur_sub0 if t):
-                    # 已是该分类（面板默认选中/重进面板）：无需点击
-                    ok = True
+                ok = any(t in known for t in before_sub if t)
                 for _attempt in range(6):
                     if ok:
                         break
-                    slide = next((e for e in driver.find_elements(
-                        By.XPATH, "//div[contains(@class,'first_cate_list')]//*[contains(@class,'swiper-slide')]")
-                        if (e.text or "").strip() == cate), None)
+                    slide = chip_element(driver, "first_cate_list", cate)
                     if slide is None:
                         time.sleep(1)
                         continue
@@ -794,15 +835,11 @@ def crawl():
                     if ok:
                         break
                     time.sleep(1.5)
-                if ok:
-                    cat_tags[cate] = [t for t in enumerate_row_texts(driver, "sub_cate_list") if len(t) <= 12]
-                    CATE_TAGS.setdefault(cate, set()).update(cat_tags[cate])
-                    log(f"  枚举 {cate}: {len(cat_tags[cate])} tags")
-                else:
+                if not ok:
                     log(f"  [warn] {cate}: 分类点击未生效，跳过")
-            log(f"枚举完成: {[(c, len(t)) for c, t in cat_tags.items()]}")
-
-            for cate, tags in cat_tags.items():
+                    continue
+                tags = [t for t in enumerate_row_texts(driver, "sub_cate_list") if len(t) <= 12]
+                CATE_TAGS.setdefault(cate, set()).update(tags)
                 processed_tag = set()
                 log(f"== 爬取 {cate}（{len(tags)} tags）==")
                 for tag in tags:
@@ -822,6 +859,21 @@ def crawl():
                         gallery, cate, tag)
                     matched = merge_into_result(matched, dom_items, gallery, cate, tag)
                     if not matched:
+                        # 留现场：一致失败的 tag 需要看面板当时到底显示了什么
+                        if stats.get("nodata_dumped", 0) < 3:
+                            stats["nodata_dumped"] = stats.get("nodata_dumped", 0) + 1
+                            try:
+                                DATA_DIR.mkdir(parents=True, exist_ok=True)
+                                driver.save_screenshot(str(DATA_DIR / "tag-nodata.png"))
+                                (DATA_DIR / "tag-nodata.json").write_text(json.dumps({
+                                    "cate": cate, "tag": tag,
+                                    "sub_row": subcate_texts(driver),
+                                    "body_text": (driver.execute_script(
+                                        "return (document.body.innerText||'');") or "")[:2000],
+                                }, ensure_ascii=False, indent=2), encoding="utf-8")
+                                log(f"    [diag] 无响应现场已存 tag-nodata.png/json")
+                            except Exception:
+                                pass
                         log(f"    [warn] {cate}/{tag}: 无响应且无网格，跳过")
                         continue
                     known_streak = 0
