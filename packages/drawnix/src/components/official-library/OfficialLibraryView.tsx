@@ -627,13 +627,17 @@ export function OfficialLibraryView({
               {!onUseAsset && (
                 <span className="media-library-grid__footer-hint">双击预览</span>
               )}
-              <span
-                className="media-library-grid__footer-hint"
-                data-testid="official-library-build-info"
-                title={`代码版本 ${__APP_VERSION__}（构建于 ${formatBuildTime()}）`}
+              <HoverTip
+                content={`代码版本 ${__APP_VERSION__}（构建于 ${formatBuildTime()}）`}
+                showArrow={false}
               >
-                代码版本 {__APP_VERSION__}（{formatBuildTime()}）
-              </span>
+                <span
+                  className="media-library-grid__footer-hint"
+                  data-testid="official-library-build-info"
+                >
+                  代码版本 {__APP_VERSION__}（{formatBuildTime()}）
+                </span>
+              </HoverTip>
             </div>
           </div>
         </>
