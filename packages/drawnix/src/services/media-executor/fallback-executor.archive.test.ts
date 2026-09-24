@@ -20,6 +20,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { ImageGenerationParams } from './types';
 
 const archiveGeneratedMediaToSupabase = vi.fn(async () => undefined);
+const registerGeneratedMediaArchive = vi.fn();
 const completeTask = vi.fn(async () => undefined);
 const failTask = vi.fn(async () => undefined);
 const updateStatus = vi.fn(async () => undefined);
@@ -56,6 +57,7 @@ const generateAsyncImage = vi.fn();
 
 vi.mock('../task-supabase-archive/service', () => ({
   archiveGeneratedMediaToSupabase,
+  registerGeneratedMediaArchive,
 }));
 
 vi.mock('./task-storage-writer', () => ({
@@ -145,8 +147,8 @@ describe('REPRO: fallback-executor 生图完成点未把生成图片归档到 hu
     expect(cacheRemoteUrls).toHaveBeenCalled();
     expect(completeTask).toHaveBeenCalled();
     // BUG：生成图片只落在本地缓存，没有任何上传归档 → bucket 永远没有生成图
-    expect(archiveGeneratedMediaToSupabase).toHaveBeenCalledTimes(1);
-    expect(archiveGeneratedMediaToSupabase).toHaveBeenCalledWith(
+    expect(registerGeneratedMediaArchive).toHaveBeenCalledTimes(1);
+    expect(registerGeneratedMediaArchive).toHaveBeenCalledWith(
       'task-direct-1',
       expect.arrayContaining([
         expect.stringMatching(/^\/__aitu_cache__\/image\/task-direct-1/),
@@ -173,8 +175,8 @@ describe('REPRO: fallback-executor 生图完成点未把生成图片归档到 hu
     expect(cacheRemoteUrl).toHaveBeenCalled();
     expect(completeTask).toHaveBeenCalled();
     // BUG：异步生图完成后同样没有归档上传
-    expect(archiveGeneratedMediaToSupabase).toHaveBeenCalledTimes(1);
-    expect(archiveGeneratedMediaToSupabase).toHaveBeenCalledWith(
+    expect(registerGeneratedMediaArchive).toHaveBeenCalledTimes(1);
+    expect(registerGeneratedMediaArchive).toHaveBeenCalledWith(
       'task-async-1',
       ['/__aitu_cache__/image/task-async-1.png']
     );

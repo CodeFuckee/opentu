@@ -14,6 +14,10 @@
 import { useEffect, useRef } from 'react';
 import type { Point } from '@plait/core';
 import { getTaskQueueService } from '../services/task-queue';
+import {
+  ensureGeneratedMediaArchive,
+  GENERATED_ARCHIVE_WAIT_MS,
+} from '../services/task-supabase-archive/service';
 import { workflowCompletionService } from '../services/workflow-completion-service';
 import { resolveAudioResultUrls } from '../services/audio-task-result-utils';
 import { Task, TaskStatus, TaskType } from '../types/task.types';
@@ -561,21 +565,18 @@ export function useAutoInsertToCanvas(
         }
 
         const {
-          insertionPoint: resolvedInsertionPoint,
+          insertionPoint: resolvedInsertionPointRaw,
           targetFrameId,
           targetFrameDimensions,
           imageAnchor: scopedImageAnchor,
         } = resolvePendingInsertContext(board, firstInsertTask);
+        // 空画布等场景解析不到插入点——回退画布原点（此前会静默丢弃整组任务）
+        let resolvedInsertionPoint: Point = resolvedInsertionPointRaw ?? [0, 0];
 
         if (!resolvedInsertionPoint) {
-          for (const { task } of inserts) {
-            releaseTaskInsertion(task.id);
-            workflowCompletionService.failPostProcessing(
-              task.id,
-              'No insertion point available'
-            );
-          }
-          continue;
+          console.warn(
+            `[AutoInsert][诊断] ${firstInsertTask.id} 未解析到插入点（空画布），已回退画布原点`
+          );
         }
 
         // 注册所有任务
@@ -588,6 +589,76 @@ export function useAutoInsertToCanvas(
             task.id,
             inserts.length === 1 ? 'direct_insert' : 'group_insert'
           );
+        }
+
+        // 方案 1：图片任务等待生成媒体归档完成后，把 result.url/urls 替换为
+        // 公开桶直链（超时/未登录/归档失败回退原 URL 立即插入）
+        for (const insert of inserts) {
+          const { task } = insert;
+          if (task.type !== TaskType.IMAGE) continue;
+          try {
+            const urls = task.result?.urls?.length
+              ? task.result.urls
+              : task.result?.url
+              ? [task.result.url]
+              : [];
+            console.log(
+              `[AutoInsert][诊断] ${task.id} 进入归档等待（${urls.length} 个 URL，上限 180s）`
+            );
+            const archived = await ensureGeneratedMediaArchive(
+              task.id,
+              urls,
+              GENERATED_ARCHIVE_WAIT_MS
+            );
+            console.log(
+              `[AutoInsert][诊断] ${task.id} 归档等待结束: entries=${archived?.length ?? 'null'}`
+            );
+            if (!archived || archived.length === 0) {
+              console.warn(
+                '[AutoInsert] 归档不可用（未登录/超时/失败），使用原 URL 插入:',
+                task.id
+              );
+              continue;
+            }
+            const publicBySource = new Map<string, string>();
+            for (const entry of archived) {
+              if (entry.storagePath && entry.publicUrl) {
+                publicBySource.set(entry.sourceUrl, entry.publicUrl);
+              }
+            }
+            if (publicBySource.size === 0) {
+              console.warn(
+                '[AutoInsert] 归档条目缺少公开 URL，使用原 URL 插入:',
+                task.id
+              );
+              continue;
+            }
+            const mapUrl = (u: string) => publicBySource.get(u) ?? u;
+            if (!task.result) continue;
+            const result = { ...task.result };
+            if (typeof result.url === 'string' && result.url) {
+              result.url = mapUrl(result.url);
+            }
+            if (Array.isArray(result.urls)) {
+              result.urls = result.urls.map(mapUrl);
+            }
+            const publicUrls = urls.map((u) => publicBySource.get(u));
+            if (publicUrls.some(Boolean)) {
+              result.public_urls = publicUrls;
+              result.public_url = publicUrls[0];
+            }
+            insert.task = { ...task, result };
+            console.log(
+              '[AutoInsert] 归档完成，画布改用公开桶 URL:',
+              result.url
+            );
+            // 同步内存任务：任务列表缩略图/链接立刻改用公开直链
+            getTaskQueueService().updateTaskStatus(task.id, TaskStatus.COMPLETED, {
+              result: { ...result },
+            });
+          } catch (error) {
+            console.warn('[AutoInsert] 等待归档失败，使用原 URL 插入:', error);
+          }
         }
 
         try {
@@ -1348,18 +1419,23 @@ export function useAutoInsertToCanvas(
         !!linkedImageAnchor;
 
       if (!shouldAutoInsert) {
+        console.log(
+          `[AutoInsert][诊断] 跳过 ${task.id}: autoInsertToCanvas=${!!task.params.autoInsertToCanvas} linkedWorkzone=${!!linkedWorkzone} linkedImageAnchor=${!!linkedImageAnchor}`
+        );
         return;
       }
 
       // 检查是否已经插入过（内存中的记录）
       if (insertedTaskIds.has(task.id)) {
-        // console.log(`[AutoInsert] Task ${task.id} skipped: already in insertedTaskIds (memory)`);
+        console.log(`[AutoInsert][诊断] 跳过 ${task.id}: 内存中已插入`);
         return;
       }
 
       // 检查是否已经插入过（持久化的标记）
       if (task.insertedToCanvas) {
-        // console.log(`[AutoInsert] Task ${task.id} skipped: insertedToCanvas flag is true (persisted)`);
+        console.log(
+          `[AutoInsert][诊断] 跳过 ${task.id}: 已有 insertedToCanvas 持久标记`
+        );
         insertedTaskIds.add(task.id);
         return;
       }
@@ -1367,11 +1443,13 @@ export function useAutoInsertToCanvas(
       const postProcessingStatus =
         workflowCompletionService.getPostProcessingStatus(task.id)?.status;
       if (postProcessingStatus === 'completed') {
+        console.log(`[AutoInsert][诊断] 跳过 ${task.id}: 后处理已完成`);
         insertedTaskIds.add(task.id);
         return;
       }
 
       if (postProcessingStatus === 'processing') {
+        console.log(`[AutoInsert][诊断] 等待 ${task.id}: 后处理进行中`);
         return;
       }
 
@@ -1382,6 +1460,9 @@ export function useAutoInsertToCanvas(
         task.type !== TaskType.AUDIO &&
         task.type !== TaskType.CHAT
       ) {
+        console.log(
+          `[AutoInsert][诊断] 跳过 ${task.id}: 类型 ${task.type} 不支持自动插入`
+        );
         return;
       }
 
@@ -1392,8 +1473,11 @@ export function useAutoInsertToCanvas(
         !isLyricsTask(task) &&
         !task.result?.chatResponse
       ) {
+        console.log(`[AutoInsert][诊断] 跳过 ${task.id}: 无结果 URL`);
         return;
       }
+
+      console.log(`[AutoInsert][诊断] ${task.id} 通过检查，加入待插入队列`);
 
       // console.log(`[AutoInsert] Task ${task.id} passed all checks, will be inserted`);
 

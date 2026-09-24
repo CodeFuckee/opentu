@@ -352,6 +352,28 @@ export const TaskItem: React.FC<TaskItemProps> = React.memo(
       ? `${cacheWarning.message}${cacheWarning.expiresHint ? `\n${cacheWarning.expiresHint}` : ''}`
       : '';
 
+    // 方案 1：归档公开桶直链 → imgproxy 实时压缩缩略图
+    // （webp ~8KB；原图 2~6MB 不再进任务列表；画布大图仍为原图直链）
+    const aiOutputsPublicUrl =
+      task.type === TaskType.IMAGE
+        ? task.result?.public_urls?.find(
+            (u) =>
+              typeof u === 'string' &&
+              u.includes('/storage/v1/object/public/ai-outputs/')
+          ) ||
+          (task.result?.public_url?.includes(
+            '/storage/v1/object/public/ai-outputs/'
+          )
+            ? task.result.public_url
+            : undefined)
+        : undefined;
+    const compressedThumbnailUrl = aiOutputsPublicUrl
+      ? `${aiOutputsPublicUrl.replace(
+          '/storage/v1/object/public/',
+          '/storage/v1/render/image/public/'
+        )}?width=240&height=240&format=webp`
+      : undefined;
+
     // Use original URL or cached URL (Service Worker handles caching automatically)
     const mediaCount = isLyricsTask
       ? 0
@@ -373,8 +395,9 @@ export const TaskItem: React.FC<TaskItemProps> = React.memo(
       : mediaUrl;
 
     // 获取预览图URL（任务列表使用小尺寸）
+    // 归档公开桶的图片优先用 imgproxy 压缩缩略图（useThumbnailUrl 对外部 URL 原样放行）
     const thumbnailUrl = useThumbnailUrl(
-      previewMediaUrl,
+      compressedThumbnailUrl ?? previewMediaUrl,
       task.type === TaskType.IMAGE ? 'image' : undefined,
       'small' // 任务列表使用小尺寸预览图
     );

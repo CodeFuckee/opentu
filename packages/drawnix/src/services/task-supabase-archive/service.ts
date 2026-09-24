@@ -462,11 +462,192 @@ export interface GeneratedMediaArchiveEntry {
   sourceUrl: string;
   /** 归档后可稳定展示的内容寻址虚拟路径（无有效字节/缓存失败时与 sourceUrl 相同） */
   stableUrl: string;
-  /** huabu bucket 存储路径（上传失败为 null） */
+  /** 公开桶存储路径（上传失败为 null） */
   storagePath: string | null;
   /** 实际字节数 */
   size: number;
+  /** 公开桶直链（画布/素材展示用；上传失败为 undefined） */
+  publicUrl?: string;
 }
+
+/** 生成结果交付公开桶（huabu 为私有桶不直接外链；公开读 + 认证写） */
+const GENERATED_PUBLIC_BUCKET = 'ai-outputs';
+
+/** 公开桶直链：画布 <img> 与素材展示直接使用（HTTP 内网部署下同样可用） */
+export function buildGeneratedMediaPublicUrl(
+  supabaseUrl: string,
+  storagePath: string
+): string {
+  return `${supabaseUrl.replace(/\/$/, '')}/storage/v1/object/public/${GENERATED_PUBLIC_BUCKET}/${storagePath}`;
+}
+
+// 归档产出映射：sourceUrl/stableUrl → 公开桶直链（页面生命周期内复用）
+const publicUrlBySource = new Map<string, string>();
+
+function recordArchiveEntries(entries: GeneratedMediaArchiveEntry[]): void {
+  for (const entry of entries) {
+    if (!entry.publicUrl) {
+      continue;
+    }
+    if (entry.sourceUrl) {
+      publicUrlBySource.set(entry.sourceUrl, entry.publicUrl);
+    }
+    if (entry.stableUrl && entry.stableUrl !== entry.sourceUrl) {
+      publicUrlBySource.set(entry.stableUrl, entry.publicUrl);
+    }
+  }
+}
+
+// 进行中的生成媒体归档（按内容 URL 与 taskId 双键去重）：
+// 任务可能在 SW 或页面执行，但归档配置只在页面注册——插入方统一在页面侧
+// `ensureGeneratedMediaArchive` 补归档并等待，拿到公开桶直链后再插入。
+const pendingByUrls = new Map<string, Promise<GeneratedMediaArchiveEntry[]>>();
+const pendingByTask = new Map<string, Promise<GeneratedMediaArchiveEntry[]>>();
+const pendingList: Array<{
+  urls: string[];
+  promise: Promise<GeneratedMediaArchiveEntry[]>;
+}> = [];
+
+function startGeneratedMediaArchive(
+  taskId: string,
+  urls: string[]
+): Promise<GeneratedMediaArchiveEntry[]> {
+  const urlsKey = urls.join('|');
+  const existing =
+    pendingByUrls.get(urlsKey) ??
+    (taskId ? pendingByTask.get(taskId) : undefined);
+  if (existing) {
+    return existing;
+  }
+  const pending = archiveGeneratedMediaToSupabase(taskId, urls)
+    .then((entries) => {
+      recordArchiveEntries(entries);
+      return entries;
+    })
+    .finally(() => {
+      pendingByUrls.delete(urlsKey);
+      const idx = pendingList.findIndex((p) => p.promise === pending);
+      if (idx >= 0) {
+        pendingList.splice(idx, 1);
+      }
+      if (taskId) {
+        pendingByTask.delete(taskId);
+      }
+    });
+  pendingByUrls.set(urlsKey, pending);
+  pendingList.push({ urls: [...urls], promise: pending });
+  if (taskId) {
+    pendingByTask.set(taskId, pending);
+  }
+  return pending;
+}
+
+/**
+ * 注册 fire-and-forget 归档（执行器/completeTask 收敛点调用）。
+ * 与 ensureGeneratedMediaArchive 共享去重，不会双重上传。
+ */
+export function registerGeneratedMediaArchive(
+  taskId: string,
+  urls: string[]
+): void {
+  startGeneratedMediaArchive(taskId, urls);
+}
+
+/**
+ * 页面侧兜底：确保该组 URL 的归档已启动并等待完成（或超时）。
+ * - SW 执行模式：SW 内无归档配置会静默跳过，由页面在此补归档；
+ * - 未登录：config 缺失归档跳过（entries 为空），调用方回退原 URL；
+ * - 超时/抛错：返回 null，不阻塞插入。
+ */
+export async function ensureGeneratedMediaArchive(
+  taskId: string | null,
+  urls: string[],
+  timeoutMs: number
+): Promise<GeneratedMediaArchiveEntry[] | null> {
+  const usable = urls.filter(
+    (u) => u && !u.startsWith('/__aitu_cache__/')
+  );
+  if (usable.length === 0) {
+    return null;
+  }
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), timeoutMs);
+  });
+  try {
+    return await Promise.race([
+      startGeneratedMediaArchive(taskId ?? '', usable),
+      timeout,
+    ]);
+  } catch (error) {
+    console.warn('[TaskArchive] 等待归档失败（回退原 URL 插入）:', error);
+    return null;
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
+}
+
+/** 画布插入等待归档的时长上限：实测 48s~94s 不等（受上游拉取速度/图片体积影响），取 180s 余量 */
+export const GENERATED_ARCHIVE_WAIT_MS = 180_000;
+
+/**
+ * 画布插入统一 URL 解析（最底层收敛点，零副作用）：
+ * - 本会话已归档的 URL → 命中映射，立即返回公开桶直链；
+ * - 归档进行中 → 等待其完成后返回直链；
+ * - 其余 URL（通用外部图、data:、本地虚拟路径等）→ 原样返回，行为不变。
+ */
+export async function resolveGeneratedMediaPublicUrl(
+  url: string,
+  options?: { waitIfPending?: boolean; timeoutMs?: number }
+): Promise<string> {
+  if (
+    !url ||
+    (!url.startsWith('http://') && !url.startsWith('https://')) ||
+    url.includes('/object/public/ai-outputs/')
+  ) {
+    return url;
+  }
+  const mapped = publicUrlBySource.get(url);
+  if (mapped) {
+    console.log('[TaskArchive] 画布插入命中公开桶直链:', url.slice(0, 60));
+    return mapped;
+  }
+  // 归档进行中：等待其完成后取直链（插入环节的时序兜底）
+  const pending = pendingList.find((p) => p.urls.includes(url));
+  if (pending) {
+    console.log('[TaskArchive] 画布插入等待归档完成:', url.slice(0, 60));
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<null>((resolve) => {
+      timer = setTimeout(
+        () => resolve(null),
+        options?.timeoutMs ?? GENERATED_ARCHIVE_WAIT_MS
+      );
+    });
+    try {
+      const entries = await Promise.race([pending.promise, timeout]);
+      if (entries) {
+        recordArchiveEntries(entries);
+      }
+    } catch (error) {
+      console.warn('[TaskArchive] 等待归档失败（使用原 URL）:', error);
+    } finally {
+      if (timer) {
+        clearTimeout(timer);
+      }
+    }
+    const after = publicUrlBySource.get(url);
+    if (after) {
+      console.log('[TaskArchive] 画布插入改用公开桶直链:', url.slice(0, 60));
+      return after;
+    }
+  }
+  return url;
+}
+
+// 归档产出映射（sourceUrl/stableUrl 双键 → 公开桶直链），页面生命周期内复用：
+// 所有画布插入路径经 resolveGeneratedMediaPublicUrl 在此命中，免重复归档。
 
 /**
  * 生成结果媒体归档（fire-and-forget）：
@@ -517,7 +698,9 @@ export async function archiveGeneratedMediaToSupabase(
       urls.map((u) => (typeof u === 'string' ? u.slice(0, 50) : typeof u))
     );
 
-    const bucketName = config.bucketName?.trim() || DEFAULT_BUCKET;
+    // 生成结果交付走公开桶：huabu 为私有桶（<img> 无法直链），画布/素材
+    // 需要"等待归档完成后直接使用 bucket URL"（方案 1），故本路径固定公开桶
+    const bucketName = GENERATED_PUBLIC_BUCKET;
     const dateStr = getLocalDateString();
 
     const uploadedPaths: string[] = [];
@@ -591,6 +774,9 @@ export async function archiveGeneratedMediaToSupabase(
           stableUrl,
           storagePath,
           size: bytes.length,
+          publicUrl: config.supabaseUrl
+            ? buildGeneratedMediaPublicUrl(config.supabaseUrl, storagePath)
+            : undefined,
         });
       } catch (error) {
         console.warn('[TaskArchive] generated media processing failed:', error);
@@ -721,6 +907,8 @@ interface ResultLike {
   size?: number;
   source_url?: string;
   source_urls?: string[];
+  public_url?: string;
+  public_urls?: Array<string | undefined>;
   archived?: { at: string; via: string; paths: string[] };
   [key: string]: unknown;
 }
@@ -747,6 +935,9 @@ function mergeArchiveIntoResult(
       next.source_url = primary.sourceUrl;
       next.url = primary.stableUrl;
     }
+    if (primary.publicUrl) {
+      next.public_url = primary.publicUrl;
+    }
   } else if (!next.url && entries.length > 0) {
     // 服务端 result 尚未写入（归档先于终态回写完成的竞态窗口）：用首个归档产出填充
     const first = entries.find((e) => e.storagePath);
@@ -765,6 +956,12 @@ function mergeArchiveIntoResult(
     if (mapped.some((u, i) => u !== originals[i])) {
       next.source_urls = originals;
       next.urls = mapped;
+    }
+    // 公开桶直链与 urls 一一对应（素材/画布展示优先用，缺失项回退 urls）
+    const publicUrls = originals.map((u) => bySource.get(u)?.publicUrl);
+    if (publicUrls.some(Boolean)) {
+      next.public_urls = publicUrls;
+      next.public_url = publicUrls[0];
     }
   }
 

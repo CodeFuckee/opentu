@@ -26,6 +26,10 @@ import type {
   AudioGenerationParams,
 } from './types';
 import { insertImageFromUrl } from '../../data/image';
+import {
+  ensureGeneratedMediaArchive,
+  GENERATED_ARCHIVE_WAIT_MS,
+} from '../task-supabase-archive/service';
 import { insertVideoFromUrl } from '../../data/video';
 import { insertAudioFromUrl } from '../../data/audio';
 import { scrollToPointIfNeeded } from '../../utils/selection-utils';
@@ -226,13 +230,40 @@ export class SWCapabilitiesHandler {
             break;
           }
 
-          case 'image':
+          case 'image': {
+            // 方案 1：页面侧补归档（SW 内无归档配置），插入公开桶直链
+            // 注意 taskId 必须非空，否则归档入口会静默跳过
+            let insertContent = content;
+            try {
+              const archived = await ensureGeneratedMediaArchive(
+                `sw-insert-${Date.now()}`,
+                [content],
+                GENERATED_ARCHIVE_WAIT_MS
+              );
+              const entry = archived?.find(
+                (e) => e.sourceUrl === content && e.publicUrl
+              );
+              if (entry?.publicUrl) {
+                insertContent = entry.publicUrl;
+                console.log(
+                  '[SWCapabilities] 画布改用公开桶直链:',
+                  insertContent.slice(0, 80)
+                );
+              } else {
+                console.warn(
+                  '[SWCapabilities] 归档未产出公开 URL，使用原 URL 插入'
+                );
+              }
+            } catch (error) {
+              console.warn('[SWCapabilities] 归档等待失败，使用原 URL 插入:', error);
+            }
             // skipSelect: true - SW 自动插入不选中新图片，避免覆盖用户当前选中状态
             // lockReferenceDimensions=false: 图片加载后根据真实尺寸更新
-            await insertImageFromUrl(board, content, currentPoint, false, { width: 400, height: 400 }, false, true, false, true);
+            await insertImageFromUrl(board, insertContent, currentPoint, false, { width: 400, height: 400 }, false, true, false, true);
             currentPoint = [currentPoint[0], currentPoint[1] + 400 + verticalGap] as Point;
             insertedCount++;
             break;
+          }
 
           case 'video':
             await insertVideoFromUrl(board, content, currentPoint);

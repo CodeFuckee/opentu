@@ -297,6 +297,10 @@ export interface TaskResult {
   toolCalls?: ChatToolCall[];
   /** Cache failure warning for media results */
   cacheWarning?: CacheWarning;
+  /** 归档公开桶直链（画布/素材展示用；huabu 私有副本不经此外链） */
+  public_url?: string;
+  /** 多图任务公开桶直链列表（与 urls 一一对应，缺失项为 undefined） */
+  public_urls?: Array<string | undefined>;
 }
 
 export type TaskResultKind =

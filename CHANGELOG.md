@@ -1,5 +1,29 @@
 ## Unreleased
 
+### feat: AI 生图结果画布 URL 切换为公开桶直链（方案 1，2026-09-23）
+
+- 现状：生图完成事件瞬间画布即用供应商原始 URL 插入（useAutoInsertToCanvas
+  读 result.url），而归档转存是 fire-and-forget 旁路且完成后不回写画布元素，
+  供应商链接过期后画布图全部失效。
+- 改为"等待归档完成后插入、直接使用 bucket URL"：
+  - 新增公开桶 ai-outputs（迁移 ai_outputs_bucket.sql，已应用；huabu 保持
+    私有，输入图与内部副本不受影响）；
+  - archiveGeneratedMediaToSupabase 固定写 ai-outputs，归档条目新增
+    publicUrl（/storage/v1/object/public/ 直链，路径内容寻址 sha256）；
+  - registerGeneratedMediaArchive 注册 promise，画布插入前
+    waitForGeneratedMediaArchive（上限 30s）等待归档，超时/未登录/失败回退
+    原 URL 立即插入（未登录行为与现状一致）；
+  - 任务结果新增 public_url/public_urls 字段，素材库 AI 素材（taskToAssets）
+    优先使用公开直链。
+- 插入时序变化：登录态下生图完成后画布出现会晚数秒到最长 30s（等转存）。
+- （修复）首次实测上传 ai-outputs 400 "new row violates row-level security
+  policy"：supabase-js 上传固定带 x-upsert:true，存储端语句为
+  INSERT .. ON CONFLICT DO UPDATE RETURNING *，要求 UPDATE 策略放行且
+  RETURNING 要求 SELECT 放行（即使对象不存在走纯插入路径，实测同样拒绝）。
+  已补 ai_outputs_authenticated_update（bucket_id 限定，不再限 owner）与
+  ai_outputs_public_select 两策略（存储服务端日志定位：ExecWithCheckOptions
+  42501，与用户角色无关）。
+
 ### fix: apiKey 不再经四路通道扩散（用户拍板待确认项 #1，2026-09-23）
 
 - **第三方工具 URL 模板白名单**：`${apiKey}/${baseUrl}` 模板变量只对可信源白名单

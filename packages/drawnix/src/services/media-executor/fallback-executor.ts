@@ -61,7 +61,7 @@ import {
 } from './fallback-utils';
 import { resolveAdapterForInvocation } from '../model-adapters';
 import { GPT_IMAGE_EDIT_REQUEST_SCHEMAS } from '../model-adapters';
-import { archiveGeneratedMediaToSupabase } from '../task-supabase-archive/service';
+import { registerGeneratedMediaArchive } from '../task-supabase-archive/service';
 import {
   executeImageViaAdapter,
   executeVideoViaAdapter,
@@ -438,7 +438,7 @@ export class FallbackMediaExecutor implements IMediaExecutor {
 
       // 生成结果转存 huabu bucket（输入/输出同规则命名，fire-and-forget 静默失败）：
       // 上游返回 URL 型图片时响应 JSON 无字节，此处拿到本地缓存的 blob 后上传
-      void archiveGeneratedMediaToSupabase(taskId, cachedImgUrls);
+      registerGeneratedMediaArchive(taskId, cachedImgUrls);
 
       // 完成任务
       await taskStorageWriter.completeTask(taskId, {
@@ -599,7 +599,7 @@ export class FallbackMediaExecutor implements IMediaExecutor {
 
       // 生成结果转存 huabu bucket（输入/输出同规则命名，fire-and-forget 静默失败）：
       // 异步任务轮询拿到结果 URL，本地缓存后由前端上传（与同步分支一致）
-      void archiveGeneratedMediaToSupabase(taskId, [cachedAsyncUrl]);
+      registerGeneratedMediaArchive(taskId, [cachedAsyncUrl]);
 
       // 完成任务
       await taskStorageWriter.completeTask(taskId, {

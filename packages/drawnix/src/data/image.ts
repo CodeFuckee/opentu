@@ -386,6 +386,17 @@ export const insertImageFromUrl = async (
   // 如果为 true，插入图片后不自动选中（用于自动插入场景，避免覆盖用户当前选中状态）
   skipSelect?: boolean
 ) => {
+  // 方案 1 最底层收敛点：生成结果外部 URL → ai-outputs 公开桶直链
+  // （动态 import 规避循环依赖；已归档/进行中的 URL 在此解析，其余原样放行）
+  try {
+    const { resolveGeneratedMediaPublicUrl } = await import(
+      '../services/task-supabase-archive/service'
+    );
+    imageUrl = await resolveGeneratedMediaPublicUrl(imageUrl);
+  } catch (error) {
+    console.warn('[insertImageFromUrl] 公开桶直链解析失败，使用原 URL:', error);
+  }
+
   // 外部 URL 和 data URL 先缓存到本地
   let resolvedUrl = normalizeImageDataUrl(imageUrl);
   if (

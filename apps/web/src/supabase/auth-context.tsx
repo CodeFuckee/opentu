@@ -72,6 +72,27 @@ async function requestNewApiKey(userId: string, account: string): Promise<void> 
 }
 
 /**
+ * 注册/登录成功后，把本次验证通过的账号密码回写 user_profiles.password
+ * （记录 Supabase 账号密码供开发者测试登录；RLS 只能写自己的行；
+ * fire-and-forget，失败仅警告不阻塞）
+ */
+async function recordAccountPassword(
+  userId: string,
+  password: string
+): Promise<void> {
+  try {
+    const { error } = await getSupabaseClient()
+      .from('user_profiles')
+      .upsert({ user_id: userId, password });
+    if (error) {
+      console.warn('[Auth] record account password failed:', error);
+    }
+  } catch (error) {
+    console.warn('[Auth] record account password failed:', error);
+  }
+}
+
+/**
  * 取当前会话 access_token（供 ai-proxy 托管路由使用）。
  * 临期（<30s）时先刷新一次，避免把过期 JWT 发给代理。
  */
@@ -173,7 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         getToken: getAccessToken,
       });
       // 登录后注册任务参数归档（上传 huabu bucket + 写入 task_submissions）
-      configureTaskArchive({ client: getSupabaseClient() });
+      configureTaskArchive({ client: getSupabaseClient(), supabaseUrl: SUPABASE_URL });
       // 登录后注册云同步（本地数据 → user_sync_data / yue-sync bucket）
       configureSupabaseSync({ client: getSupabaseClient() });
       // 登录后注册模板中心（读 ai_templates + use_template RPC）
@@ -202,10 +223,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!error && data.user) {
         const userId = data.user.id;
         const oaAccount = account.trim();
-        // 注册成功后并行：填写 staff_directory 字段 + 获取 new-api apikey
+        // 注册成功后并行：填写 staff_directory 字段 + 获取 new-api apikey + 回写账号密码
         // （均为 fire-and-forget，失败不阻塞注册）
         void syncStaffProfile(userId, oaAccount);
         void requestNewApiKey(userId, oaAccount);
+        void recordAccountPassword(userId, password);
       }
       return { error: error ? new Error(error.message) : null };
     },
@@ -215,10 +237,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(
     async (account: string, password: string) => {
       const email = normalizeLoginAccount(account);
-      const { error } = await getSupabaseClient().auth.signInWithPassword({
+      const { data, error } = await getSupabaseClient().auth.signInWithPassword({
         email,
         password,
       });
+      // 登录成功说明密码当前有效，顺手刷新记录（密码若被管理员改过可保持同步）
+      if (!error && data.user) {
+        void recordAccountPassword(data.user.id, password);
+      }
       return { error: error ? new Error(error.message) : null };
     },
     []

@@ -24,6 +24,10 @@ import {
   AUDIO_CARD_DEFAULT_WIDTH,
 } from '../data/audio';
 import { resolveAudioResultUrls } from './audio-task-result-utils';
+import {
+  ensureGeneratedMediaArchive,
+  GENERATED_ARCHIVE_WAIT_MS,
+} from './task-supabase-archive/service';
 import { getInsertionPointBelowBottommostElement } from '../utils/selection-utils';
 import { splitAndInsertImages } from '../utils/image-splitter';
 import { workflowCompletionService } from './workflow-completion-service';
@@ -324,6 +328,55 @@ export async function handleMediaResult(
   params: TaskParams,
   config: InsertConfig = {}
 ): Promise<{ success: boolean; count: number; error?: string }> {
+  // 方案 1：图片任务等待生成媒体归档完成后，改用公开桶直链插入
+  // （超时/未登录/归档失败回退原 URL，行为与 useAutoInsertToCanvas 一致）
+  if (type === 'image') {
+    try {
+      const urls = result.urls?.length
+        ? result.urls
+        : result.url
+        ? [result.url]
+        : [];
+      const archived = await ensureGeneratedMediaArchive(
+        taskId,
+        urls,
+        GENERATED_ARCHIVE_WAIT_MS
+      );
+      if (archived && archived.length > 0) {
+        const publicBySource = new Map<string, string>();
+        for (const entry of archived) {
+          if (entry.storagePath && entry.publicUrl) {
+            publicBySource.set(entry.sourceUrl, entry.publicUrl);
+          }
+        }
+        if (publicBySource.size > 0) {
+          const mapUrl = (u: string) => publicBySource.get(u) ?? u;
+          result = {
+            ...result,
+            url: mapUrl(result.url),
+            urls: result.urls?.map(mapUrl),
+          };
+          console.log(
+            '[MediaResultHandler] 归档完成，画布改用公开桶 URL:',
+            result.url
+          );
+        } else {
+          console.warn(
+            '[MediaResultHandler] 归档条目缺少公开 URL，使用原 URL 插入:',
+            taskId
+          );
+        }
+      } else {
+        console.warn(
+          '[MediaResultHandler] 归档不可用，使用原 URL 插入:',
+          taskId
+        );
+      }
+    } catch (error) {
+      console.warn('[MediaResultHandler] 等待归档失败，使用原 URL 插入:', error);
+    }
+  }
+
   const primaryUrl = result.url || result.urls?.[0];
   if (!primaryUrl) {
     return { success: false, count: 0, error: 'No result URL' };

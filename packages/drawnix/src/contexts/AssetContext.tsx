@@ -579,7 +579,7 @@ export function AssetProvider({ children }: AssetProviderProps) {
         taskId: task.id,
         type: assetType,
         source: AssetSourceEnum.AI_GENERATED,
-        url: result.url,
+        url: result.public_urls?.[0] || result.url,
         name,
         mimeType,
         createdAt: task.completedAt || task.createdAt,

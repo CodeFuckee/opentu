@@ -32,7 +32,7 @@ import {
   cacheRemoteUrl,
   cacheRemoteUrls,
 } from './fallback-utils';
-import { archiveGeneratedMediaToSupabase } from '../task-supabase-archive/service';
+import { registerGeneratedMediaArchive } from '../task-supabase-archive/service';
 
 type ImageGenerationMode = 'text_to_image' | 'image_to_image' | 'image_edit';
 type ImageInputFidelity = 'high' | 'low';
@@ -199,7 +199,7 @@ export async function executeImageViaAdapter(
 
     // 生成结果转存 huabu bucket（输入/输出同规则命名，fire-and-forget 静默失败）：
     // 上游返回 URL 型图片时响应 JSON 无字节，此处拿到本地缓存的 blob 后上传
-    void archiveGeneratedMediaToSupabase(taskId, cachedUrls);
+    registerGeneratedMediaArchive(taskId, cachedUrls);
 
     await taskStorageWriter.completeTask(taskId, {
       url: cachedPrimary,

@@ -121,6 +121,8 @@ export interface AssetTaskRecord {
     primaryClipId?: string;
     clipIds?: string[];
     cacheWarning?: CacheWarning;
+    public_url?: string;
+    public_urls?: Array<string | undefined>;
     clips?: Array<{
       id?: string;
       clipId?: string;

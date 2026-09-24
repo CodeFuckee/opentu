@@ -1,5 +1,6 @@
 import type { PlaitBoard, Point } from '@plait/core';
 import { insertImageFromUrl } from '../../data/image';
+import { resolveGeneratedMediaPublicUrl } from '../task-supabase-archive/service';
 import { insertVideoFromUrl } from '../../data/video';
 import { scrollToPointIfNeeded } from '../../utils/selection-utils';
 import { insertMediaIntoSelectedFrame } from '../../utils/frame-insertion-utils';
@@ -63,7 +64,9 @@ async function insertMedia(
     return size;
   }
 
-  await insertImageFromUrl(board, content, point, false, size, true, true);
+  // 方案 1 收敛点：外部生成结果 URL 解析为 ai-outputs 公开桶直链
+  const resolved = await resolveGeneratedMediaPublicUrl(content);
+  await insertImageFromUrl(board, resolved, point, false, size, true, true);
   return size;
 }
 

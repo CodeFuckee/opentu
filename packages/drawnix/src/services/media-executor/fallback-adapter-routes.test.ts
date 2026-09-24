@@ -14,6 +14,7 @@ import type { AdapterContext, ImageModelAdapter } from '../model-adapters/types'
 
 const getAdapterContextFromSettings = vi.fn();
 const archiveGeneratedMediaToSupabase = vi.fn(async () => undefined);
+const registerGeneratedMediaArchive = vi.fn();
 const completeTask = vi.fn(async () => undefined);
 const failTask = vi.fn(async () => undefined);
 const startLLMApiLog = vi.fn(() => 'log-1');
@@ -36,6 +37,7 @@ vi.mock('../model-adapters', () => ({
 
 vi.mock('../task-supabase-archive/service', () => ({
   archiveGeneratedMediaToSupabase,
+  registerGeneratedMediaArchive,
 }));
 
 vi.mock('./fallback-utils', () => ({
@@ -86,6 +88,7 @@ describe('executeImageViaAdapter（taskId 透传 + 结果归档）', () => {
       authType: 'bearer',
     });
     archiveGeneratedMediaToSupabase.mockClear();
+    registerGeneratedMediaArchive.mockClear();
     completeTask.mockClear();
     startLLMApiLog.mockClear();
   });
@@ -126,8 +129,8 @@ describe('executeImageViaAdapter（taskId 透传 + 结果归档）', () => {
       0
     );
 
-    expect(archiveGeneratedMediaToSupabase).toHaveBeenCalledTimes(1);
-    const [taskId, urls] = archiveGeneratedMediaToSupabase.mock.calls[0]!;
+    expect(registerGeneratedMediaArchive).toHaveBeenCalledTimes(1);
+    const [taskId, urls] = registerGeneratedMediaArchive.mock.calls[0]!;
     expect(taskId).toBe('task-id-456');
     expect(Array.isArray(urls)).toBe(true);
     expect(urls[0]).toMatch(/^\/__aitu_cache__\/image\//);

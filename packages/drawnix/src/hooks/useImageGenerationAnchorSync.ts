@@ -117,10 +117,16 @@ function deriveAnchorPreviewImageUrl(
         previewImageUrl?: string;
         url?: string;
         urls?: string[];
+        public_url?: string;
+        public_urls?: string[];
       }
     | undefined;
 
+  // 方案 1：归档完成后任务记录带公开桶直链，锚点/成图优先使用
+  // （未归档时回退 previewImageUrl/url，行为不变）
   return (
+    result?.public_url ||
+    result?.public_urls?.find((url) => typeof url === 'string' && url.length > 0) ||
     result?.previewImageUrl ||
     result?.url ||
     result?.urls?.find((url) => typeof url === 'string' && url.length > 0) ||

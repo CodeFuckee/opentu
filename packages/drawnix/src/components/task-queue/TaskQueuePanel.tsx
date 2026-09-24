@@ -29,6 +29,7 @@ import { taskStorageReader } from '../../services/task-storage-reader';
 import { taskQueueService } from '../../services/task-queue';
 import { useDrawnix, DialogType } from '../../hooks/use-drawnix';
 import { insertImageFromUrl } from '../../data/image';
+import { resolveGeneratedMediaPublicUrl } from '../../services/task-supabase-archive/service';
 import { insertVideoFromUrl } from '../../data/video';
 import {
   AUDIO_CARD_DEFAULT_HEIGHT,
@@ -604,7 +605,11 @@ export const TaskQueuePanel: React.FC<TaskQueuePanelProps> = ({
           ? taskResult.urls
           : [taskResult.url];
         for (const url of urls) {
-          await insertImageFromUrl(board, normalizeImageDataUrl(url));
+          // 方案 1 收敛点：已归档结果解析为公开桶直链再插入
+          const resolved = await resolveGeneratedMediaPublicUrl(
+            normalizeImageDataUrl(url)
+          );
+          await insertImageFromUrl(board, resolved);
         }
         MessagePlugin.success(
           urls.length > 1 ? '多图已插入到白板' : '图片已插入到白板'

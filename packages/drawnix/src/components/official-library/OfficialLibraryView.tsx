@@ -42,6 +42,26 @@ import './official-library.scss';
 const PAGE_SIZE = 60;
 const SEARCH_DEBOUNCE_MS = 300;
 
+declare const __APP_VERSION__: string;
+declare const __APP_BUILD_TIME__: string;
+
+/** 构建时间（UTC ISO）→ 浏览器本地时区展示 */
+function formatBuildTime(): string {
+  if (!__APP_BUILD_TIME__) {
+    return '未知';
+  }
+  const date = new Date(__APP_BUILD_TIME__);
+  return Number.isNaN(date.getTime())
+    ? __APP_BUILD_TIME__
+    : date.toLocaleString('zh-Hans-CN', { hour12: false });
+}
+
+// 页面加载即打印代码版本与构建时间（排查"页面跑的是否为新代码"）
+// eslint-disable-next-line no-console
+console.log(
+  `[BuildInfo] 官方素材库代码版本 ${__APP_VERSION__} @ 构建时间 ${formatBuildTime()}`
+);
+
 export interface OfficialLibraryViewProps {
   /** 当前选中（官方素材 id，official- 前缀） */
   selectedAssetId: string | null;
@@ -607,6 +627,13 @@ export function OfficialLibraryView({
               {!onUseAsset && (
                 <span className="media-library-grid__footer-hint">双击预览</span>
               )}
+              <span
+                className="media-library-grid__footer-hint"
+                data-testid="official-library-build-info"
+                title={`代码版本 ${__APP_VERSION__}（构建于 ${formatBuildTime()}）`}
+              >
+                代码版本 {__APP_VERSION__}（{formatBuildTime()}）
+              </span>
             </div>
           </div>
         </>

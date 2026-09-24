@@ -80,6 +80,10 @@ export interface SWTask {
     source_url?: string;
     /** 多图任务归档替换前的原始 URL 列表 */
     source_urls?: string[];
+    /** 归档公开桶直链（画布/素材展示用；huabu 为私有桶，其副本不经此字段外链） */
+    public_url?: string;
+    /** 多图任务的公开桶直链列表（与 urls 一一对应，缺失项回退 urls） */
+    public_urls?: Array<string | undefined>;
     /** 生成结果归档信息（huabu 副本路径等） */
     archived?: {
       at: string;
@@ -279,6 +283,24 @@ class TaskStorageWriter {
       task.updatedAt = Date.now();
       task.progress = 100;
       await this.saveTask(task);
+
+      // 方案 1 收敛点：图片结果统一在此注册归档（覆盖全部完成路径；
+      // 执行器处的显式注册由 pending map 去重）。动态 import 规避
+      // writer 与 archive-service 的循环依赖。
+      if (task.type === 'image' && !normalizedResult?.archived) {
+        const urls = normalizedResult?.urls?.length
+          ? normalizedResult.urls
+          : normalizedResult?.url
+          ? [normalizedResult.url]
+          : [];
+        if (urls.length > 0) {
+          void import('../task-supabase-archive/service')
+            .then(({ registerGeneratedMediaArchive }) =>
+              registerGeneratedMediaArchive(taskId, urls as string[])
+            )
+            .catch(() => {});
+        }
+      }
     }
   }
 

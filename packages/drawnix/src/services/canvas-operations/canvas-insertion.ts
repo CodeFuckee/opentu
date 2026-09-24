@@ -7,6 +7,7 @@
 import { PlaitBoard, Point } from '@plait/core';
 import { DrawTransforms } from '@plait/draw';
 import { insertImageFromUrl } from '../../data/image';
+import { resolveGeneratedMediaPublicUrl } from '../task-supabase-archive/service';
 import { insertVideoFromUrl } from '../../data/video';
 import {
   insertAudioFromUrl,
@@ -220,10 +221,13 @@ async function insertImageToCanvas(
     lockReferenceDimensions: false,
     skipImageLoad: true,
   });
+  // 方案 1 收敛点：外部生成结果 URL 解析为 ai-outputs 公开桶直链
+  // （映射命中即时返回；未归档外部 URL 等待归档；其余 URL 原样返回）
+  const resolvedUrl = await resolveGeneratedMediaPublicUrl(imageUrl);
   // 使用默认尺寸立即插入，图片加载后会自动根据真实尺寸更新
   // skipSelect=true: 自动插入时不选中新图片，避免覆盖用户当前选中状态
   // lockReferenceDimensions=false: 图片加载后根据真实尺寸更新
-  await insertImageFromUrl(board, imageUrl, point, false, size, true, true, false, true);
+  await insertImageFromUrl(board, resolvedUrl, point, false, size, true, true, false, true);
   return size;
 }
 

@@ -12,6 +12,7 @@ import { useFilteredTaskQueue } from '../../hooks/useFilteredTaskQueue';
 import { Task, TaskType, TaskStatus } from '../../types/task.types';
 import { useDrawnix, DialogType } from '../../hooks/use-drawnix';
 import { insertImageFromUrl } from '../../data/image';
+import { resolveGeneratedMediaPublicUrl } from '../../services/task-supabase-archive/service';
 import { insertVideoFromUrl } from '../../data/video';
 import { MessagePlugin, Input, Button } from 'tdesign-react';
 import { SearchIcon, DeleteIcon } from 'tdesign-icons-react';
@@ -228,7 +229,9 @@ export const DialogTaskList: React.FC<DialogTaskListProps> = ({
           ? task.result.urls
           : [task.result.url];
         for (const url of urls) {
-          await insertImageFromUrl(board, url);
+          // 方案 1 收敛点：已归档结果解析为公开桶直链再插入
+          const resolved = await resolveGeneratedMediaPublicUrl(url);
+          await insertImageFromUrl(board, resolved);
         }
         MessagePlugin.success(
           urls.length > 1 ? '多图已插入到白板' : '图片已插入到白板'

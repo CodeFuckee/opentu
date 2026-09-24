@@ -18,13 +18,17 @@ const shouldRewriteEntryAssetsToCDN =
 // Read version from public/version.json
 const versionPath = path.resolve(__dirname, 'public/version.json');
 let appVersion = '0.0.0';
+let appBuildTime = '';
 
 try {
   if (fs.existsSync(versionPath)) {
     const versionContent = fs.readFileSync(versionPath, 'utf-8');
     const versionJson = JSON.parse(versionContent);
     appVersion = versionJson.version || '0.0.0';
-    console.log(`[Vite] Loaded version from version.json: ${appVersion}`);
+    appBuildTime = versionJson.buildTime || '';
+    console.log(
+      `[Vite] Loaded version from version.json: ${appVersion} @ ${appBuildTime || 'unknown time'}`
+    );
   } else {
     console.warn('[Vite] version.json not found at', versionPath);
   }
@@ -1175,6 +1179,7 @@ export default defineConfig({
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion),
     'process.env.NODE_ENV': JSON.stringify(reactNodeEnv),
     __APP_VERSION__: JSON.stringify(appVersion),
+    __APP_BUILD_TIME__: JSON.stringify(appBuildTime),
     // Vue feature flags - @milkdown/crepe 内部使用了 Vue，需要定义这些编译时标志
     __VUE_OPTIONS_API__: JSON.stringify(false),
     __VUE_PROD_DEVTOOLS__: JSON.stringify(false),
