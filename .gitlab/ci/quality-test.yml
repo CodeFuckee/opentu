@@ -10,6 +10,10 @@
 quality:
   extends: .base_env
   stage: quality
+  variables:
+    # ckd runner 内存有限：typecheck+eslint 并发峰值会触发 OOM（进程静默被杀），
+    # 限制 node 堆上限转为可控的优雅失败（与 test:frontend 同思路）
+    NODE_OPTIONS: "--max-old-space-size=2048"
   rules:
     - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
   script:
