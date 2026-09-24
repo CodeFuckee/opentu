@@ -1,5 +1,26 @@
 ## Unreleased
 
+### feat: 官方素材库新增植物库 tab（产品模型库泛化，2026-09-24）
+
+- 素材库库 tab 新增「植物库」（顺序 家居库 | 植物库 | 配景库，与建筑学长
+  站点一致），数据源为 `jzxz_plant_materials`（本机植物库爬虫
+  scripts/jzxz-plant-crawler.py 归档，462 条 / 20 品类），公开桶
+  `jzxz-plant-materials` 直链展示与插入，迁移见
+  supabase/migrations/jzxz_plant_materials.sql。
+- 服务层将家居库产品模型访问泛化为「产品模型库」（ProductModelLibraryConfig
+  + PRODUCT_MODEL_LIBRARIES：表名/桶/id 前缀按库区分），家居库行为保持不变；
+  Asset id 前缀 植物库为 official-plant-。
+- 植物库按拍板只做品类筛选（常绿大乔/球形等 chips），标签在选中条目元信息条
+  展示（爬到的标签为气候区/习性/颜色混排数组，无类型划分不做分组筛选）；
+  多视图预览、按视图插入、元信息条复用家居库链路；植物详情无尺寸段，
+  元信息条尺寸为空时不再渲染（家居库缺尺寸同步受益）。
+- 数据修复：jzxz_plant_materials 两条 category='标签:' 解析残留置空（站点
+  该条目品类为空）；删除 jzxz_materials 中 61 条 gallery='家居库' 旧错误数据
+  （当初接错数据源遗留，UI 此前已绕开）。
+- 爬虫加固（家居/植物两脚本同改）：extract_detail 的 pick() 不再把形如
+  "xx:" 的小节头当字段值（品类空值时曾把下一行"标签:"误当品类）。
+- 本地门禁：drawnix tsc 0 / vitest 1507 通过 / web tsc 0 / eslint 0。
+
 ### refactor: 第八轮全仓库评审批次1——交付完整性与死代码清理（行为保持，2026-09-24）
 
 - 评审报告：docs/code-review-2026-09-24.md（增量深评第七轮后 9 提交 + 工作区 WIP，

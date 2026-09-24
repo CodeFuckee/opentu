@@ -9,18 +9,19 @@ import {
   getOfficialLibraryConfig,
 } from './runtime';
 import {
-  __clearHomeFacetsCacheForTests,
   __clearOfficialFacetsCacheForTests,
-  homeGlbUrl,
-  homeImageUrls,
-  homeMaterialToAsset,
-  homePublicUrl,
-  listHomeFacets,
-  listHomeMaterials,
+  __clearProductModelFacetsCacheForTests,
+  PRODUCT_MODEL_LIBRARIES,
   listOfficialFacets,
   listOfficialMaterials,
+  listProductModelFacets,
+  listProductModelMaterials,
   officialMaterialToAsset,
   officialPublicUrl,
+  productModelGlbUrl,
+  productModelImageUrls,
+  productModelPublicUrl,
+  productModelToAsset,
 } from './official-library-service';
 import { AssetSource, AssetType } from '../../types/asset.types';
 
@@ -291,7 +292,7 @@ describe('URL 拼接与 Asset 映射', () => {
   });
 });
 
-describe('家居库产品模型（jzxz_home_materials）', () => {
+describe('产品模型库（jzxz_home_materials / jzxz_plant_materials）', () => {
   const row = {
     source_id: 'sid-1',
     name: '现代吊灯',
@@ -306,45 +307,87 @@ describe('家居库产品模型（jzxz_home_materials）', () => {
 
   beforeEach(() => {
     configureOfficialLibrary(null);
-    __clearHomeFacetsCacheForTests();
+    __clearProductModelFacetsCacheForTests();
   });
 
-  it('homePublicUrl：拼 jzxz-home-materials 公开桶直链', () => {
-    expect(homePublicUrl('http://h:8021/', 'home/a.png')).toBe(
-      'http://h:8021/storage/v1/object/public/jzxz-home-materials/home/a.png'
+  it('productModelPublicUrl：按库配置拼各自公开桶直链并容忍尾斜杠', () => {
+    expect(
+      productModelPublicUrl(
+        PRODUCT_MODEL_LIBRARIES.家居库,
+        'http://h:8021/',
+        'home/a.png'
+      )
+    ).toBe('http://h:8021/storage/v1/object/public/jzxz-home-materials/home/a.png');
+    expect(
+      productModelPublicUrl(
+        PRODUCT_MODEL_LIBRARIES.植物库,
+        'http://h:8021',
+        'plant/a.png'
+      )
+    ).toBe('http://h:8021/storage/v1/object/public/jzxz-plant-materials/plant/a.png');
+  });
+
+  it('productModelToAsset：id 前缀按库区分，url 取第一张视图图，名称回退链', () => {
+    const home = productModelToAsset(
+      PRODUCT_MODEL_LIBRARIES.家居库,
+      row,
+      'http://h:8021'
     );
-  });
-
-  it('homeMaterialToAsset：id 前缀 official-home-，url 取第一张视图图', () => {
-    const asset = homeMaterialToAsset(row, 'http://h:8021');
-    expect(asset.id).toBe('official-home-sid-1');
-    expect(asset.url).toBe(
+    expect(home.id).toBe('official-home-sid-1');
+    expect(home.url).toBe(
       'http://h:8021/storage/v1/object/public/jzxz-home-materials/home/sid-1/img-0.png'
     );
-    expect(asset.name).toBe('现代吊灯');
-    expect(asset.mimeType).toBe('image/png');
+    expect(home.name).toBe('现代吊灯');
+    expect(home.viewImageUrls).toHaveLength(2);
+    expect(home.homeMeta?.glbUrl).toContain('model.glb');
+
+    const plant = productModelToAsset(
+      PRODUCT_MODEL_LIBRARIES.植物库,
+      { ...row, name: null, glb_path: null, glb_name: null },
+      'http://h:8021'
+    );
+    expect(plant.id).toBe('official-plant-sid-1');
+    expect(plant.name).toBe('灯具');
+    expect(plant.homeMeta?.glbUrl).toBeNull();
   });
 
-  it('homeImageUrls/homeGlbUrl：多视图与模型直链，无模型返回 null', () => {
-    const urls = homeImageUrls(row, 'http://h:8021');
+  it('productModelImageUrls/productModelGlbUrl：多视图与模型直链，无模型返回 null', () => {
+    const urls = productModelImageUrls(
+      PRODUCT_MODEL_LIBRARIES.家居库,
+      row,
+      'http://h:8021'
+    );
     expect(urls).toHaveLength(2);
     expect(urls[1]).toContain('img-1.jpg');
-    expect(homeGlbUrl(row, 'http://h:8021')).toContain('model.glb');
-    expect(homeGlbUrl({ ...row, glb_path: null }, 'http://h:8021')).toBeNull();
+    expect(
+      productModelGlbUrl(PRODUCT_MODEL_LIBRARIES.家居库, row, 'http://h:8021')
+    ).toContain('model.glb');
+    expect(
+      productModelGlbUrl(
+        PRODUCT_MODEL_LIBRARIES.家居库,
+        { ...row, glb_path: null },
+        'http://h:8021'
+      )
+    ).toBeNull();
   });
 
-  it('listHomeMaterials：查询形态（count=exact/排序/range/品类 eq/or 搜索含 tags.cs）', async () => {
+  it('listProductModelMaterials：表名按库区分，查询形态与 or 搜索（含 tags.cs）', async () => {
     const { client, queries } = makeMultiClient([
       [{ data: [row], error: null, count: 1 }],
     ]);
     configureOfficialLibrary({ client: client as never, supabaseUrl: 'http://10.37.80.25:8021' });
 
-    const page = await listHomeMaterials({ category: '灯具', search: '吊灯', limit: 60, offset: 60 });
+    const page = await listProductModelMaterials(PRODUCT_MODEL_LIBRARIES.植物库, {
+      category: '常绿大乔',
+      search: '玉兰',
+      limit: 60,
+      offset: 60,
+    });
 
     expect(page.total).toBe(1);
     expect(page.items[0].source_id).toBe('sid-1');
     const q = queries[0];
-    expect(q.table).toBe('jzxz_home_materials');
+    expect(q.table).toBe('jzxz_plant_materials');
     expect(q.select).toContain('image_paths');
     expect(q.selectOpts).toMatchObject({ count: 'exact' });
     expect(q.orders).toEqual([
@@ -352,17 +395,16 @@ describe('家居库产品模型（jzxz_home_materials）', () => {
       { column: 'source_id', ascending: true },
     ]);
     expect(q.range).toEqual([60, 119]);
-    expect(q.filters).toContainEqual({ op: 'eq', args: ['category', '灯具'] });
+    expect(q.filters).toContainEqual({ op: 'eq', args: ['category', '常绿大乔'] });
     const or = q.filters.find((f) => f.op === 'or');
-    expect(or).toBeDefined();
-    expect(String((or as { args: unknown[] }).args[0])).toContain('tags.cs.{吊灯}');
+    expect(String((or as { args: unknown[] }).args[0])).toContain('tags.cs.{玉兰}');
   });
 
-  it('listHomeFacets：head 总数 + 品类扫描去重 + 空品类跳过 + 缓存', async () => {
+  it('listProductModelFacets：head 总数 + 品类扫描去重 + 缓存按表隔离', async () => {
     const rows = [
-      { category: '灯具' },
-      { category: '灯具' },
-      { category: '沙发' },
+      { category: '常绿大乔' },
+      { category: '常绿大乔' },
+      { category: '球形' },
       { category: null },
     ];
     const { client } = makeMultiClient([
@@ -371,11 +413,11 @@ describe('家居库产品模型（jzxz_home_materials）', () => {
     ]);
     configureOfficialLibrary({ client: client as never, supabaseUrl: 'http://10.37.80.25:8021' });
 
-    const facets = await listHomeFacets();
+    const facets = await listProductModelFacets(PRODUCT_MODEL_LIBRARIES.植物库);
     expect(facets.total).toBe(4);
-    expect(facets.categories).toEqual(['灯具', '沙发']);
+    expect(facets.categories).toEqual(['常绿大乔', '球形']);
 
-    // 第二次命中缓存：换一个会抛错的客户端也不应发请求
+    // 植物库缓存命中：home 查询不受影响（各自缓存），植物库换抛错客户端也不发请求
     const broken = {
       supabaseUrl: 'http://h',
       from: () => {
@@ -383,7 +425,28 @@ describe('家居库产品模型（jzxz_home_materials）', () => {
       },
     };
     configureOfficialLibrary({ client: broken as never, supabaseUrl: 'http://h' });
-    const cached = await listHomeFacets();
+    const cached = await listProductModelFacets(PRODUCT_MODEL_LIBRARIES.植物库);
     expect(cached.total).toBe(4);
+    await expect(
+      listProductModelFacets(PRODUCT_MODEL_LIBRARIES.家居库)
+    ).rejects.toThrow('should not query');
+  });
+
+  it('listProductModelFacets/listProductModelMaterials 失败抛错并携带库名', async () => {
+    const { client } = makeMultiClient([
+      [{ data: null, error: { message: 'boom' }, count: null }],
+    ]);
+    configureOfficialLibrary({ client: client as never, supabaseUrl: 'http://10.37.80.25:8021' });
+    await expect(
+      listProductModelFacets(PRODUCT_MODEL_LIBRARIES.植物库)
+    ).rejects.toThrow('植物库统计失败');
+
+    const { client: client2 } = makeMultiClient([
+      [{ data: null, error: { message: 'boom' }, count: null }],
+    ]);
+    configureOfficialLibrary({ client: client2 as never, supabaseUrl: 'http://10.37.80.25:8021' });
+    await expect(
+      listProductModelMaterials(PRODUCT_MODEL_LIBRARIES.植物库)
+    ).rejects.toThrow('植物库查询失败');
   });
 });

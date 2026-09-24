@@ -501,12 +501,14 @@ def extract_detail(driver, overlay_cls: str) -> dict:
       const lines = (root.innerText || '').split('\\n')
         .map(s => s.trim()).filter(Boolean);
       function pick(re) {
+        // 值形如"xx:"的是下一个小节头，不能当字段值（品类空值时下一行是"标签:"）
+        function isHeader(s) { return /^[^:：]{1,8}[:：]$/.test(s); }
         for (let i = 0; i < lines.length; i++) {
           if (!re.test(lines[i])) continue;
           let v = lines[i].replace(re, '').replace(/^[:：\\s]+/, '').trim();
-          if (v && v.length <= 80) return v;
+          if (v && v.length <= 80 && !isHeader(v)) return v;
           const nx = (lines[i + 1] || '').trim();
-          if (nx && nx.length <= 80) return nx;
+          if (nx && nx.length <= 80 && !isHeader(nx)) return nx;
         }
         return '';
       }

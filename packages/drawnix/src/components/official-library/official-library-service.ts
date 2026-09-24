@@ -1,8 +1,10 @@
 /**
- * 官方素材库数据访问：jzxz_materials 读取（建筑学长贴图爬虫归档）
+ * 官方素材库数据访问：jzxz_materials（贴图三库）+ 产品模型库
+ * （jzxz_home_materials / jzxz_plant_materials，爬虫归档）
  *
  * - 表 RLS：authenticated 可读（应用本身有登录门禁），写入只走爬虫（service_role）
- * - 图片公开读桶 jzxz-materials：前端直接用 /object/public/ 直链展示与插入
+ * - 图片公开读桶 jzxz-materials / jzxz-home-materials / jzxz-plant-materials：
+ *   前端直接用 /object/public/ 直链展示与插入
  * - facets（库/分类/tag 组合）：本机 PostgREST 不支持 distinct，用小列分页扫描 +
  *   客户端去重，模块级缓存；素材网格按筛选服务端分页（count=exact）
  */
@@ -263,11 +265,11 @@ export function officialMaterialToAsset(
   };
 }
 
-// ── 家居库产品模型（jzxz_home_materials，jzxz-home-crawler 归档）──
-// 与贴图素材（jzxz_materials）的差异：一个素材有多张视图图与可选 glb 模型，
-// 无 gallery/width/height；公开桶为 jzxz-home-materials。
+// ── 产品模型库（jzxz_home_materials / jzxz_plant_materials，爬虫归档）──
+// 两表同构：一个素材一组视图图与可选 glb 模型，无 gallery/width/height；
+// 差异仅表名、公开桶与 id 前缀，共用同一套 facets/查询/Asset 映射。
 
-export interface HomeMaterialRow {
+export interface ProductModelRow {
   source_id: string;
   name: string | null;
   category: string | null;
@@ -279,48 +281,84 @@ export interface HomeMaterialRow {
   created_at: string;
 }
 
-export interface HomeFacets {
+export interface ProductModelLibraryConfig {
+  /** 库 tab 展示名（同时是 OfficialLibraryView 的 gallery 键） */
+  gallery: string;
+  table: string;
+  bucket: string;
+  /** Asset id 前缀（`${idPrefix}-${source_id}`） */
+  idPrefix: string;
+  /** 名称缺失时的回退名 */
+  fallbackName: string;
+}
+
+export const PRODUCT_MODEL_LIBRARIES = {
+  家居库: {
+    gallery: '家居库',
+    table: 'jzxz_home_materials',
+    bucket: 'jzxz-home-materials',
+    idPrefix: 'official-home',
+    fallbackName: '家居模型',
+  },
+  植物库: {
+    gallery: '植物库',
+    table: 'jzxz_plant_materials',
+    bucket: 'jzxz-plant-materials',
+    idPrefix: 'official-plant',
+    fallbackName: '植物素材',
+  },
+} as const satisfies Record<string, ProductModelLibraryConfig>;
+
+export type ProductModelFacets = {
   /** 实际有数据的品类（中文字典序） */
   categories: string[];
   total: number;
-}
+};
 
-export interface HomeMaterialQuery {
+export type ProductModelQuery = {
   category?: string;
   search?: string;
   limit?: number;
   offset?: number;
-}
+};
 
-export interface HomeMaterialPage {
-  items: HomeMaterialRow[];
+export type ProductModelPage = {
+  items: ProductModelRow[];
   total: number;
+};
+
+const productFacetsCaches = new Map<
+  string,
+  { facets: ProductModelFacets; at: number }
+>();
+
+/** @internal 仅测试用：清空产品模型库 facets 模块缓存 */
+export function __clearProductModelFacetsCacheForTests(): void {
+  productFacetsCaches.clear();
 }
 
-let homeFacetsCache: { facets: HomeFacets; at: number } | null = null;
-
-/** @internal 仅测试用：清空家居库 facets 模块缓存 */
-export function __clearHomeFacetsCacheForTests(): void {
-  homeFacetsCache = null;
+/** 产品模型库公开桶直链（匿名可读） */
+export function productModelPublicUrl(
+  config: Pick<ProductModelLibraryConfig, 'bucket'>,
+  supabaseUrl: string,
+  path: string
+): string {
+  return `${supabaseUrl.replace(/\/$/, '')}/storage/v1/object/public/${config.bucket}/${path}`;
 }
 
-/** 家居库公开桶直链（匿名可读） */
-export function homePublicUrl(supabaseUrl: string, path: string): string {
-  return `${supabaseUrl.replace(/\/$/, '')}/storage/v1/object/public/jzxz-home-materials/${path}`;
-}
-
-/** 家居库行 → 视图用 Asset（url 取第一张视图图；携带整组视图与产品元信息） */
-export function homeMaterialToAsset(
-  row: HomeMaterialRow,
+/** 行 → 视图用 Asset（url 取第一张视图图；携带整组视图与产品元信息） */
+export function productModelToAsset(
+  config: ProductModelLibraryConfig,
+  row: ProductModelRow,
   supabaseUrl: string
 ): Asset {
   const path = row.image_paths?.[0] ?? '';
   return {
-    id: `official-home-${row.source_id}`,
+    id: `${config.idPrefix}-${row.source_id}`,
     type: AssetType.IMAGE,
     source: AssetSource.OFFICIAL,
-    url: path ? homePublicUrl(supabaseUrl, path) : '',
-    name: row.name || row.category || '家居模型',
+    url: path ? productModelPublicUrl(config, supabaseUrl, path) : '',
+    name: row.name || row.category || config.fallbackName,
     mimeType: path.endsWith('.webp')
       ? 'image/webp'
       : path.endsWith('.jpg')
@@ -328,54 +366,70 @@ export function homeMaterialToAsset(
       : 'image/png',
     createdAt: row.created_at ? Date.parse(row.created_at) : 0,
     prompt: undefined,
-    viewImageUrls: homeImageUrls(row, supabaseUrl),
+    viewImageUrls: productModelImageUrls(config, row, supabaseUrl),
     homeMeta: {
       category: row.category,
       tags: row.tags ?? [],
       sizeText: row.size_text,
-      glbUrl: row.glb_path ? homePublicUrl(supabaseUrl, row.glb_path) : null,
+      glbUrl: row.glb_path
+        ? productModelPublicUrl(config, supabaseUrl, row.glb_path)
+        : null,
       glbName: row.glb_name,
     },
   };
 }
 
 /** 行 → 全部视图图直链（预览翻页用） */
-export function homeImageUrls(row: HomeMaterialRow, supabaseUrl: string): string[] {
+export function productModelImageUrls(
+  config: Pick<ProductModelLibraryConfig, 'bucket'>,
+  row: ProductModelRow,
+  supabaseUrl: string
+): string[] {
   return (row.image_paths ?? [])
     .filter(Boolean)
-    .map((path) => homePublicUrl(supabaseUrl, path));
+    .map((path) => productModelPublicUrl(config, supabaseUrl, path));
 }
 
 /** 行 → glb 模型直链（无模型返回 null） */
-export function homeGlbUrl(row: HomeMaterialRow, supabaseUrl: string): string | null {
-  return row.glb_path ? homePublicUrl(supabaseUrl, row.glb_path) : null;
+export function productModelGlbUrl(
+  config: Pick<ProductModelLibraryConfig, 'bucket'>,
+  row: ProductModelRow,
+  supabaseUrl: string
+): string | null {
+  return row.glb_path
+    ? productModelPublicUrl(config, supabaseUrl, row.glb_path)
+    : null;
 }
 
-/** 家居库 facets：品类去重 + 总数（表为千行级，单页扫描即可） */
-export async function listHomeFacets(forceRefresh = false): Promise<HomeFacets> {
+/** 产品模型库 facets：品类去重 + 总数（表为千行级，单页扫描即可） */
+export async function listProductModelFacets(
+  config: ProductModelLibraryConfig,
+  forceRefresh = false
+): Promise<ProductModelFacets> {
+  const cached = productFacetsCaches.get(config.table);
   if (
     !forceRefresh &&
-    homeFacetsCache &&
-    Date.now() - homeFacetsCache.at < FACETS_CACHE_TTL_MS
+    cached &&
+    Date.now() - cached.at < FACETS_CACHE_TTL_MS
   ) {
-    return homeFacetsCache.facets;
+    return cached.facets;
   }
   const client = requireClient();
   const { count, error } = await client
-    .from('jzxz_home_materials')
+    .from(config.table)
     .select('id', { count: 'exact', head: true });
   if (error) {
-    throw new Error(`家居库统计失败: ${error.message}`);
+    throw new Error(`${config.gallery}统计失败: ${error.message}`);
   }
   const categories = new Set<string>();
   for (let offset = 0; ; offset += FACETS_SCAN_PAGE_SIZE) {
     const { data, error: scanError } = await client
-      .from('jzxz_home_materials')
+      .from(config.table)
       .select('category')
       .order('source_id', { ascending: true })
       .range(offset, offset + FACETS_SCAN_PAGE_SIZE - 1);
     if (scanError) {
-      throw new Error(`家居库分类查询失败: ${scanError.message}`);
+      throw new Error(`${config.gallery}分类查询失败: ${scanError.message}`);
     }
     const rows = (data ?? []) as Array<{ category: string | null }>;
     for (const row of rows) {
@@ -384,23 +438,24 @@ export async function listHomeFacets(forceRefresh = false): Promise<HomeFacets> 
     }
     if (rows.length < FACETS_SCAN_PAGE_SIZE) break;
   }
-  const facets: HomeFacets = {
+  const facets: ProductModelFacets = {
     categories: [...categories].sort((a, b) => a.localeCompare(b, 'zh-Hans-CN')),
     total: count ?? 0,
   };
-  homeFacetsCache = { facets, at: Date.now() };
+  productFacetsCaches.set(config.table, { facets, at: Date.now() });
   return facets;
 }
 
-/** 按品类/搜索分页查询家居库（排序 created_at desc + source_id 稳定 tiebreaker） */
-export async function listHomeMaterials(
-  query: HomeMaterialQuery = {}
-): Promise<HomeMaterialPage> {
+/** 按品类/搜索分页查询产品模型库（排序 created_at desc + source_id 稳定 tiebreaker） */
+export async function listProductModelMaterials(
+  config: ProductModelLibraryConfig,
+  query: ProductModelQuery = {}
+): Promise<ProductModelPage> {
   const client = requireClient();
   const { category, search = '', limit = 60, offset = 0 } = query;
 
   let builder = client
-    .from('jzxz_home_materials')
+    .from(config.table)
     .select(
       'source_id, name, category, tags, size_text, image_paths, glb_path, glb_name, created_at',
       { count: 'exact' }
@@ -423,7 +478,7 @@ export async function listHomeMaterials(
 
   const { data, error, count } = await builder;
   if (error) {
-    throw new Error(`家居库查询失败: ${error.message}`);
+    throw new Error(`${config.gallery}查询失败: ${error.message}`);
   }
-  return { items: (data ?? []) as HomeMaterialRow[], total: count ?? 0 };
+  return { items: (data ?? []) as ProductModelRow[], total: count ?? 0 };
 }

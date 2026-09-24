@@ -21,19 +21,20 @@ import { useDrawnix } from '../../hooks/use-drawnix';
 import { HoverTip } from '../shared/hover';
 import { getOfficialLibraryConfig } from './runtime';
 import {
-  homeGlbUrl,
-  homeImageUrls,
-  homeMaterialToAsset,
-  listHomeFacets,
-  listHomeMaterials,
+  PRODUCT_MODEL_LIBRARIES,
   listOfficialFacets,
   listOfficialMaterials,
+  listProductModelFacets,
+  listProductModelMaterials,
   officialMaterialToAsset,
-  type HomeFacets,
-  type HomeMaterialPage,
-  type HomeMaterialRow,
+  productModelGlbUrl,
+  productModelImageUrls,
+  productModelToAsset,
   type OfficialFacets,
   type OfficialMaterialPage,
+  type ProductModelFacets,
+  type ProductModelPage,
+  type ProductModelRow,
 } from './official-library-service';
 import type { Asset } from '../../types/asset.types';
 import '../media-library/MediaLibraryGrid.scss';
@@ -41,6 +42,9 @@ import './official-library.scss';
 
 const PAGE_SIZE = 60;
 const SEARCH_DEBOUNCE_MS = 300;
+
+/** 产品模型库 tab（读各自的产品模型表；贴图库 tab 读 jzxz_materials） */
+const PRODUCT_GALLERIES = ['家居库', '植物库'] as const;
 
 declare const __APP_VERSION__: string;
 declare const __APP_BUILD_TIME__: string;
@@ -84,12 +88,14 @@ export function OfficialLibraryView({
   const [facetsError, setFacetsError] = useState<string | null>(null);
   const [facetsLoading, setFacetsLoading] = useState(false);
 
-  // 家居库（jzxz_home_materials 产品模型，独立于贴图 facets）
-  const [homeFacets, setHomeFacets] = useState<HomeFacets | null>(null);
-  const homeExtrasRef = useRef(
+  // 产品模型库（jzxz_home_materials / jzxz_plant_materials，独立于贴图 facets）
+  const [productFacets, setProductFacets] = useState<
+    Partial<Record<(typeof PRODUCT_GALLERIES)[number], ProductModelFacets>>
+  >({});
+  const productExtrasRef = useRef(
     new Map<
       string,
-      { imageUrls: string[]; glbUrl: string | null; row: HomeMaterialRow }
+      { imageUrls: string[]; glbUrl: string | null; row: ProductModelRow }
     >()
   );
 
@@ -120,18 +126,33 @@ export function OfficialLibraryView({
     setFacetsLoading(true);
     setFacetsError(null);
     try {
-      const [result, home] = await Promise.all([
+      // 产品模型库失败不拖垮贴图库，仅隐藏对应 tab
+      const [result, home, plant] = await Promise.all([
         listOfficialFacets(),
-        listHomeFacets().catch((error) => {
-          // 家居库（新表）失败不拖垮贴图三库，仅隐藏其 tab
-          console.error('[OfficialLibrary] 家居库加载失败:', error);
-          return null;
-        }),
+        ...PRODUCT_GALLERIES.map((gallery) =>
+          listProductModelFacets(
+            PRODUCT_MODEL_LIBRARIES[gallery]
+          ).catch((error) => {
+            console.error(`[OfficialLibrary] ${gallery}加载失败:`, error);
+            return null;
+          })
+        ),
       ]);
+      setProductFacets({
+        家居库: home ?? undefined,
+        植物库: plant ?? undefined,
+      });
       setFacets(result);
-      setHomeFacets(home);
       setActiveGallery(
-        (prev) => prev ?? (home && home.total > 0 ? '家居库' : result.galleries[0] ?? null)
+        (prev) =>
+          prev ??
+          PRODUCT_GALLERIES.find((gallery) => {
+            const facetsForGallery =
+              gallery === '家居库' ? home : gallery === '植物库' ? plant : null;
+            return (facetsForGallery?.total ?? 0) > 0;
+          }) ??
+          result.galleries[0] ??
+          null
       );
     } catch (error) {
       setFacetsError(error instanceof Error ? error.message : '官方素材库加载失败');
@@ -152,13 +173,17 @@ export function OfficialLibraryView({
     return () => window.clearTimeout(timer);
   }, [searchInput]);
 
-  // 家居库 tab 读产品模型表，其余库读贴图表
-  const isHomeGallery = activeGallery === '家居库' && !!homeFacets;
+  // 产品模型库 tab 读各自的产品模型表，其余库读贴图表
+  const productLibrary =
+    activeGallery && activeGallery in PRODUCT_MODEL_LIBRARIES
+      ? PRODUCT_MODEL_LIBRARIES[activeGallery as keyof typeof PRODUCT_MODEL_LIBRARIES]
+      : null;
+  const isProductLibrary = !!productLibrary && !!productFacets[activeGallery as (typeof PRODUCT_GALLERIES)[number]];
 
   const fetchPage = useCallback(
     (offset: number) =>
-      isHomeGallery
-        ? listHomeMaterials({
+      isProductLibrary && productLibrary
+        ? listProductModelMaterials(productLibrary, {
             category: activeCategory ?? undefined,
             search,
             limit: PAGE_SIZE,
@@ -172,18 +197,18 @@ export function OfficialLibraryView({
             limit: PAGE_SIZE,
             offset,
           }),
-    [isHomeGallery, activeGallery, activeCategory, activeTag, search]
+    [isProductLibrary, productLibrary, activeGallery, activeCategory, activeTag, search]
   );
 
   const applyPage = useCallback(
-    (page: HomeMaterialPage | OfficialMaterialPage, append: boolean) => {
-      if (isHomeGallery) {
-        const homeRows = (page as HomeMaterialPage).items;
-        const next = homeRows.map((row) => {
-          const asset = homeMaterialToAsset(row, supabaseUrl);
-          homeExtrasRef.current.set(asset.id, {
-            imageUrls: homeImageUrls(row, supabaseUrl),
-            glbUrl: homeGlbUrl(row, supabaseUrl),
+    (page: ProductModelPage | OfficialMaterialPage, append: boolean) => {
+      if (isProductLibrary && productLibrary) {
+        const rows = (page as ProductModelPage).items;
+        const next = rows.map((row) => {
+          const asset = productModelToAsset(productLibrary, row, supabaseUrl);
+          productExtrasRef.current.set(asset.id, {
+            imageUrls: productModelImageUrls(productLibrary, row, supabaseUrl),
+            glbUrl: productModelGlbUrl(productLibrary, row, supabaseUrl),
             row,
           });
           return asset;
@@ -197,7 +222,7 @@ export function OfficialLibraryView({
       }
       setTotal(page.total);
     },
-    [isHomeGallery, supabaseUrl]
+    [isProductLibrary, productLibrary, supabaseUrl]
   );
 
   // 筛选/搜索变化 → 重置到第一页
@@ -267,10 +292,10 @@ export function OfficialLibraryView({
     setActiveTag((prev) => (prev === tag ? null : tag));
   }, []);
 
-  // 预览：贴图库以当前网格全部素材为上下文；家居库预览单个素材的全部视图图
+  // 预览：贴图库以当前网格全部素材为上下文；产品模型库预览单个素材的全部视图图
   const handlePreview = useCallback(
     (asset: Asset) => {
-      const extra = homeExtrasRef.current.get(asset.id);
+      const extra = productExtrasRef.current.get(asset.id);
       if (extra) {
         const items: UnifiedMediaItem[] = extra.imageUrls.map((url, index) => ({
           id: `${asset.id}#view-${index}`,
@@ -306,7 +331,7 @@ export function OfficialLibraryView({
   }, []);
 
   // 预览器插入：优先走宿主使用回调，否则直插画布（公开直链）
-  // 家居库素材预览项为“单素材多视图”（id 带 #view-N 后缀），插入当前翻到的视图
+  // 产品模型库素材预览项为“单素材多视图”（id 带 #view-N 后缀），插入当前翻到的视图
   const handleInsertFromViewer = useCallback(
     async (item: UnifiedMediaItem) => {
       const viewMatch = item.id?.match(/^(.+)#view-\d+$/);
@@ -347,43 +372,48 @@ export function OfficialLibraryView({
 
   const galleryCategories = useMemo(
     () =>
-      isHomeGallery
-        ? homeFacets?.categories ?? []
+      isProductLibrary
+        ? productFacets[activeGallery as (typeof PRODUCT_GALLERIES)[number]]
+            ?.categories ?? []
         : activeGallery
         ? facets?.categoriesByGallery.get(activeGallery) ?? []
         : [],
-    [isHomeGallery, homeFacets, facets, activeGallery]
+    [isProductLibrary, productFacets, facets, activeGallery]
   );
   const activeTags = useMemo(
     () =>
-      isHomeGallery || !activeCategory
+      isProductLibrary || !activeCategory
         ? []
         : facets?.tagsByCategory.get(activeCategory) ?? [],
-    [isHomeGallery, facets, activeCategory]
+    [isProductLibrary, facets, activeCategory]
   );
 
-  // 库 tab 列表：家居库（产品模型）+ 贴图三库（去重）
+  // 库 tab 列表：产品模型库（家居库/植物库）+ 贴图库（去重）
   const mergedGalleries = useMemo(() => {
     const list: string[] = [];
-    if (homeFacets && homeFacets.total > 0) list.push('家居库');
+    for (const gallery of PRODUCT_GALLERIES) {
+      if ((productFacets[gallery]?.total ?? 0) > 0) list.push(gallery);
+    }
     for (const gallery of facets?.galleries ?? []) {
-      if (gallery !== '家居库') list.push(gallery);
+      if (!(PRODUCT_GALLERIES as readonly string[]).includes(gallery)) {
+        list.push(gallery);
+      }
     }
     return list;
-  }, [facets, homeFacets]);
+  }, [facets, productFacets]);
 
   const galleryCountFor = useCallback(
     (gallery: string) =>
-      gallery === '家居库'
-        ? homeFacets?.total
+      (PRODUCT_GALLERIES as readonly string[]).includes(gallery)
+        ? productFacets[gallery as (typeof PRODUCT_GALLERIES)[number]]?.total
         : facets?.countsByGallery.get(gallery),
-    [facets, homeFacets]
+    [facets, productFacets]
   );
 
-  // 选中条目的家居库元信息（品类/标签/尺寸 + glb 下载）
+  // 选中条目的产品模型元信息（品类/标签/尺寸 + glb 下载）
   const selectedHomeExtra = useMemo(() => {
     if (!selectedAssetId) return null;
-    return homeExtrasRef.current.get(selectedAssetId) ?? null;
+    return productExtrasRef.current.get(selectedAssetId) ?? null;
     // assets 依赖：确保网格加载后再查映射
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAssetId, assets]);
@@ -426,7 +456,7 @@ export function OfficialLibraryView({
         </div>
         <div className="media-library-grid__header-bottom">
           <div className="media-library-grid__filter-island">
-            {/* 库 tab（家居库=产品模型，其余=贴图库） */}
+            {/* 库 tab（家居库/植物库=产品模型，其余=贴图库） */}
             <div className="media-library-grid__type-tabs">
               {mergedGalleries.map((gallery) => {
                 const count = galleryCountFor(gallery);
@@ -463,15 +493,15 @@ export function OfficialLibraryView({
               })}
             </div>
 
-            {/* 品类/分类 chips（家居库品类上百个，单行横向滚动） */}
+            {/* 品类/分类 chips（产品模型库品类几十个，单行横向滚动） */}
             {galleryCategories.length > 0 && (
               <div
                 className={`media-library-grid__filter-tags${
-                  isHomeGallery ? ' media-library-grid__filter-tags--scrollable' : ''
+                  isProductLibrary ? ' media-library-grid__filter-tags--scrollable' : ''
                 }`}
               >
                 <span className="media-library-grid__filter-tags-label">
-                  {isHomeGallery ? '品类' : '分类'}
+                  {isProductLibrary ? '品类' : '分类'}
                 </span>
                 {galleryCategories.map((category) => {
                   const isActive = activeCategory === category;
@@ -566,14 +596,14 @@ export function OfficialLibraryView({
               onLoadMore={loadMore}
               onDoubleClick={onUseAsset}
               imageCountOf={(asset) => {
-                const extra = homeExtrasRef.current.get(asset.id);
+                const extra = productExtrasRef.current.get(asset.id);
                 const paths = extra?.row.image_paths;
                 return paths && paths.length > 1 ? paths.length : undefined;
               }}
             />
           </div>
 
-          {/* 家居库选中条目元信息条（品类/标签/尺寸 + glb 下载） */}
+          {/* 产品模型库选中条目元信息条（品类/标签/尺寸 + glb 下载） */}
           {selectedHomeExtra && (
             <div
               className="official-library__home-meta"
@@ -588,9 +618,12 @@ export function OfficialLibraryView({
                   ? selectedHomeExtra.row.tags.join(' / ')
                   : '—'}
               </span>
-              <span className="official-library__home-meta-item">
-                尺寸：{selectedHomeExtra.row.size_text || '—'}
-              </span>
+              {/* 植物库详情无尺寸段，空值不渲染避免一排"—" */}
+              {selectedHomeExtra.row.size_text && (
+                <span className="official-library__home-meta-item">
+                  尺寸：{selectedHomeExtra.row.size_text}
+                </span>
+              )}
               {selectedHomeExtra.glbUrl && (
                 <a
                   className="official-library__home-meta-glb"
