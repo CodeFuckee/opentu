@@ -1976,10 +1976,46 @@ function weekRange(){
   return {start:f(mon),end:f(sun),label:f(mon)+' ~ '+f(sun)};
 }
 
+// 自然月精确区间（东八区口径与后端 range 一致）：start=当月 1 日，end=当月末日
+function monthRange(ym){
+  var parts=ym.split('-');
+  var y=Number(parts[0]), m=Number(parts[1]);
+  var mm=(m<10?'0':'')+m;
+  var last=new Date(y, m, 0).getDate(); // m 月末日：取 m 月的下月第 0 天
+  var dd=function(d){return (d<10?'0':'')+d;};
+  return {
+    start:y+'-'+mm+'-01',
+    end:y+'-'+mm+'-'+dd(last),
+    label:ym+'（自然月）',
+    days:last,
+  };
+}
+
+// 月份快选：动态生成近 6 个月（含当月，最近在上），随时间自动滚动
+function populateMonthOptions(){
+  var sel=document.getElementById('daysSel');
+  if(!sel) return;
+  var now=new Date();
+  var opts='';
+  for(var i=0;i<6;i++){
+    var d=new Date(now.getFullYear(), now.getMonth()-i, 1);
+    var m=d.getMonth()+1;
+    var ym=d.getFullYear()+'-'+(m<10?'0':'')+m;
+    opts+='<option value="month:'+ym+'">'+ym+'（自然月）</option>';
+  }
+  sel.insertAdjacentHTML('beforeend', opts);
+}
+
 async function load(){
   var mode = document.getElementById('daysSel').value;
   var qs;
-  if(mode==='week'){
+  if(mode.indexOf('month:')===0){
+    // 自然月快选：按月拼精确区间（后端 range 口径，东八区）
+    var mr=monthRange(mode.slice(6));
+    CURRENT_RANGE_LABEL=mr.label;
+    days=mr.days;
+    qs='overview?start='+mr.start+'&end='+mr.end+'&days='+mr.days;
+  } else if(mode==='week'){
     var r=weekRange();
     CURRENT_RANGE_LABEL=r.label+'（周一~周日）';
     days=7;
@@ -2180,7 +2216,8 @@ document.getElementById('loginPassword').addEventListener('keydown', function(e)
 document.getElementById('loginAccount').addEventListener('keydown', function(e){ if(e.key==='Enter') document.getElementById('loginPassword').focus(); });
 document.getElementById('logoutBtn').addEventListener('click', function(){ clearSession(); showLogin(); });
 
-// 启动：有会话直接加载，否则进入登录页
+// 启动：填充月份快选；有会话直接加载，否则进入登录页
+populateMonthOptions();
 loadSession();
 if(session){ load(); } else { showLogin(); }
 </script>
