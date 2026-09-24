@@ -1793,6 +1793,10 @@ function kpiCards(o){
     ['本月用量', q.latestUsed, '周期 '+(q.latestPeriod||'-'), ''],
     ['数据覆盖天数', o.days, '截至 '+fmtDate(o.generatedAt).slice(0,10), ''],
   ];
+  // 固定「近 30 天」口径的消耗卡仅在近 30 天周期显示；其余周期（周/月/90 天）隐藏，避免口径错位
+  if(CURRENT_MODE!=='30'){
+    big = big.filter(function(c){ return c[0]!=='近30天消耗金额'; });
+  }
   document.getElementById('kpiCards').innerHTML = big.map(function(c){
     return '<div class="card"><div class="label">'+esc(c[0])+'</div><div class="value" style="font-size:30px">'+esc(c[1])+'</div><div class="sub">'+esc(c[2])+'</div>'+(c[3]||'')+'</div>';
   }).join('');
@@ -1965,6 +1969,9 @@ function basePath(){
 }
 
 var CURRENT_RANGE_LABEL = '';
+// 当前周期模式：'30'（近 30 天）/ '90' / 'week' / 'month:YYYY-MM'。
+// 固定「近 30 天」口径的卡片仅在 '30' 模式显示（页面与导出图片同源渲染）。
+var CURRENT_MODE = '30';
 
 function weekRange(){
   var now=new Date();
@@ -1991,19 +1998,14 @@ function monthRange(ym){
   };
 }
 
-// 月份快选：动态生成近 6 个月（含当月，最近在上），随时间自动滚动
+// 月份快选：仅提供 2026-08 / 2026-09（用户拍板：看板数据仅这两个月，需要扩展时改此数组）
+var MONTH_OPTIONS = ['2026-09', '2026-08'];
 function populateMonthOptions(){
   var sel=document.getElementById('daysSel');
   if(!sel) return;
-  var now=new Date();
-  var opts='';
-  for(var i=0;i<6;i++){
-    var d=new Date(now.getFullYear(), now.getMonth()-i, 1);
-    var m=d.getMonth()+1;
-    var ym=d.getFullYear()+'-'+(m<10?'0':'')+m;
-    opts+='<option value="month:'+ym+'">'+ym+'（自然月）</option>';
-  }
-  sel.insertAdjacentHTML('beforeend', opts);
+  sel.insertAdjacentHTML('beforeend', MONTH_OPTIONS.map(function(ym){
+    return '<option value="month:'+ym+'">'+ym+'（自然月）</option>';
+  }).join(''));
 }
 
 async function load(){
@@ -2014,15 +2016,18 @@ async function load(){
     var mr=monthRange(mode.slice(6));
     CURRENT_RANGE_LABEL=mr.label;
     days=mr.days;
+    CURRENT_MODE=mode;
     qs='overview?start='+mr.start+'&end='+mr.end+'&days='+mr.days;
   } else if(mode==='week'){
     var r=weekRange();
     CURRENT_RANGE_LABEL=r.label+'（周一~周日）';
     days=7;
+    CURRENT_MODE='week';
     qs='overview?start='+r.start+'&end='+r.end+'&days=7';
   } else {
     days=Number(mode)||30;
     CURRENT_RANGE_LABEL='近 '+days+' 天';
+    CURRENT_MODE=String(days);
     qs='overview?days='+days;
   }
   var requestOverview = function(){

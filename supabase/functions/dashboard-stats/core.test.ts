@@ -640,12 +640,18 @@ test('buildDashboardHtml：自包含页面，内嵌 anon key，自带管理员�
   // 用户使用排行面板：全量用户横向条形（数据取 tasks.userUsage，带滚动容器）
   assert.ok(html.includes('id="userRank"'), '页面缺少用户使用排行容器');
   assert.ok(html.includes('tasks.userUsage'), '页面必须渲染 tasks.userUsage');
-  // 周期选择：近 6 个月自然月快选（动态生成选项，load 按月拼 start/end 区间）
+  // 周期选择：自然月快选（仅提供 2026-08 / 2026-09 两个月，用户拍板），load 按月拼 start/end 区间
   assert.ok(html.includes('populateMonthOptions'), '页面缺少月份快选生成逻辑');
   assert.ok(html.includes('monthRange'), '页面缺少自然月区间计算');
   assert.ok(html.includes("'month:'"), 'load 必须处理 month: 前缀的月选模式');
   assert.ok(html.includes('（自然月）'), '月份选项需标注自然月口径');
   assert.ok(html.split('populateMonthOptions()').length >= 2, '月份选项必须在启动时填充');
+  assert.ok(html.includes("'2026-09'"), '看板必须提供 2026-09 数据入口');
+  assert.ok(html.includes("'2026-08'"), '看板必须提供 2026-08 数据入口');
+  assert.ok(!html.includes("now.getMonth()-i"), '月份列表不允许动态滚动（仅 8/9 月）');
+  // 固定近 30 天口径的消耗卡：仅在「近 30 天」周期显示，其余周期（周/月/90 天）页面与导出一致隐藏
+  assert.ok(html.includes('CURRENT_MODE'), '页面缺少当前周期模式跟踪');
+  assert.ok(html.includes("CURRENT_MODE!=='30'"), '近30天消耗金额卡必须按周期条件隐藏');
   // 启动必须先检查会话，不得匿名直接加载
   assert.ok(html.includes('loadSession();'));
   assert.ok(!/^\s*load\(\);\s*$/m.test(html.split('loadSession();')[1] || ''), '启动不得绕过会话检查直接 load()');
