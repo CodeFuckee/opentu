@@ -573,12 +573,6 @@ export function useAutoInsertToCanvas(
         // 空画布等场景解析不到插入点——回退画布原点（此前会静默丢弃整组任务）
         const resolvedInsertionPoint: Point = resolvedInsertionPointRaw ?? [0, 0];
 
-        if (!resolvedInsertionPoint) {
-          console.warn(
-            `[AutoInsert][诊断] ${firstInsertTask.id} 未解析到插入点（空画布），已回退画布原点`
-          );
-        }
-
         // 注册所有任务
         for (const { task } of inserts) {
           const batchId = (task.params as Record<string, unknown>).batchId as

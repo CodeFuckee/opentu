@@ -118,7 +118,7 @@ function deriveAnchorPreviewImageUrl(
         url?: string;
         urls?: string[];
         public_url?: string;
-        public_urls?: string[];
+        public_urls?: Array<string | undefined>;
       }
     | undefined;
 

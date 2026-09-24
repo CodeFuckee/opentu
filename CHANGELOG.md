@@ -1,5 +1,21 @@
 ## Unreleased
 
+### refactor: 第八轮全仓库评审批次1——交付完整性与死代码清理（行为保持，2026-09-24）
+
+- 评审报告：docs/code-review-2026-09-24.md（增量深评第七轮后 9 提交 + 工作区 WIP，
+  1P1 交付 + 1P1 过时测试 + 2P2 修复，8 条待确认沿用/新登记）。
+- **补交 ai-outputs 公开桶迁移**（supabase/migrations/ai_outputs_bucket.sql）：方案 1
+  主提交（c661d76f）漏暂存了其依赖的迁移文件（该会话第二次漏暂存），生产部署将缺桶
+  致画布直链全 404；内容已逐行复核幂等且与实测 RLS 语义一致，随本批入库。
+- **删除过时测试** apps/web/src/supabase/auth-context.spec.tsx：测试对象是 f65a4079
+  已删除的明文密码回写功能，实测对 HEAD 3/5 必挂且被 apps/web vitest 收录，阻塞本地
+  全量测试门禁。
+- useAutoInsertToCanvas：删除空画布回退 `?? [0,0]` 后永假的 `if (!resolvedInsertionPoint)`
+  死分支（含永不触发的 warn）。
+- useImageGenerationAnchorSync：锚点预览局部类型 `public_urls` 与其余三处声明对齐为
+  `Array<string | undefined>`（运行时确实会写入 undefined 项，:129 的 typeof 守卫即证）。
+- 本地门禁：check 0 errors / vitest 4 项目全过 / 后端 171 例全过。
+
 ### feat: 数据看板周期选择支持自然月快选（2026-09-24）
 
 - 周期下拉新增自然月选项：按用户拍板**仅提供 2026-09 与 2026-08** 两个月
