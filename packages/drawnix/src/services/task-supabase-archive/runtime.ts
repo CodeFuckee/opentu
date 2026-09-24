@@ -12,6 +12,8 @@ export interface TaskArchiveConfig {
   client: SupabaseClient;
   /** Storage bucket 名，默认 'huabu' */
   bucketName?: string;
+  /** Supabase 项目地址（生成结果公开桶直链拼接用） */
+  supabaseUrl?: string;
 }
 
 let currentConfig: TaskArchiveConfig | null = null;
