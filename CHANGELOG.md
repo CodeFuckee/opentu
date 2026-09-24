@@ -1,5 +1,16 @@
 ## Unreleased
 
+### feat: 数据看板新增「用户使用排行」面板（2026-09-24）
+
+- `/functions/v1/dashboard-stats/` 看板新增全量用户使用情况图表：横向条形
+  排行（窗口内成功任务次数，降序，含排名/姓名/部门/次数），标题带「共 N 人」，
+  位于「部门使用排行」下方，容器限高滚动（超 420px 出滚动条）。
+- 数据侧 `overview.tasks.userUsage` 全量输出（原 `topUsers` 仍截断前 10，
+  周报口径不变；`applyUsageMultiplier` 缩放同步覆盖）；页面渲染按数组遍历，
+  同名用户不再互相覆盖。
+- 测试先行（TDD）：参与聚合全量不截断/排除失败与匿名行、缩放同步、页面
+  面板断言，dashboard-stats 测试 23→25 例；本地过目用 fixture 预览页确认。
+
 ### feat: AI 生图结果画布 URL 切换为公开桶直链（方案 1，2026-09-23）
 
 - 现状：生图完成事件瞬间画布即用供应商原始 URL 插入（useAutoInsertToCanvas

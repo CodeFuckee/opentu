@@ -468,6 +468,13 @@ export interface DashboardOverview {
       department: string | null;
       count: number;
     }>;
+    /** 全量用户使用排行（窗口内成功任务次数，按次数降序；页面「用户使用排行」用） */
+    userUsage: Array<{
+      userId: string;
+      displayName: string | null;
+      department: string | null;
+      count: number;
+    }>;
     /** 消耗金额（USD，按 tu-zi 价目折算；价目不可用时为 null） */
     totalCostUsd: number | null;
   };
@@ -833,18 +840,22 @@ export function displayDepartmentName(department: string): string {
   return DEPARTMENT_DISPLAY_NAMES[department] ?? department;
 }
 
-/** 任务参与统计：使用次数排行（按用户前 10）、部门/区域使用情况与部门消耗金额 */
+/** 任务参与统计结果（独立命名类型：node 类型剥离不支持多行交集返回注解，见 core.test.ts 同款约定） */
+export interface TaskParticipationResult
+  extends Pick<DashboardOverview['tasks'], 'topUsers' | 'userUsage'> {
+  usageByDepartment: Record<string, number>;
+  usageByRegion: Record<string, number>;
+  costByDepartment: Record<string, number>;
+}
+
+/** 任务参与统计：使用次数排行（按用户前 10）、全量用户排行、部门/区域使用情况与部门消耗金额 */
 export function aggregateTaskParticipation(
   rows: TaskRow[],
   profileRows: ProfileRow[],
   nameByOa: Map<string, string>,
   nameByUser: Map<string, string>,
   priceByModel: Map<string, number> = new Map()
-): Pick<DashboardOverview['tasks'], 'topUsers'> & {
-  usageByDepartment: Record<string, number>;
-  usageByRegion: Record<string, number>;
-  costByDepartment: Record<string, number>;
-} {
+): TaskParticipationResult {
   const okRows = rows.filter((row) => row.status === 'completed');
   const deptByUser = new Map(
     profileRows.map((p) => [p.user_id, displayDepartmentName(p.department)])
@@ -880,7 +891,8 @@ export function aggregateTaskParticipation(
     }
   }
 
-  const topUsers = Array.from(countByUser.entries())
+  // 全量用户排行（降序）；topUsers 仍为前 10 截断（周报口径不变）
+  const userUsage = Array.from(countByUser.entries())
     .map(([userId, count]) => {
       const oaAccount = oaByUser.get(userId) ?? null;
       return {
@@ -890,10 +902,11 @@ export function aggregateTaskParticipation(
         count,
       };
     })
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 10);
+    .sort((a, b) => b.count - a.count);
 
-  return { topUsers, usageByDepartment, usageByRegion, costByDepartment };
+  const topUsers = userUsage.slice(0, 10);
+
+  return { topUsers, userUsage, usageByDepartment, usageByRegion, costByDepartment };
 }
 
 /** 用量与额度：generation_usage + user_profiles join + 部门配置限额 */
@@ -1038,6 +1051,10 @@ export function applyUsageMultiplier(
         Math.round(count * multiplier)
       ),
       topUsers: overview.tasks.topUsers.map((user) => ({
+        ...user,
+        count: Math.round(user.count * multiplier),
+      })),
+      userUsage: overview.tasks.userUsage.map((user) => ({
         ...user,
         count: Math.round(user.count * multiplier),
       })),
@@ -1394,6 +1411,7 @@ export async function aggregateOverview(
       tasks: {
         ...tasksAgg,
         topUsers: participation.topUsers,
+        userUsage: participation.userUsage,
         totalCostUsd,
       },
       usage: aggregateUsage(usageRows, profileRows, quotaLimit, nameByOa, nameByUser),
@@ -1528,6 +1546,7 @@ export function buildDashboardHtml(anonKey: string): string {
   .bar-row .track { flex:1; height:12px; background:var(--card2); border-radius:6px; overflow:hidden; }
   .bar-row .fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:6px; }
   .bar-row .num { width:56px; text-align:right; font-variant-numeric:tabular-nums; }
+  .rank-scroll { max-height:420px; overflow-y:auto; padding-right:4px; }
   table { width:100%; border-collapse:collapse; font-size:12px; }
   th, td { text-align:left; padding:8px 10px; border-bottom:1px solid rgba(148,163,184,.09); }
   th { color:var(--muted); font-weight:500; }
@@ -1598,6 +1617,9 @@ export function buildDashboardHtml(anonKey: string): string {
 </div>
 <div class="grid">
   <div class="panel"><h2>部门使用排行</h2><div id="rankTable"><div class="sk"></div></div></div>
+</div>
+<div class="grid">
+  <div class="panel"><h2>用户使用排行<span id="userRankCount" style="margin-left:8px;font-size:12px;color:var(--muted);font-weight:400"></span></h2><div id="userRank" class="rank-scroll"><div class="sk"></div></div></div>
 </div>
 <div class="grid">
   <div class="panel"><h2>部门使用汇总</h2><table id="deptSummary"><thead><tr><th>部门</th><th>用户数</th><th>使用次数</th><th>金额</th><th>占比</th></tr></thead><tbody></tbody></table></div>
@@ -1921,6 +1943,19 @@ function render(o){
     }).join(''):'<tr><td colspan="5" class="muted">暂无数据</td></tr>');
   bars(document.getElementById('byDept'), o.users.byDepartment, '#c084fc');
   bars(document.getElementById('usageTrend'), (o.usage.byPeriod||[]).reduce(function(m,p){m[p.period]=p.used;return m;},{}), '#f472b6');
+  // 用户使用排行（全量）：数组渲染避免同名用户在 Object 键上互相覆盖
+  var userUsage = (o.tasks.userUsage||[]);
+  var userRankEl = document.getElementById('userRank');
+  if(userRankEl){
+    var uMax = userUsage.reduce(function(m,u){return Math.max(m,u.count);},1);
+    userRankEl.innerHTML = userUsage.length ? userUsage.map(function(u,i){
+      var w = Math.max(2, Math.round(u.count/uMax*100));
+      var label = (i+1)+'. '+(u.displayName||u.userId||'未知用户')+(u.department?'（'+u.department+'）':'');
+      return '<div class="bar-row"><span class="name" title="'+esc(label)+'">'+esc(label)+'</span><div class="track"><div class="fill" style="width:'+w+'%;background:#38bdf8"></div></div><span class="num">'+u.count+'</span></div>';
+    }).join('') : '<div class="muted">暂无数据</div>';
+  }
+  var userRankCount = document.getElementById('userRankCount');
+  if(userRankCount) userRankCount.textContent = userUsage.length ? '共 '+userUsage.length+' 人' : '';
 }
 
 function basePath(){

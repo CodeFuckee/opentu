@@ -114,12 +114,62 @@ test('aggregateTaskParticipation：使用次数排行（用户前 10）与部门
     { userId: 'u2', displayName: '李四', department: '设计部', count: 1 },
     { userId: 'u4', displayName: null, department: '未知名称部', count: 1 },
   ]);
+  // 全量用户排行：用户数 ≤10 时与 topUsers 完全一致
+  assert.deepEqual(result.userUsage, result.topUsers);
   assert.deepEqual(result.usageByDepartment, {
     职能部门: 2,
     设计部: 1,
     未知名称部: 1,
   });
   assert.deepEqual(result.usageByRegion, { 广州: 2, 深圳: 2 });
+});
+
+test('aggregateTaskParticipation：userUsage 全量用户排行（不截断前 10、降序、排除失败与空用户）', () => {
+  // 12 个有成功任务的用户：u1 3 次、u2..u12 各 1 次（u13 只有失败任务、匿名行无 user_id）
+  const rows: Array<Record<string, unknown>> = [];
+  for (let i = 1; i <= 12; i += 1) {
+    const times = i === 1 ? 3 : 1;
+    for (let k = 0; k < times; k += 1) {
+      rows.push({
+        user_id: `u${i}`,
+        status: 'completed',
+        created_at: `2026-08-0${(k % 8) + 1}T01:00:00Z`,
+      });
+    }
+  }
+  rows.push({ user_id: 'u13', status: 'failed', created_at: '2026-08-04T01:00:00Z' });
+  rows.push({ user_id: '', status: 'completed', created_at: '2026-08-04T02:00:00Z' });
+
+  const profiles = Array.from({ length: 12 }, (_, i) => ({
+    user_id: `u${i + 1}`,
+    department: `部门${i + 1}`,
+    region: '深圳',
+    oa_account: `oa${i + 1}`,
+    created_at: '2026-08-01T00:00:00Z',
+  }));
+  const nameByOa = new Map(profiles.map((p) => [p.oa_account, `姓名${p.oa_account}`]));
+
+  const result = aggregateTaskParticipation(
+    rows as never,
+    profiles as never,
+    nameByOa,
+    new Map()
+  );
+
+  // 全量：12 个用户一个不少（旧实现 topUsers 会截断为前 10）
+  assert.equal(result.userUsage.length, 12);
+  // 降序：u1（3 次）第一，其余各 1 次
+  assert.equal(result.userUsage[0].userId, 'u1');
+  assert.equal(result.userUsage[0].count, 3);
+  assert.ok(result.userUsage.slice(1).every((u) => u.count === 1));
+  // 字段解析与 topUsers 同源：认证姓名回退花名册、部门原样
+  assert.equal(result.userUsage[0].displayName, '姓名oa1');
+  assert.equal(result.userUsage[0].department, '部门1');
+  // topUsers 仍是前 10 截断，且恰为 userUsage 的前 10 项
+  assert.equal(result.topUsers.length, 10);
+  assert.deepEqual(result.topUsers, result.userUsage.slice(0, 10));
+  // 失败任务与匿名行不进入任何用户的计数
+  assert.ok(result.userUsage.every((u) => u.userId !== 'u13' && u.userId !== ''));
 });
 
 test('fetchModelPricing：实测均值优先（hot 数据），回退按次/按量估算；不可用返回空映射', async () => {
@@ -587,6 +637,9 @@ test('buildDashboardHtml：自包含页面，内嵌 anon key，自带管理员�
   assert.ok(html.includes("Authorization'] = 'Bearer ' + session.access_token"));
   assert.ok(html.includes('仅管理员可查看本看板'), '403 时需给出管理员提示');
   assert.ok(html.includes('id="logoutBtn"'));
+  // 用户使用排行面板：全量用户横向条形（数据取 tasks.userUsage，带滚动容器）
+  assert.ok(html.includes('id="userRank"'), '页面缺少用户使用排行容器');
+  assert.ok(html.includes('tasks.userUsage'), '页面必须渲染 tasks.userUsage');
   // 启动必须先检查会话，不得匿名直接加载
   assert.ok(html.includes('loadSession();'));
   assert.ok(!/^\s*load\(\);\s*$/m.test(html.split('loadSession();')[1] || ''), '启动不得绕过会话检查直接 load()');
@@ -596,7 +649,7 @@ test('buildDashboardHtml：自包含页面，内嵌 anon key，自带管理员�
   assert.ok(!html.includes('任务状态分布'), '页面不得展示任务状态分布');
   assert.ok(!html.includes('成功率'), '页面不得展示成功率');
   // 图片看板要求的全部统计块
-  for (const block of ['总操作次数', '消耗金额', '活跃用户数', '数据覆盖天数', '复制报告', '操作类型分布', '模型使用分布', '日历使用热力', '24小时使用分布', '部门使用排行', '部门使用汇总', '部门分布']) {
+  for (const block of ['总操作次数', '消耗金额', '活跃用户数', '数据覆盖天数', '复制报告', '操作类型分布', '模型使用分布', '日历使用热力', '24小时使用分布', '部门使用排行', '用户使用排行', '部门使用汇总', '部门分布']) {
     assert.ok(html.includes(block), `页面缺少统计块：${block}`);
   }
   // 「核心指标」（领导视角）区块与委外参考价配置键提示
@@ -741,6 +794,10 @@ function makeOverviewFixture() {
       topUsers: [
         { userId: 'u1', displayName: '张三', department: '职能部门', count: 6 },
       ],
+      userUsage: [
+        { userId: 'u1', displayName: '张三', department: '职能部门', count: 6 },
+        { userId: 'u2', displayName: '李四', department: '设计部', count: 4 },
+      ],
       totalCostUsd: 5,
     },
     usage: {
@@ -792,6 +849,11 @@ test('applyUsageMultiplier：次数与金额按倍数缩放，人数/额度/天�
   ]);
   assert.deepEqual(scaled.tasks.hourly, [2, 4, 6]);
   assert.equal(scaled.tasks.topUsers[0].count, 12);
+  // 全量用户排行与 topUsers 同口径缩放
+  assert.deepEqual(scaled.tasks.userUsage, [
+    { userId: 'u1', displayName: '张三', department: '职能部门', count: 12 },
+    { userId: 'u2', displayName: '李四', department: '设计部', count: 8 },
+  ]);
   assert.equal(scaled.tasks.totalCostUsd, 10);
 
   assert.equal(scaled.usage.latestUsed, 20);
