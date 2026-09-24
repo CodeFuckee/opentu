@@ -571,7 +571,7 @@ export function useAutoInsertToCanvas(
           imageAnchor: scopedImageAnchor,
         } = resolvePendingInsertContext(board, firstInsertTask);
         // 空画布等场景解析不到插入点——回退画布原点（此前会静默丢弃整组任务）
-        let resolvedInsertionPoint: Point = resolvedInsertionPointRaw ?? [0, 0];
+        const resolvedInsertionPoint: Point = resolvedInsertionPointRaw ?? [0, 0];
 
         if (!resolvedInsertionPoint) {
           console.warn(

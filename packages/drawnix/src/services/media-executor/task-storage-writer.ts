@@ -298,7 +298,9 @@ class TaskStorageWriter {
             .then(({ registerGeneratedMediaArchive }) =>
               registerGeneratedMediaArchive(taskId, urls as string[])
             )
-            .catch(() => {});
+            .catch(() => {
+              // 归档失败静默：仅影响云端留档，不阻塞本地任务写入
+            });
         }
       }
     }
