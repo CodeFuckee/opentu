@@ -256,7 +256,7 @@ describe('URL 拼接与 Asset 映射', () => {
       },
       'http://10.37.80.25:8021'
     );
-    expect(asset.id).toBe('official-src-1');
+    expect(asset.id).toBe('official-uuid-1');
     expect(asset.type).toBe(AssetType.IMAGE);
     expect(asset.source).toBe(AssetSource.OFFICIAL);
     expect(asset.url).toBe(

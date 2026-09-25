@@ -23,6 +23,7 @@ selenium 无头驱动贴图面板翻页；页面注入 fetch/XHR 钩子捕获 wa
 """
 
 import argparse
+import base64
 import faulthandler
 import hashlib
 import json
@@ -58,6 +59,7 @@ CATE_TAGS = {
     "交通配景": {"汽车", "自行车", "摩托车", "轮船", "直升机"},
     "动物配景": {"牛马驴", "猫", "羊", "鸡鸭鹅", "鹿"},
     "自然环境": {"假山", "山体", "石头", "自然远景"},
+    "舞台构建装置": {"植物摆件", "舞台构件", "舞台装置"},
     "总平素材": {"铺装素材", "交通车辆", "运动场地"},
 }
 
@@ -107,12 +109,28 @@ HARVEST_GRID = r"""
 () => {
   const out = [];
   const seen = new Set();
-  const push = (raw) => {
-    if (!raw) return;
-    // 素材图域名实测不止一个：贴图走 soutushenqi，动物/总平等分类走
-    // image-assets.jianzhuxuezhang.com（2026-09-25 探针实证）；其余
-    // ai-assets/web-assets 等是页面 UI 图，不能放行
-    const m = raw.match(/https:\/\/[^"')]*(soutushenqi\.com|image-assets\.jianzhuxuezhang\.com)[^"')]*/i);
+  // 网格作用域：以一级分类行为锚锁定右侧面板区域。整页扫描会把画布侧边
+  // 缩略条、首页信息流与上一状态残留网格里的图错标进当前 tag
+  //（舞台构建装置 11 条错标的根因）
+  const cateRow = [...document.querySelectorAll('[class*="first_cate_list"]')]
+    .find(r => r.offsetWidth > 0);
+  if (!cateRow) return out;
+  const cr = cateRow.getBoundingClientRect();
+  const xMin = cr.x - 80, xMax = cr.x + cr.width + 80, yMin = cr.y - 80;
+  // 网格下边界锚「下一页」按钮：挡住面板下方同域（ai-assets）的首页信息流图
+  const pager = [...document.querySelectorAll('div,span,button')]
+    .find(e => (e.textContent || '').trim() === '下一页' && e.offsetWidth > 0
+               && e.getBoundingClientRect().x >= xMin
+               && e.getBoundingClientRect().y > cr.y);
+  const yMax = pager ? pager.getBoundingClientRect().y + 60 : cr.y + 700;
+  const inGrid = (r) => r.width >= 40 && r.height >= 40
+    && r.x >= xMin && r.x <= xMax && r.y >= yMin && r.y <= yMax;
+  const push = (raw, r) => {
+    if (!raw || !r || !inGrid(r)) return;
+    // 素材图域名实测（2026-09-25 探针实证）：贴图走 soutushenqi，动物/总平
+    // 走 image-assets，舞台构建装置（AI 生成舞台设计）走 ai-assets；首页
+    // 信息流大图同为 ai-assets，靠上方网格区域边界排除，不能靠域名
+    const m = raw.match(/https:\/\/[^"')]*(soutushenqi\.com|image-assets\.jianzhuxuezhang\.com|ai-assets\.jianzhuxuezhang\.com)[^"')]*/i);
     if (!m) return;
     const clean = m[0].split('?')[0];
     const stem = clean.split('/').pop().replace(/\.[a-z]+$/i, '');
@@ -122,12 +140,15 @@ HARVEST_GRID = r"""
                width: null, height: null, name: null });
   };
   for (const img of document.querySelectorAll('img')) {
-    push(img.currentSrc || img.src || '');
-    push(img.getAttribute('data-src') || '');
+    const r = img.getBoundingClientRect();
+    push(img.currentSrc || img.src || '', r);
+    push(img.getAttribute('data-src') || '', r);
   }
   for (const el of document.querySelectorAll('*')) {
+    const r = el.getBoundingClientRect();
+    if (r.width < 50 || r.height < 50) continue;
     const bg = getComputedStyle(el).backgroundImage || '';
-    if (/image(-assets)?\.soutushenqi\.com/.test(bg)) push(bg);
+    if (bg && bg !== 'none') push(bg, r);
   }
   return out;
 }
@@ -182,6 +203,9 @@ def norm_tag(tag):
     t = (tag or "").strip()
     if t.startswith("免抠-"):
         t = t[3:]
+    # 新分类（舞台构建装置等）的请求 tag 是「<tag>.-免抠」后缀形态
+    if t.endswith("-免抠"):
+        t = t[:-3]
     return t.rstrip(".").strip()
 
 
@@ -250,12 +274,20 @@ def parse_grid(rows, gallery, category, tag):
     return out
 
 
-def known_source_ids(cfg, ids):
+def known_source_ids(cfg, ids, category=None):
+    """查 (source_id, category) 已采合——同一文件可挂多分类，
+    只跳过「同分类已采」的；跨分类复用文件会补行（桶路径复用不重传）。"""
     if ARGS.dry_run or not ids:
         return set()
+    params = {"select": "source_id",
+              "source_id": f"in.({','.join(ids)})"}
+    if category is None:
+        params["category"] = "is.is.null"
+    else:
+        params["category"] = f"eq.{category}"
     r = requests.get(
         f"{cfg['supabase_url'].rstrip('/')}/rest/v1/{TABLE}",
-        params={"select": "source_id", "source_id": f"in.({','.join(ids)})"},
+        params=params,
         headers={"apikey": cfg["service_key"], "Authorization": f"Bearer {cfg['service_key']}"},
         timeout=30)
     return set(row["source_id"] for row in r.json()) if r.ok else set()
@@ -269,8 +301,34 @@ def cate_slug(category):
     return "c" + hashlib.md5(category.encode("utf-8")).hexdigest()[:10]
 
 
-def upload_item(cfg, item):
+def upload_item(cfg, item, driver=None):
     """下载→上传桶→upsert 表；任何失败返回状态串（不抛异常，不中断全量）"""
+    # 跨分类复用素材：同文件已有行时直接复用桶路径，免重复下载/占用存储
+    dup = requests.get(
+        f"{cfg['supabase_url'].rstrip('/')}/rest/v1/{TABLE}",
+        params={"select": "preview_path,file_path,content_hash,width,height,name",
+                "source_id": f"eq.{item['source_id']}", "limit": "1"},
+        headers={"apikey": cfg["service_key"], "Authorization": f"Bearer {cfg['service_key']}"},
+        timeout=30)
+    if dup.ok:
+        rows = dup.json()
+        if rows and rows[0].get("preview_path"):
+            r0 = rows[0]
+            row = {"source_id": item["source_id"], "gallery": item.get("gallery"),
+                   "category": item["category"], "tag": item["tag"],
+                   "name": item.get("name") or r0.get("name"),
+                   "width": item.get("width") or r0.get("width"),
+                   "height": item.get("height") or r0.get("height"),
+                   "preview_path": r0["preview_path"], "file_path": r0["file_path"],
+                   "source_url": item["url"], "content_hash": r0["content_hash"]}
+            up = requests.post(
+                f"{cfg['supabase_url'].rstrip('/')}/rest/v1/{TABLE}?on_conflict=source_id,category",
+                headers={"apikey": cfg["service_key"], "Authorization": f"Bearer {cfg['service_key']}",
+                         "Content-Type": "application/json",
+                         "Prefer": "resolution=merge-duplicates,return=minimal"},
+                data=json.dumps(row, ensure_ascii=False).encode("utf-8"), timeout=60)
+            return "ok" if up.ok else f"table_http_{up.status_code}"
+
     data = None
     last_err = ""
     for headers in ({"User-Agent": "Mozilla/5.0",
@@ -284,6 +342,12 @@ def upload_item(cfg, item):
                 break
         except Exception as e:
             last_err = str(e)[:80]
+    if not data and driver is not None:
+        # 花瓣系 CDN（gd-hbimg.huaban.com 等）有 EdgeOne WAF，requests 一律
+        # 567 拦截；借浏览器 <img> 子资源加载 + 性能日志取响应体
+        data = download_via_page(driver, item["url"])
+        if not data:
+            last_err = "browser fetch blocked"
     if not data:
         host = urlparse(item["url"]).hostname or ""
         log(f"    [warn] 下载失败 ({host}): {last_err}")
@@ -303,7 +367,7 @@ def upload_item(cfg, item):
            "preview_path": path, "file_path": path, "source_url": item["url"],
            "content_hash": content_hash}
     up = requests.post(
-        f"{cfg['supabase_url'].rstrip('/')}/rest/v1/{TABLE}?on_conflict=source_id",
+        f"{cfg['supabase_url'].rstrip('/')}/rest/v1/{TABLE}?on_conflict=source_id,category",
         headers={"apikey": cfg["service_key"], "Authorization": f"Bearer {cfg['service_key']}",
                  "Content-Type": "application/json",
                  "Prefer": "resolution=merge-duplicates,return=minimal"},
@@ -320,20 +384,100 @@ def flush_dry(dry_items):
     out.write_text(json.dumps(dry_items, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
-def process_batch(cfg, items, stats, dry_items):
-    known = known_source_ids(cfg, [i["source_id"] for i in items])
+def download_via_page(driver, url: str, timeout: int = 40):
+    """花瓣系 CDN（gd-hbimg.huaban.com）有 EdgeOne WAF：requests/curl 一律 567
+    拦截页，但站点页面里 <img> 子资源加载可过。借页面注入 <img> 触发浏览器
+    下载，再从性能日志取该次响应体。失败返回 None。"""
+    if driver is None:
+        return None
+    # 性能日志缓冲会被页面流量塞满（满了丢新事件）：先清积压 + 清浏览器
+    # 缓存，保证注入后的 <img> 加载一定产生新的网络事件
+    try:
+        driver.get_log("performance")
+    except Exception:
+        pass
+    try:
+        driver.execute_cdp_cmd("Network.enable")
+        driver.execute_cdp_cmd("Network.clearBrowserCache")
+    except Exception:
+        pass
+    url_core = url.split("?")[0]
+    deadline = time.time() + timeout
+    tried = set()
+    last_inject = 0.0
+    polls = 0
+    total = 0
+    while time.time() < deadline:
+        if time.time() - last_inject > 12:
+            last_inject = time.time()
+            try:
+                driver.execute_script(
+                    "const i = new Image(); i.src = arguments[0];"
+                    " i.style.cssText = 'position:fixed;left:-9999px;width:1px';"
+                    " document.body.appendChild(i); setTimeout(() => i.remove(), 60000);",
+                    url)
+            except Exception as e:
+                log(f"    [diag] 注入 img 失败: {str(e)[:100]}")
+                return None
+        try:
+            entries = driver.get_log("performance")
+        except Exception as e:
+            log(f"    [diag] 性能日志读取失败: {str(e)[:100]}")
+            return None
+        polls += 1
+        total += len(entries)
+        if polls % 8 == 0:
+            log(f"    [diag] 轮询 {polls} 次累计日志 {total} 条")
+        for entry in entries:
+            try:
+                msg = json.loads(entry["message"])["message"]
+            except Exception:
+                continue
+            if msg.get("method") != "Network.responseReceived":
+                continue
+            params = msg.get("params") or {}
+            resp = params.get("response") or {}
+            if url_core not in (resp.get("url") or ""):
+                continue
+            rid = params.get("requestId")
+            if rid in tried:
+                continue
+            tried.add(rid)
+            if resp.get("status") != 200:
+                continue
+            try:
+                body = driver.execute_cdp_cmd(
+                    "Network.getResponseBody", {"requestId": rid})
+                if body.get("base64Encoded"):
+                    return base64.b64decode(body["body"])
+                return body["body"].encode("utf-8")
+            except Exception as e:
+                log(f"    [diag] 取响应体失败: {str(e)[:100]}")
+        time.sleep(0.4)
+    return None
+
+
+def process_batch(cfg, driver, items, stats, dry_items):
     stats["pages"] += 1
     stats["items"] += len(items)
     new_n = 0
+    # (source_id, category) 唯一：按批内实际分类分组查已采合
+    by_cat = {}
     for it in items:
-        if it["source_id"] in known:
+        by_cat.setdefault(it.get("category"), []).append(it)
+    known = set()
+    for cat, its in by_cat.items():
+        known |= {(i, cat) for i in known_source_ids(
+            cfg, [x["source_id"] for x in its], cat)}
+    for it in items:
+        if (it["source_id"], it.get("category")) in known:
             stats["skipped_known"] += 1
             continue
         new_n += 1
         if ARGS.dry_run:
             dry_items.append(dict(it, known=False))
             continue
-        status = upload_item(cfg, it)
+        status = upload_item(cfg, it, driver)
         if status == "ok":
             stats["downloaded"] += 1
         else:
@@ -349,6 +493,10 @@ def wait_any(driver, gallery, category, timeout=20):
     deadline = time.time() + timeout
     out = []
     while time.time() < deadline and not out:
+        try:
+            driver.get_log("performance")  # 持续排空，防缓冲满丢事件
+        except Exception:
+            pass
         for cap in drain(driver):
             q = parse_qs(urlparse(cap["url"]).query)
             tag = q.get("tag", [""])[0]
@@ -548,6 +696,7 @@ def login_mode(cfg):
     opts.add_argument(f"--user-data-dir={profile_dir}")
     opts.add_argument("--no-first-run")
     opts.add_argument("--window-size=1600,1000")
+    opts.set_capability("goog:loggingPrefs", {"performance": "ALL"})
     driver = webdriver.Chrome(options=opts, service=_service(cfg))
     driver.get(cfg.get("page_url", PAGE_URL))
     print("请在打开的浏览器里完成登录（微信扫码/手机号均可）。", flush=True)
@@ -578,9 +727,15 @@ def upload_from_json(path):
     items = json.loads(Path(path).read_text(encoding="utf-8"))
     log(f"上传模式：{len(items)} 条待处理")
     stats = {"downloaded": 0, "skipped_known": 0, "failed": 0}
-    known = known_source_ids(cfg, [i["source_id"] for i in items])
+    by_cat = {}
     for it in items:
-        if it["source_id"] in known:
+        by_cat.setdefault(it.get("category"), []).append(it)
+    known = set()
+    for cat, its in by_cat.items():
+        known |= {(i, cat) for i in known_source_ids(
+            cfg, [x["source_id"] for x in its], cat)}
+    for it in items:
+        if (it["source_id"], it.get("category")) in known:
             stats["skipped_known"] += 1
             continue
         status = upload_item(cfg, it)
@@ -659,6 +814,7 @@ def crawl():
     opts.add_argument("--remote-allow-origins=*")
     opts.add_argument("--disable-blink-features=AutomationControlled")
     opts.add_argument("--window-size=1600,1000")
+    opts.set_capability("goog:loggingPrefs", {"performance": "ALL"})
     driver = webdriver.Chrome(options=opts, service=_service(cfg))
     try:
         driver.set_script_timeout(45)
@@ -770,7 +926,7 @@ def crawl():
                     if not items:
                         log(f"  {gallery}: 无数据，到库尾")
                         break
-                    n, new_n = process_batch(cfg, items, stats, all_items)
+                    n, new_n = process_batch(cfg, driver, items, stats, all_items)
                     log(f"  {gallery} 第 {page + 1} 轮：{n} 条（新 {new_n}）")
                     if new_n == 0:
                         flat_stall += 1
@@ -824,6 +980,19 @@ def crawl():
                 before_sub = subcate_texts(driver)
                 known = CATE_TAGS.get(cate, set())
                 ok = any(t in known for t in before_sub if t)
+
+                def grid_ids():
+                    try:
+                        return {d["source_id"] for d in json.loads(
+                            driver.execute_script(
+                                "return JSON.stringify((" + HARVEST_GRID + ")());") or "[]")}
+                    except Exception:
+                        return set()
+
+                # 分类点击前的网格快照：后续 DOM 兜底只收「快照之后新出现」的图，
+                # 防止面板残留的上一状态网格被错标成本分类（面板本就在本分类——
+                # 快速通道时当前网格即本分类内容，快照置空全收）
+                cat_before_ids = set() if ok else grid_ids()
                 for _attempt in range(6):
                     if ok:
                         break
@@ -851,6 +1020,14 @@ def crawl():
                 tags = [t for t in enumerate_row_texts(driver, "sub_cate_list") if len(t) <= 12]
                 CATE_TAGS.setdefault(cate, set()).update(tags)
                 processed_tag = set()
+
+                def fresh_dom(tag, exclude):
+                    """网格 DOM 兜底，仅收快照之后新出现的图（排除面板残留）"""
+                    rows = parse_grid(json.loads(driver.execute_script(
+                        "return JSON.stringify((" + HARVEST_GRID + ")());") or "[]"),
+                        gallery, cate, tag)
+                    return [d for d in rows if d["source_id"] not in exclude]
+
                 log(f"== 爬取 {cate}（{len(tags)} tags）==")
                 for tag in tags:
                     if tag in processed_tag:
@@ -864,10 +1041,20 @@ def crawl():
                     time.sleep(3)
                     got = wait_any(driver, gallery, cate, timeout=8)
                     matched = [(tg, its) for tg, its in got if norm_tag(tg) == tag]
-                    dom_items = parse_grid(json.loads(driver.execute_script(
-                        "return JSON.stringify((" + HARVEST_GRID + ")());") or "[]"),
-                        gallery, cate, tag)
-                    matched = merge_into_result(matched, dom_items, gallery, cate, tag)
+                    matched = merge_into_result(matched, fresh_dom(tag, cat_before_ids),
+                                                gallery, cate, tag)
+                    if not matched:
+                        # 点击可能被吞：重找 chip 重点一次再判定
+                        tag_el = chip_element(driver, "sub_cate_list", tag)
+                        if tag_el is not None:
+                            real_click(driver, tag_el)
+                            time.sleep(3)
+                            got = wait_any(driver, gallery, cate, timeout=8)
+                            matched = [(tg, its) for tg, its in got
+                                       if norm_tag(tg) == tag]
+                            matched = merge_into_result(
+                                matched, fresh_dom(tag, cat_before_ids),
+                                gallery, cate, tag)
                     if not matched:
                         # 留现场：一致失败的 tag 需要看面板当时到底显示了什么
                         if stats.get("nodata_dumped", 0) < 3:
@@ -892,7 +1079,7 @@ def crawl():
                         if not items:
                             log(f"    {cate}/{tag}: 空页，到库尾")
                             break
-                        n, new_n = process_batch(cfg, items, stats, all_items)
+                        n, new_n = process_batch(cfg, driver, items, stats, all_items)
                         log(f"    {cate}/{tag}：{n} 条（新 {new_n}）")
                         if stop_known > 0 and n >= 5 and new_n == 0:
                             known_streak += 1
@@ -912,10 +1099,8 @@ def crawl():
                         time.sleep(delay)
                         got = wait_any(driver, gallery, cate, timeout=8)
                         matched = [(tg, its) for tg, its in got if norm_tag(tg) == tag]
-                        dom_items = parse_grid(json.loads(driver.execute_script(
-                            "return JSON.stringify((" + HARVEST_GRID + ")());") or "[]"),
-                            gallery, cate, tag)
-                        matched = merge_into_result(matched, dom_items, gallery, cate, tag)
+                        matched = merge_into_result(matched, fresh_dom(tag, cat_before_ids),
+                                                    gallery, cate, tag)
                         if not matched:
                             log(f"    {cate}/{tag}: 翻页无响应，到库尾")
                             break

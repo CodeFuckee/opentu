@@ -243,14 +243,14 @@ export async function listOfficialMaterials(
   };
 }
 
-/** 官方素材行 → 视图用 Asset（不进 AssetContext/IndexedDB，仅渲染与插入消费） */
+/** 行 → 视图用 Asset（id 用行 id：同一文件可挂多分类，source_id 会撞） */
 export function officialMaterialToAsset(
   row: OfficialMaterialRow,
   supabaseUrl: string
 ): Asset {
   const path = row.preview_path || row.file_path || '';
   return {
-    id: `official-${row.source_id}`,
+    id: `official-${row.id}`,
     type: AssetType.IMAGE,
     source: AssetSource.OFFICIAL,
     url: officialPublicUrl({ supabaseUrl }, path),
