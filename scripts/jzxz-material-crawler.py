@@ -68,6 +68,7 @@ CATE_SLUGS = {
     "建筑构件": "building-components", "城市建筑": "city-buildings",
     "景观小品": "landscape-ornament", "动物配景": "animal-scene",
     "自然环境": "nature", "总平素材": "masterplan",
+    "舞台构建装置": "stage-scene",
 }
 
 CAPTURE_HOOK = r"""
@@ -391,7 +392,9 @@ def scan_chips(driver):
 
 def enumerate_row_texts(driver, row_class_frag, rounds=40):
     """箭头翻页全量枚举行内 chip 文本（swiper 虚拟渲染安全）；
-    收集稳定或箭头消失即止，最后滚回行首"""
+    连续 2 轮无新 chip 才视为到行尾（点击后 0.6s 内 swiper 可能尚未渲染出
+    新 slide，单轮无新即停曾漏掉行尾最后一个分类——舞台构建装置），
+    箭头消失即止，最后滚回行首"""
     texts, seen = [], set()
     row = next((r for r in driver.find_elements(
         By.XPATH, f"//div[contains(@class,'{row_class_frag}')]") if r.is_displayed()), None)
@@ -407,6 +410,7 @@ def enumerate_row_texts(driver, row_class_frag, rounds=40):
         except Exception:
             break
         time.sleep(0.3)
+    miss = 0
     for _ in range(rounds):
         chips = scan_chips(driver).get(row_class_frag, [])
         new = False
@@ -418,13 +422,19 @@ def enumerate_row_texts(driver, row_class_frag, rounds=40):
         row = next((r for r in driver.find_elements(
             By.XPATH, f"//div[contains(@class,'{row_class_frag}')]") if r.is_displayed()), None)
         _, nxt = row_arrows(driver, row)
-        if not nxt or not new:
+        if not nxt:
             break
+        if not new:
+            miss += 1
+            if miss >= 2:
+                break
+        else:
+            miss = 0
         try:
             real_click(driver, nxt)
         except Exception:
             break
-        time.sleep(0.6)
+        time.sleep(0.8)
     return texts
 
 
