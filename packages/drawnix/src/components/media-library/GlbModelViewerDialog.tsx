@@ -53,56 +53,84 @@ export function GlbModelViewerDialog({
   // 舞台容器是普通 div,ref 可靠;model-viewer 经它 querySelector 获取
   // (React 18.3 对自定义元素的 ref/className 属性挂载不可靠,实测两者都会丢失)
   const stageRef = useRef<HTMLDivElement | null>(null);
+  // 已绑定监听的 model-viewer 元素(幂等标记:防止 ref callback 与重试 effect 双重绑定)
+  const boundElRef = useRef<HTMLElement | null>(null);
 
-  // model-viewer 的 CustomEvent 不走 React 合成事件,统一原生监听;
-  // 元素经 stage 容器 querySelector 获取(自定义元素 ref 不可靠),短暂未挂载则重试
+  // 事件处理器组件生命周期内稳定(lazy init),ref callback 与重试 effect 共用
+  const handlersRef = useRef<{
+    progress: (event: Event) => void;
+    load: () => void;
+    error: () => void;
+  } | null>(null);
+  if (!handlersRef.current) {
+    handlersRef.current = {
+      progress: (event: Event) => {
+        const detail = (event as CustomEvent<{ totalProgress?: number }>).detail;
+        const pct =
+          typeof detail?.totalProgress === 'number' ? detail.totalProgress * 100 : 0;
+        const next = advanceProgress(progressRef.current, pct, Date.now());
+        progressRef.current = next;
+        setProgress(next);
+      },
+      load: () => setPhase('ready'),
+      error: () => setPhase('fallback'),
+    };
+  }
+
+  const tryBindViewer = useCallback((): HTMLElement | null => {
+    if (boundElRef.current) {
+      return boundElRef.current;
+    }
+    const el = stageRef.current?.querySelector('model-viewer');
+    if (!el) {
+      return null;
+    }
+    const handlers = handlersRef.current!;
+    el.addEventListener('progress', handlers.progress);
+    el.addEventListener('load', handlers.load);
+    el.addEventListener('error', handlers.error);
+    boundElRef.current = el;
+    return el;
+  }, []);
+
+  /**
+   * stage 的 ref callback:commit 阶段同步执行,必然早于任何异步 load/progress
+   * 事件——缓存命中(二次打开)时模型秒加载,若等 paint 后的 useEffect 再绑定
+   * 会错过全部事件,「加载中」永久滞留(直到 30s 看门狗误切降级)。
+   */
+  const bindStage = useCallback(
+    (el: HTMLDivElement | null) => {
+      stageRef.current = el;
+      if (el) {
+        tryBindViewer();
+      } else {
+        boundElRef.current = null;
+      }
+    },
+    [tryBindViewer]
+  );
+
+  // 后备:ref callback 之外每 100ms 重试绑定(幂等,已绑定则立即返回)
   useEffect(() => {
-    if (phase !== 'loading') {
+    if (phase !== 'loading' || boundElRef.current) {
       return;
     }
     let cancelled = false;
-    let bound: HTMLElement | null = null;
     let timer = 0;
-
-    const onProgress = (event: Event) => {
-      const detail = (event as CustomEvent<{ totalProgress?: number }>).detail;
-      const pct =
-        typeof detail?.totalProgress === 'number' ? detail.totalProgress * 100 : 0;
-      const next = advanceProgress(progressRef.current, pct, Date.now());
-      progressRef.current = next;
-      setProgress(next);
-    };
-    const onLoad = () => setPhase('ready');
-    const onError = () => setPhase('fallback');
-
-    const tryAttach = (attempt: number) => {
-      if (cancelled || bound) {
+    const retry = (attempt: number) => {
+      if (cancelled || tryBindViewer()) {
         return;
       }
-      const el = stageRef.current?.querySelector('model-viewer');
-      if (!el) {
-        if (attempt < 50) {
-          timer = window.setTimeout(() => tryAttach(attempt + 1), 100);
-        }
-        return;
+      if (attempt < 50) {
+        timer = window.setTimeout(() => retry(attempt + 1), 100);
       }
-      bound = el;
-      el.addEventListener('progress', onProgress);
-      el.addEventListener('load', onLoad);
-      el.addEventListener('error', onError);
     };
-    tryAttach(0);
-
+    retry(0);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
-      if (bound) {
-        bound.removeEventListener('progress', onProgress);
-        bound.removeEventListener('load', onLoad);
-        bound.removeEventListener('error', onError);
-      }
     };
-  }, [phase]);
+  }, [phase, tryBindViewer]);
 
   // 进度停滞看门狗:loading 态下 30s 无推进即降级
   useEffect(() => {
@@ -159,7 +187,7 @@ export function GlbModelViewerDialog({
         )}
 
         {(phase === 'loading' || phase === 'ready') && (
-          <div className="glb-viewer-dialog__stage" ref={stageRef}>
+          <div className="glb-viewer-dialog__stage" ref={bindStage}>
             {phase === 'loading' && (
               <div className="glb-viewer-dialog__progress">
                 <div className="glb-viewer-dialog__progress-bar">

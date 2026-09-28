@@ -10,49 +10,43 @@
  */
 import { test, expect } from '../fixtures/test-base';
 
+/** 从首页导航到家居库并选中稳定 glb 样本,返回「3D 预览」按钮定位器 */
+async function openGlbPreview(page: import('@playwright/test').Page) {
+  const guideDismiss = page.getByRole('button', { name: '不再提示' });
+  if (await guideDismiss.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await guideDismiss.click();
+  }
+  await expect(page.getByTestId('unified-toolbar')).toBeVisible({
+    timeout: 15000,
+  });
+  const mediaLabel = page
+    .locator('label')
+    .filter({ has: page.getByRole('radio', { name: /素材库/ }) })
+    .first();
+  await expect(mediaLabel).toBeVisible();
+  await mediaLabel.click({ force: true });
+  const modal = page.locator('.winbox-media-library');
+  await expect(modal).toBeVisible({ timeout: 15000 });
+  await page.getByTestId('media-library-mode-official').click();
+  const searchInput = page.locator('[data-track="official_library_search_input"]');
+  await expect(searchInput).toBeVisible({ timeout: 20000 });
+  await page
+    .locator('[data-track="official_library_gallery_tab"]', { hasText: '家居库' })
+    .click();
+  await searchInput.locator('input').fill('餐椅丨BETTY TK3');
+  const card = page.locator('.asset-item', { hasText: 'BETTY TK3' }).first();
+  await expect(card).toBeVisible({ timeout: 10000 });
+  await card.click();
+    const previewBtn = page.locator('[data-track="inspector_home_glb_preview"]');
+    await expect(previewBtn).toBeVisible({ timeout: 10000 });
+    await previewBtn.click();
+    return previewBtn;
+  }
+
 test.describe('官方素材库 3D 预览', () => {
   test('家居库带 glb 素材可打开 3D 预览', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByTestId('unified-toolbar')).toBeVisible({
-      timeout: 15000,
-    });
-
-    // 首启引导弹窗「灵感创意」会拦截后续点击，出现即关闭
-    const guideDismiss = page.getByRole('button', { name: '不再提示' });
-    if (await guideDismiss.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await guideDismiss.click();
-    }
-
-    // 打开素材库（WinBox）
-    const mediaLabel = page
-      .locator('label')
-      .filter({ has: page.getByRole('radio', { name: /素材库/ }) })
-      .first();
-    await expect(mediaLabel).toBeVisible();
-    await mediaLabel.click({ force: true });
-    const modal = page.locator('.winbox-media-library');
-    await expect(modal).toBeVisible({ timeout: 8000 });
-
-    // 切换官方素材库 → 家居库(搜索框只有 data-track 无 data-testid)
-    await page.getByTestId('media-library-mode-official').click();
-    const searchInput = page.locator('[data-track="official_library_search_input"]');
-    await expect(searchInput).toBeVisible({ timeout: 20000 });
-    await page
-      .locator('[data-track="official_library_gallery_tab"]', {
-        hasText: '家居库',
-      })
-      .click();
-
-    // 搜索稳定样本并选中卡片 → 详情面板(tdesign Input 的 data-track 挂在包装层)
-    await searchInput.locator('input').fill('餐椅丨BETTY TK3');
-    const card = page.locator('.asset-item', { hasText: 'BETTY TK3' }).first();
-    await expect(card).toBeVisible({ timeout: 10000 });
-    await card.click();
-
-    // 详情面板「3D 预览」→ 对话框 + model-viewer 挂上公开桶直链
-    const previewBtn = page.locator('[data-track="inspector_home_glb_preview"]');
-    await expect(previewBtn).toBeVisible({ timeout: 8000 });
-    await previewBtn.click();
+    const previewBtn = await openGlbPreview(page);
     const viewer = page.locator('.glb-viewer-dialog model-viewer');
     // 懒 chunk(model-viewer+three)在 dev 冷启时编译可达数十秒,放宽等待
     await expect(viewer).toBeVisible({ timeout: 40000 });
@@ -72,11 +66,30 @@ test.describe('官方素材库 3D 预览', () => {
       expect(box?.width ?? 0).toBeGreaterThan(600);
       expect(box?.height ?? 0).toBeGreaterThan(300);
     }
+  });
 
-    // 关闭对话框即卸载
+  test('二次打开(缓存命中秒加载)加载提示必须立即消失', async ({ page }) => {
+    await page.goto('/');
+    const previewBtn = await openGlbPreview(page);
+    const viewer = page.locator('.glb-viewer-dialog model-viewer');
+    await expect(viewer).toBeVisible({ timeout: 40000 });
+    await expect(page.locator('.glb-viewer-dialog__progress')).toBeHidden({
+      timeout: 60000,
+    });
+
+    // 关闭后立即二次打开:模型已进 HTTP 缓存,load/progress 事件会在
+    // 绑定监听前就派发完毕(useEffect 为 paint 后异步执行)——
+    // 回归断言:缓存命中时提示条必须在 8s 内消失
+    // (远小于 30s 看门狗;绑定有竞态时提示会卡到看门狗才消失,该断言即失败)
     await page.locator('.glb-viewer-dialog').press('Escape');
     await expect(page.locator('.glb-viewer-dialog')).toBeHidden({
       timeout: 5000,
+    });
+
+    await previewBtn.click();
+    await expect(viewer).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('.glb-viewer-dialog__progress')).toBeHidden({
+      timeout: 8000,
     });
   });
 });
