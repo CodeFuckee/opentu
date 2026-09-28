@@ -9,7 +9,7 @@
  *   src 为公开桶直链,不经 SW/CDN。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Dialog } from 'tdesign-react';
+import { Dialog, MessagePlugin } from 'tdesign-react';
 import '@google/model-viewer';
 import '../../types/glb-viewer-jsx';
 import {
@@ -19,6 +19,8 @@ import {
   type GlbProgressState,
 } from './glb-preview-utils';
 import { formatFileSize } from '../../utils/asset-utils';
+import { insertImageFromUrl } from '../../data/image';
+import { useDrawnix } from '../../hooks/use-drawnix';
 import './GlbModelViewerDialog.scss';
 
 export interface GlbModelViewerDialogProps {
@@ -151,6 +153,35 @@ export function GlbModelViewerDialog({
     setPhase('loading');
   }, []);
 
+  const { board } = useDrawnix();
+  const [inserting, setInserting] = useState(false);
+
+  // 截取当前视角(toDataURL)→ 经统一收敛点插入画布(与官方素材「使用到画板」同路径)
+  const handleInsertView = useCallback(async () => {
+    const el = boundElRef.current;
+    if (!el || !board || inserting) {
+      return;
+    }
+    try {
+      setInserting(true);
+      const dataUrl = await (
+        el as HTMLElement & {
+          toDataURL?: (type: string) => Promise<string>;
+        }
+      ).toDataURL?.('image/png');
+      if (!dataUrl) {
+        throw new Error('model-viewer toDataURL unavailable');
+      }
+      await insertImageFromUrl(board, dataUrl);
+      MessagePlugin.success('已插入当前视角到画板');
+    } catch (error) {
+      console.error('[GlbModelViewerDialog] 插入视角失败:', error);
+      MessagePlugin.error('插入画板失败，请重试');
+    } finally {
+      setInserting(false);
+    }
+  }, [board, inserting]);
+
   return (
     <Dialog
       visible
@@ -204,16 +235,29 @@ export function GlbModelViewerDialog({
               </div>
             )}
             {/* 事件与尺寸样式都经 stage 容器后代选择器/查询处理,
-                不依赖 React 对自定义元素的 ref/class 挂载 */}
+                不依赖 React 对自定义元素的 ref/class 挂载;
+                不开自动旋转(用户拍板):手动旋转观察,避免截图瞬间角度漂移 */}
             <model-viewer
               src={glbUrl}
               alt={glbName || '3D 模型'}
               camera-controls="true"
-              auto-rotate="true"
               loading="eager"
               environment-image="neutral"
               shadow-intensity="1"
             />
+            {phase === 'ready' && (
+              <div className="glb-viewer-dialog__actions">
+                <button
+                  type="button"
+                  className="glb-viewer-dialog__btn glb-viewer-dialog__btn--primary"
+                  onClick={() => void handleInsertView()}
+                  disabled={inserting || !board}
+                  data-track="glb_preview_insert_view"
+                >
+                  {inserting ? '插入中…' : '插入视角到画板'}
+                </button>
+              </div>
+            )}
           </div>
         )}
 

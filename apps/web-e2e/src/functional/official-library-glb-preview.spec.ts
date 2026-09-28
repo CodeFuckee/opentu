@@ -65,6 +65,17 @@ test.describe('官方素材库 3D 预览', () => {
       const box = await viewer.boundingBox();
       expect(box?.width ?? 0).toBeGreaterThan(600);
       expect(box?.height ?? 0).toBeGreaterThan(300);
+
+      // 回归 3:自动旋转已按用户要求关闭(属性移除,手动旋转观察)
+      await expect(viewer).not.toHaveAttribute('auto-rotate');
+
+      // 回归 4:ready 态「插入视角到画板」——截当前视角插入画布并成功提示
+      const insertBtn = page.locator('[data-track="glb_preview_insert_view"]');
+      await expect(insertBtn).toBeVisible({ timeout: 10000 });
+      await insertBtn.click();
+      await expect(
+        page.locator('.t-message', { hasText: '已插入当前视角到画板' })
+      ).toBeVisible({ timeout: 15000 });
     }
   });
 

@@ -29,6 +29,27 @@
   }
 }
 
+// ready 态底部操作条:截取当前视角插入画布
+.glb-viewer-dialog__actions {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  gap: 10px;
+
+  .glb-viewer-dialog__btn {
+    padding: 8px 22px;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.18);
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+}
+
 .glb-viewer-dialog__progress {
   position: absolute;
   top: 12px;
