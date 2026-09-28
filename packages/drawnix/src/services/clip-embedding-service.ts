@@ -13,6 +13,8 @@
  *   WASM 无 secure-context 依赖,内网 HTTP 可用。
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 const MODEL_ID = 'Xenova/clip-vit-base-patch32';
 const EMBEDDING_DIM = 512;
 
@@ -118,7 +120,7 @@ export interface SearchSimilarOptions {
 
 /** 向量检索:经 edge function(asset-vector-search)查 pgvector top-k */
 export async function searchSimilarAssets(
-  client: { functions: { invoke: Function } },
+  client: Pick<SupabaseClient, 'functions'>,
   embedding: number[],
   options: SearchSimilarOptions = {}
 ): Promise<SimilarAssetResult[]> {
