@@ -43,6 +43,8 @@ export interface AssetItemProps {
   onToggleFavorite?: (asset: Asset, event: React.MouseEvent) => void;
   /** 视图图组数量（>1 时渲染"N 图"角标；官方素材库家居库一组一品用） */
   imageCount?: number;
+  /** 以图搜图相似度（0-100,渲染百分角标;相似模式用） */
+  similarityPercent?: number;
 }
 
 export const AssetItem = memo<AssetItemProps>(
@@ -59,6 +61,7 @@ export const AssetItem = memo<AssetItemProps>(
     isFavorite,
     onToggleFavorite,
     imageCount,
+    similarityPercent,
   }) => {
     // 获取实际文件大小（支持从缓存获取）
     const displaySize = useAssetSize(asset.id, asset.url, asset.size);
@@ -243,6 +246,13 @@ export const AssetItem = memo<AssetItemProps>(
                 <HoverTip content={`该产品共 ${imageCount} 张视图图`} showArrow={false}>
                   <div className="asset-item__count-badge">
                     <span>{imageCount} 图</span>
+                  </div>
+                </HoverTip>
+              )}
+              {similarityPercent != null && (
+                <HoverTip content="以图搜图相似度" showArrow={false}>
+                  <div className="asset-item__similar-badge">
+                    <span>{similarityPercent}%</span>
                   </div>
                 </HoverTip>
               )}

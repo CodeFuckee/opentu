@@ -10,6 +10,7 @@ import classNames from 'classnames';
 import {
   getTemplateGalleryConfig,
 } from './runtime';
+import { getOfficialLibraryConfig } from '../official-library/runtime';
 import {
   countTemplates,
   listTemplateCategories,
@@ -19,6 +20,11 @@ import {
   type TemplateSort,
 } from './template-service';
 import { copyToClipboard } from '../../utils/runtime-helpers';
+import {
+  embedImage,
+  searchSimilarAssets,
+  type SimilarAssetResult,
+} from '../../services/clip-embedding-service';
 import './template-gallery.scss';
 
 export interface TemplateGalleryProps {
@@ -48,6 +54,99 @@ export const TemplateGallery: React.FC<TemplateGalleryProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<AiTemplate | null>(null);
   const [usingId, setUsingId] = useState<string | null>(null);
+
+  // 以图搜图(#61):相似模式(封面向量检索)
+  const [similarResults, setSimilarResults] = useState<SimilarAssetResult[] | null>(
+    null
+  );
+  const [similarLoading, setSimilarLoading] = useState(false);
+  const [similarError, setSimilarError] = useState<string | null>(null);
+  const [similarThumb, setSimilarThumb] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const similarMode = similarResults !== null || similarLoading || !!similarError;
+
+  const handleImageSearchFile = useCallback(async (file: File | null) => {
+    const config = getTemplateGalleryConfig();
+    if (!file || !file.type.startsWith('image/') || !config) {
+      return;
+    }
+    // 模型桶地址:模板中心注册值优先,回退官方库注册值(同一 Supabase)
+    const supabaseUrl =
+      config.supabaseUrl ?? getOfficialLibraryConfig()?.supabaseUrl ?? '';
+    if (!supabaseUrl) {
+      setSimilarError('以图搜图暂不可用(缺少 Supabase 配置)');
+      return;
+    }
+    setSimilarLoading(true);
+    setSimilarError(null);
+    setSimilarResults(null);
+    setSimilarThumb((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+    try {
+      const embedding = await embedImage(supabaseUrl, file);
+      const results = await searchSimilarAssets(config.client, embedding, {
+        assetTypes: ['ai_templates'],
+        topK: 24,
+      });
+      setSimilarResults(results);
+    } catch (error) {
+      setSimilarError(
+        error instanceof Error ? error.message : '以图搜图失败,请重试'
+      );
+    } finally {
+      setSimilarLoading(false);
+    }
+  }, []);
+
+  const exitSimilarMode = useCallback(() => {
+    setSimilarThumb((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setSimilarResults(null);
+    setSimilarError(null);
+    setSimilarLoading(false);
+  }, []);
+
+  useEffect(
+    () => () => {
+      setSimilarThumb((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+    },
+    []
+  );
+
+  // 粘贴图片即搜(未处于相似模式时)
+  useEffect(() => {
+    if (!open || similarMode) return;
+    const onPaste = (event: ClipboardEvent) => {
+      const file = Array.from(event.clipboardData?.files ?? []).find((f) =>
+        f.type.startsWith('image/')
+      );
+      if (file) {
+        event.preventDefault();
+        void handleImageSearchFile(file);
+      }
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, [open, similarMode, handleImageSearchFile]);
+
+  /** 相似封面点击:按 source_id 取完整模板行,复用既有详情弹层 */
+  const handleOpenSimilarDetail = useCallback(async (sourceId: string) => {
+    try {
+      const rows = await listTemplates({ sourceId, limit: 1 });
+      if (rows.length > 0) {
+        setDetail(rows[0]!);
+      }
+    } catch {
+      /* 详情查询失败静默(列表体验不受影响) */
+    }
+  }, []);
 
   // 加载分类
   useEffect(() => {
@@ -245,6 +344,47 @@ export const TemplateGallery: React.FC<TemplateGalleryProps> = ({
               {language === 'zh' ? `共 ${totalCount} 个` : `${totalCount} templates`}
             </span>
           ) : null}
+          {similarMode ? (
+            <div className="template-gallery__similar-chip">
+              {similarThumb && <img src={similarThumb} alt="" draggable={false} />}
+              <span>
+                {similarLoading
+                  ? language === 'zh'
+                    ? '以图搜图中…(首次需下载模型)'
+                    : 'Searching…'
+                  : similarError
+                    ? similarError
+                    : language === 'zh'
+                      ? `找到 ${similarResults?.length ?? 0} 个相似模板`
+                      : `${similarResults?.length ?? 0} similar`}
+              </span>
+              <button
+                onClick={exitSimilarMode}
+                aria-label={language === 'zh' ? '退出以图搜图' : 'Exit'}
+              >
+                ×
+              </button>
+            </div>
+          ) : (
+            <button
+              className="template-gallery__image-search"
+              onClick={() => fileInputRef.current?.click()}
+              aria-label={language === 'zh' ? '以图搜图' : 'Search by image'}
+              data-track="template_gallery_image_search"
+            >
+              {language === 'zh' ? '以图搜图' : 'Image'}
+            </button>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(e) => {
+              void handleImageSearchFile(e.target.files?.[0] ?? null);
+              e.target.value = '';
+            }}
+          />
           <button
             className="template-gallery__close"
             onClick={onClose}
@@ -254,7 +394,7 @@ export const TemplateGallery: React.FC<TemplateGalleryProps> = ({
           </button>
         </div>
 
-        {categories.length > 0 ? (
+        {similarMode ? null : categories.length > 0 ? (
           <div className="template-gallery__categories">
             <button
               className={classNames({ active: activeCategory === null })}
@@ -279,7 +419,42 @@ export const TemplateGallery: React.FC<TemplateGalleryProps> = ({
           ref={bodyRef}
           onScroll={maybeLoadMore}
         >
-          {loading ? (
+          {similarMode ? (
+            similarLoading ? (
+              <div className="template-gallery__state">
+                {language === 'zh' ? '以图搜图中…(首次需下载模型)' : 'Searching…'}
+              </div>
+            ) : similarError ? (
+              <div className="template-gallery__state template-gallery__state--error">
+                {similarError}
+              </div>
+            ) : (similarResults?.length ?? 0) === 0 ? (
+              <div className="template-gallery__state">
+                {language === 'zh' ? '未找到相似模板' : 'No similar templates'}
+              </div>
+            ) : (
+              <div className="template-gallery__masonry">
+                {similarResults!.map((r) => (
+                  <button
+                    key={`${r.assetId}-${r.imageUrl}`}
+                    className="template-gallery__card"
+                    onClick={() => void handleOpenSimilarDetail(r.assetId)}
+                    data-testid="template-similar-card"
+                  >
+                    <div className="template-gallery__card-cover">
+                      <img src={r.imageUrl} alt={r.name ?? ''} loading="lazy" />
+                      <span className="template-gallery__card-similarity">
+                        {Math.round(r.similarity * 100)}%
+                      </span>
+                    </div>
+                    <div className="template-gallery__card-title">
+                      {r.name || r.category || (language === 'zh' ? '相似模板' : 'Similar')}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )
+          ) : loading ? (
             <div className="template-gallery__state">
               {language === 'zh' ? '加载中…' : 'Loading…'}
             </div>

@@ -58,6 +58,8 @@ interface VirtualAssetGridProps {
   loadMoreThresholdPx?: number;
   /** 视图图组数量（>1 渲染"N 图"角标；不传或返回 undefined 则不显示） */
   imageCountOf?: (asset: Asset) => number | undefined;
+  /** 以图搜图相似度（0-100 渲染百分角标；不传则不显示） */
+  similarityOf?: (asset: Asset) => number | undefined;
 }
 
 interface MarqueeRect {
@@ -109,6 +111,7 @@ export function VirtualAssetGrid({
   onLoadMore,
   loadMoreThresholdPx = 600,
   imageCountOf,
+  similarityOf,
 }: VirtualAssetGridProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const marqueeDragRef = useRef<MarqueeDragState | null>(null);
@@ -229,6 +232,7 @@ export function VirtualAssetGrid({
             isFavorite={isFavorite?.(asset.id)}
             onToggleFavorite={onToggleFavorite}
             imageCount={imageCountOf?.(asset)}
+            similarityPercent={similarityOf?.(asset)}
           />
         </div>
       );

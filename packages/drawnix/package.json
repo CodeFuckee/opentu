@@ -12,6 +12,7 @@
   "dependencies": {
     "@aitu/utils": "workspace:*",
     "@floating-ui/react": "^0.26.24",
+    "@huggingface/transformers": "^4.3.0",
     "@milkdown/crepe": "^7.18.0",
     "@milkdown/kit": "^7.18.0",
     "@milkdown/react": "^7.18.0",

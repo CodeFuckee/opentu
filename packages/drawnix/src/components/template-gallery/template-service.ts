@@ -32,6 +32,8 @@ export interface TemplateQuery {
   sort?: TemplateSort;
   limit?: number;
   offset?: number;
+  /** 按 source_id 精确查询(以图搜图相似结果点击进详情用);命中多行取首行 */
+  sourceId?: string;
 }
 
 function requireClient() {
@@ -76,6 +78,9 @@ export async function listTemplates(
 
   if (category) {
     builder = builder.eq('category', category);
+  }
+  if (query.sourceId) {
+    builder = builder.eq('source_id', query.sourceId);
   }
   if (search.trim()) {
     builder = builder.ilike('title', `%${search.trim()}%`);

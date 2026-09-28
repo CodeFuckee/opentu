@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Input, Loading } from 'tdesign-react';
-import { Search, RefreshCw, Library } from 'lucide-react';
+import { Search, RefreshCw, Library, Camera, X } from 'lucide-react';
 import { VirtualAssetGrid } from '../media-library/VirtualAssetGrid';
 import { MediaLibraryEmpty } from '../media-library/MediaLibraryEmpty';
 import {
@@ -20,6 +20,11 @@ import { insertImageFromUrl } from '../../data/image';
 import { useDrawnix } from '../../hooks/use-drawnix';
 import { HoverTip } from '../shared/hover';
 import { getOfficialLibraryConfig } from './runtime';
+import {
+  embedImage,
+  searchSimilarAssets,
+  type SimilarAssetResult,
+} from '../../services/clip-embedding-service';
 import {
   PRODUCT_MODEL_LIBRARIES,
   listOfficialFacets,
@@ -37,6 +42,7 @@ import {
   type ProductModelRow,
 } from './official-library-service';
 import type { Asset } from '../../types/asset.types';
+import { AssetType, AssetSource } from '../../types/asset.types';
 import '../media-library/MediaLibraryGrid.scss';
 import './official-library.scss';
 
@@ -112,6 +118,107 @@ export function OfficialLibraryView({
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const requestSeqRef = useRef(0);
+
+  // 以图搜图(#61):相似模式(非 null 时替代 tab/分类/关键词浏览)
+  const [similarResults, setSimilarResults] = useState<SimilarAssetResult[] | null>(
+    null
+  );
+  const [similarLoading, setSimilarLoading] = useState(false);
+  const [similarError, setSimilarError] = useState<string | null>(null);
+  const [similarThumb, setSimilarThumb] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const similarMode = similarResults !== null || similarLoading || !!similarError;
+
+  const handleImageSearchFile = useCallback(async (file: File | null) => {
+    const config = getOfficialLibraryConfig();
+    if (!file || !file.type.startsWith('image/') || !config) {
+      return;
+    }
+    setSimilarLoading(true);
+    setSimilarError(null);
+    setSimilarResults(null);
+    setSimilarThumb((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+    try {
+      // 首次会懒加载 CLIP WASM(模型 ~89MB 走公开桶,浏览器缓存后秒级)
+      const embedding = await embedImage(config.supabaseUrl, file);
+      const results = await searchSimilarAssets(config.client, embedding, {
+        assetTypes: [
+          'jzxz_materials',
+          'jzxz_home_materials',
+          'jzxz_plant_materials',
+        ],
+        topK: 30,
+      });
+      setSimilarResults(results);
+    } catch (error) {
+      setSimilarError(
+        error instanceof Error ? error.message : '以图搜图失败,请重试'
+      );
+    } finally {
+      setSimilarLoading(false);
+    }
+  }, []);
+
+  const exitSimilarMode = useCallback(() => {
+    setSimilarThumb((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setSimilarResults(null);
+    setSimilarError(null);
+    setSimilarLoading(false);
+  }, []);
+
+  // 卸载清理缩略图 objectURL
+  useEffect(
+    () => () => {
+      setSimilarThumb((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+    },
+    []
+  );
+
+  // 粘贴图片即搜(仅相似模式未激活时;避免与其它 paste 监听冲突,命中图片才接管)
+  useEffect(() => {
+    if (similarMode) return;
+    const onPaste = (event: ClipboardEvent) => {
+      const file = Array.from(event.clipboardData?.files ?? []).find((f) =>
+        f.type.startsWith('image/')
+      );
+      if (file) {
+        event.preventDefault();
+        void handleImageSearchFile(file);
+      }
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, [similarMode, handleImageSearchFile]);
+
+  // 相似结果 → 视图 Asset(直接插入用 imageUrl 直链)
+  const similarAssets = useMemo<Asset[]>(() => {
+    if (!similarResults) return [];
+    return similarResults.map((r, index) => ({
+      id: `similar-${index}-${r.assetId}`,
+      type: AssetType.IMAGE,
+      source: AssetSource.OFFICIAL,
+      url: r.imageUrl,
+      name: r.name || r.category || '相似素材',
+      mimeType: 'image/png',
+      createdAt: 0,
+    }));
+  }, [similarResults]);
+  const similarPercentById = useMemo(() => {
+    const m = new Map<string, number>();
+    similarAssets.forEach((a, i) => {
+      m.set(a.id, Math.round((similarResults?.[i]?.similarity ?? 0) * 100));
+    });
+    return m;
+  }, [similarAssets, similarResults]);
 
   // 预览
   const [previewVisible, setPreviewVisible] = useState(false);
@@ -311,19 +418,22 @@ export function OfficialLibraryView({
         setPreviewVisible(true);
         return;
       }
-      const items: UnifiedMediaItem[] = assets.map((a) => ({
+      // 相似模式:预览当前相似结果集(相似 Asset 不在浏览 assets 里)
+      const inBrowse = assets.some((a) => a.id === asset.id);
+      const source = inBrowse || similarAssets.length === 0 ? assets : similarAssets;
+      const items: UnifiedMediaItem[] = source.map((a) => ({
         id: a.id,
         type: 'image',
         url: a.url,
         title: a.name,
         alt: a.name,
       }));
-      const index = assets.findIndex((a) => a.id === asset.id);
+      const index = source.findIndex((a) => a.id === asset.id);
       setPreviewItems(items);
       setPreviewInitialIndex(index >= 0 ? index : 0);
       setPreviewVisible(true);
     },
-    [assets]
+    [assets, similarAssets]
   );
 
   const handlePreviewClose = useCallback(() => {
@@ -435,25 +545,87 @@ export function OfficialLibraryView({
     <div
       className="media-library-grid official-library"
       data-testid="official-library-view"
+      onDragOver={(e) => {
+        if (!similarMode) e.preventDefault();
+      }}
+      onDrop={(e) => {
+        if (similarMode) return;
+        const file = Array.from(e.dataTransfer.files).find((f) =>
+          f.type.startsWith('image/')
+        );
+        if (file) {
+          e.preventDefault();
+          void handleImageSearchFile(file);
+        }
+      }}
     >
       <div className="media-library-grid__header">
         <div className="media-library-grid__header-top">
-          <div className="media-library-grid__search">
-            <Input
-              value={searchInput}
-              onChange={(value) => setSearchInput(value as string)}
-              placeholder="搜索官方素材名称或标签..."
-              prefixIcon={<Search size={16} />}
-              clearable
-              data-track="official_library_search_input"
-            />
-          </div>
-          {facetsLoading && (
+          {/* 相似模式:缩略图 chip(可清除)替代关键词搜索;普通模式:关键词+以图搜图入口 */}
+          {similarMode ? (
+            <div className="official-library__similar-chip">
+              {similarThumb && (
+                <img src={similarThumb} alt="查询图" draggable={false} />
+              )}
+              <span className="official-library__similar-chip-text">
+                {similarLoading
+                  ? '以图搜图中…(首次需下载模型)'
+                  : similarError
+                    ? similarError
+                    : `找到 ${similarResults?.length ?? 0} 个相似素材(按相似度排序)`}
+              </span>
+              <button
+                type="button"
+                aria-label="退出以图搜图"
+                className="official-library__similar-chip-close"
+                onClick={exitSimilarMode}
+                data-track="official_library_similar_exit"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="media-library-grid__search">
+                <Input
+                  value={searchInput}
+                  onChange={(value) => setSearchInput(value as string)}
+                  placeholder="搜索官方素材名称或标签..."
+                  prefixIcon={<Search size={16} />}
+                  clearable
+                  data-track="official_library_search_input"
+                />
+              </div>
+              <HoverTip content="以图搜图:上传 / 拖拽 / 粘贴图片找同款" placement="top" showArrow={false}>
+                <button
+                  type="button"
+                  aria-label="以图搜图"
+                  className="official-library__image-search-btn"
+                  onClick={() => fileInputRef.current?.click()}
+                  data-track="official_library_image_search"
+                >
+                  <Camera size={16} />
+                </button>
+              </HoverTip>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => {
+                  void handleImageSearchFile(e.target.files?.[0] ?? null);
+                  e.target.value = '';
+                }}
+              />
+            </>
+          )}
+          {facetsLoading && !similarMode && (
             <div className="official-library__facets-loading">
               <Loading size="small" text="加载分类中..." />
             </div>
           )}
         </div>
+        {!similarMode && (
         <div className="media-library-grid__header-bottom">
           <div className="media-library-grid__filter-island">
             {/* 库 tab（家居库/植物库=产品模型，其余=贴图库） */}
@@ -552,10 +724,48 @@ export function OfficialLibraryView({
             )}
           </div>
         </div>
+        )}
       </div>
 
-      {/* facets 加载失败：错误 + 重试 */}
-      {facetsError ? (
+      {/* 相似模式(#61):替代 facetsError/loading/浏览网格 */}
+      {similarMode ? (
+        similarLoading ? (
+          <div className="official-library__status">
+            <Loading size="large" text="以图搜图中…(首次需下载模型,之后秒级)" />
+          </div>
+        ) : similarError ? (
+          <div className="official-library__status">
+            <p className="official-library__status-text">{similarError}</p>
+            <button
+              type="button"
+              className="official-library__retry-btn"
+              onClick={exitSimilarMode}
+            >
+              <X size={14} />
+              退出
+            </button>
+          </div>
+        ) : similarAssets.length === 0 ? (
+          <div className="official-library__status">
+            <p className="official-library__status-text">未找到相似素材</p>
+          </div>
+        ) : (
+          <div className="media-library-grid__container">
+            <VirtualAssetGrid
+              assets={similarAssets}
+              viewMode="grid"
+              isAssetSelected={() => false}
+              isSelectionMode={false}
+              onSelectAsset={() => {
+                /* 相似模式一期不联动详情面板(结果为跨库快照) */
+              }}
+              onPreview={handlePreview}
+              onDoubleClick={onUseAsset}
+              similarityOf={(asset) => similarPercentById.get(asset.id)}
+            />
+          </div>
+        )
+      ) : facetsError ? (
         <div className="official-library__status">
           <p className="official-library__status-text">加载失败：{facetsError}</p>
           <button

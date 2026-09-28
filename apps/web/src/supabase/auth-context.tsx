@@ -177,7 +177,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // 登录后注册云同步（本地数据 → user_sync_data / yue-sync bucket）
       configureSupabaseSync({ client: getSupabaseClient() });
       // 登录后注册模板中心（读 ai_templates + use_template RPC）
-      configureTemplateGallery({ client: getSupabaseClient() });
+      configureTemplateGallery({
+        client: getSupabaseClient(),
+        supabaseUrl: SUPABASE_URL,
+      });
       // 登录后注册官方素材库（读 jzxz_materials，公开桶直链展示）
       configureOfficialLibrary({
         client: getSupabaseClient(),

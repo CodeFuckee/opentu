@@ -9,6 +9,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface TemplateGalleryConfig {
   client: SupabaseClient;
+  /** Supabase 基地址(CLIP 模型桶等公开直链拼接用;缺省回退官方库注册值) */
+  supabaseUrl?: string;
 }
 
 let currentConfig: TemplateGalleryConfig | null = null;

@@ -1,5 +1,40 @@
 ## Unreleased
 
+### feat: 以图搜图——CLIP 向量 + pgvector 四库检索（#61，2026-09-28）
+
+- **能力**：素材库官方库与模板中心搜索区新增「以图搜图」入口（上传/拖拽/粘贴
+  图片），结果按相似度降序进现有网格（蓝色百分角标），支持预览与插入画布；
+  模板中心相似封面点击经 source_id 进既有详情弹层。设计方案
+  docs/clip-image-search-design.md（grill-me 四项拍板：四库一次覆盖/浏览器
+  WASM 推理/本机离线批量+定时增量/搜索区入口+现有网格）。
+- **数据库**（clip_vectors.sql，生产已执行）：启用 pgvector 0.8.2；asset_vectors
+  表（三列复合主键，HNSW 余弦索引，RLS 登录可读/写仅 service_role）；
+  search_similar_assets RPC（top-k→按素材去重取最高分→join 四表回元数据）。
+- **批量**（scripts/build-asset-vectors.mjs）：node + transformers.js CLIP
+  ViT-B/32(int8) 离线构建四库 ~28.5k 图向量（断点续跑/--since 增量/--dry-run/
+  失败清单落盘，实测 ~3.5 张/s）；与浏览器查询侧共用同一模型配置保证向量
+  空间一致。**PostgREST 老版本三连坑**：range= 参数不支持（改 Range 头）、
+  PUT on_conflict 限主键（PGRST105）、POST+resolution=merge-duplicates 对
+  唯一约束不生效（23505）——终态复合主键 + 按素材先删后插。
+- **检索服务**（asset-vector-search edge function，生产已部署）：登录用户
+  JWT（GoTrue 校验需带 apikey 头）→ 参数校验（512 维/库白名单/topK≤50）→
+  透传用户 JWT 调 RPC；不持有 service_role。单测 7 例。
+- **前端**（clip-embedding-service + 两入口）：transformers.js 懒加载独立
+  chunk；模型(89MB)与 onnxruntime WASM 后端从公开桶分发（内网下载一次后
+  浏览器缓存）。**内网 HTTP 三连坑**：transformers v4 remotePathTemplate
+  不含 {file}；ort WASM 默认走 jsdelivr CDN（wasmPaths 指桶 + .mjs 需
+  text/javascript MIME）；跨源 import()/fetch 需 CORS+CSP——envoy storage
+  路由已加 CORS policy（允许任意 origin，公开只读桶+RLS 写防护），三处 CSP
+  script-src 追加 Supabase origin。AssetItem/VirtualAssetGrid 新增
+  similarityPercent 相似度角标通道。
+- **测试**：edge function 单测 7 例（后端 178 全过）；E2E image-search.spec
+  （上传→相似网格+角标→退出恢复）localhost 与 **LAN 真实非安全上下文**
+  双环境通过；全量门禁 check 0 errors / vitest 206 文件全过。
+- **基建复用**：本向量底座为 #62 文搜图/#66 相似推荐/#82 素材 RAG 共用。
+- **运维注**：ai-outputs 桶新增 models/ 目录（CLIP 模型 + ort WASM）；
+  Supabase storage FILE_SIZE_LIMIT 调至 150MB（模型上传）；存量向量构建中，
+  增量建议每日 `--since` 挂本机定时（与爬虫同窗口）。
+
 ### fix: 插入视角后编辑图片 404——虚拟 URL 在非安全上下文无人服务（2026-09-28）
 
 - 现象：3D 预览「插入视角到画板」后，点选图片→「编辑图片」报
