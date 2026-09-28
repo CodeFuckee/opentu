@@ -92,6 +92,8 @@ export interface HomeAssetMeta {
   sizeText?: string | null;
   glbUrl?: string | null;
   glbName?: string | null;
+  /** glb 体积字节（3D 预览打开前的大文件确认用；未知为 null） */
+  glbBytes?: number | null;
 }
 
 /**

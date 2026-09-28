@@ -302,6 +302,7 @@ describe('产品模型库（jzxz_home_materials / jzxz_plant_materials）', () =
     image_paths: ['home/sid-1/img-0.png', 'home/sid-1/img-1.jpg'],
     glb_path: 'home/sid-1/model.glb',
     glb_name: 'model.glb',
+    glb_bytes: 4.3 * 1024 * 1024,
     created_at: '2026-09-22T00:00:00Z',
   };
 
@@ -340,6 +341,7 @@ describe('产品模型库（jzxz_home_materials / jzxz_plant_materials）', () =
     expect(home.name).toBe('现代吊灯');
     expect(home.viewImageUrls).toHaveLength(2);
     expect(home.homeMeta?.glbUrl).toContain('model.glb');
+    expect(home.homeMeta?.glbBytes).toBe(4.3 * 1024 * 1024);
 
     const plant = productModelToAsset(
       PRODUCT_MODEL_LIBRARIES.植物库,
@@ -349,6 +351,16 @@ describe('产品模型库（jzxz_home_materials / jzxz_plant_materials）', () =
     expect(plant.id).toBe('official-plant-sid-1');
     expect(plant.name).toBe('灯具');
     expect(plant.homeMeta?.glbUrl).toBeNull();
+  });
+
+  it('productModelToAsset：glb_bytes 缺失时映射为 null（大文件确认按未知体积放行）', () => {
+    const asset = productModelToAsset(
+      PRODUCT_MODEL_LIBRARIES.家居库,
+      { ...row, glb_bytes: null },
+      'http://h:8021'
+    );
+    expect(asset.homeMeta?.glbBytes).toBeNull();
+    expect(asset.homeMeta?.glbUrl).toContain('model.glb');
   });
 
   it('productModelImageUrls/productModelGlbUrl：多视图与模型直链，无模型返回 null', () => {

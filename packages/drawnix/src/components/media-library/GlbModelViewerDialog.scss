@@ -1,0 +1,127 @@
+/**
+ * glb 3D 预览对话框样式(配 GlbModelViewerDialog.tsx)。
+ */
+
+.glb-viewer-dialog {
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+}
+
+.glb-viewer-dialog__stage {
+  position: relative;
+  flex: 1;
+  min-height: 66vh;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+  overflow: hidden;
+}
+
+.glb-viewer-dialog__model {
+  width: 100%;
+  height: 66vh;
+  --poster-color: transparent;
+}
+
+.glb-viewer-dialog__progress {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  color: #fff;
+  font-size: 12px;
+}
+
+.glb-viewer-dialog__progress-bar {
+  width: 180px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.24);
+  overflow: hidden;
+}
+
+.glb-viewer-dialog__progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: #38bdf8;
+  transition: width 0.25s ease;
+}
+
+.glb-viewer-dialog__confirm,
+.glb-viewer-dialog__fallback {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 32px 24px;
+  text-align: center;
+}
+
+.glb-viewer-dialog__confirm-text,
+.glb-viewer-dialog__fallback-text {
+  margin: 0;
+  color: #334155;
+  font-size: 14px;
+}
+
+.glb-viewer-dialog__confirm-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.glb-viewer-dialog__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 18px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #334155;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: #94a3b8;
+    color: #0f172a;
+  }
+
+  &--primary {
+    background: #0052d9;
+    border-color: #0052d9;
+    color: #fff;
+
+    &:hover {
+      background: #266fe8;
+      border-color: #266fe8;
+      color: #fff;
+    }
+  }
+}
+
+.glb-viewer-dialog__fallback-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  max-width: 720px;
+
+  img {
+    width: 160px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 8px;
+    background: #f1f5f9;
+  }
+}

@@ -1,5 +1,23 @@
 ## Unreleased
 
+### feat: 官方素材库 glb 3D 预览（#32，2026-09-28）
+
+- 素材库详情面板「3D 模型」行新增「3D 预览」：全屏对话框内嵌 model-viewer，
+  支持旋转/缩放/自动旋转；家居库与植物库自动同时生效（两表同构）。
+- 技术选型（grill-me 拍板）：@google/model-viewer 新依赖；整体 React.lazy 懒加载，
+  model-viewer(+three) 独立 chunk 不进主包；web component 事件统一 ref+原生监听；
+  JSX 类型声明同增强 react 与 react/jsx-runtime 两个命名空间（各项目 tsconfig
+  jsx 转换不同）并做成被 import 的模块（web 项目只 include 自身 src）。
+- 加载策略：进度条（progress 事件）+ >20MB 打开前体积确认（HomeAssetMeta 新增
+  glbBytes，查询列/映射同步 glb_bytes）+ 30s 进度停滞/失败自动降级为视图图组
+  +「下载 glb」引导，不白屏。
+- HTTP 红线核对：WebGL/fetch 无 secure-context 依赖，内网明文 HTTP 可用；
+  不走 CDN/SW；AR(WebXR) 不启用。
+- 测试：glb-preview-utils 单测 9 例（大文件阈值/进度推进/停滞判定）；
+  official-library-service 补 glbBytes 映射 2 例；E2E smoke
+  official-library-glb-preview.spec（搜索稳定样本→预览→model-viewer 直链→关闭）。
+- 设计方案：docs/glb-3d-preview-design.md。
+
 ### fix: 终态回写改读-合并-写，杜绝归档成果被整体覆盖（2026-09-28）
 
 - 诊断背景：用户侧报「68 项未归档任务」。生产库解剖：67 条 completed image 的

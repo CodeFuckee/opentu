@@ -3,7 +3,7 @@
  * 素材库详情面板组件
  */
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, lazy, Suspense } from 'react';
 import { Button, Dialog, Input, MessagePlugin } from 'tdesign-react';
 import {
   Download,
@@ -26,6 +26,10 @@ import { HoverTip } from '../shared/hover';
 import type { MediaLibraryInspectorProps } from '../../types/asset.types';
 import { AssetCategory, AssetType } from '../../types/asset.types';
 import './MediaLibraryInspector.scss';
+
+// 3D 预览对话框整体懒加载：model-viewer(+three) 独立 chunk，点「3D 预览」才下载，
+// 不进素材库主包(方案 docs/glb-3d-preview-design.md)
+const GlbModelViewerDialog = lazy(() => import('./GlbModelViewerDialog'));
 
 /**
  * 获取预览图 URL（通过添加查询参数）
@@ -79,9 +83,12 @@ export function MediaLibraryInspector({
 
   // 家居库视图图组：当前主预览图（点击组内缩略图切换；使用/下载跟随当前图）
   const [activeImageUrl, setActiveImageUrl] = useState<string | null>(null);
+  // 3D 预览对话框（lazy，仅 homeMeta.glbUrl 存在时可打开）
+  const [glbPreviewVisible, setGlbPreviewVisible] = useState(false);
   const activeAssetId = asset?.id;
   useEffect(() => {
     setActiveImageUrl(null);
+    setGlbPreviewVisible(false);
   }, [activeAssetId]);
   const viewImageUrls = useMemo(
     () => (asset?.viewImageUrls ?? []).filter((url) => Boolean(url)),
@@ -538,15 +545,25 @@ export function MediaLibraryInspector({
         {asset.homeMeta?.glbUrl && (
           <div className="media-library-inspector__meta-item">
             <span className="media-library-inspector__meta-label">3D 模型</span>
-            <a
-              className="media-library-inspector__glb-link"
-              href={asset.homeMeta.glbUrl}
-              target="_blank"
-              rel="noreferrer"
-              data-track="inspector_home_glb_download"
-            >
-              下载 glb
-            </a>
+            <span className="media-library-inspector__meta-value media-library-inspector__glb-actions">
+              <button
+                type="button"
+                className="media-library-inspector__glb-preview"
+                onClick={() => setGlbPreviewVisible(true)}
+                data-track="inspector_home_glb_preview"
+              >
+                3D 预览
+              </button>
+              <a
+                className="media-library-inspector__glb-link"
+                href={asset.homeMeta.glbUrl}
+                target="_blank"
+                rel="noreferrer"
+                data-track="inspector_home_glb_download"
+              >
+                下载 glb
+              </a>
+            </span>
           </div>
         )}
         <div className="media-library-inspector__meta-item">
@@ -721,6 +738,19 @@ export function MediaLibraryInspector({
           </p>
         )}
       </ConfirmDialog>
+
+      {/* 3D 预览对话框（lazy：model-viewer 独立 chunk 按需加载） */}
+      {glbPreviewVisible && asset.homeMeta?.glbUrl && (
+        <Suspense fallback={null}>
+          <GlbModelViewerDialog
+            glbUrl={asset.homeMeta.glbUrl}
+            glbName={asset.homeMeta.glbName ?? undefined}
+            glbBytes={asset.homeMeta.glbBytes ?? undefined}
+            viewImageUrls={viewImageUrls}
+            onClose={() => setGlbPreviewVisible(false)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

@@ -278,6 +278,8 @@ export interface ProductModelRow {
   image_paths: string[] | null;
   glb_path: string | null;
   glb_name: string | null;
+  /** glb 体积字节（3D 预览大文件确认用） */
+  glb_bytes: number | null;
   created_at: string;
 }
 
@@ -375,6 +377,7 @@ export function productModelToAsset(
         ? productModelPublicUrl(config, supabaseUrl, row.glb_path)
         : null,
       glbName: row.glb_name,
+      glbBytes: row.glb_bytes ?? null,
     },
   };
 }
@@ -457,7 +460,7 @@ export async function listProductModelMaterials(
   let builder = client
     .from(config.table)
     .select(
-      'source_id, name, category, tags, size_text, image_paths, glb_path, glb_name, created_at',
+      'source_id, name, category, tags, size_text, image_paths, glb_path, glb_name, glb_bytes, created_at',
       { count: 'exact' }
     )
     .order('created_at', { ascending: false })
