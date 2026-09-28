@@ -260,10 +260,89 @@ export async function archiveTaskToSupabase(task: Task): Promise<void> {
 
 /**
  * 终态回写同一行：
- * - completed → status=completed + result + completed_at
+ * - completed → status=completed + result（读-合并-写，保留归档回填的元数据）+ completed_at
  * - failed    → status=failed    + error + completed_at
  * - cancelled → status=cancelled + completed_at
  */
+/** 归档交付地址指纹：本地虚拟稳定路径或 bucket 对象路径 */
+function isArchivedDeliveryUrl(u: unknown): boolean {
+  return (
+    typeof u === 'string' &&
+    (u.startsWith('/__aitu_cache__/') || u.includes('/storage/v1/object/'))
+  );
+}
+
+/**
+ * 终态回写的 result 合并（纯函数）：客户端内存副本是交付语义的最新值（映射后的
+ * 公开直链等），但异步归档回填的元数据（size 真值/source_url(s)/archived/公开直链）
+ * 在客户端副本缺失或为空时以服务端已有值为准；客户端 url 仍是未归档上游地址、
+ * 服务端已是归档交付地址时同样保留服务端。
+ * 背景：终态回写随任务事件多次触发且整体覆盖 result，会把归档回填的成果抹回
+ * size=0（方案1 期间 67 条 size=0 积压的根因），故改为读-合并-写。
+ */
+export function mergeTerminalResult(
+  incoming: Record<string, unknown> | null,
+  existing: Record<string, unknown> | null | undefined
+): Record<string, unknown> | null {
+  if (!incoming || !existing || typeof existing !== 'object') {
+    return incoming;
+  }
+  const merged: Record<string, unknown> = { ...incoming };
+
+  if (!(typeof merged.size === 'number' && merged.size > 0)) {
+    if (typeof existing.size === 'number' && existing.size > 0) {
+      merged.size = existing.size;
+    }
+  }
+  for (const key of [
+    'source_url',
+    'source_urls',
+    'archived',
+    'public_url',
+    'public_urls',
+  ]) {
+    if (merged[key] == null && existing[key] != null) {
+      merged[key] = existing[key];
+    }
+  }
+  if (!isArchivedDeliveryUrl(merged.url) && isArchivedDeliveryUrl(existing.url)) {
+    const upstream = merged.url;
+    merged.url = existing.url;
+    if (merged.source_url == null && upstream != null) {
+      merged.source_url = upstream;
+    }
+  }
+  return merged;
+}
+
+/** 读取服务端现有 result 并与客户端终态副本合并（读失败时按客户端原样兜底） */
+async function buildTerminalResultPatch(
+  config: { client: SupabaseClient },
+  userId: string,
+  task: Task
+): Promise<unknown> {
+  const incoming = (task.result ?? null) as Record<string, unknown> | null;
+  try {
+    const { data } = await config.client
+      .from('task_submissions')
+      .select('result')
+      .eq('user_id', userId)
+      .eq('task_id', task.id)
+      .maybeSingle();
+    const existing =
+      data?.result && typeof data.result === 'object'
+        ? (data.result as Record<string, unknown>)
+        : null;
+    return mergeTerminalResult(incoming, existing);
+  } catch (error) {
+    console.warn(
+      '[TaskArchive] terminal result read failed (fallback to incoming):',
+      error
+    );
+    return incoming;
+  }
+}
+
 export async function updateTaskSubmissionOnTerminal(task: Task): Promise<void> {
   try {
     const config = getTaskArchiveConfig();
@@ -281,7 +360,7 @@ export async function updateTaskSubmissionOnTerminal(task: Task): Promise<void> 
       updated_at: new Date(now).toISOString(),
     };
     if (task.status === TaskStatus.COMPLETED) {
-      patch.result = task.result ?? null;
+      patch.result = await buildTerminalResultPatch(config, user.id, task);
       patch.completed_at = new Date(now).toISOString();
     } else if (task.status === TaskStatus.FAILED) {
       patch.error = task.error ?? null;

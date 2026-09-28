@@ -301,6 +301,10 @@ export interface TaskResult {
   public_url?: string;
   /** 多图任务公开桶直链列表（与 urls 一一对应，缺失项为 undefined） */
   public_urls?: Array<string | undefined>;
+  /** 归档前的原始交付地址（url 被替换为稳定/公开地址时保留，便于调试） */
+  source_url?: string;
+  /** 生成结果归档信息（bucket 副本路径等，由归档链路写入） */
+  archived?: { at: string; via: string; paths: string[] };
 }
 
 export type TaskResultKind =

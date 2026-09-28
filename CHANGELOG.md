@@ -1,5 +1,30 @@
 ## Unreleased
 
+### fix: 终态回写改读-合并-写，杜绝归档成果被整体覆盖（2026-09-28）
+
+- 诊断背景：用户侧报「68 项未归档任务」。生产库解剖：67 条 completed image 的
+  `result.size=0` 中，**59 条文件实际已在桶里**（真缺文件的仅 8 条）——是终态回写
+  与异步归档回填的**双写竞态**，不是归档缺失。
+- 根因：`task_submissions.result` 被两个写入方先后整体覆盖——任务事件触发的
+  `updateTaskSubmissionOnTerminal`（task-queue-service.ts:450，每次终态事件都用内存
+  副本整体落库）会抹掉归档链路稍后/已做的回填（size 真值/source_url/archived）；
+  方案1 的画布插入 hook（useAutoInsertToCanvas）等归档完成后把 url 映射成公开直链
+  再调 `updateTaskStatus(COMPLETED, {result})`，用的却是映射前的旧副本，二次放大覆盖。
+- 修复（治本，双管齐下）：
+  - `updateTaskSubmissionOnTerminal` 改**读-合并-写**：新增纯函数
+    `mergeTerminalResult`——客户端副本缺失/为空的 size/source_url(s)/archived/
+    public_url(s) 保留服务端值；客户端 url 仍是未归档上游地址而服务端已是归档
+    交付地址（`/__aitu_cache__/` 或 bucket 路径）时保留服务端并留档 source_url；
+    读失败回退客户端原样（原行为）。failed/cancelled 不读行，行为不变。
+  - `useAutoInsertToCanvas` 归档映射后从归档条目**回填真值元数据**（size/
+    source_url/archived.via+paths）再落库，本地任务与服务端行一致。
+  - `TaskResult` 类型补声明 `source_url`/`archived`（落库 schema 早已有，类型漏声明）。
+- 存量 67 条积压未动（59 条元数据缺失可从桶对象回填，8 条真缺文件需补传）——
+  repair-task-media.mjs 口径仍指 huabu，待按新口径重写后再清（另批处理）。
+- 测试：service.test.ts 新增 mergeTerminalResult 4 例 + 终态回写合并集成 3 例
+  （mock client 扩展 task_submissions select）；本地门禁 check 0 errors /
+  vitest 1514 全过 / 后端 171 全过。
+
 ### fix: 贴图爬虫错标修复——采集域白名单/网格区域锚定/tag 后缀形态/花瓣 WAF 浏览器下载（2026-09-25）
 
 - 配景库新分类"舞台构建装置"首轮采集的 11 条素材全部错标（实际是室内效果

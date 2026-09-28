@@ -15,6 +15,7 @@ import {
   updateTaskSubmissionOnTerminal,
   archiveUpstreamResponseToSupabase,
   archiveUpstreamResponseFromFetch,
+  mergeTerminalResult,
 } from './service';
 import { configureTaskArchive } from './runtime';
 import type { Task } from '../../types/task.types';
@@ -52,6 +53,9 @@ interface MockClient {
   username: string | undefined;
   email: string | undefined;
   hasSession: boolean;
+  /** task_submissions 现有行（终态回写读-合并-写用；null=无行） */
+  serverRow: Record<string, unknown> | null;
+  selects: number;
 }
 
 function makeMockClient(overrides: Partial<MockClient> = {}): {
@@ -66,6 +70,8 @@ function makeMockClient(overrides: Partial<MockClient> = {}): {
     username: 'zhangsan',
     email: 'zhangsan@yjk.com',
     hasSession: true,
+    serverRow: null,
+    selects: 0,
     ...overrides,
   };
 
@@ -108,6 +114,19 @@ function makeMockClient(overrides: Partial<MockClient> = {}): {
       }
       if (table === 'task_submissions') {
         return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                maybeSingle: async () => {
+                  mock.selects += 1;
+                  return {
+                    data: mock.serverRow ? { result: mock.serverRow } : null,
+                    error: null,
+                  };
+                },
+              }),
+            }),
+          }),
           upsert: async (row: Record<string, unknown>, opts: unknown) => {
             mock.inserts.push({ row, opts });
             return { error: null };
@@ -131,6 +150,55 @@ function makeMockClient(overrides: Partial<MockClient> = {}): {
 
 afterEach(() => {
   configureTaskArchive(null);
+});
+
+describe('mergeTerminalResult', () => {
+  const serverRow = {
+    url: '/__aitu_cache__/image/content-abc.png',
+    size: 4096,
+    source_url: 'https://up/1.png',
+    archived: { at: 't0', via: 'generated-media-archive', paths: ['u/abc.png'] },
+  };
+
+  it('客户端副本缺失归档元数据时保留服务端值', () => {
+    const merged = mergeTerminalResult(
+      { url: 'https://up/1.png', format: 'png', size: 0 },
+      serverRow
+    );
+    expect(merged!.size).toBe(4096);
+    expect(merged!.source_url).toBe('https://up/1.png');
+    expect(merged!.archived).toEqual(serverRow.archived);
+  });
+
+  it('客户端已是交付地址/带真值 size 时以客户端为准', () => {
+    const incoming = {
+      url: 'http://sb:8021/storage/v1/object/public/ai-outputs/a/1.png',
+      size: 128,
+      source_url: 'https://up/new.png',
+    };
+    const merged = mergeTerminalResult(incoming, serverRow)!;
+    expect(merged.url).toBe(incoming.url);
+    expect(merged.size).toBe(128);
+    expect(merged.source_url).toBe(incoming.source_url);
+    // 客户端缺失的 archived 元数据仍保留服务端
+    expect(merged.archived).toEqual(serverRow.archived);
+  });
+
+  it('客户端是上游地址而服务端已是交付地址时保留服务端 url 并留档 source_url', () => {
+    const merged = mergeTerminalResult(
+      { url: 'https://up/1.png', format: 'png' },
+      { url: '/__aitu_cache__/image/content-abc.png', size: 4096 }
+    );
+    expect(merged!.url).toBe('/__aitu_cache__/image/content-abc.png');
+    expect(merged!.source_url).toBe('https://up/1.png');
+    expect(merged!.size).toBe(4096);
+  });
+
+  it('无服务端行/无客户端 result 时原样返回', () => {
+    const incoming = { url: 'https://up/1.png', size: 0 };
+    expect(mergeTerminalResult(incoming, null)).toEqual(incoming);
+    expect(mergeTerminalResult(null, serverRow)).toBeNull();
+  });
 });
 
 describe('archiveTaskToSupabase', () => {
@@ -241,6 +309,61 @@ describe('updateTaskSubmissionOnTerminal', () => {
     expect(patch.status).toBe('completed');
     expect((patch.result as any).url).toBe('https://x/1.png');
     expect(patch.completed_at).toBeDefined();
+  });
+
+  it('completed 回写读服务端行合并：归档元数据不被内存副本抹掉', async () => {
+    const { client, mock } = makeMockClient({
+      serverRow: {
+        url: '/__aitu_cache__/image/content-abc.png',
+        size: 4096,
+        source_url: 'https://up/1.png',
+        archived: {
+          at: 't0',
+          via: 'generated-media-archive',
+          paths: ['u/abc.png'],
+        },
+      },
+    });
+    configureTaskArchive({ client: client as never });
+    await updateTaskSubmissionOnTerminal(
+      makeTask({
+        status: TaskStatus.COMPLETED,
+        result: { url: 'https://up/1.png', format: 'png', size: 0 },
+      })
+    );
+    expect(mock.selects).toBe(1);
+    const r = mock.updates[0]!.patch.result as Record<string, unknown>;
+    expect(r.url).toBe('/__aitu_cache__/image/content-abc.png');
+    expect(r.size).toBe(4096);
+    expect(r.archived).toEqual({
+      at: 't0',
+      via: 'generated-media-archive',
+      paths: ['u/abc.png'],
+    });
+  });
+
+  it('服务端无行时按客户端原样回写（行为不变）', async () => {
+    const { client, mock } = makeMockClient({ serverRow: null });
+    configureTaskArchive({ client: client as never });
+    const result = { url: 'https://x/1.png', format: 'png', size: 10 };
+    await updateTaskSubmissionOnTerminal(
+      makeTask({ status: TaskStatus.COMPLETED, result })
+    );
+    expect(mock.selects).toBe(1);
+    expect(mock.updates[0]!.patch.result).toEqual(result);
+  });
+
+  it('failed 回写不读服务端行（无 result 合并）', async () => {
+    const { client, mock } = makeMockClient({ serverRow: { url: 'x' } });
+    configureTaskArchive({ client: client as never });
+    await updateTaskSubmissionOnTerminal(
+      makeTask({
+        status: TaskStatus.FAILED,
+        error: { code: 'X', message: 'boom' },
+      })
+    );
+    expect(mock.selects).toBe(0);
+    expect(mock.updates[0]!.patch.status).toBe('failed');
   });
 
   it('failed 回写 status + error', async () => {

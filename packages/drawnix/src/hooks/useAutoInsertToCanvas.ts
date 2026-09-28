@@ -641,6 +641,25 @@ export function useAutoInsertToCanvas(
               result.public_urls = publicUrls;
               result.public_url = publicUrls[0];
             }
+            // 归档条目回填真值元数据：随后的终态回写会整体落库这份 result，
+            // 缺 size/source_url/archived 会把归档成果抹回 size=0（方案1 期间积压根因）
+            const sizedEntry = archived.find((e) => e.storagePath && e.size > 0);
+            if (!(typeof result.size === 'number' && result.size > 0) && sizedEntry) {
+              result.size = sizedEntry.size;
+            }
+            if (!result.source_url && task.result.url) {
+              result.source_url = task.result.url;
+            }
+            const archivedPaths = archived
+              .map((e) => e.storagePath)
+              .filter((p): p is string => Boolean(p));
+            if (archivedPaths.length > 0 && !result.archived) {
+              result.archived = {
+                at: new Date().toISOString(),
+                via: 'generated-media-archive',
+                paths: archivedPaths,
+              };
+            }
             insert.task = { ...task, result };
             console.log(
               '[AutoInsert] 归档完成，画布改用公开桶 URL:',
