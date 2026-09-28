@@ -7,7 +7,9 @@
  *   保证两侧向量空间一致。
  * - 检索:经 supabase functions.invoke 调 edge function asset-vector-search
  *   (自动携带用户 JWT),服务端 pgvector 余弦 top-k。
- * - 依赖 @huggingface/transformers 为动态 import 独立 chunk,不进主包;
+ * - transformers.js 库本身也从桶远程加载(450KB ESM):vite 打包它会把
+ *   onnxruntime 的巨型资产卷进 bundle(实测 chunk 139MB、CI build OOM),
+ *   故以绝对 URL 动态 import + @vite-ignore,主包零新增体积。
  *   WASM 无 secure-context 依赖,内网 HTTP 可用。
  */
 
@@ -33,6 +35,24 @@ type Extractor = (
   options: { pooling: 'mean'; normalize: boolean }
 ) => Promise<{ data: Float32Array | number[] }>;
 
+/** transformers.js 桶内库产物的结构(运行时远程加载,不参与 vite 打包) */
+interface TransformersLib {
+  pipeline: (
+    task: string,
+    model: string,
+    opts: Record<string, unknown>
+  ) => Promise<unknown>;
+  RawImage: { fromBlob: (blob: Blob) => Promise<unknown> };
+  env: {
+    allowLocalModels: boolean;
+    remoteHost: string;
+    remotePathTemplate: string;
+    backends?: { onnx?: { wasm?: { wasmPaths?: string } } };
+  };
+}
+
+/** 与编码器一同懒加载的 RawImage 构造器(loadExtractor 成功后非空) */
+let rawImageCtor: TransformersLib['RawImage'] | null = null;
 let extractorPromise: Promise<Extractor> | null = null;
 
 /** 懒加载编码器(重复调用共享同一 promise);onProgress 用于首次下载进度提示 */
@@ -42,25 +62,22 @@ async function loadExtractor(
 ): Promise<Extractor> {
   if (!extractorPromise) {
     extractorPromise = (async () => {
-      const { pipeline, RawImage, env } = await import(
-        '@huggingface/transformers'
-      );
+      const libUrl = `${modelHost(supabaseUrl)}/lib/transformers.bundle.mjs`;
+      const { pipeline, RawImage, env } = (await import(
+        /* @vite-ignore */ libUrl
+      )) as TransformersLib;
       // 模型从公开桶分发(HF 仓库布局平铺;v4 的 remotePathTemplate 不含 {file},
       // 请求文件名由库自动追加在模板之后,故模板只到 {model}/ 为止)
       env.allowLocalModels = false;
       env.remoteHost = modelHost(supabaseUrl);
       env.remotePathTemplate = '{model}/';
       // onnxruntime WASM 后端默认走 jsdelivr CDN(内网不可达),指到桶内 ort 目录
-      const ortEnv = (
-        env as unknown as {
-          backends?: {
-            onnx?: { wasm?: { wasmPaths?: string } };
-          };
-        }
-      ).backends?.onnx?.wasm;
+      const ortEnv = env.backends?.onnx?.wasm;
       if (ortEnv) {
         ortEnv.wasmPaths = `${modelHost(supabaseUrl)}/ort/`;
-      }      const pipe = await pipeline('image-feature-extraction', MODEL_ID, {
+      }
+      rawImageCtor = RawImage;
+      const pipe = (await pipeline('image-feature-extraction', MODEL_ID, {
         dtype: 'q8',
         progress_callback: (info: unknown) => {
           const p = info as { status?: string; loaded?: number; total?: number };
@@ -68,7 +85,7 @@ async function loadExtractor(
             onProgress(p.loaded ?? 0, p.total);
           }
         },
-      }) as unknown as Extractor;
+      })) as unknown as Extractor;
       return pipe;
     })().catch((error) => {
       extractorPromise = null; // 失败允许重试
@@ -78,13 +95,6 @@ async function loadExtractor(
   return extractorPromise;
 }
 
-async function getRawImageCtor() {
-  const mod = (await import('@huggingface/transformers')) as {
-    RawImage: { fromBlob: (b: Blob) => Promise<unknown> };
-  };
-  return mod.RawImage;
-}
-
 /** 图片 → 512 维归一化向量(与批量脚本同配置:pooling mean + normalize) */
 export async function embedImage(
   supabaseUrl: string,
@@ -92,8 +102,7 @@ export async function embedImage(
   onProgress?: (loaded: number, total: number) => void
 ): Promise<number[]> {
   const extractor = await loadExtractor(supabaseUrl, onProgress);
-  const RawImage = await getRawImageCtor();
-  const image = await RawImage.fromBlob(file);
+  const image = await rawImageCtor!.fromBlob(file);
   const output = await extractor(image, { pooling: 'mean', normalize: true });
   const vec = Array.from(output.data);
   if (vec.length !== EMBEDDING_DIM) {

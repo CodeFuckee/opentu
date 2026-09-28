@@ -19,14 +19,16 @@
 - **检索服务**（asset-vector-search edge function，生产已部署）：登录用户
   JWT（GoTrue 校验需带 apikey 头）→ 参数校验（512 维/库白名单/topK≤50）→
   透传用户 JWT 调 RPC；不持有 service_role。单测 7 例。
-- **前端**（clip-embedding-service + 两入口）：transformers.js 懒加载独立
-  chunk；模型(89MB)与 onnxruntime WASM 后端从公开桶分发（内网下载一次后
-  浏览器缓存）。**内网 HTTP 三连坑**：transformers v4 remotePathTemplate
-  不含 {file}；ort WASM 默认走 jsdelivr CDN（wasmPaths 指桶 + .mjs 需
-  text/javascript MIME）；跨源 import()/fetch 需 CORS+CSP——envoy storage
-  路由已加 CORS policy（允许任意 origin，公开只读桶+RLS 写防护），三处 CSP
-  script-src 追加 Supabase origin。AssetItem/VirtualAssetGrid 新增
-  similarityPercent 相似度角标通道。
+- **前端**（clip-embedding-service + 两入口）：transformers.js 库以 esbuild
+  自包含 bundle(1.3MB,transformers.web.js+onnxruntime 纯 JS 链)从公开桶
+  `@vite-ignore` 动态加载——vite 直接打包会把 ort 巨型资产卷进 chunk(实测
+  139MB、CI build OOM),此法主包零新增(dist/drawnix 178MB→40MB);模型
+  (89MB)与 ort WASM 同走公开桶。**内网 HTTP 三连坑**：transformers v4
+  remotePathTemplate 不含 {file}；ort WASM 默认走 jsdelivr CDN（wasmPaths
+  指桶 + .mjs 需 text/javascript MIME）；跨源 import()/fetch 需 CORS+CSP
+  ——envoy storage 路由已加 CORS policy（允许任意 origin，公开只读桶+RLS
+  写防护），三处 CSP script-src 追加 Supabase origin。
+  AssetItem/VirtualAssetGrid 新增 similarityPercent 相似度角标通道。
 - **测试**：edge function 单测 7 例（后端 178 全过）；E2E image-search.spec
   （上传→相似网格+角标→退出恢复）localhost 与 **LAN 真实非安全上下文**
   双环境通过；全量门禁 check 0 errors / vitest 206 文件全过。
