@@ -156,7 +156,9 @@ export function GlbModelViewerDialog({
   const { board } = useDrawnix();
   const [inserting, setInserting] = useState(false);
 
-  // 截取当前视角(toDataURL)→ 经统一收敛点插入画布(与官方素材「使用到画板」同路径)
+  // 截取当前视角(toDataURL)→ 先上传 ai-outputs 公开桶拿直链再插入画布
+  // (用户拍板,与方案1 同模式:桶直链跨设备持久,任何上下文可直接加载,
+  //  编辑器等消费方不 404);未登录/上传失败/超时回退 dataURL 原路径
   const handleInsertView = useCallback(async () => {
     const el = boundElRef.current;
     if (!el || !board || inserting) {
@@ -172,7 +174,32 @@ export function GlbModelViewerDialog({
       if (!dataUrl) {
         throw new Error('model-viewer toDataURL unavailable');
       }
-      await insertImageFromUrl(board, dataUrl);
+      let insertUrl = dataUrl;
+      try {
+        const { ensureGeneratedMediaArchive } = await import(
+          '../../services/task-supabase-archive/service'
+        );
+        // 截图为本地 base64,无上游下载,仅上传耗时(内网秒级);合成 taskId 仅供去重,
+        // 归档回写为 update 语义,不产生脏 task_submissions 行
+        const entries = await ensureGeneratedMediaArchive(
+          `glb-view-${Date.now()}`,
+          [dataUrl],
+          30_000
+        );
+        const publicUrl = entries?.find(
+          (entry) => entry.sourceUrl === dataUrl && entry.publicUrl
+        )?.publicUrl;
+        if (publicUrl) {
+          insertUrl = publicUrl;
+        } else {
+          console.warn(
+            '[GlbModelViewerDialog] 桶上传未产出直链(未登录/失败/超时),回退本地缓存路径插入'
+          );
+        }
+      } catch (error) {
+        console.warn('[GlbModelViewerDialog] 桶上传失败,回退本地缓存路径插入:', error);
+      }
+      await insertImageFromUrl(board, insertUrl);
       MessagePlugin.success('已插入当前视角到画板');
     } catch (error) {
       console.error('[GlbModelViewerDialog] 插入视角失败:', error);

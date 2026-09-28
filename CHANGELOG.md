@@ -1,5 +1,32 @@
 ## Unreleased
 
+### fix: 插入视角后编辑图片 404——虚拟 URL 在非安全上下文无人服务（2026-09-28）
+
+- 现象：3D 预览「插入视角到画板」后，点选图片→「编辑图片」报
+  `GET /__aitu_cache__/image/content-xxx.png 404` +「图片加载失败」。
+- 根因（两层）：
+  1. 插入链路：截图 dataURL 被 `cacheRemoteUrl` 转成虚拟路径，虚拟路径只有
+     Service Worker 能拦截服务，而内网 HTTP（非安全上下文）不存在 SW API，
+     请求直达服务器 404；显示组件 RetryImage 有「无 SW→缓存 blob」降级链，
+     图片编辑器没有——显示正常、编辑 404。
+  2. 该问题波及一切以虚拟 URL 为 url 的画布图片（编辑回写、AI 生图归档前旧
+     任务等），不只插入视角。
+- 修复（用户拍板方向 + 存量兜底，两层）：
+  1. **增量治本**：插入视角改为先上传 ai-outputs 公开桶拿直链再插入（与方案1
+     同模式，画布 born with 桶直链、跨设备持久、任何上下文可直接加载）；
+     未登录/上传失败/超时回退原 dataURL 路径。复用 `ensureGeneratedMediaArchive`
+     （dataURL→base64→上传 ai-outputs；合成 taskId 仅去重，回写为 update 语义
+     不产生脏行）。
+  2. **存量兜底**：图片编辑器接入与 RetryImage 同款降级——新增
+     `resolveEditorImageSource` helper：虚拟 URL 且无 SW 时经
+     `unifiedCacheService.getCachedBlob`（自带 IndexedDB 兜底）解析成 blob URL
+     再加载；ImageEditorCore 加载与全部展示 `<img>`（含 CropCanvas）统一走
+     解析后源，卸载时 revoke。
+- 测试：helper 单测 6 例（命中/miss/零字节/抛错/非虚拟直通/SW 可用不触发降级）；
+  E2E 新增「插入视角后编辑图片不得 404」用例，**在真实非安全上下文
+  （http://10.37.80.175:7200）复现失败→修复后通过**，localhost 下同过；
+  全量门禁 check 0 errors / vitest 206 文件全过 / 后端 171 全过。
+
 ### feat: glb 3D 预览关闭自动旋转 + 插入当前视角到画板（2026-09-28）
 
 - **关闭自动旋转**（用户拍板）：移除 `auto-rotate` 属性，手动拖拽旋转观察

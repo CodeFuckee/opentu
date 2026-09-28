@@ -28,6 +28,7 @@ import {
   Eye,
 } from 'lucide-react';
 import { MessagePlugin } from '../../utils/message-plugin';
+import { resolveEditorImageSource } from './resolve-editor-image-source';
 import {
   EditMode,
   CropArea,
@@ -229,6 +230,12 @@ export const ImageEditorCore = forwardRef<
     // 编辑模式
     const [mode, setMode] = useState<EditMode>('crop');
 
+    // 展示源:虚拟 URL 在非安全上下文(无 SW)下经缓存 blob 降级解析后的实际源
+    const [displaySrc, setDisplaySrc] = useState<string>(imageUrl);
+    useEffect(() => {
+      setDisplaySrc(imageUrl);
+    }, [imageUrl]);
+
     // 裁剪状态
     const [cropArea, setCropArea] = useState<CropArea | null>(null);
     const [aspectRatio, setAspectRatio] = useState<number | null>(null);
@@ -329,22 +336,43 @@ export const ImageEditorCore = forwardRef<
 
       // cancelled 守卫：快速切换图片时旧 onload 不得把陈旧 img 写回
       let cancelled = false;
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        if (cancelled) return;
-        imageRef.current = img;
-        setImageSize({ width: img.naturalWidth, height: img.naturalHeight });
+      let objectUrl: string | null = null;
+
+      const load = (src: string) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          if (cancelled) return;
+          imageRef.current = img;
+          setImageSize({ width: img.naturalWidth, height: img.naturalHeight });
+        };
+        img.onerror = () => {
+          if (cancelled) return;
+          MessagePlugin.error('图片加载失败');
+        };
+        img.src = src;
       };
-      img.onerror = () => {
-        if (cancelled) return;
-        MessagePlugin.error('图片加载失败');
-      };
-      img.src = imageUrl;
+
+      // 非安全上下文(纯 HTTP 内网)无 SW:虚拟 URL 直接加载必 404,
+      // 与显示组件同款降级——从缓存 blob(含 IndexedDB 兜底)解析后再加载
+      resolveEditorImageSource(imageUrl).then((resolved) => {
+        if (cancelled) {
+          if (resolved.objectUrl) {
+            URL.revokeObjectURL(resolved.objectUrl);
+          }
+          return;
+        }
+        objectUrl = resolved.objectUrl;
+        setDisplaySrc(resolved.src);
+        load(resolved.src);
+      });
 
       return () => {
         cancelled = true;
         imageRef.current = null;
+        if (objectUrl) {
+          URL.revokeObjectURL(objectUrl);
+        }
       };
     }, [imageUrl]);
 
@@ -1214,7 +1242,7 @@ export const ImageEditorCore = forwardRef<
                           clipPath: `inset(${clipTop}% ${clipRight}% ${clipBottom}% ${clipLeft}%)`,
                         }}
                       >
-                        <img src={imageUrl} alt="Original" draggable={false} />
+                        <img src={displaySrc} alt="Original" draggable={false} />
                       </div>
                     );
                   })()
@@ -1228,13 +1256,13 @@ export const ImageEditorCore = forwardRef<
                       })`.trim(),
                     }}
                   >
-                    <img src={imageUrl} alt="Original" draggable={false} />
+                    <img src={displaySrc} alt="Original" draggable={false} />
                   </div>
                 )
               ) : mode === 'crop' ? (
                 <CropCanvas
                   key={imageUrl}
-                  imageUrl={imageUrl}
+                  imageUrl={displaySrc}
                   imageSize={imageSize}
                   cropArea={cropArea}
                   aspectRatio={aspectRatio}
@@ -1278,7 +1306,7 @@ export const ImageEditorCore = forwardRef<
                         clipPath: `inset(${clipTop}% ${clipRight}% ${clipBottom}% ${clipLeft}%)`,
                       }}
                     >
-                      <img src={imageUrl} alt="Preview" draggable={false} />
+                      <img src={displaySrc} alt="Preview" draggable={false} />
                     </div>
                   );
                 })()
@@ -1292,7 +1320,7 @@ export const ImageEditorCore = forwardRef<
                     })`.trim(),
                   }}
                 >
-                  <img src={imageUrl} alt="Preview" draggable={false} />
+                  <img src={displaySrc} alt="Preview" draggable={false} />
                 </div>
               )}
             </div>
