@@ -1,5 +1,16 @@
 ## Unreleased
 
+### fix: glb 3D 预览视口撑满与加载完成态（用户反馈两问题，2026-09-28）
+
+- **加载完成后「加载中」不消失**：React 18.3 对自定义元素的 ref 挂载不可靠
+  （实测 `ref` 始终为空，监听从未绑定）。改为 stage 容器（普通 div）ref +
+  `querySelector('model-viewer')` 绑定事件，未挂载时 100ms 步进重试。
+- **模型不撑满对话框**：同因 className 未落成 class，尺寸 CSS 全落空（默认
+  300×150）；改用 stage 后代选择器后 `height:100%` 在弹性项内解析仍为 0——
+  最终以 `position: absolute; inset: 0` 锚定 stage 实际盒子（1034×480 实测撑满）。
+- 回归：E2E 新增两条断言（加载完成后进度提示消失、视口宽 >600 高 >300），
+  E2E 全过；本地门禁 check 0 errors / vitest 205 文件全过。
+
 ### feat: 官方素材库 glb 3D 预览（#32，2026-09-28）
 
 - 素材库详情面板「3D 模型」行新增「3D 预览」：全屏对话框内嵌 model-viewer，

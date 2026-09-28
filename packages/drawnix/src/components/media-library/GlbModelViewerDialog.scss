@@ -11,16 +11,22 @@
 .glb-viewer-dialog__stage {
   position: relative;
   flex: 1;
-  min-height: 66vh;
+  height: 72vh;
+  min-height: 480px;
   border-radius: 8px;
   background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
   overflow: hidden;
-}
 
-.glb-viewer-dialog__model {
-  width: 100%;
-  height: 66vh;
-  --poster-color: transparent;
+  // 不依赖元素 class(React 18 对自定义元素的 className 挂载不可靠),用后代选择器;
+  // 绝对定位 inset:0 锚定 stage 实际盒子(弹性项内的百分比高度解析不可靠,曾致高 0)
+  model-viewer {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    --poster-color: transparent;
+  }
 }
 
 .glb-viewer-dialog__progress {

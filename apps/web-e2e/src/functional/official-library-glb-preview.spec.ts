@@ -54,8 +54,18 @@ test.describe('官方素材库 3D 预览', () => {
     await expect(previewBtn).toBeVisible({ timeout: 8000 });
     await previewBtn.click();
     const viewer = page.locator('.glb-viewer-dialog model-viewer');
-    await expect(viewer).toBeVisible({ timeout: 15000 });
+    // 懒 chunk(model-viewer+three)在 dev 冷启时编译可达数十秒,放宽等待
+    await expect(viewer).toBeVisible({ timeout: 40000 });
     await expect(viewer).toHaveAttribute('src', /\/storage\/v1\/object\/public\//);
+
+    // 回归 1:加载完成后进度提示必须消失(load 事件经 stage 容器查询绑定)
+    await expect(page.locator('.glb-viewer-dialog__progress')).toBeHidden({
+      timeout: 30000,
+    });
+    // 回归 2:模型视口撑满对话框(React18 自定义元素 class 丢失曾致 300x150)
+    const box = await viewer.boundingBox();
+    expect(box?.width ?? 0).toBeGreaterThan(600);
+    expect(box?.height ?? 0).toBeGreaterThan(300);
 
     // 关闭对话框即卸载
     await page.locator('.glb-viewer-dialog').press('Escape');

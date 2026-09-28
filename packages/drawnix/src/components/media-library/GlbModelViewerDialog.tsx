@@ -50,17 +50,20 @@ export function GlbModelViewerDialog({
   }));
   // 看门狗读 ref 镜像,避免在 setState updater 里产生副作用
   const progressRef = useRef(progress);
-  const viewerRef = useRef<HTMLElement | null>(null);
+  // 舞台容器是普通 div,ref 可靠;model-viewer 经它 querySelector 获取
+  // (React 18.3 对自定义元素的 ref/className 属性挂载不可靠,实测两者都会丢失)
+  const stageRef = useRef<HTMLDivElement | null>(null);
 
-  // model-viewer 的 CustomEvent 不走 React 合成事件,统一 ref + 原生监听
+  // model-viewer 的 CustomEvent 不走 React 合成事件,统一原生监听;
+  // 元素经 stage 容器 querySelector 获取(自定义元素 ref 不可靠),短暂未挂载则重试
   useEffect(() => {
     if (phase !== 'loading') {
       return;
     }
-    const el = viewerRef.current;
-    if (!el) {
-      return;
-    }
+    let cancelled = false;
+    let bound: HTMLElement | null = null;
+    let timer = 0;
+
     const onProgress = (event: Event) => {
       const detail = (event as CustomEvent<{ totalProgress?: number }>).detail;
       const pct =
@@ -71,13 +74,33 @@ export function GlbModelViewerDialog({
     };
     const onLoad = () => setPhase('ready');
     const onError = () => setPhase('fallback');
-    el.addEventListener('progress', onProgress);
-    el.addEventListener('load', onLoad);
-    el.addEventListener('error', onError);
+
+    const tryAttach = (attempt: number) => {
+      if (cancelled || bound) {
+        return;
+      }
+      const el = stageRef.current?.querySelector('model-viewer');
+      if (!el) {
+        if (attempt < 50) {
+          timer = window.setTimeout(() => tryAttach(attempt + 1), 100);
+        }
+        return;
+      }
+      bound = el;
+      el.addEventListener('progress', onProgress);
+      el.addEventListener('load', onLoad);
+      el.addEventListener('error', onError);
+    };
+    tryAttach(0);
+
     return () => {
-      el.removeEventListener('progress', onProgress);
-      el.removeEventListener('load', onLoad);
-      el.removeEventListener('error', onError);
+      cancelled = true;
+      window.clearTimeout(timer);
+      if (bound) {
+        bound.removeEventListener('progress', onProgress);
+        bound.removeEventListener('load', onLoad);
+        bound.removeEventListener('error', onError);
+      }
     };
   }, [phase]);
 
@@ -136,7 +159,7 @@ export function GlbModelViewerDialog({
         )}
 
         {(phase === 'loading' || phase === 'ready') && (
-          <div className="glb-viewer-dialog__stage">
+          <div className="glb-viewer-dialog__stage" ref={stageRef}>
             {phase === 'loading' && (
               <div className="glb-viewer-dialog__progress">
                 <div className="glb-viewer-dialog__progress-bar">
@@ -152,8 +175,9 @@ export function GlbModelViewerDialog({
                 </span>
               </div>
             )}
+            {/* 事件与尺寸样式都经 stage 容器后代选择器/查询处理,
+                不依赖 React 对自定义元素的 ref/class 挂载 */}
             <model-viewer
-              ref={viewerRef}
               src={glbUrl}
               alt={glbName || '3D 模型'}
               camera-controls="true"
@@ -161,7 +185,6 @@ export function GlbModelViewerDialog({
               loading="eager"
               environment-image="neutral"
               shadow-intensity="1"
-              className="glb-viewer-dialog__model"
             />
           </div>
         )}
