@@ -9,7 +9,6 @@
  * 真实 WebGL 渲染走人工过目（内网 HTTP 地址），此处只断言元素与链路。
  */
 import { test, expect } from '../fixtures/test-base';
-import { selectCenterElement } from '../fixtures/canvas-helpers';
 
 /** 从首页导航到家居库并选中稳定 glb 样本,返回「3D 预览」按钮定位器 */
 async function openGlbPreview(page: import('@playwright/test').Page) {
@@ -128,8 +127,8 @@ test.describe('官方素材库 3D 预览', () => {
       timeout: 5000,
     });
 
-    // 关闭素材库窗口(模态 WinBox 挡住画布),再用共享 helper 点击视口中心
-    // 选中刚插入的图片(insertImageFromUrl 无点自动放置于视口中心附近)
+    // 关闭素材库窗口(模态 WinBox 挡住画布),直接定位刚插入的图片元素本身点击
+    // (不猜插入位置:桶直链插入的 <img> src 含 ai-outputs,回退路径含虚拟前缀)
     const winboxClose = page.locator('.winbox-media-library .wb-close');
     if (await winboxClose.isVisible().catch(() => false)) {
       await winboxClose.click();
@@ -137,7 +136,13 @@ test.describe('官方素材库 3D 预览', () => {
         timeout: 5000,
       });
     }
-    await selectCenterElement(page);
+    const insertedImg = page
+      .locator(
+        'img[src*="/storage/v1/object/public/ai-outputs/"], img[src*="/__aitu_cache__/"]'
+      )
+      .first();
+    await expect(insertedImg).toBeVisible({ timeout: 15000 });
+    await insertedImg.click();
 
     // 「编辑图片」→ 编辑器必须加载成功:非安全上下文(纯 HTTP 内网)无 SW,
     // 虚拟 URL /__aitu_cache__/ 直接发网必 404,编辑器需经缓存 blob 降级解析;
