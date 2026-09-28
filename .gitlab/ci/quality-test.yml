@@ -11,15 +11,17 @@ quality:
   extends: .base_env
   stage: quality
   variables:
-    # ckd runner 内存有限：typecheck+eslint 并发峰值会触发 OOM（进程静默被杀），
-    # 限制 node 堆上限转为可控的优雅失败（与 test:frontend 同思路）。
-    # 2048 在 #61 引入 @huggingface/transformers 后不够（eslint 尾声被杀，
-    # #3098 两连挂），提到 4096
-    NODE_OPTIONS: "--max-old-space-size=4096"
+    # ckd runner 内存有限：typecheck+eslint 并发峰值会触发系统级 OOM killer
+    # （进程静默被杀、无错误输出，#3093/#3098/#3099 三连挂）。堆上限 2048
+    # 保留，同时 script 侧 nx 串行(--parallel=1,与 test:frontend 同思路)
+    NODE_OPTIONS: "--max-old-space-size=2048"
   rules:
     - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
   script:
-    - pnpm check
+    # 不用 pnpm check(其内部 nx run-many 并行 3 项目,峰值叠加);
+    # typecheck 与 lint 分开且各自串行,峰值 = 单项目单进程
+    - pnpm exec nx run-many -t=typecheck --parallel=1
+    - pnpm exec nx run-many -t=lint --parallel=1
 
 # 阶段 2：全量测试（三个 job 并行）
 
