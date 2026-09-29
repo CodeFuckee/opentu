@@ -8,7 +8,8 @@
  * - verifyDevAdmin：无/无效 token 401、非管理员与 RPC 失败 403、放行带调用者 JWT
  * - buildDevMonitorHtml：自包含页面、登录壳、自动刷新、区块齐全、不泄露 service_role
  * - fetchBucketUsage：storage.objects 分页聚合、bucket 清单合并、失败降级
- * - aggregateStatus：编排（窗口行/失败样本/花名册/探测并行）
+ * - 爬虫入库统计：Content-Range 计数解析、四库配置、单库查询字段级降级、空表
+ * - aggregateStatus：编排（窗口行/失败样本/花名册/探测/爬虫入库并行）
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -21,13 +22,18 @@ import {
   classifyFailureCategory,
   classifyFailureDetail,
   collectResultPrefixes,
+  CRAWL_LIBRARIES,
   fetchBucketUsage,
+  fetchCrawlLibraryStat,
+  fetchCrawlStats,
+  parseContentRangeTotal,
   probeHealth,
   stuckThresholdMs,
   summarizeError,
   toFailureSamples,
   toStuckList,
   verifyDevAdmin,
+  type CrawlLibraryDef,
   type DevMonitorEnv,
 } from './core.ts';
 
@@ -517,6 +523,14 @@ test('buildDevMonitorHtml：页面包含平台错误率卡片', () => {
   assert.ok(html.includes('已排除'), '平台错误率卡需说明排除口径');
 });
 
+test('buildDevMonitorHtml：页面包含爬虫入库区块', () => {
+  const html = buildDevMonitorHtml(ANON_KEY);
+  assert.ok(html.includes('爬虫入库'), '页面缺少爬虫入库区块标题');
+  assert.ok(html.includes('id="crawlCards"'), '缺少爬虫入库卡片容器');
+  assert.ok(html.includes('renderCrawlStats'), '缺少爬虫入库渲染逻辑');
+  assert.ok(html.includes('最近入库'), '爬虫卡片应展示最近入库时间（断供可见）');
+});
+
 
 
 // ============================================================
@@ -846,7 +860,199 @@ test('fetchBucketUsage：bucket 清单失败降级 public=null，占用仍聚合
 });
 
 // ============================================================
-// aggregateStatus：编排（窗口行/失败样本/花名册/探测并行）
+// 爬虫入库统计（模板与素材四库：近 N 日新增 + 最近入库时间）
+// ============================================================
+
+test('parseContentRangeTotal：0-0/N、*/N、畸形输入', () => {
+  assert.equal(parseContentRangeTotal('0-0/123'), 123);
+  assert.equal(parseContentRangeTotal('0-4/9'), 9);
+  assert.equal(parseContentRangeTotal('*/0'), 0, '空表 Content-Range */0 应解析为 0');
+  assert.equal(parseContentRangeTotal('*/7'), 7);
+  assert.equal(parseContentRangeTotal(null), null);
+  assert.equal(parseContentRangeTotal(''), null);
+  assert.equal(parseContentRangeTotal('garbage'), null);
+  assert.equal(parseContentRangeTotal('bytes 0-0/5'), null, '非 PostgREST 形态应为 null');
+  assert.equal(parseContentRangeTotal('0-0/'), null);
+});
+
+test('CRAWL_LIBRARIES：四库配置与入库时间列一一对应', () => {
+  assert.deepEqual(
+    CRAWL_LIBRARIES.map((lib) => `${lib.table}:${lib.tsColumn}`),
+    [
+      'ai_templates:crawled_at',
+      'jzxz_materials:created_at',
+      'jzxz_home_materials:created_at',
+      'jzxz_plant_materials:created_at',
+    ]
+  );
+  // key 唯一（页面渲染按数组顺序，无重复）
+  assert.equal(new Set(CRAWL_LIBRARIES.map((lib) => lib.key)).size, CRAWL_LIBRARIES.length);
+});
+
+test('fetchCrawlLibraryStat：窗口新增计数 + 全库总数与最近入库（模板表用 crawled_at）', async () => {
+  const calls: string[] = [];
+  const seenHeaders: Array<Record<string, string> | undefined> = [];
+  const routed = routeFetch(
+    [
+      // 窗口新增（带 gte 过滤）
+      {
+        match: (u) => u.includes('/rest/v1/ai_templates') && u.includes('crawled_at=gte.'),
+        respond: () => json(200, [{ crawled_at: '2026-09-28T03:00:00Z' }], { 'Content-Range': '0-0/12' }),
+      },
+      // 全库最近一条（order desc，无 gte）
+      {
+        match: (u) => u.includes('/rest/v1/ai_templates'),
+        respond: () => json(200, [{ crawled_at: '2026-09-29T03:00:00Z' }], { 'Content-Range': '0-0/1322' }),
+      },
+    ],
+    calls
+  );
+  const fetchImpl = async (input: RequestInfo | URL, init?: RequestInit) => {
+    seenHeaders.push(init?.headers as Record<string, string> | undefined);
+    return routed(input, init);
+  };
+
+  const stat = await fetchCrawlLibraryStat(
+    ENV,
+    CRAWL_LIBRARIES[0] as CrawlLibraryDef,
+    '2026-09-22T00:00:00Z',
+    { fetch: fetchImpl }
+  );
+
+  assert.equal(stat.key, 'templates');
+  assert.equal(stat.addedCount, 12);
+  assert.equal(stat.totalCount, 1322);
+  assert.equal(stat.lastIngestedAt, '2026-09-29T03:00:00Z');
+
+  // 两条查询：窗口计数带时间下界（ISO 内的冒号须编码），最近一条 nullslast 倒序取全库最新
+  assert.ok(
+    calls.some((u) => u.includes('/rest/v1/ai_templates?select=crawled_at&crawled_at=gte.2026-09-22T00%3A00%3A00Z&limit=1')),
+    `窗口计数查询不符合预期: ${calls.join(' | ')}`
+  );
+  assert.ok(
+    calls.some((u) => u.includes('/rest/v1/ai_templates?select=crawled_at&order=crawled_at.desc.nullslast&limit=1')),
+    `最近入库查询不符合预期: ${calls.join(' | ')}`
+  );
+  // 计数走 Prefer: count=exact（Content-Range 精确总数）
+  assert.ok(seenHeaders.every((h) => h && /(?:^|,)count=exact(?:$|,)/.test(h['Prefer'] || '')));
+});
+
+test('fetchCrawlLibraryStat：素材表用 created_at 时间列', async () => {
+  const calls: string[] = [];
+  const fetchImpl = routeFetch(
+    [
+      {
+        match: (u) => u.includes('/rest/v1/jzxz_home_materials') && u.includes('gte.'),
+        respond: () => json(200, [], { 'Content-Range': '*/0' }),
+      },
+      { match: (u) => u.includes('/rest/v1/jzxz_home_materials'), respond: () => json(200, []) },
+    ],
+    calls
+  );
+  const home = CRAWL_LIBRARIES.find((lib) => lib.key === 'home_models') as CrawlLibraryDef;
+  const stat = await fetchCrawlLibraryStat(ENV, home, '2026-09-22T00:00:00Z', { fetch: fetchImpl });
+  assert.equal(stat.key, 'home_models');
+  assert.equal(stat.addedCount, 0);
+  assert.ok(calls.some((u) => u.includes('created_at=gte.')), '素材表应按 created_at 过滤');
+  assert.ok(calls.some((u) => u.includes('order=created_at.desc.nullslast')), '素材表应按 created_at 倒序');
+});
+
+test('fetchCrawlLibraryStat：空表全零口径（新增 0 / 总数 0 / 最近入库 null）', async () => {
+  const fetchImpl = routeFetch([
+    {
+      match: (u) => u.includes('gte.'),
+      respond: () => json(200, [], { 'Content-Range': '*/0' }),
+    },
+    { match: () => true, respond: () => json(200, [], { 'Content-Range': '*/0' }) },
+  ]);
+  const stat = await fetchCrawlLibraryStat(
+    ENV,
+    CRAWL_LIBRARIES[3] as CrawlLibraryDef,
+    '2026-09-22T00:00:00Z',
+    { fetch: fetchImpl }
+  );
+  assert.equal(stat.addedCount, 0, '空表窗口新增应为 0 而非 null（与查询失败区分）');
+  assert.equal(stat.totalCount, 0);
+  assert.equal(stat.lastIngestedAt, null);
+});
+
+test('fetchCrawlLibraryStat：首行时间列为 null 时最近入库为 null', async () => {
+  const fetchImpl = routeFetch([
+    { match: (u) => u.includes('gte.'), respond: () => json(200, [{ plant: 1 }], { 'Content-Range': '0-0/5' }) },
+    { match: () => true, respond: () => json(200, [{ created_at: null }], { 'Content-Range': '0-0/5' }) },
+  ]);
+  const stat = await fetchCrawlLibraryStat(
+    ENV,
+    CRAWL_LIBRARIES[2] as CrawlLibraryDef,
+    '2026-09-22T00:00:00Z',
+    { fetch: fetchImpl }
+  );
+  assert.equal(stat.totalCount, 5);
+  assert.equal(stat.lastIngestedAt, null, '时间列 null 不应产出最近入库时间');
+});
+
+test('fetchCrawlLibraryStat：查询失败/缺 Content-Range 字段级降级不抛错', async () => {
+  // 计数查询 HTTP 500 → addedCount null；最近一条查询网络异常 → totalCount/lastIngestedAt null
+  const failFetch = routeFetch([
+    { match: (u) => u.includes('gte.'), respond: () => json(500, { error: 'boom' }) },
+    { match: () => true, respond: () => { throw new Error('net reset'); } },
+  ]);
+  const failed = await fetchCrawlLibraryStat(
+    ENV,
+    CRAWL_LIBRARIES[0] as CrawlLibraryDef,
+    '2026-09-22T00:00:00Z',
+    { fetch: failFetch }
+  );
+  assert.equal(failed.addedCount, null);
+  assert.equal(failed.totalCount, null);
+  assert.equal(failed.lastIngestedAt, null);
+
+  // 响应正常但缺 Content-Range 头（Prefer 被忽略等）→ 计数为 null，不算 0
+  const noHeaderFetch = routeFetch([
+    { match: (u) => u.includes('gte.'), respond: () => json(200, [{ crawled_at: '2026-09-28T00:00:00Z' }]) },
+    { match: () => true, respond: () => json(200, [{ crawled_at: '2026-09-29T00:00:00Z' }]) },
+  ]);
+  const noHeader = await fetchCrawlLibraryStat(
+    ENV,
+    CRAWL_LIBRARIES[0] as CrawlLibraryDef,
+    '2026-09-22T00:00:00Z',
+    { fetch: noHeaderFetch }
+  );
+  assert.equal(noHeader.addedCount, null, '缺 Content-Range 应为 null（与 0 条区分）');
+  assert.equal(noHeader.totalCount, null);
+  assert.equal(noHeader.lastIngestedAt, '2026-09-29T00:00:00Z', '最近入库不依赖计数头');
+});
+
+test('fetchCrawlStats：四库并行编排，单库失败不拖垮其余', async () => {
+  const fetchImpl = routeFetch([
+    // ai_templates 正常
+    {
+      match: (u) => u.includes('/rest/v1/ai_templates') && u.includes('gte.'),
+      respond: () => json(200, [], { 'Content-Range': '0-0/3' }),
+    },
+    { match: (u) => u.includes('/rest/v1/ai_templates'), respond: () => json(200, [{ crawled_at: '2026-09-29T03:00:00Z' }], { 'Content-Range': '0-0/1322' }) },
+    // jzxz_materials 整表异常
+    { match: (u) => u.includes('/rest/v1/jzxz_materials'), respond: () => { throw new Error('down'); } },
+    // 其余两表正常
+    { match: (u) => u.includes('/rest/v1/jzxz_home_materials') && u.includes('gte.'), respond: () => json(200, [], { 'Content-Range': '0-0/0' }) },
+    { match: (u) => u.includes('/rest/v1/jzxz_home_materials'), respond: () => json(200, [{ created_at: '2026-09-20T03:00:00Z' }], { 'Content-Range': '0-0/488' }) },
+    { match: (u) => u.includes('/rest/v1/jzxz_plant_materials') && u.includes('gte.'), respond: () => json(200, [], { 'Content-Range': '0-0/1' }) },
+    { match: (u) => u.includes('/rest/v1/jzxz_plant_materials'), respond: () => json(200, [{ created_at: '2026-09-21T03:00:00Z' }], { 'Content-Range': '0-0/96' }) },
+  ]);
+  const stats = await fetchCrawlStats(ENV, '2026-09-22T00:00:00Z', { fetch: fetchImpl });
+  assert.equal(stats.fromIso, '2026-09-22T00:00:00Z');
+  assert.equal(stats.libraries.length, 4);
+  const byKey = new Map(stats.libraries.map((lib) => [lib.key, lib]));
+  assert.equal(byKey.get('templates')?.addedCount, 3);
+  assert.equal(byKey.get('textures')?.addedCount, null, 'jzxz_materials 查询异常应字段级降级');
+  assert.equal(byKey.get('textures')?.lastIngestedAt, null);
+  assert.equal(byKey.get('home_models')?.addedCount, 0);
+  assert.equal(byKey.get('home_models')?.lastIngestedAt, '2026-09-20T03:00:00Z');
+  assert.equal(byKey.get('plant_models')?.addedCount, 1);
+});
+
+// ============================================================
+// aggregateStatus：编排（窗口行/失败样本/花名册/探测/爬虫入库并行）
 // ============================================================
 
 test('aggregateStatus：编排管线/失败样本/探测并输出完整状态 JSON', async () => {
@@ -897,6 +1103,11 @@ test('aggregateStatus：编排管线/失败样本/探测并输出完整状态 JS
       { match: (u) => u.includes('/rest/v1/configs?key=eq.NEWAPI_TOKEN'), respond: () => json(200, [{ value: 'admintok' }]) },
       { match: (u) => u.includes('/api/status'), respond: () => json(200, { success: true }) },
       { match: (u) => u.includes('/api/token/'), respond: () => json(200, { data: { items: [] } }) },
+      // 爬虫入库四库（单表路由同时服务 gte 计数与全库最近一条两条查询）
+      { match: (u) => u.includes('/rest/v1/ai_templates'), respond: () => json(200, [{ crawled_at: '2026-09-20T03:00:00Z' }], { 'Content-Range': '0-0/1322' }) },
+      { match: (u) => u.includes('/rest/v1/jzxz_materials'), respond: () => json(200, [{ created_at: '2026-09-21T03:00:00Z' }], { 'Content-Range': '0-0/9310' }) },
+      { match: (u) => u.includes('/rest/v1/jzxz_home_materials'), respond: () => json(200, [], { 'Content-Range': '*/0' }) },
+      { match: (u) => u.includes('/rest/v1/jzxz_plant_materials'), respond: () => json(200, [{ created_at: '2026-09-22T03:00:00Z' }], { 'Content-Range': '0-0/96' }) },
     ],
     calls
   );
@@ -942,6 +1153,60 @@ test('aggregateStatus：编排管线/失败样本/探测并输出完整状态 JS
   assert.ok(calls.some((u) => u.includes('completed_at,error,response_file_paths,model')), '窗口行查询应带出 response_file_paths');
   assert.ok(calls.some((u) => u.includes('/storage/v1/object/list/huabu')), '应对 bucket 前缀做对象核验');
   assert.ok(calls.some((u) => u.includes('created_at=gte.')));
+
+  // 爬虫入库：随 /status 一并输出，四库齐全，模板表按 crawled_at、素材三表按 created_at 过滤
+  assert.equal(status.crawlStats.libraries.length, 4);
+  const crawlKeys = status.crawlStats.libraries.map((lib) => lib.key);
+  assert.deepEqual(crawlKeys, ['templates', 'textures', 'home_models', 'plant_models']);
+  assert.ok(Number.isFinite(Date.parse(status.crawlStats.fromIso)), 'fromIso 应为合法 ISO 时间');
+  assert.ok(calls.some((u) => u.includes('/rest/v1/ai_templates') && u.includes('crawled_at=gte.')), '模板表应按 crawled_at 过滤');
+  assert.ok(calls.some((u) => u.includes('/rest/v1/jzxz_materials') && u.includes('created_at=gte.')), '贴图表应按 created_at 过滤');
+  assert.ok(calls.some((u) => u.includes('/rest/v1/jzxz_home_materials') && u.includes('created_at=gte.')), '家居模型表应按 created_at 过滤');
+  assert.ok(calls.some((u) => u.includes('/rest/v1/jzxz_plant_materials') && u.includes('created_at=gte.')), '植物模型表应按 created_at 过滤');
+  const homeLib = status.crawlStats.libraries.find((lib) => lib.key === 'home_models');
+  assert.equal(homeLib?.addedCount, 0, '空表（*/0）窗口新增应为 0');
+  assert.equal(homeLib?.totalCount, 0);
+  assert.equal(homeLib?.lastIngestedAt, null);
+  const plantLib = status.crawlStats.libraries.find((lib) => lib.key === 'plant_models');
+  assert.equal(plantLib?.lastIngestedAt, '2026-09-22T03:00:00Z');
+
   const status2 = await aggregateStatus(ENV, 999, { fetch: fetchImpl });
   assert.equal(status2.days, 90);
+});
+
+test('aggregateStatus：爬虫入库单表失败字段级降级，不拖垮其余区块', async () => {
+  const fetchImpl = routeFetch([
+    {
+      match: (u) => u.includes('/rest/v1/task_submissions') && u.includes('status=eq.failed'),
+      respond: () => json(200, []),
+    },
+    { match: (u) => u.includes('/storage/v1/object/list/huabu'), respond: () => json(200, []) },
+    { match: (u) => u.includes('/rest/v1/objects?'), respond: () => json(200, []) },
+    { match: (u) => u.includes('/storage/v1/bucket'), respond: () => json(200, []) },
+    { match: (u) => u.includes('/rest/v1/task_submissions'), respond: () => json(200, []) },
+    { match: (u) => u.includes('/rest/v1/user_profiles'), respond: () => json(200, []) },
+    { match: (u) => u.includes('/auth/v1/health'), respond: () => json(200, {}) },
+    { match: (u) => u.includes('/storage/v1/status'), respond: () => json(200, {}) },
+    { match: (u) => u.includes('/functions/v1/ai-proxy/quota'), respond: () => json(401, {}) },
+    { match: (u) => u.includes('/rest/v1/configs?key=eq.NEWAPI_URL'), respond: () => json(200, [{ value: 'http://gw.local' }]) },
+    { match: (u) => u.includes('/rest/v1/configs?key=eq.NEWAPI_TOKEN'), respond: () => json(200, [{ value: 'admintok' }]) },
+    { match: (u) => u.includes('/api/status'), respond: () => json(200, { success: true }) },
+    { match: (u) => u.includes('/api/token/'), respond: () => json(200, { data: { items: [] } }) },
+    // ai_templates 表 404（未迁移/被删）→ 该库降级，其余三库正常
+    { match: (u) => u.includes('/rest/v1/ai_templates'), respond: () => json(404, { error: 'not found' }) },
+    { match: (u) => u.includes('/rest/v1/jzxz_materials'), respond: () => json(200, [{ created_at: '2026-09-21T03:00:00Z' }], { 'Content-Range': '0-0/9310' }) },
+    { match: (u) => u.includes('/rest/v1/jzxz_home_materials'), respond: () => json(200, [{ created_at: '2026-09-20T03:00:00Z' }], { 'Content-Range': '0-0/488' }) },
+    { match: (u) => u.includes('/rest/v1/jzxz_plant_materials'), respond: () => json(200, [{ created_at: '2026-09-22T03:00:00Z' }], { 'Content-Range': '0-0/96' }) },
+  ]);
+
+  const status = await aggregateStatus(ENV, 7, { fetch: fetchImpl });
+
+  // 管线等其他区块不受影响
+  assert.ok(status.pipeline, '管线区块应正常');
+  // 模板库字段级降级（404 → 全 null），其余三库完好
+  const byKey = new Map(status.crawlStats.libraries.map((lib) => [lib.key, lib]));
+  assert.equal(byKey.get('templates')?.addedCount, null);
+  assert.equal(byKey.get('templates')?.lastIngestedAt, null);
+  assert.equal(byKey.get('textures')?.addedCount, 9310);
+  assert.equal(byKey.get('plant_models')?.lastIngestedAt, '2026-09-22T03:00:00Z');
 });

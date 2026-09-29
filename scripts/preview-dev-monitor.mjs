@@ -131,6 +131,15 @@ const fixture = {
       800 * 1024 ** 2 +
       3 * 1024 ** 2 + 200 * 1024,
   },
+  crawlStats: {
+    fromIso: new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString(),
+    libraries: [
+      { key: 'templates', label: '模板', addedCount: 3, totalCount: 1310, lastIngestedAt: new Date(Date.now() - 26 * 3600 * 1000).toISOString() },
+      { key: 'textures', label: '贴图素材（家居/植物/配景）', addedCount: 217, totalCount: 9318, lastIngestedAt: new Date(Date.now() - 5 * 3600 * 1000).toISOString() },
+      { key: 'home_models', label: '家居产品模型', addedCount: null, totalCount: null, lastIngestedAt: null },
+      { key: 'plant_models', label: '植物模型', addedCount: 0, totalCount: 96, lastIngestedAt: new Date(Date.now() - 9 * 24 * 3600 * 1000).toISOString() },
+    ],
+  },
 };
 
 // 预览专用：跳过登录壳，直接加载数据（线上页面不受影响）。
@@ -148,8 +157,10 @@ html = html.replace(loginShellSource, 'load(); setupAutoRefresh();');
 const server = createServer((req, res) => {
   const url = new URL(req.url, `http://localhost:${port}`);
   if (url.pathname.replace(/\/+$/, '').endsWith('/status')) {
+    // days 跟随 query 回显，切窗口时标题/口径与真实后端一致
+    const days = Number(url.searchParams.get('days')) || fixture.days;
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify(fixture));
+    res.end(JSON.stringify({ ...fixture, days }));
     return;
   }
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });

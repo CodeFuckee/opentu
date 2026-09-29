@@ -21,6 +21,7 @@
 | 失败样本 | 最近 50 条 failed 任务：时间、用户 OA、类型、模型、耗时、error 摘要 |
 | 卡死任务 | submitted 超过类型阈值：按等待时长倒序，最多 20 条 |
 | 结果完整性 | 窗口内 completed 的 image/video/audio 任务结果核验：应产出文件任务数、结果未归档（response_file_paths 为空）、不在 bucket（按 {用户名}/{日期}/ 前缀并行列出 huabu 对象核验，路径找不到）、零字节（对象存在但 size=0）、未核验（前缀超 400 上限不计入异常）；附异常样本（前 10 条：问题/路径/用户/大小） |
+| 爬虫入库 | 四张爬虫表各一张卡片：窗口内新增条数（跟随统计窗口，默认近 7 日）、全库总条数、最近入库时间（相对时间，悬浮显完整时间）——最近入库停在几天前即可发现爬虫断供。口径：ai_templates 按 `crawled_at`、jzxz_materials / jzxz_home_materials / jzxz_plant_materials 按 `created_at`（时间列仅首次插入写入，upsert 不覆盖，窗口内新增 = 新爬取入库）。计数走 `Prefer: count=exact` + Content-Range 尾段；最近入库走 `order=<ts>.desc.nullslast&limit=1`。每库两条查询并行、字段级降级（单表失败仅该卡片显示「-」） |
 | 存储桶占用 | 各 bucket 的对象数、占用字节（metadata->>size 合计）、公开/私有、相对占比条与合计行；**全量口径，不随统计窗口变化**。数据经 PostgREST storage schema（`Accept-Profile: storage`）全量分页读 `storage.objects`，bucket 清单（/storage/v1/bucket）补公开标志与空桶（清单失败降级显示 '-'）。需要 PGRST_DB_SCHEMAS 含 storage（官方 docker 默认已含），未暴露或查询失败时该区块显示「拉取失败」，不拖垮其余板块 |
 
 页面默认**每 30 秒自动刷新**（可开关）；窗口天数切换：今日 / 7 / 14 / 30 天。
@@ -58,7 +59,10 @@
 - 存储桶占用分页健壮性：`order=id.asc` 稳定排序 + offset 按实收行数推进 + 空页才结束，
   即使 PostgREST 按 `db-max-rows` 截断响应也不漏页；`metadata->>size`（->> 返回文本）
   经 Number() 归一
-- 60s 边缘函数超时约束：探测并行 + 单探测 5s 超时；窗口行 limit 20000、失败样本 50 条
+- 爬虫入库计数与 db-max-rows 无关（Content-Range 尾段为过滤集精确总数，不随返回行数截断）；
+  最近入库单行查询不受行数上限影响
+- 60s 边缘函数超时约束：探测并行 + 单探测 5s 超时；窗口行 limit 20000、失败样本 50 条；
+  爬虫入库每库 2 条 limit=1 轻查询、四库并行
 
 ## 部署（自托管 Supabase，热加载生效）
 
@@ -97,6 +101,8 @@ curl -s -H "Authorization: Bearer $ACCESS_TOKEN" \
 - [ ] `curl` 页面返回 200 text/html；浏览器打开渲染全部区块
 - [ ] 未带 JWT 调 `/status` 返回 401；非管理员 403
 - [ ] 管理员登录后健康探测六卡出数据；拔掉网关配置时对应卡显示「未探测」
+- [ ] 爬虫入库四卡出数据（模板/贴图素材/家居模型/植物模型），切窗口天数标题与新增口径跟随；
+      某爬虫表查询失败时仅对应卡片显示「-」，其余卡片正常
 - [ ] `node --test supabase/functions/*/core.test.ts` 全绿
 - [ ] 本地纯前端过目（无需后端）：`node scripts/preview-dev-monitor.mjs [端口]`
       打开提示的地址，登录壳已跳过，页面用 mock 数据渲染全部区块

@@ -1062,6 +1062,122 @@ export async function fetchBucketUsage(
 }
 
 // ============================================================================
+// 爬虫入库统计（模板与素材四库：近 N 日新增 + 最近入库时间）
+// ============================================================================
+
+/** PostgREST Content-Range 头解析：`0-0/N` 及空集星号形态取尾段总数 N；畸形/缺失返回 null（与 0 条区分） */
+export function parseContentRangeTotal(headerValue: string | null): number | null {
+  if (typeof headerValue !== 'string') {
+    return null;
+  }
+  const match = /^(?:\d+-\d+|\*)\/(\d+)$/.exec(headerValue.trim());
+  return match ? Number(match[1]) : null;
+}
+
+export interface CrawlLibraryDef {
+  key: string;
+  label: string;
+  table: string;
+  /** 入库时间列（仅首次插入时写入，upsert 不覆盖 → 「近 N 日新增」口径成立） */
+  tsColumn: string;
+}
+
+/** 爬虫入库的四张表：模板中心 + 贴图素材三库（家居/植物/配景合表）+ 家居/植物产品模型 */
+export const CRAWL_LIBRARIES: CrawlLibraryDef[] = [
+  { key: 'templates', label: '模板', table: 'ai_templates', tsColumn: 'crawled_at' },
+  { key: 'textures', label: '贴图素材（家居/植物/配景）', table: 'jzxz_materials', tsColumn: 'created_at' },
+  { key: 'home_models', label: '家居产品模型', table: 'jzxz_home_materials', tsColumn: 'created_at' },
+  { key: 'plant_models', label: '植物模型', table: 'jzxz_plant_materials', tsColumn: 'created_at' },
+];
+
+export interface CrawlLibraryStat {
+  key: string;
+  label: string;
+  /** 窗口内新增条数（Content-Range 精确计数）；查询失败为 null（页面显示 '-'） */
+  addedCount: number | null;
+  /** 全库总条数；查询失败为 null */
+  totalCount: number | null;
+  /** 最近一条入库时间（ISO）；表空或查询失败为 null（页面显示 '-'，断供可见） */
+  lastIngestedAt: string | null;
+}
+
+export interface CrawlStats {
+  /** 统计窗口下界（与任务管线同窗口，跟随 days 参数） */
+  fromIso: string;
+  libraries: CrawlLibraryStat[];
+}
+
+/** PostgREST 计数查询：Prefer count=exact 下 Content-Range 尾段即过滤集总数；失败返回 null */
+async function fetchCountQuery(
+  env: DevMonitorEnv,
+  path: string,
+  deps: DevMonitorDeps
+): Promise<{ total: number | null; firstRow: Record<string, unknown> | null } | null> {
+  const doFetch = deps.fetch || fetch;
+  try {
+    const res = await doFetch(`${baseUrl(env)}${path}`, {
+      method: 'GET',
+      headers: { ...srkHeaders(env), Prefer: 'count=exact' },
+    });
+    if (!res.ok) {
+      return null;
+    }
+    const total = parseContentRangeTotal(res.headers.get('content-range'));
+    const body = (await res.json()) as unknown;
+    const firstRow =
+      Array.isArray(body) && body.length > 0 && typeof body[0] === 'object' && body[0] !== null
+        ? (body[0] as Record<string, unknown>)
+        : null;
+    return { total, firstRow };
+  } catch {
+    return null;
+  }
+}
+
+/** 单库统计：窗口计数与全库最近一条两条查询并行，各自失败字段级降级、永不抛错 */
+export async function fetchCrawlLibraryStat(
+  env: DevMonitorEnv,
+  lib: CrawlLibraryDef,
+  fromIso: string,
+  deps: DevMonitorDeps = {}
+): Promise<CrawlLibraryStat> {
+  const column = lib.tsColumn;
+  const [windowed, latest] = await Promise.all([
+    fetchCountQuery(
+      env,
+      `/rest/v1/${lib.table}?select=${column}&${column}=gte.${encodeURIComponent(fromIso)}&limit=1`,
+      deps
+    ),
+    // nullslast：时间列可空时跳过 null 行取真实最近入库
+    fetchCountQuery(
+      env,
+      `/rest/v1/${lib.table}?select=${column}&order=${column}.desc.nullslast&limit=1`,
+      deps
+    ),
+  ]);
+  const latestTs = latest?.firstRow?.[column];
+  return {
+    key: lib.key,
+    label: lib.label,
+    addedCount: windowed ? windowed.total : null,
+    totalCount: latest ? latest.total : null,
+    lastIngestedAt: typeof latestTs === 'string' && latestTs ? latestTs : null,
+  };
+}
+
+/** 四库统计并行拉取；各库独立降级（单表失败不影响其余，块本身永不缺失） */
+export async function fetchCrawlStats(
+  env: DevMonitorEnv,
+  fromIso: string,
+  deps: DevMonitorDeps = {}
+): Promise<CrawlStats> {
+  const libraries = await Promise.all(
+    CRAWL_LIBRARIES.map((lib) => fetchCrawlLibraryStat(env, lib, fromIso, deps))
+  );
+  return { fromIso, libraries };
+}
+
+// ============================================================================
 // 状态编排（/status 数据生产者）
 // ============================================================================
 
@@ -1077,6 +1193,8 @@ export interface DevStatus {
   resultIntegrity: ResultIntegrityStats | null;
   /** 存储桶占用（storage.objects 全量聚合；查询失败时为 null） */
   bucketUsage: BucketUsage | null;
+  /** 爬虫入库统计（模板与素材四库；各库字段级降级，块本身永不缺失） */
+  crawlStats: CrawlStats;
 }
 
 async function fetchJsonRows(
@@ -1118,12 +1236,13 @@ export async function aggregateStatus(
   const failureQuery =
     `/rest/v1/task_submissions?select=created_at,completed_at,user_id,type,error,model:params-%3E%3Emodel&status=eq.failed&created_at=gte.${encodeURIComponent(fromIso)}&order=created_at.desc&limit=50`;
 
-  const [windowRows, failureRows, profileRows, probes, bucketUsage] = await Promise.all([
+  const [windowRows, failureRows, profileRows, probes, bucketUsage, crawlStats] = await Promise.all([
     fetchJsonRows(env, windowQuery, deps),
     fetchJsonRows(env, failureQuery, deps),
     fetchJsonRows(env, `/rest/v1/user_profiles?select=user_id,oa_account&limit=50000`, deps),
     probeHealth(env, deps),
     fetchBucketUsage(env, deps),
+    fetchCrawlStats(env, fromIso, deps),
   ]);
 
   const oaByUser = new Map<string, string>(
@@ -1156,6 +1275,7 @@ export async function aggregateStatus(
     stuckList: toStuckList((windowRows ?? []) as PipelineRow[], oaByUser),
     resultIntegrity,
     bucketUsage,
+    crawlStats,
   };
 }
 
@@ -1323,6 +1443,8 @@ export function buildDevMonitorHtml(anonKey: string): string {
 
 <div class="panel"><h2>结果完整性（成功任务的图片/视频/音频结果核验）</h2><div class="cards" id="integrityCards"><div class="sk"></div></div>
 <table id="integritySamples" style="margin-top:12px"><thead><tr><th>问题</th><th>路径</th><th>用户</th><th>大小</th></tr></thead><tbody></tbody></table></div>
+
+<div class="panel"><h2 id="crawlTitle">爬虫入库（模板与素材新增 · 跟随统计窗口）</h2><div class="cards" id="crawlCards"><div class="sk"></div></div></div>
 
 <div class="panel"><h2>存储桶占用（storage.objects 全量聚合 · 不随统计窗口变化）</h2><div id="bucketUsage"><div class="sk"></div></div></div>
 
@@ -1610,6 +1732,26 @@ function renderBucketUsage(o){
     '<td style="font-variant-numeric:tabular-nums"><b>'+fmtBytes(g.totalBytes)+'</b></td><td></td></tr></tbody></table>';
 }
 
+function renderCrawlStats(o){
+  var g = o.crawlStats;
+  var el = document.getElementById('crawlCards');
+  var title = document.getElementById('crawlTitle');
+  if(!g){
+    el.innerHTML = '<div class="card" style="grid-column:1/-1"><div class="error">爬虫入库数据拉取失败</div></div>';
+    return;
+  }
+  if(title){ title.textContent = '爬虫入库（模板与素材 · 近 '+o.days+' 日新增）'; }
+  var nowMs = Date.parse(o.generatedAt) || Date.now();
+  el.innerHTML = (g.libraries||[]).map(function(lib){
+    var added = lib.addedCount==null ? '-' : lib.addedCount.toLocaleString();
+    var total = lib.totalCount==null ? '-' : lib.totalCount.toLocaleString();
+    var last = lib.lastIngestedAt ? fmtRelative(lib.lastIngestedAt, nowMs) : '-';
+    return '<div class="card"><div class="label">'+esc(lib.label)+'</div>'+
+      '<div class="value">'+esc(added)+'</div>'+
+      '<div class="sub" title="'+esc(lib.lastIngestedAt?fmtDate(lib.lastIngestedAt):'')+'">全库 '+esc(total)+' 条 · 最近入库 '+esc(last)+'</div></div>';
+  }).join('') || '<div class="muted">暂无数据</div>';
+}
+
 function render(o){
   document.getElementById('generatedAt').textContent = '统计窗口 近 '+o.days+' 天 · 生成于 ' + fmtDate(o.generatedAt);
   renderProbes(o.probes);
@@ -1620,6 +1762,7 @@ function render(o){
   renderStuck(o.stuckList);
   renderIntegrity(o);
   renderBucketUsage(o);
+  renderCrawlStats(o);
 }
 
 function basePath(){

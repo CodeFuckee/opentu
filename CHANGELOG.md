@@ -1,5 +1,23 @@
 ## Unreleased
 
+### feat: dev-monitor 新增「爬虫入库」区块——近 N 日爬取模板与素材新增量（2026-09-29）
+
+- **能力**：开发监控看板新增爬虫入库统计区块：四张爬虫表各一张卡片，
+  展示统计窗口内新增条数（跟随顶部天数选择器，默认近 7 日）、全库总条数、
+  最近入库时间（相对时间 + 悬浮完整时间）。最近入库停在几天前即可一眼发现
+  爬虫断供（9-28/9-29 每日爬取失败即此类问题）。
+- **口径**：ai_templates 按 `crawled_at`、jzxz_materials / jzxz_home_materials /
+  jzxz_plant_materials 按 `created_at` 过滤——这些时间列仅在首次插入时写入、
+  爬虫 upsert 不覆盖，故「窗口内新增」= 新爬取入库条数。计数走 PostgREST
+  `Prefer: count=exact` + Content-Range 尾段（dashboard-stats 同手法），
+  最近入库用 `order=<ts>.desc.nullslast&limit=1` 单行查询。
+- **降级**：每库两条查询（窗口计数/全库最近）并行、字段级降级——单表查询
+  失败仅该卡片显示「-」，不拖垮其余库与 /status 其他区块（块本身永不缺失）。
+- **测试**：dev-monitor 单测 36→44（Content-Range 解析、四库配置、单库字段级
+  降级、空表 `*` 形态、时间列 null、aggregateStatus 编排与单表 404 降级、
+  HTML 区块断言）；preview 脚本 fixture 补 crawlStats（含降级/断供示例），
+  /status mock 按 days query 回显使切窗口标题一致。
+
 ### fix: 建筑学长站点改版致三爬虫入口链断裂——修复 9-28/9-29 每日爬取失败（2026-09-29）
 
 - **现象**：素材库每日 03:00 定时任务连续两晚失败（`entry-fail.png`：点"本地上传"
