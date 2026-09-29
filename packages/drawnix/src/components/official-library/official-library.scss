@@ -173,13 +173,16 @@
     flex-shrink: 0;
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    width: 32px;
+    gap: 5px;
+    padding: 0 12px;
     height: 32px;
     border-radius: 6px;
     border: 1px solid var(--aitu-ui-border, rgba(100, 116, 139, 0.32));
     background: var(--aitu-ui-surface, #fff);
     color: var(--aitu-ui-text, #1e293b);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
     cursor: pointer;
     transition: all 0.15s ease;
 

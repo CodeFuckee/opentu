@@ -604,7 +604,8 @@ export function OfficialLibraryView({
                   onClick={() => fileInputRef.current?.click()}
                   data-track="official_library_image_search"
                 >
-                  <Camera size={16} />
+                  <Camera size={15} />
+                  <span>以图搜图</span>
                 </button>
               </HoverTip>
               <input
