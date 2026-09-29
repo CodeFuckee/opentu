@@ -1,0 +1,225 @@
+<mxfile host="app.diagrams.net" agent="zcode" version="24.7.7">
+  <diagram id="jzxz-crawler-flow" name="建筑学长素材爬虫执行流程">
+    <mxGraphModel dx="1600" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1650" pageHeight="2900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ============ 容器（先渲染，置底） ============ -->
+        <mxCell id="entryC" value="入口序列（进入贴图面板）crawl() :660-706" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;align=left;fillColor=none;strokeColor=#666666;dashed=1;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="380" y="620" width="480" height="460" as="geometry" />
+        </mxCell>
+        <mxCell id="branchA" value="分支A 家居库/植物库（无分类行，属性筛选直翻页）:729-763" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;align=left;fillColor=none;strokeColor=#666666;dashed=1;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1440" width="360" height="660" as="geometry" />
+        </mxCell>
+        <mxCell id="branchB" value="分支B 配景库（两阶段：枚举映射 → 逐 tag 爬取）:765-866" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;align=left;fillColor=none;strokeColor=#666666;dashed=1;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="840" y="1440" width="400" height="760" as="geometry" />
+        </mxCell>
+        <mxCell id="pbC" value="process_batch / upload_item（两分支共用）:319-340, :268-307" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;align=left;fillColor=none;strokeColor=#666666;dashed=1;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="2240" width="660" height="380" as="geometry" />
+        </mxCell>
+        <mxCell id="legend" value="图例" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;align=left;fillColor=none;strokeColor=#999999;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="1240" y="40" width="320" height="180" as="geometry" />
+        </mxCell>
+
+        <!-- ============ 主流程 ============ -->
+        <mxCell id="n_start" value="main(): argparse 解析参数&lt;br&gt;--dry-run / --headed / --login / --max-pages / --categories / --upload-json" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="480" y="40" width="280" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="d_json" value="--upload-json?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="520" y="140" width="200" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="p_upjson" value="upload_from_json(): 纯 HTTP 上传（无浏览器）&lt;br&gt;读 captured JSON → 查重 → 逐条 upload_item :562-580" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="820" y="145" width="340" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="endA" value="结束" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="950" y="240" width="100" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="d_login" value="--login?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="520" y="260" width="200" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="p_login" value="login_mode(): 有头浏览器人工扫码&lt;br&gt;会话保存 profile，回车确认后退出 :531-547" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="820" y="265" width="340" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="endB" value="结束" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="950" y="360" width="100" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="p_cfg" value="load_config(): scripts/jzxz-crawler.local.json&lt;br&gt;supabase_url / service_key / headless / max_pages / chrome_binary" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="440" y="380" width="360" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="p_chrome" value="启动 Chrome：CfT 二进制 + 专用 profile + 超时(脚本45s/页面60s) + 看门狗(静默30min→转储线程栈→os._exit) :635-657&lt;br&gt;&lt;b&gt;⚠ P0 bug (:642)：无条件 add_argument(--headless=new)&lt;br&gt;→ --headed 与配置 headless:false 均不生效，实际永远无头&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="380" y="480" width="480" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- 入口序列 -->
+        <mxCell id="e1" value="driver.get(/home) → 关推广弹窗 → 注入 CAPTURE_HOOK&lt;br&gt;（fetch/XHR 猴子补丁，wallpaper/reference 响应 → __jzxzCapture）:660-665" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="400" y="655" width="440" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="轮询可见 upload_btn_box ≤25s（反复点关弹窗）&lt;br&gt;超时 → sys.exit「未找到本地上传入口」(H1) :666-675" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="400" y="730" width="440" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="real_click 上传格 → 轮询 input[type=file] ≤20s&lt;br&gt;超时 → 截图 entry-fail.png → sys.exit (H2)【CfT 当前卡点】:676-693" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="400" y="810" width="440" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="显示 input 并 send_keys 探针图(1×1px) → 轮询 first_cate_list ≤40s&lt;br&gt;超时 → sys.exit「贴图面板未出现」(H3) :694-703" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="400" y="900" width="440" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="sleep 2 → 重新注入 CAPTURE_HOOK（页面刷新过）→ 面板就绪 :704-706" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="400" y="990" width="440" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="g_loop" value="for gallery in [家居库, 植物库, 配景库] :708" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="440" y="1120" width="360" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="g_tab" value="点击 tab_btn（≤4 次重试）+ 校验 active 迁移 :709-726&lt;br&gt;失败 → [warn] 跳过整库（S1/S2）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="400" y="1200" width="440" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="d_scene" value="gallery == 配景库?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="520" y="1300" width="200" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- ============ 分支A 家居/植物库 ============ -->
+        <mxCell id="a1" value="wait_any(10s) 网络捕获 ∥ HARVEST_GRID DOM 扫描&lt;br&gt;→ 按 source_id 合并（缓存兜底通道）:733-741" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="60" y="1480" width="320" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="a2" value="条目为空?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="110" y="1570" width="220" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="a3" value="process_batch（查重→上传，详见图下）:745" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="60" y="1670" width="320" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="a4" value="连续 3 轮零新增?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="110" y="1740" width="220" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="a5" value="有「下一页」?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="110" y="1840" width="220" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="a6" value="点击下一页 → sleep delay(1.5s) :761-762" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="60" y="1940" width="320" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="a_end" value="该库结束（到库尾 / 熔断）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="110" y="2020" width="220" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ============ 分支B 配景库 ============ -->
+        <mxCell id="b1" value="阶段1·枚举分类：enumerate_row_texts(first_cate_list)&lt;br&gt;prev 箭头滚回行首 → 逐屏 scan_chips 收集 :767" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="860" y="1480" width="360" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="b2" value="逐分类：点击 slide + 校验 sub_cate 行变化/已知tag（≤6次，15s 轮询）:773-803&lt;br&gt;失败 → [warn] 分类点击未生效，跳过该分类（S3·历史重灾区）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="860" y="1560" width="360" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="b3" value="枚举该分类 tags：enumerate_row_texts(sub_cate_list)&lt;br&gt;→ cat_tags / 回写累积 CATE_TAGS :805-810" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="860" y="1650" width="360" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="b4" value="阶段2·逐 tag：chip_element（≤60 轮箭头滚动把 chip 滚入可视区）:819&lt;br&gt;失败 → [warn] chip 不可见，跳过 tag（S4）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="860" y="1720" width="360" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="b5" value="点击 tag → sleep 3 → wait_any(8s) 按 tag 过滤&lt;br&gt;∥ HARVEST_GRID → merge_into_result 双通道合并 :823-830" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="860" y="1800" width="360" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="b6" value="无响应且无网格 → [warn] 跳过 tag（S5）:831-833&lt;br&gt;⚠ tag 点击无生效校验（click_chip_verified 是死代码）&lt;br&gt;DOM 通道可能把上一 tag 的图误归当前 tag（R1）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="860" y="1880" width="360" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="b7" value="process_batch → 翻页 :840" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="860" y="1970" width="360" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="b8" value="有「下一页」且翻页有响应? :849-866" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="930" y="2030" width="220" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="b_end" value="该分类全部 tag 结束" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="860" y="2130" width="360" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ============ process_batch / upload_item ============ -->
+        <mxCell id="pb1" value="known_source_ids：REST in.(...) 批量查已入库 :249-257" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="60" y="2280" width="300" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="pb2" value="已入库?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="90" y="2360" width="240" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="pb3" value="--dry-run?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="380" y="2360" width="260" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="pb4" value="upload_item：下载（带 Referer 重试×2，90s 超时）&lt;br&gt;→ PUT /{分类slug}/{md5}.png（x-upsert 内容寻址）&lt;br&gt;→ upsert 表 jzxz_materials（on_conflict=source_id）:268-307" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="60" y="2470" width="280" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="pb5" value="追加 all_items → flush_dry&lt;br&gt;覆盖写 captured-dryrun.json :310-316" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="380" y="2480" width="260" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="pb6" value="任何一步失败 → 仅 stats.failed+1，不中断全量（download_failed / upload_http_* / table_http_*）；未入库条目下次 run 查重不过会自动重试" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="60" y="2570" width="580" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ============ 结束 ============ -->
+        <mxCell id="n_end" value="汇总 log（pages/items/downloaded/skipped/failed）&lt;br&gt;dry-run → captured-&lt;ts&gt;.json → driver.quit() :868-875" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="480" y="2720" width="300" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- ============ 图例内容 ============ -->
+        <mxCell id="lg1" value="红 = 硬失败：sys.exit，整个 run 终止" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1260" y="80" width="280" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="lg2" value="橙 = 软跳过：[warn] 后继续，覆盖率受损" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1260" y="114" width="280" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="lg3" value="蓝 = 正常流程 / 绿 = 起止 / 黄 = 判断" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1260" y="148" width="280" height="28" as="geometry" />
+        </mxCell>
+
+        <!-- ============ 边 ============ -->
+        <mxCell id="E1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="n_start" target="d_json"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E2" value="是" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="d_json" target="p_upjson"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="p_upjson" target="endA"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E4" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="d_json" target="d_login"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E5" value="是" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="d_login" target="p_login"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="p_login" target="endB"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E7" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="d_login" target="p_cfg"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="p_cfg" target="p_chrome"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="p_chrome" target="entryC"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="e1" target="e2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="e2" target="e3"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E17" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="e3" target="e4"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="e4" target="e5"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="entryC" target="g_loop"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="g_loop" target="g_tab"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E42" value="跳过 → 下一库" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;strokeColor=#d79b00;fontSize=11;" edge="1" parent="1" source="g_tab" target="g_loop"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="g_tab" target="d_scene"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E13" value="家居库/植物库" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0;exitY=0.5;fontSize=11;" edge="1" parent="1" source="d_scene" target="branchA"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E14" value="配景库" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;fontSize=11;" edge="1" parent="1" source="d_scene" target="branchB"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="E19" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="a1" target="a2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E20" value="是→到库尾" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0;exitY=0.5;fontSize=11;" edge="1" parent="1" source="a2" target="a_end"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E21" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="a2" target="a3"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E22" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="a3" target="a4"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E23" value="是→熔断" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0;exitY=0.5;entryX=0;entryY=0.5;fontSize=11;" edge="1" parent="1" source="a4" target="a_end"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E24" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="a4" target="a5"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E25" value="无" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;fontSize=11;" edge="1" parent="1" source="a5" target="a_end"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E26" value="有" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="a5" target="a6"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E27" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="a6" target="a1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E39" value="该库完成" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="a_end" target="n_end"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E40" value="process_batch 详见图下" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;strokeColor=#999999;fontSize=10;" edge="1" parent="1" source="a3" target="pbC"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="E28" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="b1" target="b2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E29" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="b2" target="b3"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E30" value="下一分类" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="b3" target="b4"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E31" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="b4" target="b5"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E32" value="有数据" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0;exitY=0.5;entryX=0;entryY=0.5;fontSize=11;" edge="1" parent="1" source="b5" target="b7"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E33" value="空" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="b5" target="b6"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E34" value="跳过 → 下一 tag" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;strokeColor=#d79b00;exitX=0;exitY=0.5;entryX=1;entryY=0.5;fontSize=11;" edge="1" parent="1" source="b6" target="b4"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E35" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="b7" target="b8"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E36" value="是（点下一页 → 再收割）" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;fontSize=11;" edge="1" parent="1" source="b8" target="b7"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E37" value="否（该 tag 结束）" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="b8" target="b_end"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E38" value="全部分类完成" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="b_end" target="n_end"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="E41" value="process_batch 详见图下" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;strokeColor=#999999;fontSize=10;" edge="1" parent="1" source="b7" target="pbC"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="P1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="pb1" target="pb2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="P2" value="是→skipped_known" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0;exitY=0.5;entryX=0;entryY=0.5;fontSize=11;" edge="1" parent="1" source="pb2" target="pb1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="P3" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="pb2" target="pb3"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="P4" value="是" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" edge="1" parent="1" source="pb3" target="pb5"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="P5" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;fontSize=11;" edge="1" parent="1" source="pb3" target="pb4"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="P6" value="下一条" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;fontSize=11;" edge="1" parent="1" source="pb4" target="pb1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="P7" value="下一条" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0;exitY=0.5;entryX=0;entryY=1;fontSize=11;" edge="1" parent="1" source="pb5" target="pb1"><mxGeometry relative="1" as="geometry" /></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

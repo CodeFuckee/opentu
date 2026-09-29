@@ -1,5 +1,28 @@
 ## Unreleased
 
+### fix: 建筑学长站点改版致三爬虫入口链断裂——修复 9-28/9-29 每日爬取失败（2026-09-29）
+
+- **现象**：素材库每日 03:00 定时任务连续两晚失败（`entry-fail.png`：点"本地上传"
+  后 20s 等不到上传对话框）。根因是站点 2026-09 改版：`/home` 从画布编辑器变成
+  "工作台"（项目列表/AI 工具导航），编辑器迁移至 `/canvas/detail?projectId=<id>`；
+  且新编辑器内有 4 个 `input[type=file]`（两个 `accept=.txt` 属其他功能），
+  旧代码取 `inputs[0]` 恰好发进 .txt 输入，上传无效、贴图面板不再出现。
+- **jzxz-material-crawler.py**：新增 `enter_editor`/`create_project`——优先复用
+  记忆的编辑器 URL（`data/jzxz-canvas-project.json`，站点"创作记录仅保留 30 天"
+  导致项目被删时自动从工作台「新建项目」重建）；`submit_probe_image` 按 `accept`
+  过滤取图片输入；登录态失效时给出明确报错（区别于笼统的"对话框未弹出"）；
+  `open_panel` 改为重载编辑器 URL。`HARVEST_GRID` 网格锚定补平铺库兜底：
+  家居/植物库视图无 `first_cate_list` 分类行，原锚直接空手而归（改版后首页
+  请求命中缓存不发 wallpaper/reference，双通道全空报"无数据"），退锚至
+  「家居库|植物库|配景库」tab 行并集、右界借"下一页"按钮补齐。
+- **jzxz-home-crawler.py / jzxz-plant-crawler.py（同构修复）**：新增同样的
+  `enter_canvas_editor`（与素材爬虫共用画布项目记忆），`submit_upload` 按
+  `accept` 过滤图片输入，`recover_to_page` 重载编辑器 URL。
+- **验证**：素材爬虫 `--dry-run --max-pages 1 --categories 舞台构建装置` 三轮
+  实跑——家居库 9 条/植物库 9 条（与网格可见数一致）/配景库 24 条，exit 0，
+  含"复用记忆编辑器 URL"路径；植物爬虫 `--dry-run --max-items 1` 冒烟全链路
+  通过（登录态→复用编辑器→探针→植物库 tab→详情采集）。
+
 ### feat: 以图搜图——CLIP 向量 + pgvector 四库检索（#61，2026-09-28）
 
 - **能力**：素材库官方库与模板中心搜索区新增「以图搜图」入口（上传/拖拽/粘贴

@@ -67,6 +67,9 @@ PROFILE_DIR = ROOT / "data" / "jzxz-chrome-profile"
 DATA_DIR = ROOT / "data" / "jzxz-captured"
 GLB_DIR = DATA_DIR / "home-glb"
 CONFIG_PATH = ROOT / "scripts" / "jzxz-crawler.local.json"
+# 与 jzxz-material-crawler.py 共用同一画布项目（同一浏览器 profile/站点）
+PROJECT_STATE_PATH = ROOT / "data" / "jzxz-canvas-project.json"
+EDITOR_URL = None  # enter_canvas_editor 成功后记录，翻页恢复时复用
 
 TABLE = "jzxz_home_materials"
 BUCKET = "jzxz-home-materials"
@@ -268,6 +271,71 @@ def open_home(driver: webdriver.Chrome) -> None:
     time.sleep(3)  # SPA 水合，等头部渲染完成
 
 
+def _save_editor_url(url: str) -> None:
+    global EDITOR_URL
+    EDITOR_URL = url
+    if "projectId=" in url:
+        try:
+            PROJECT_STATE_PATH.write_text(json.dumps({
+                "editor_url": url,
+                "project_id": url.split("projectId=")[-1].split("&")[0],
+                "updated": datetime.now().isoformat(timespec="seconds"),
+            }, ensure_ascii=False), encoding="utf-8")
+        except Exception:
+            pass
+
+
+def enter_canvas_editor(driver: webdriver.Chrome) -> str:
+    """站点 2026-09 改版后 /home 是工作台而非编辑器（无本地上传入口）。
+
+    进画布编辑器：优先复用记忆的 /canvas/detail?projectId=… URL（与素材
+    爬虫共用 data/jzxz-canvas-project.json），失效则在工作台点「新建项目」。"""
+    if PROJECT_STATE_PATH.exists():
+        try:
+            saved = json.loads(
+                PROJECT_STATE_PATH.read_text(encoding="utf-8")).get("editor_url")
+        except Exception:
+            saved = None
+        if saved:
+            driver.get(saved)
+            deadline = time.time() + 25
+            while time.time() < deadline:
+                if visible(driver, "//*[contains(@class,'upload_btn_box')]"):
+                    log(f"已复用画布编辑器: {saved}")
+                    EDITOR_URL = saved
+                    return saved
+                time.sleep(1)
+            log("  记忆的编辑器 URL 已失效，改从工作台新建项目。")
+    open_home(driver)
+    tgt = None
+    for _ in range(15):
+        close_popups(driver)
+        tgt = next((e for e in driver.find_elements(
+            By.XPATH, "//*[normalize-space(text())='新建项目']") if e.is_displayed()), None)
+        if tgt is not None:
+            break
+        time.sleep(2)
+    if tgt is None:
+        driver.save_screenshot(str(DATA_DIR / "entry-fail.png"))
+        raise RuntimeError("工作台「新建项目」入口未找到（登录态失效或页面改版），"
+                           "现场已存 data/jzxz-captured/entry-fail.png")
+    real_click(driver, tgt)
+    deadline = time.time() + 25
+    while time.time() < deadline:
+        if "/canvas/detail" in (driver.current_url or ""):
+            break
+        time.sleep(1)
+    else:
+        raise RuntimeError(f"点击「新建项目」后未进入编辑器（当前：{driver.current_url}）")
+    if len(driver.window_handles) > 1:
+        driver.switch_to.window(driver.window_handles[-1])
+    url = driver.current_url
+    _save_editor_url(url)
+    time.sleep(4)
+    log(f"已新建画布编辑器: {url}")
+    return url
+
+
 def click_login_entrance(driver: webdriver.Chrome) -> bool:
     try:
         el = driver.find_element(By.CSS_SELECTOR, LOGIN_ENTRANCE_SELECTOR)
@@ -380,13 +448,17 @@ def submit_upload(driver, file_path: Path) -> bool:
         return False
     real_click(driver, box)
     log("  已点击\"本地上传\"，等待文件选择框…")
+    # 改版后编辑器内有 4 个 input[type=file]（两个 accept=.txt 属其他功能），
+    # 必须按 accept 过滤取图片输入，发进 .txt 输入上传无效
     inputs = []
     deadline = time.time() + 20
     while time.time() < deadline and not inputs:
         time.sleep(1)
-        inputs = driver.find_elements(By.CSS_SELECTOR, "input[type='file']")
+        inputs = [i for i in driver.find_elements(By.CSS_SELECTOR, "input[type='file']")
+                  if "png" in (i.get_attribute("accept") or "").lower()
+                  or "image" in (i.get_attribute("accept") or "").lower()]
     if not inputs:
-        log("  未找到 input[type=file]（上传对话框未弹出，20s 超时）。")
+        log("  未找到图片 input[type=file]（上传对话框未弹出，20s 超时）。")
         return False
     driver.execute_script("arguments[0].style.display='block';", inputs[0])
     inputs[0].send_keys(str(file_path))
@@ -982,7 +1054,7 @@ def recover_to_page(driver, cfg: dict, test_img: Path,
     """刷新页面重建面板并翻回目标页（规避长会话面板状态漂移导致的点击失效，
     与素材爬虫"重开面板"同一思路）。"""
     log(f"  常规翻页失效，刷新页面重建面板，翻回第 {target_page} 页…")
-    driver.get(PAGE_URL)
+    driver.get(EDITOR_URL or PAGE_URL)
     WebDriverWait(driver, 30).until(
         lambda d: d.execute_script("return document.readyState") == "complete")
     time.sleep(4)
@@ -1127,6 +1199,7 @@ def main() -> None:
         if not is_logged_in(driver):
             log("未登录，跳过上传与遍历。")
         else:
+            enter_canvas_editor(driver)
             test_img = ensure_test_image()
             log(f"开始上传测试图片（{test_img.name}）…")
             ok_upload = upload_test_image(driver, test_img)

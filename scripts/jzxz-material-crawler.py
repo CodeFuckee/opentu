@@ -8,6 +8,11 @@ selenium 无头驱动贴图面板翻页；页面注入 fetch/XHR 钩子捕获 wa
 响应，另有 DOM 网格文档级扫描兜底（面板命中缓存不发请求时）；图片按内容哈希
 转存公开桶 jzxz-materials，元数据按 source_id upsert 表 jzxz_materials。
 
+入口（2026-09 站点改版后）：/home 已是工作台而非编辑器——从「新建项目」进
+/canvas/detail?projectId=<id> 画布编辑器（URL 记忆于 data/jzxz-canvas-project.json，
+失效自动重建）；编辑器内有 4 个 input[type=file]（两个 accept=.txt 属其他功能），
+探针图必须发进 accept 含 png/image 的图片输入，面板随即打开。
+
 面板结构（实测 v2.17.29）：
 - 家居库/植物库：无分类行，属性筛选直翻页；
 - 配景库：分类行（11 类）→ tag 行（如 植物配景→绿树/彩树/枯树…）两级。
@@ -114,15 +119,38 @@ HARVEST_GRID = r"""
   //（舞台构建装置 11 条错标的根因）
   const cateRow = [...document.querySelectorAll('[class*="first_cate_list"]')]
     .find(r => r.offsetWidth > 0);
-  if (!cateRow) return out;
-  const cr = cateRow.getBoundingClientRect();
-  const xMin = cr.x - 80, xMax = cr.x + cr.width + 80, yMin = cr.y - 80;
+  let xMin, xMax, yMin;
+  if (cateRow) {
+    const cr = cateRow.getBoundingClientRect();
+    xMin = cr.x - 80; xMax = cr.x + cr.width + 80; yMin = cr.y - 80;
+  } else {
+    // 平铺库（家居/植物库）无分类行：改锚「家居库|植物库|配景库」tab 行并集
+    //（2026-09 改版后平铺视图 first_cate_list 不在 DOM，原锚直接空手而归；
+    // 单个 tab 比网格窄，右界借「下一页」分页按钮补齐到面板右缘）
+    const tabs = [...document.querySelectorAll('[class*="tab_btn"]')]
+      .filter(t => t.offsetWidth > 0);
+    if (!tabs.length) return out;
+    let tx0 = 1e9, ty0 = 1e9, tx1 = 0, ty1 = 0;
+    for (const t of tabs) {
+      const r = t.getBoundingClientRect();
+      tx0 = Math.min(tx0, r.x); ty0 = Math.min(ty0, r.y);
+      tx1 = Math.max(tx1, r.x + r.width); ty1 = Math.max(ty1, r.y + r.height);
+    }
+    xMin = tx0 - 80; xMax = tx1 + 80; yMin = ty1 - 10;
+    const pager0 = [...document.querySelectorAll('div,span,button')]
+      .find(e => (e.textContent || '').trim() === '下一页' && e.offsetWidth > 0
+                 && e.getBoundingClientRect().y > yMin);
+    if (pager0) {
+      const pr = pager0.getBoundingClientRect();
+      xMax = Math.max(xMax, pr.x + pr.width + 80);
+    }
+  }
   // 网格下边界锚「下一页」按钮：挡住面板下方同域（ai-assets）的首页信息流图
   const pager = [...document.querySelectorAll('div,span,button')]
     .find(e => (e.textContent || '').trim() === '下一页' && e.offsetWidth > 0
                && e.getBoundingClientRect().x >= xMin
-               && e.getBoundingClientRect().y > cr.y);
-  const yMax = pager ? pager.getBoundingClientRect().y + 60 : cr.y + 700;
+               && e.getBoundingClientRect().y > yMin);
+  const yMax = pager ? pager.getBoundingClientRect().y + 60 : yMin + 700;
   const inGrid = (r) => r.width >= 40 && r.height >= 40
     && r.x >= xMin && r.x <= xMax && r.y >= yMin && r.y <= yMax;
   const push = (raw, r) => {
@@ -709,6 +737,104 @@ def login_mode(cfg):
     driver.quit()
 
 
+PROJECT_STATE_PATH = ROOT / "data" / "jzxz-canvas-project.json"
+
+
+def create_project(driver, cfg):
+    """站点 2026-09 改版后 /home 是工作台而非编辑器；从「新建项目」进画布编辑器。
+
+    编辑器 URL 形如 /canvas/detail?projectId=<id>，落盘记忆供 open_panel 复用。"""
+    driver.get(cfg.get("page_url", PAGE_URL))
+    time.sleep(6)
+    tgt = None
+    for _ in range(15):
+        driver.execute_script("document.querySelector(\"button[class*='close']\")?.click();")
+        tgt = next((e for e in driver.find_elements(
+            By.XPATH, "//*[normalize-space(text())='新建项目']") if e.is_displayed()), None)
+        if tgt is not None:
+            break
+        time.sleep(2)
+    if tgt is None:
+        try:
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            driver.save_screenshot(str(DATA_DIR / "entry-fail.png"))
+        except Exception:
+            pass
+        if driver.find_elements(By.XPATH,
+                                "//button[normalize-space(text())='登录'] | //*[normalize-space(text())='登录/注册']"):
+            sys.exit("工作台无「新建项目」且出现登录入口——登录态疑似失效，请先运行 --login 扫码恢复会话")
+        sys.exit("工作台「新建项目」入口未找到（30s 重试），现场已存 data/jzxz-captured/entry-fail.png")
+    real_click(driver, tgt)
+    deadline = time.time() + 25
+    while time.time() < deadline:
+        if "/canvas/detail" in (driver.current_url or ""):
+            break
+        time.sleep(1)
+    else:
+        sys.exit(f"点击「新建项目」后未进入编辑器（当前：{driver.current_url}）")
+    if len(driver.window_handles) > 1:
+        driver.switch_to.window(driver.window_handles[-1])
+    editor_url = driver.current_url
+    if "projectId=" in editor_url:
+        try:
+            PROJECT_STATE_PATH.write_text(json.dumps({
+                "editor_url": editor_url,
+                "project_id": editor_url.split("projectId=")[-1].split("&")[0],
+                "updated": datetime.now().isoformat(timespec="seconds"),
+            }, ensure_ascii=False), encoding="utf-8")
+        except Exception:
+            pass
+    time.sleep(4)
+    return editor_url
+
+
+def enter_editor(driver, cfg):
+    """进画布编辑器：优先复用记忆的编辑器 URL（免每日新建项目堆积），
+    校验失败（项目被删/改版失效）再从工作台「新建项目」重建。"""
+    if PROJECT_STATE_PATH.exists():
+        try:
+            saved = json.loads(
+                PROJECT_STATE_PATH.read_text(encoding="utf-8")).get("editor_url")
+        except Exception:
+            saved = None
+        if saved:
+            driver.get(saved)
+            deadline = time.time() + 25
+            while time.time() < deadline:
+                if [e for e in driver.find_elements(
+                        By.XPATH, "//*[contains(@class,'upload_btn_box')]") if e.is_displayed()]:
+                    return saved
+                time.sleep(1)
+            log("[warn] 记忆的编辑器 URL 已失效，改从工作台新建项目")
+    return create_project(driver, cfg)
+
+
+def submit_probe_image(driver):
+    """向「接受图片」的 file input 提交探针图。
+
+    改版后编辑器内有 4 个 input[type=file]（两个 accept=.txt 属其他功能），
+    必须按 accept 过滤取图片输入；发进 .txt 输入上传无效、贴图面板不出现。"""
+    probe = DATA_DIR / "_probe.png"
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    if not probe.exists():
+        probe.write_bytes(base64.b64decode(PROBE_PNG_B64))
+    inputs = []
+    deadline = time.time() + 20
+    while time.time() < deadline:
+        all_inputs = driver.find_elements(By.CSS_SELECTOR, "input[type='file']")
+        inputs = [i for i in all_inputs
+                  if "png" in (i.get_attribute("accept") or "").lower()
+                  or "image" in (i.get_attribute("accept") or "").lower()]
+        if inputs:
+            break
+        time.sleep(1)
+    if not inputs:
+        return False
+    driver.execute_script("arguments[0].style.display='block';", inputs[0])
+    inputs[0].send_keys(str(probe))
+    return True
+
+
 def merge_into_result(matched, dom_items, gallery, cate, tag):
     """网络响应 + DOM 收割双通道合并"""
     if matched and dom_items:
@@ -748,9 +874,9 @@ def upload_from_json(path):
     log(f"上传完成：新 {stats['downloaded']}，已知跳过 {stats['skipped_known']}，失败 {stats['failed']}")
 
 
-def open_panel(driver, page_url):
-    """刷新页面并重开贴图面板（每次分类切换前调用，规避长会话面板状态漂移）"""
-    driver.get(page_url)
+def open_panel(driver, editor_url):
+    """重进画布编辑器并重开贴图面板（每次分类切换前调用，规避长会话面板状态漂移）"""
+    driver.get(editor_url)
     time.sleep(6)
     driver.execute_script("document.querySelector(\"button[class*='close']\")?.click();")
     time.sleep(1)
@@ -767,16 +893,8 @@ def open_panel(driver, page_url):
         raise RuntimeError("本地上传入口未找到")
     real_click(driver, boxes[0])
     time.sleep(2)
-    probe = DATA_DIR / "_probe.png"
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    if not probe.exists():
-        import base64
-        probe.write_bytes(base64.b64decode(PROBE_PNG_B64))
-    inputs = driver.find_elements(By.CSS_SELECTOR, "input[type='file']")
-    if not inputs:
-        raise RuntimeError("file input 未找到")
-    driver.execute_script("arguments[0].style.display='block';", inputs[0])
-    inputs[0].send_keys(str(probe))
+    if not submit_probe_image(driver):
+        raise RuntimeError("图片 file input 未找到")
     deadline = time.time() + 40
     while time.time() < deadline:
         if driver.find_elements(By.XPATH, "//div[contains(@class,'first_cate_list')]"):
@@ -793,7 +911,6 @@ def crawl():
         login_mode(load_config())
         return
     cfg = load_config()
-    page_url = cfg.get("page_url", PAGE_URL)
     categories = [c for c in (ARGS.categories or cfg.get("categories") or "").split(",") if c.strip()]
     max_pages = ARGS.max_pages or int(cfg.get("max_pages_per_tag", 200))
     delay = int(cfg.get("page_delay_ms", 2000)) / 1000
@@ -826,9 +943,8 @@ def crawl():
     stats = {"pages": 0, "items": 0, "downloaded": 0, "skipped_known": 0, "failed": 0}
 
     try:
-        log(f"打开 {page_url}（{'有头' if not headless else '无头'}）")
-        driver.get(page_url)
-        time.sleep(6)
+        editor_url = enter_editor(driver, cfg)
+        log(f"画布编辑器就绪（{'有头' if not headless else '无头'}）：{editor_url}")
         driver.execute_script("document.querySelector(\"button[class*='close']\")?.click();")
         time.sleep(1)
         driver.execute_script(CAPTURE_HOOK)
@@ -841,27 +957,19 @@ def crawl():
             driver.execute_script("document.querySelector(\"button[class*='close']\")?.click();")
             time.sleep(2)
         if not boxes:
-            sys.exit("未找到本地上传入口（upload_btn_box，25s 超时）")
-        real_click(driver, boxes[0])
-        time.sleep(2)
-        probe = DATA_DIR / "_probe.png"
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
-        if not probe.exists():
-            import base64
-            probe.write_bytes(base64.b64decode(PROBE_PNG_B64))
-        inputs = []
-        deadline = time.time() + 20
-        while time.time() < deadline and not inputs:
-            time.sleep(1)
-            inputs = driver.find_elements(By.CSS_SELECTOR, "input[type='file']")
-        if not inputs:
             try:
                 driver.save_screenshot("data/jzxz-captured/entry-fail.png")
             except Exception:
                 pass
-            sys.exit("未找到 input[type=file]（上传对话框未弹出，20s 超时）")
-        driver.execute_script("arguments[0].style.display='block';", inputs[0])
-        inputs[0].send_keys(str(probe))
+            sys.exit("编辑器内未找到本地上传入口（upload_btn_box，25s 超时）")
+        real_click(driver, boxes[0])
+        time.sleep(2)
+        if not submit_probe_image(driver):
+            try:
+                driver.save_screenshot("data/jzxz-captured/entry-fail.png")
+            except Exception:
+                pass
+            sys.exit("未找到图片 file input（上传对话框未弹出，20s 超时）")
         log("探针图已提交，等待贴图面板…")
         deadline = time.time() + 40
         while time.time() < deadline:
@@ -957,7 +1065,7 @@ def crawl():
 
             for cate in cate_names:
                 try:
-                    open_panel(driver, page_url)
+                    open_panel(driver, editor_url)
                 except Exception as exc:
                     log(f"  [warn] {cate}: 面板重开失败（{exc}），跳过")
                     continue

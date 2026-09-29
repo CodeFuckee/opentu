@@ -5,6 +5,10 @@ Supabase 公开桶 `jzxz-materials`，元数据 upsert 到表 `jzxz_materials`�
 真实页面自行完成接口签名，**无需逆向签名算法**（wallpaper.soutushenqi.com
 网关的签名与 community 网关不同源且含时间因子，已放弃逆向改走 UI 驱动）。
 
+> 代码执行流程逐阶段梳理与失败模式诊断（为什么"总是失败/爬取不全"）见
+> [jzxz-material-crawler-flow.md](jzxz-material-crawler-flow.md)，
+> 配套流程图 [jzxz-material-crawler-flow.drawio](jzxz-material-crawler-flow.drawio)。
+
 ## 架构
 
 ```
