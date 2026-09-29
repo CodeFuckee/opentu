@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ProviderTransport } from '../provider-routing/provider-transport';
+import type { ResolvedProviderContext } from '../provider-routing/types';
 
 vi.mock('../managed-routing/managed-runtime', async (importOriginal) => {
   const actual = await importOriginal<
@@ -15,9 +17,6 @@ vi.mock('../managed-routing/managed-runtime', async (importOriginal) => {
 vi.mock('../task-supabase-archive/service', () => ({
   archiveUpstreamResponseFromFetch: vi.fn(),
 }));
-
-import { ProviderTransport } from '../provider-routing/provider-transport';
-import type { ResolvedProviderContext } from '../provider-routing/types';
 
 const context: ResolvedProviderContext = {
   profileId: 'p1',
