@@ -243,6 +243,28 @@ function createTimeoutSignal(
   };
 }
 
+/**
+ * 提交期网络瞬断单次自动重试。
+ *
+ * 治浏览器复用刚被服务端关闭的 keep-alive 连接发请求的竞态：fetch 抛
+ * TypeError（未收到任何响应字节）、秒级即死、重试即活（2026-09-29 平台
+ * 两簇 "Failed to fetch" 任务均为此形态，请求未达服务端网关）。仅重试
+ * 「发出后 3 秒内被拒」的瞬死——响应丢失型（服务端已受理、数十秒生成后
+ * 连接断开）耗时远超 3s 不会触发，从而规避重复提交与双扣费；x-task-id
+ * 头随重试原样保留，服务端可据此幂等化。
+ */
+const INSTANT_NETWORK_FAILURE_WINDOW_MS = 3000;
+const NETWORK_RETRY_DELAY_MS = 400;
+
+function isInstantNetworkFailure(error: unknown, elapsedMs: number): boolean {
+  // 浏览器网络层错误统一抛 TypeError；AbortError/TimeoutError 均非 TypeError，
+  // 用户取消与超时不会进入重试
+  return (
+    error instanceof TypeError &&
+    elapsedMs <= INSTANT_NETWORK_FAILURE_WINDOW_MS
+  );
+}
+
 export class ProviderTransport {
   prepareRequest(
     context: ResolvedProviderContext,
@@ -276,6 +298,33 @@ export class ProviderTransport {
     };
   }
 
+  private async fetchWithInstantNetworkRetry(
+    fetcher: typeof fetch,
+    prepared: PreparedProviderTransportRequest,
+    request: ProviderTransportRequest
+  ): Promise<Response> {
+    const startedAt = Date.now();
+    try {
+      return await fetcher(prepared.url, prepared.init);
+    } catch (error) {
+      const elapsedMs = Date.now() - startedAt;
+      if (
+        !isInstantNetworkFailure(error, elapsedMs) ||
+        request.signal?.aborted
+      ) {
+        throw error;
+      }
+      await new Promise((resolve) =>
+        setTimeout(resolve, NETWORK_RETRY_DELAY_MS + Math.random() * 300)
+      );
+      const response = await fetcher(prepared.url, prepared.init);
+      console.info(
+        `[ProviderTransport] 提交期网络瞬断已自动重试成功（首试 ${elapsedMs}ms 失败：${String(error)}）`
+      );
+      return response;
+    }
+  }
+
   async send(
     context: ResolvedProviderContext,
     request: ProviderTransportRequest
@@ -298,7 +347,11 @@ export class ProviderTransport {
     const fetcher = request.fetcher || fetch;
 
     try {
-      const response = await fetcher(finalPrepared.url, finalPrepared.init);
+      const response = await this.fetchWithInstantNetworkRetry(
+        fetcher,
+        finalPrepared,
+        request
+      );
 
       if (managed) {
         const quotaError = await parseQuotaErrorFromResponse(response);
