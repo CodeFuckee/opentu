@@ -14,6 +14,10 @@
 
 ## 〇、更新记录
 
+- **2026-09-29:新增 #103 画布即编辑器**(#1 移除后的接替方向,grill-me 四项
+  拍板:同画布编辑态/替换「编辑图片」入口/原图边界拍平+可撤销替换):选中图进入
+  编辑态后全套画布工具可用(素材库/画笔/文字),完成后拍平合并原位替换。地基
+  boardToImage 现成。方案 docs/canvas-edit-mode-design.md。
 - **2026-09-29:#1 移除** ❌(用户拍板):局部重绘靠**文字指令式编辑**已够用
   (选中图+prompt 描述改哪,gpt-image 这代模型自理解区域),蒙版笔交互升级无必要
   (mask 链路已建成但生产 60 天 0 使用——非入口问题,是被指令式编辑天然替代)。
@@ -90,7 +94,7 @@
 | AI 助手/RAG | [Open WebUI](https://github.com/open-webui/open-webui) / [AnythingLLM](https://anythingllm.com) / [FastGPT](https://fastgpt.in) / [RAGFlow](https://github.com/infiniflow/ragflow)(开源) | 自托管知识问答、多模型路由 |
 | | [NotebookLM](https://notebooklm.google.com) | 多源引用溯源回答 |
 
-## 二、功能计划表(102 条;已完成 2 条,移除 1 条,待开发 99 条)
+## 二、功能计划表(103 条;已完成 2 条,移除 1 条,待开发 100 条)
 
 > 感知=用户感知度(★★★/★★/★,标准见头部图例)。
 
@@ -168,6 +172,7 @@
 | 48 | 多页/画板页管理 | Figma Pages / PPT | 正式多页+页序+页模板,fitPPT 升级 | P1 | M | ★★★ |
 | 49 | 语义化框选与批量属性筛选 | [Eagle](https://cn.eagle.cool) / Figma 选择集 | "选中所有竖版图片/红色元素/未归档图" | P2 | S | ★★ |
 | 50 | 截图/图片→可编辑图示 | [Napkin](https://napkin.ai) / [Eraser](https://eraser.io) | 图片转架构图/流程图(先 OCR 后图示化) | P2 | L | ★★ |
+| 103 | 画布即编辑器:编辑态拍平合并 | [Figma](https://www.figma.com) / [Canva](https://www.canva.com) | 选中图「编辑图片」进入画布编辑态(同画布,全套画布工具可用:素材库贴图/画笔/文字),「完成合并」把原图+叠加拍平成一张图原位替换,一次性可撤销;#1 移除后的手动精修接替方向。方案 docs/canvas-edit-mode-design.md | P1 | M | ★★★ |
 
 ### F. 协作、分享与汇报(依托:云同步/看板/钉钉推送/公开桶直链)
 
