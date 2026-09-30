@@ -1,5 +1,48 @@
 ## Unreleased
 
+### fix: #103 编辑态四项反馈修复——置灰/可移动/合并丢原图（CSP×blob 根因，2026-09-30）
+
+用户实测反馈四连修（最终轮：用户日志实锤根因后确认修复有效）：
+- **反馈① 其他素材未置灰**：编辑态对「非目标图 ∧ 非会话新增」元素降透明+灰度+
+  `pointer-events:none`（视觉聚焦+防误动）。实现：元素 DOM 节点自带
+  `plait-data-id`，MutationObserver 跟随增删重算白名单（computeDimElementIds）。
+- **反馈② 编辑态图片不可移动**：进入编辑态清空残留选区（clearSelectedElement），
+  弹出工具栏不再干扰首次拖拽，目标图与叠加均可正常点选/移动。
+- **反馈③+④ 合并丢原图（两轮修复收敛到真根因）**：合并后原图整块透明、只剩
+  叠加素材。**真根因**：画布图片 src 为 `blob:` URL，CSP `connect-src` 不含
+  `blob:`——拍平渲染时 `fetch(blob:)` 被浏览器拦截，safeToImage 将被拦图替换为
+  透明 PNG 占位。四道防线：
+  1. CSP `connect-src` 三处补 `blob:`（vite dev×2 + 生产 _headers；顺带消除
+     crash-logger 连 SW 的同款报错）；
+  2. blob: 图片改经 `<img>` 直转 dataURL 内联（img-src 不受 connect-src 管辖，
+     绕开 fetch；isInlineableUrl=虚拟路径∪blob:）；
+  3. 内联范围从元素级放宽到 viewport 全量（元素级 DOM 收集在真机对目标图未命中，
+     viewport 级零映射依赖）；
+  4. 全透明兜底：渲染结果无任何不透明像素时回退目标图自身位图（hasOpaquePixels
+     采样检测；叠加丢失但原图必保住，留醒目日志）。
+- 测试：canvas-edit-utils 15 例+flatten-dom-prepare 9 例（jsdom：内联替换/恢复/
+  miss/抛错/svg href/blob 判定）；canvas-edit.spec 重写为丢图回归用例（上传本地图
+  →编辑→合并→断言合并图不透明像素占比>0.5+撤销恢复），CI 干净环境执行。
+- 用户已在生产环境同画板实测确认原图完整保留。
+
+### fix: #103 编辑态两项反馈——其他素材置灰 + 画布可交互（2026-09-30）
+
+- **反馈① 置灰**：编辑态中「非目标图 ∧ 非会话新增」的元素降透明+灰度且
+  `pointer-events:none`——视觉聚焦正在编辑的图与叠加,且点击只会命中编辑区
+  (旧元素防误动)。实现:元素渲染节点自带 `plait-data-id` 属性,MutationObserver
+  跟随元素增删重算白名单(computeDimElementIds,单测 3 例)。
+- **反馈② 编辑态图片不可移动**:进入编辑态时残留的选中态+弹出工具栏会干扰
+  首次拖拽——现进入时清空选区(clearSelectedElement),画布回干净可交互态,
+  目标图与叠加均可正常点选/移动(置灰元素除外)。
+- **反馈③ 合并丢原图(全透明/只剩叠加素材,用户实测)**:目标图是本地图片
+  (虚拟 URL /__aitu_cache__//asset-library/)时,内网 HTTP 无 SW,toImage 序列化
+  渲染中该 URL fetch 落服务器 404 → safeToImage 替换为透明 PNG 占位 → 拍平结果
+  只剩 http 直链叠加。修法:拍平渲染前把虚拟 src(img 的 src 与 svg image 的
+  href/xlink:href)从缓存 blob 解析成 dataURL 临时内联,渲染后恢复
+  (flatten-dom-prepare,jsdom 单测 7 例:命中替换/恢复、miss 保持、抛错容错、
+  http/dataURL 不触碰、svg href 内联)。
+- 门禁:check 0 / vitest 209 / 后端 188 / E2E 关键用例过。
+
 ### feat: #103 画布即编辑器——编辑态拍平合并（2026-09-30）
 
 - 选中图片「编辑图片」不再弹裁剪/滤镜编辑器，改为**进入画布编辑态**（grill-me

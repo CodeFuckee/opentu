@@ -6,8 +6,10 @@
  * 只合并「会话新增 ∧ 与目标图相交 ∧ 仍存在」的元素。
  */
 import type { PlaitBoard, PlaitElement } from '@plait/core';
+import { clearSelectedElement } from '@plait/core';
 import {
   computeSessionAddedIds,
+  computeDimElementIds,
   selectFlattenElements,
   buildFlattenSnapshot,
   elementRect,
@@ -44,6 +46,53 @@ let state: CanvasEditState = {
 };
 let session: CanvasEditSession | null = null;
 const listeners = new Set<() => void>();
+
+// ---------- 置灰视觉引导(#103 反馈①):非目标/非新增元素降透明且不可点 ----------
+// 元素渲染节点带 plait-data-id 属性;MutationObserver 跟随元素增删重算白名单
+const DIM_CLASS = 'canvas-edit-dim';
+let dimObserver: MutationObserver | null = null;
+
+function applyEditingDim(board: PlaitBoard): void {
+  if (!session) {
+    return;
+  }
+  const host = document.querySelector('.viewport-container');
+  if (!host) {
+    return;
+  }
+  const currentIds = collectElementIds(board.children as PlaitElement[]);
+  const dimIds = computeDimElementIds(
+    currentIds,
+    session.targetId,
+    computeSessionAddedIds(session.beforeIds, currentIds)
+  );
+  host.querySelectorAll('[plait-data-id]').forEach((node) => {
+    const id = node.getAttribute('plait-data-id');
+    if (id && dimIds.has(id)) {
+      node.classList.add(DIM_CLASS);
+    } else {
+      node.classList.remove(DIM_CLASS);
+    }
+  });
+}
+
+function startEditingDim(board: PlaitBoard): void {
+  stopEditingDim();
+  applyEditingDim(board);
+  const host = document.querySelector('.viewport-container');
+  if (host) {
+    dimObserver = new MutationObserver(() => applyEditingDim(board));
+    dimObserver.observe(host, { childList: true, subtree: true });
+  }
+}
+
+function stopEditingDim(): void {
+  dimObserver?.disconnect();
+  dimObserver = null;
+  document
+    .querySelectorAll('.' + DIM_CLASS)
+    .forEach((node) => node.classList.remove(DIM_CLASS));
+}
 
 function setState(next: Partial<CanvasEditState>) {
   state = { ...state, ...next };
@@ -143,6 +192,13 @@ export function enterCanvasEditMode(board: PlaitBoard, targetImage: PlaitElement
       '图片',
     beforeIds: collectElementIds(board.children as PlaitElement[]),
   };
+  // 清空选区(关闭弹出工具栏,画布回干净可交互态——反馈②:编辑态要能直接
+  // 点选/移动目标图与叠加,残留选中的浮动工具栏会干扰首次拖拽)
+  try {
+    clearSelectedElement(board);
+  } catch {
+    /* 清选区失败不阻断进入编辑态 */
+  }
   setState({
     phase: 'editing',
     targetId: session.targetId,
@@ -150,10 +206,12 @@ export function enterCanvasEditMode(board: PlaitBoard, targetImage: PlaitElement
     snapshot: null,
     mergedImageId: null,
   });
+  startEditingDim(board);
 }
 
 /** 取消编辑:不合并直接退出(叠加元素保留在画布,用户可自行处理) */
 export function exitCanvasEditMode(): void {
+  stopEditingDim();
   session = null;
   setState({
     phase: 'idle',
@@ -187,6 +245,7 @@ export async function completeCanvasEditFlatten(board: PlaitBoard): Promise<void
     console.warn('[CanvasEdit] 合并失败(保持编辑态):', error);
     return;
   }
+  stopEditingDim();
   const afterInsert = collectElementIds(board.children as PlaitElement[]);
   const newIds = [...afterInsert].filter((id) => !beforeInsert.has(id));
   session = null;

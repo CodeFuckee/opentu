@@ -139,6 +139,25 @@ export interface FlattenSnapshot {
   replaceRect: EditRect;
 }
 
+/**
+ * 置灰白名单(编辑态视觉引导):全部元素 - 目标图 - 会话新增。
+ * 置灰元素 pointer-events:none——编辑态中点击命中的只会是目标图或新叠加,
+ * 既给用户"正在编辑谁"的清晰视觉,也避免误动编辑区外的旧元素。
+ */
+export function computeDimElementIds(
+  allElementIds: Set<string>,
+  targetId: string,
+  sessionAddedIds: Set<string>
+): Set<string> {
+  const dim = new Set<string>();
+  for (const id of allElementIds) {
+    if (id !== targetId && !sessionAddedIds.has(id)) {
+      dim.add(id);
+    }
+  }
+  return dim;
+}
+
 export function buildFlattenSnapshot(
   removedElements: PlaitElement[],
   replaceRect: EditRect
@@ -149,4 +168,15 @@ export function buildFlattenSnapshot(
     ) as PlaitElement[],
     replaceRect,
   };
+}
+
+/** 采样 alpha 通道判断是否存在不透明像素(全透明=丢原图形态)。
+ *  采样步长 40(约每 10 像素一点),足够检出任何真实内容图。 */
+export function hasOpaquePixels(imageData: Uint8ClampedArray): boolean {
+  for (let i = 3; i < imageData.length; i += 40) {
+    if (imageData[i] > 10) {
+      return true;
+    }
+  }
+  return false;
 }

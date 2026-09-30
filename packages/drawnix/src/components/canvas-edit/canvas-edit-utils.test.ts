@@ -2,6 +2,10 @@
  * #103 画布即编辑器:纯函数层单测(TDD 先行)。
  * 覆盖:会话新增判定、拍平白名单(相交∧新增∧存在)、裁剪窗口数学、撤销快照。
  */
+import {
+  computeDimElementIds,
+  hasOpaquePixels,
+} from './canvas-edit-utils';
 import { describe, it, expect } from 'vitest';
 import {
   computeSessionAddedIds,
@@ -130,5 +134,42 @@ describe('buildFlattenSnapshot', () => {
     });
     expect(snap.removedElements.map((e) => e.id)).toEqual(['t', 'o']);
     expect(snap.replaceRect).toEqual({ x: 50, y: 60, width: 200, height: 100 });
+  });
+});
+
+describe('computeDimElementIds(置灰白名单)', () => {
+  it('置灰 = 全部 - 目标图 - 会话新增', () => {
+    const ids = computeDimElementIds(
+      new Set(['target', 'new1', 'old1', 'old2']),
+      'target',
+      new Set(['new1'])
+    );
+    expect(ids).toEqual(new Set(['old1', 'old2']));
+  });
+
+  it('全部都是新增或目标时不置灰任何元素', () => {
+    expect(
+      computeDimElementIds(new Set(['target', 'n1']), 'target', new Set(['n1'])).size
+    ).toBe(0);
+  });
+
+  it('目标图不在当前集合时按 id 集合原样排除', () => {
+    const ids = computeDimElementIds(new Set(['a', 'b']), 'gone', new Set());
+    expect(ids).toEqual(new Set(['a', 'b']));
+  });
+});
+
+describe('hasOpaquePixels(全透明兜底检测)', () => {
+  it('全透明(全 0)返回 false——丢原图形态', () => {
+    expect(hasOpaquePixels(new Uint8ClampedArray(4000))).toBe(false);
+  });
+  it('含不透明像素返回 true(哪怕只有一两个点)', () => {
+    const d = new Uint8ClampedArray(4000);
+    d[43] = 255; // 命中采样点 i=3+40=43
+    expect(hasOpaquePixels(d)).toBe(true);
+  });
+  it('半透明(alpha≤10)视为透明', () => {
+    const d = new Uint8ClampedArray(4000).fill(10);
+    expect(hasOpaquePixels(d)).toBe(false);
   });
 });

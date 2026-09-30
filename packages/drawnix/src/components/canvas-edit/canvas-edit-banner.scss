@@ -67,3 +67,12 @@
     }
   }
 }
+
+// 编辑态置灰(#103 反馈①):非目标/非新增元素降透明+灰度,且不可点
+// (点击只会命中目标图与新叠加——编辑区外旧元素防误动)
+.canvas-edit-dim {
+  opacity: 0.35;
+  filter: grayscale(0.7);
+  pointer-events: none;
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
