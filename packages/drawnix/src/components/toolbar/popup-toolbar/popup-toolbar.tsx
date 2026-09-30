@@ -122,6 +122,7 @@ import { MessagePlugin } from 'tdesign-react';
 import { taskQueueService } from '../../../services/task-queue';
 import { mergeVideos } from '../../../services/video-merge-webcodecs';
 import { insertImageFromUrl } from '../../../data/image';
+import { enterCanvasEditMode } from '../../canvas-edit/canvas-edit-mode-controller';
 import { calculateEditedImagePoints } from '../../../utils/image';
 import { isFrameElement } from '../../../types/frame.types';
 import { isCardElement } from '../../../types/card.types';
@@ -1692,11 +1693,12 @@ export const PopupToolbar = () => {
                     // #103 画布即编辑器:「编辑图片」进入画布编辑态(全套画布
                     // 工具叠加+拍平合并);原 ImageEditor 弹窗仍可从媒体预览等
                     // 入口进入(观察使用后再决定下线)
-                    void import('../../canvas-edit/canvas-edit-mode-controller').then(
-                      ({ enterCanvasEditMode }) => {
-                        enterCanvasEditMode(board, imageElement);
-                      }
-                    );
+                    // 静态 import:动态加载在重负载下偶发 chunk 加载失败且静默
+                    try {
+                      enterCanvasEditMode(board, imageElement);
+                    } catch (error) {
+                      console.error('[CanvasEdit] 进入编辑态失败:', error);
+                    }
                   }
                 }}
               />
