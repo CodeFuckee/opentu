@@ -1,0 +1,69 @@
+/**
+ * #103 画布即编辑器:顶部编辑横幅样式(配 CanvasEditBanner.tsx)。
+ */
+
+.canvas-edit-banner {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10060; // 低于关键 Dialog,高于工具栏
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(720px, 92vw);
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  box-shadow: 0 6px 22px rgba(15, 23, 42, 0.16);
+
+  &--editing {
+    background: #fffbeb;
+    border: 1px solid #f59e0b;
+    color: #92400e;
+  }
+
+  &--merged {
+    background: #f0fdf4;
+    border: 1px solid #22c55e;
+    color: #166534;
+  }
+
+  &__text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(100, 116, 139, 0.35);
+    background: #fff;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover {
+      border-color: #64748b;
+    }
+
+    &--primary {
+      background: #0052d9;
+      border-color: #0052d9;
+      color: #fff;
+
+      &:hover {
+        background: #266fe8;
+      }
+    }
+  }
+}

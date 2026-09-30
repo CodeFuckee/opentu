@@ -230,6 +230,11 @@ const UnifiedMediaViewer = lazy(() =>
     })
   )
 );
+const CanvasEditBanner = lazy(() =>
+  import('./components/canvas-edit/CanvasEditBanner').then((module) => ({
+    default: module.CanvasEditBanner,
+  }))
+);
 const CanvasAudioPlayer = lazy(() =>
   import('./components/audio-node-element/CanvasAudioPlayer').then(
     (module) => ({
@@ -1769,6 +1774,10 @@ const DrawnixContent: React.FC<DrawnixContentProps> = ({
               />
             </Suspense>
           )}
+          {/* Canvas Edit Banner - 画布即编辑器顶部横幅(#103) */}
+          <Suspense fallback={null}>
+            <CanvasEditBanner />
+          </Suspense>
           {/* ViewNavigation - 视图导航（缩放 + 小地图） */}
           <ViewNavigation />
         </Wrapper>

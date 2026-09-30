@@ -151,12 +151,18 @@ test.describe('官方素材库 3D 预览', () => {
       .getByTestId('popup-toolbar')
       .getByRole('button', { name: '编辑图片' });
     await expect(editBtn).toBeVisible({ timeout: 10000 });
+    // #103 起「编辑图片」进入画布编辑态(横幅),不再弹 ImageEditor;
+    // 非安全上下文下虚拟 URL 的编辑器降级已由 resolveEditorImageSource 兜底
     await editBtn.click({ force: true });
-    await expect(page.getByTestId('image-editor')).toBeVisible({
+    await expect(page.getByTestId('canvas-edit-banner')).toBeVisible({
       timeout: 10000,
     });
-    // 回归核心断言:不出现「图片加载失败」(给加载与降级解析留 5s)
-    await page.waitForTimeout(5000);
+    // 退出编辑态,恢复画布
+    await page.locator('[data-track="canvas_edit_cancel"]').click();
+    await expect(page.getByTestId('canvas-edit-banner')).toBeHidden({
+      timeout: 5000,
+    });
+    // 回归核心断言:全程不出现「图片加载失败」(虚拟 URL 降级兜底)
     await expect(
       page.locator('.t-message', { hasText: '图片加载失败' })
     ).toBeHidden();

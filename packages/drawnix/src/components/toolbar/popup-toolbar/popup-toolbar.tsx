@@ -1689,9 +1689,14 @@ export const PopupToolbar = () => {
                     PlaitDrawElement.isImage(imageElement) &&
                     imageElement.url
                   ) {
-                    setEditingImageUrl(imageElement.url);
-                    setEditingImageElement(imageElement);
-                    setShowImageEditor(true);
+                    // #103 画布即编辑器:「编辑图片」进入画布编辑态(全套画布
+                    // 工具叠加+拍平合并);原 ImageEditor 弹窗仍可从媒体预览等
+                    // 入口进入(观察使用后再决定下线)
+                    void import('../../canvas-edit/canvas-edit-mode-controller').then(
+                      ({ enterCanvasEditMode }) => {
+                        enterCanvasEditMode(board, imageElement);
+                      }
+                    );
                   }
                 }}
               />
