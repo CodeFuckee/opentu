@@ -433,36 +433,54 @@ def close_upload_modal(driver):
 
 
 def submit_upload(driver, file_path: Path) -> bool:
-    """点"本地上传"格子并提交测试图；返回是否出现文件选择框。"""
-    box = None
-    deadline = time.time() + 25
-    while time.time() < deadline:
-        boxes = visible(driver, "//*[contains(@class,'upload_btn_box')]")
-        if boxes:
-            box = boxes[0]
-            break
-        close_popups(driver)
-        time.sleep(2)
-    if not box:
-        log("  未找到\"本地上传\"入口（upload_btn_box，25s 超时）。")
+    """提交测试图;返回是否成功发起上传。
+
+    2026-10 上游改版:全站 input[type=file] 移除(改原生 showOpenFilePicker,
+    Selenium 无法对话)。双通道:先按旧路找 input(兼容回归),找不到则向
+    参考图输入框合成 ClipboardEvent 粘贴文件(与真实 Ctrl+V 同链路)。"""
+    # 旧通道:upload_btn_box + 图片 input(改版回归时仍可用)
+    boxes = visible(driver, "//*[contains(@class,'upload_btn_box')]")
+    if boxes:
+        real_click(driver, boxes[0])
+        log("  已点击\"本地上传\"，等待文件选择框…")
+        inputs = []
+        deadline = time.time() + 8
+        while time.time() < deadline and not inputs:
+            time.sleep(1)
+            inputs = [i for i in driver.find_elements(By.CSS_SELECTOR, "input[type='file']")
+                      if "png" in (i.get_attribute("accept") or "").lower()
+                      or "image" in (i.get_attribute("accept") or "").lower()]
+        if inputs:
+            driver.execute_script("arguments[0].style.display='block';", inputs[0])
+            inputs[0].send_keys(str(file_path))
+            return True
+        log("  无图片 input（2026-10 改版），改走粘贴通道…")
+    # 粘贴通道:读文件字节,合成 paste 事件注入参考图输入框
+    try:
+        b64 = base64.b64encode(file_path.read_bytes()).decode()
+    except Exception as e:
+        log(f"  读取测试图失败: {e}")
         return False
-    real_click(driver, box)
-    log("  已点击\"本地上传\"，等待文件选择框…")
-    # 改版后编辑器内有 4 个 input[type=file]（两个 accept=.txt 属其他功能），
-    # 必须按 accept 过滤取图片输入，发进 .txt 输入上传无效
-    inputs = []
-    deadline = time.time() + 20
-    while time.time() < deadline and not inputs:
-        time.sleep(1)
-        inputs = [i for i in driver.find_elements(By.CSS_SELECTOR, "input[type='file']")
-                  if "png" in (i.get_attribute("accept") or "").lower()
-                  or "image" in (i.get_attribute("accept") or "").lower()]
-    if not inputs:
-        log("  未找到图片 input[type=file]（上传对话框未弹出，20s 超时）。")
-        return False
-    driver.execute_script("arguments[0].style.display='block';", inputs[0])
-    inputs[0].send_keys(str(file_path))
-    return True
+    ok = driver.execute_script("""
+      const target = document.querySelector('textarea') ||
+                     document.querySelector('[contenteditable="true"]');
+      if (!target) return false;
+      target.focus();
+      const b64 = arguments[0];
+      const bin = atob(b64); const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const file = new File([bytes], arguments[1], { type: 'image/png' });
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      target.dispatchEvent(new ClipboardEvent('paste', {
+        bubbles: true, cancelable: true, clipboardData: dt }));
+      return true;
+    """, b64, file_path.name)
+    if ok:
+        log("  已粘贴测试图到参考图输入框。")
+    else:
+        log("  粘贴失败（参考图输入框未找到）。")
+    return bool(ok)
 
 
 def upload_test_image(driver, file_path: Path) -> bool:

@@ -56,6 +56,13 @@ TABLE = "jzxz_materials"
 PAGE_URL = "https://www.jianzhuxuezhang.com/home"
 GALLERIES = ["家居库", "植物库", "配景库"]
 
+# 配景库已知分类(DOM 枚举空时的兜底;来源:库内 distinct category + 上游面板)
+KNOWN_SCENERY_CATEGORIES = [
+    "植物配景", "人物配景", "交通配景", "室内家具", "室内物品",
+    "建筑构件", "城市建筑", "景观小品", "动物配景", "自然环境",
+    "总平素材", "舞台构建装置",
+]
+
 # 分类切换校验用的已知 tag 种子（随每日爬取动态累积）
 CATE_TAGS = {
     "植物配景": {"绿树", "彩树", "枯树", "前景树", "鸟瞰树", "总平植物", "植物百科", "灌木",
@@ -881,20 +888,12 @@ def open_panel(driver, editor_url):
     driver.execute_script("document.querySelector(\"button[class*='close']\")?.click();")
     time.sleep(1)
     driver.execute_script(CAPTURE_HOOK)
-    boxes = []
-    deadline = time.time() + 25
-    while time.time() < deadline:
-        boxes = [e for e in driver.find_elements(By.XPATH, "//*[contains(@class,'upload_btn_box')]") if e.is_displayed()]
-        if boxes:
-            break
-        driver.execute_script("document.querySelector(\"button[class*='close']\")?.click();")
+    boxes = [e for e in driver.find_elements(By.XPATH, "//*[contains(@class,'upload_btn_box')]") if e.is_displayed()]
+    if boxes:
+        real_click(driver, boxes[0])
         time.sleep(2)
-    if not boxes:
-        raise RuntimeError("本地上传入口未找到")
-    real_click(driver, boxes[0])
-    time.sleep(2)
     if not submit_probe_image(driver):
-        raise RuntimeError("图片 file input 未找到")
+        raise RuntimeError("参考图粘贴失败")
     deadline = time.time() + 40
     while time.time() < deadline:
         if driver.find_elements(By.XPATH, "//div[contains(@class,'first_cate_list')]"):
@@ -948,28 +947,18 @@ def crawl():
         driver.execute_script("document.querySelector(\"button[class*='close']\")?.click();")
         time.sleep(1)
         driver.execute_script(CAPTURE_HOOK)
-        boxes = []
-        deadline = time.time() + 25
-        while time.time() < deadline:
-            boxes = [e for e in driver.find_elements(By.XPATH, "//*[contains(@class,'upload_btn_box')]") if e.is_displayed()]
-            if boxes:
-                break
-            driver.execute_script("document.querySelector(\"button[class*='close']\")?.click();")
+        # 2026-10 改版:上传按钮不再挂 input(全站改原生 showOpenFilePicker),
+        # 直接向参考图输入框粘贴探针;若旧 upload_btn_box 仍在则先点它再粘贴(双保险)
+        boxes = [e for e in driver.find_elements(By.XPATH, "//*[contains(@class,'upload_btn_box')]") if e.is_displayed()]
+        if boxes:
+            real_click(driver, boxes[0])
             time.sleep(2)
-        if not boxes:
-            try:
-                driver.save_screenshot("data/jzxz-captured/entry-fail.png")
-            except Exception:
-                pass
-            sys.exit("编辑器内未找到本地上传入口（upload_btn_box，25s 超时）")
-        real_click(driver, boxes[0])
-        time.sleep(2)
         if not submit_probe_image(driver):
             try:
                 driver.save_screenshot("data/jzxz-captured/entry-fail.png")
             except Exception:
                 pass
-            sys.exit("未找到图片 file input（上传对话框未弹出，20s 超时）")
+            sys.exit("参考图粘贴失败（输入框未就绪，现场已存 entry-fail.png）")
         log("探针图已提交，等待贴图面板…")
         deadline = time.time() + 40
         while time.time() < deadline:
@@ -1059,6 +1048,12 @@ def crawl():
             # （swiper 虚拟渲染下屏幕外 slide 不在 DOM，按文本直找必然落空）
             log("== 配景库 ==")
             cate_names = [t for t in enumerate_row_texts(driver, "first_cate_list") if len(t) <= 12]
+            if not cate_names:
+                # 2026-10 改版后面板 DOM 枚举偶发空(面板渲染时序/结构漂移):
+                # 兜底用已知分类常量(与库内 distinct category 一致,新分类由
+                # DOM 通道发现后补充)
+                cate_names = list(KNOWN_SCENERY_CATEGORIES)
+                log(f"[warn] 分类行 DOM 枚举为空，回退已知分类 {len(cate_names)} 个")
             if categories:
                 cate_names = [c for c in cate_names if c in categories]
             log(f"分类：{cate_names}")
