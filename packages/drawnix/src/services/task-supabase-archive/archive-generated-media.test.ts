@@ -172,7 +172,7 @@ function mockFetchFlakyThenOk(failures: number, failure: '5xx' | 'html' = '5xx')
 describe('archiveGeneratedMediaToSupabase 重试加固与 result 回写', () => {
   it('上游 5xx 抖动后重试成功：上传 bucket 并回写本地/服务端 result（url 替换、source_url 保留、size 真值）', async () => {
     const { client, mock } = makeMockClient();
-    configureTaskArchive({ client: client as never, bucketName: 'huabu' });
+    configureTaskArchive({ client: client as never, bucketName: 'huabu', supabaseUrl: 'http://10.37.80.25:8021' });
     const getAttempts = mockFetchFlakyThenOk(2);
 
     const entriesPromise = archiveGeneratedMediaToSupabase('task-img-1', [
@@ -204,6 +204,7 @@ describe('archiveGeneratedMediaToSupabase 重试加固与 result 回写', () => 
         stableUrl,
         storagePath: mock.uploadCalls[0]!.path,
         size: PNG_BYTES.length,
+        publicUrl: `http://10.37.80.25:8021/storage/v1/object/public/ai-outputs/${mock.uploadCalls[0]!.path}`,
       },
     ]);
 
@@ -243,7 +244,7 @@ describe('archiveGeneratedMediaToSupabase 重试加固与 result 回写', () => 
 
   it('上游持续 5xx：重试耗尽后不上传、不回写（静默放弃，等待 reconcile 兜底）', async () => {
     const { client, mock } = makeMockClient();
-    configureTaskArchive({ client: client as never, bucketName: 'huabu' });
+    configureTaskArchive({ client: client as never, bucketName: 'huabu', supabaseUrl: 'http://10.37.80.25:8021' });
     fetchSpy.mockImplementation(async () => ({ ok: false, status: 503 }));
 
     const entriesPromise = archiveGeneratedMediaToSupabase('task-img-2', [
@@ -261,7 +262,7 @@ describe('archiveGeneratedMediaToSupabase 重试加固与 result 回写', () => 
 
   it('上游 200 + HTML 毒化响应：按失败重试，不把错误页写入 bucket', async () => {
     const { client, mock } = makeMockClient();
-    configureTaskArchive({ client: client as never, bucketName: 'huabu' });
+    configureTaskArchive({ client: client as never, bucketName: 'huabu', supabaseUrl: 'http://10.37.80.25:8021' });
     const getAttempts = mockFetchFlakyThenOk(99, 'html');
 
     const entriesPromise = archiveGeneratedMediaToSupabase('task-img-3', [
@@ -277,7 +278,7 @@ describe('archiveGeneratedMediaToSupabase 重试加固与 result 回写', () => 
 
   it('b64 型结果：size 真值回填，response_file_paths 照常写入', async () => {
     const { client, mock } = makeMockClient();
-    configureTaskArchive({ client: client as never, bucketName: 'huabu' });
+    configureTaskArchive({ client: client as never, bucketName: 'huabu', supabaseUrl: 'http://10.37.80.25:8021' });
     const virtualUrl = '/__aitu_cache__/image/content-abc123.png';
     getImageForAI.mockResolvedValue({ type: 'base64', value: DATA_URL_PNG });
 

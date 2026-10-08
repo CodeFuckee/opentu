@@ -191,13 +191,29 @@ export async function drawRectangle(page: Page): Promise<void> {
   await expectElementsCreated(page);
 }
 
-/** 选中画布中部已有元素（点击视口中心） */
+/** 选中画布中部已有元素（点击视口中心）。
+ *  两个坑（均已处理）：
+ *  1. 慢环境（dev server 冷编译）首击可能早于画布可交互，无选中且无反馈 → 重试；
+ *  2. 若元素已处于选中态，单击会进入文本编辑而非保持选中 → 重试前先 Escape
+ *     退出编辑并点击空白处取消选中 */
 export async function selectCenterElement(page: Page): Promise<void> {
   const { x, y } = screenAt(page, 0, 0);
-  await page.mouse.click(x, y);
-  await expect(page.getByTestId('popup-toolbar')).toBeVisible({
-    timeout: 10000,
-  });
+  const popup = page.getByTestId('popup-toolbar');
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) {
+      await page.keyboard.press('Escape');
+      await page.mouse.click(x, y - 200); // 点击画布上方空白处取消选中
+      await page.waitForTimeout(400);
+    }
+    await page.mouse.click(x, y);
+    try {
+      await popup.waitFor({ state: 'visible', timeout: 6000 });
+      return;
+    } catch {
+      await page.waitForTimeout(400);
+    }
+  }
+  await expect(popup).toBeVisible({ timeout: 10000 });
 }
 
 /** 通过弹出工具栏删除选中的元素 */

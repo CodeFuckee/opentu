@@ -54,7 +54,7 @@ export interface FilterParams {
 }
 
 /** 编辑模式 */
-export type EditMode = 'crop' | 'filter';
+export type EditMode = 'crop' | 'filter' | 'cutout';
 
 /** 图片编辑器状态 */
 export interface ImageEditorState {

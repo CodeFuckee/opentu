@@ -162,7 +162,7 @@
 
 | # | 新功能 | 借鉴来源 | 说明与落地 | 优先级 | 工作量 | 感知 |
 |---|---|---|---|---|---|---|
-| 41 | 选中元素 AI 操作菜单 | [Canva](https://www.canva.com) 右键 AI | 选中图片→"抠图/扩图/变体/动起来/找同款"(挂 A/B 类能力+#61 的交互壳) | P0 | S | ★★★ |
+| 41 | 选中元素 AI 操作菜单 | [Canva](https://www.canva.com) 右键 AI | 选中图片→"抠图/扩图/变体/动起来/找同款"(挂 A/B 类能力+#61 的交互壳);**抠图能力已落地**(2026-10-08 图片编辑器抠图模式+服务端 SAM2.1,openspec add-smart-cutout) | P0 | S | ★★★ |
 | 42 | 提示词→思维导图/流程图 | [Excalidraw](https://excalidraw.com) AI / [Xmind Copilot](https://xmind.cn) | LLM 输出转 mindmap/connector 元素(元素类型已有) | P0 | M | ★★★ |
 | 43 | 画布版本历史与恢复点 | [Figma](https://www.figma.com) / Excalidraw | 持久化快照时间轴,云同步已有通道,补版本 UI | P1 | M | ★★★ |
 | 44 | AI 便签聚类与主题总结 | [FigJam](https://www.figma.com/figjam/) AI / [Miro](https://miro.com) Assist | 工坊场景便签自动归类+LLM 总结成卡 | P1 | M | ★★ |

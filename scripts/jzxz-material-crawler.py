@@ -796,50 +796,95 @@ def create_project(driver, cfg):
 
 
 def enter_editor(driver, cfg):
-    """进画布编辑器：优先复用记忆的编辑器 URL（免每日新建项目堆积），
-    校验失败（项目被删/改版失效）再从工作台「新建项目」重建。"""
+    """进入可上传参考图的页面并返回其 URL。
+
+    2026-10 上游改版:画布编辑器(/canvas/detail)上传按钮大多不再挂
+    input(原生 picker)、「新建项目」不再跳转;但页面本身带参考图输入框
+    (textarea/contenteditable),向其粘贴图片即触发贴图推荐面板。此处直接
+    打开目标页并等输入框就绪(canvas/detail 旧记忆 URL 仍可用则复用,
+    否则 /home)。"""
+    url = cfg.get("page_url", PAGE_URL)
     if PROJECT_STATE_PATH.exists():
         try:
             saved = json.loads(
                 PROJECT_STATE_PATH.read_text(encoding="utf-8")).get("editor_url")
         except Exception:
             saved = None
-        if saved:
-            driver.get(saved)
-            deadline = time.time() + 25
-            while time.time() < deadline:
-                if [e for e in driver.find_elements(
-                        By.XPATH, "//*[contains(@class,'upload_btn_box')]") if e.is_displayed()]:
-                    return saved
-                time.sleep(1)
-            log("[warn] 记忆的编辑器 URL 已失效，改从工作台新建项目")
-    return create_project(driver, cfg)
+    else:
+        saved = None
+    for target in [u for u in (saved, url) if u]:
+        try:
+            driver.get(target)
+        except Exception:
+            continue
+        deadline = time.time() + 25
+        while time.time() < deadline:
+            try:
+                if driver.execute_script(
+                    "return !!(document.querySelector('textarea') || "
+                    "document.querySelector('[contenteditable=\"true\"]') "
+                    "|| document.querySelector('[class*=upload_btn_box]'))"
+                ):
+                    return target
+            except Exception:
+                pass
+            time.sleep(1)
+    raise RuntimeError("参考图输入页未就绪(25s×2)")
 
 
 def submit_probe_image(driver):
-    """向「接受图片」的 file input 提交探针图。
+    """提交探针图触发贴图(wallpaper/reference)推荐面板。
 
-    改版后编辑器内有 4 个 input[type=file]（两个 accept=.txt 属其他功能），
-    必须按 accept 过滤取图片输入；发进 .txt 输入上传无效、贴图面板不出现。"""
+    2026-10 上游改版:全站 input[type=file] 大多已移除(改原生
+    showOpenFilePicker,Selenium 无法对话)。双通道:
+    ①旧通道——图片 input 仍出现时(改版灰度/回归)直接 send_keys;
+    ②粘贴通道——向参考图输入框合成 ClipboardEvent(File+DataTransfer)
+    粘贴,与真实 Ctrl+V 同链路。输入框可能因面板重挂载短暂离场,
+    20s 内重试(单次扑空曾是"间歇性失败"根因)。"""
     probe = DATA_DIR / "_probe.png"
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     if not probe.exists():
         probe.write_bytes(base64.b64decode(PROBE_PNG_B64))
-    inputs = []
-    deadline = time.time() + 20
+
+    # 通道①:图片 input(前 8s 探测,存在则优先——最稳)
+    deadline = time.time() + 8
     while time.time() < deadline:
-        all_inputs = driver.find_elements(By.CSS_SELECTOR, "input[type='file']")
-        inputs = [i for i in all_inputs
+        inputs = [i for i in driver.find_elements(By.CSS_SELECTOR, "input[type='file']")
                   if "png" in (i.get_attribute("accept") or "").lower()
                   or "image" in (i.get_attribute("accept") or "").lower()]
         if inputs:
-            break
+            driver.execute_script("arguments[0].style.display='block';", inputs[0])
+            inputs[0].send_keys(str(probe))
+            return True
         time.sleep(1)
-    if not inputs:
-        return False
-    driver.execute_script("arguments[0].style.display='block';", inputs[0])
-    inputs[0].send_keys(str(probe))
-    return True
+
+    # 通道②:合成粘贴(带重试)
+    paste_js = """
+      const target = document.querySelector('textarea') ||
+                     document.querySelector('[contenteditable="true"]');
+      if (!target) return false;
+      target.focus();
+      const b64 = arguments[0];
+      const bin = atob(b64); const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const file = new File([bytes], '_probe.png', { type: 'image/png' });
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      target.dispatchEvent(new ClipboardEvent('paste', {
+        bubbles: true, cancelable: true, clipboardData: dt }));
+      return true;
+    """
+    with open(probe, "rb") as f:
+        probe_b64 = base64.b64encode(f.read()).decode()
+    deadline = time.time() + 20
+    while time.time() < deadline:
+        try:
+            if driver.execute_script(paste_js, probe_b64):
+                return True
+        except Exception:
+            pass
+        time.sleep(2)
+    return False
 
 
 def merge_into_result(matched, dom_items, gallery, cate, tag):

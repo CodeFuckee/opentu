@@ -85,10 +85,12 @@ interface ConsoleBucket {
 function watchConsole(page: Page): { bucket: ConsoleBucket; stop: () => void } {
   const bucket: ConsoleBucket = { errors: [], warnings: [] };
   const onConsole = (msg: ConsoleMessage) => {
+    // 资源加载类报错补充来源 URL，便于定位是哪个资源 403/404
+    const loc = msg.location()?.url ? ` @ ${msg.location().url}` : '';
     if (msg.type() === 'error') {
-      bucket.errors.push(msg.text());
+      bucket.errors.push(`${msg.text()}${loc}`);
     } else if (msg.type() === 'warning') {
-      bucket.warnings.push(msg.text());
+      bucket.warnings.push(`${msg.text()}${loc}`);
     }
   };
   const onPageError = (error: Error) => {

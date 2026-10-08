@@ -1,5 +1,47 @@
 ## Unreleased
 
+### feat: #41 智能抠图——点选目标一键抠透明底（服务端 SAM 2.1 GPU，2026-10-08）
+
+计划表 #41「选中元素 AI 操作菜单」的抠图底层能力先行落地：图片编辑器新增
+「抠图」模式，点击/右键标注正负点，AI 实时识别目标轮廓，确认后以原图分辨率
+合成透明底 PNG，走编辑器现有插入/覆盖/下载链路。
+
+- **推理服务 segment-server**（`services/segment-server/`，新顶层目录）：
+  FastAPI + SAM 2.1 hiera-large，独立 docker 容器跑在 supabase 内网
+  `supabase_default` 网络（**不发布端口**），GPU fp32 + CUDA OOM 自动降级 CPU
+  （generation 校验使旧会话失效返回 410 触发前端自动重编码）。两阶段交互：
+  `/encode`（一次编码，LRU 32 会话 + TTL 10min）+ `/segment`（每次点击，
+  点/框提示→二值 PNG）。M0 实测（RTX 5080/1024px）：编码 30–336ms、单点
+  60–101ms、IoU 0.996、显存峰值 1.4GB；CPU 回退档编码 3.8–6.5s。
+  pytest 20 例（FakeEngine 注入，无需 torch）。
+- **选型说明**：SAM3 权重（facebook/sam3、sam3.1）为 gated 仓库，申请被 Meta
+  地区过滤拒绝（社区同类报告一致，HF 被拒后无重申请入口）；按方案决策树改用
+  无门槛的 SAM 2.1（点提示能力同源同构），API 按模型无关设计，日后拿到合规
+  SAM3 授权可热替换。基底镜像复用宿主机现成 torch 2.11+cu128（RTX 5080
+  sm_120 必须 cu128；torchvision 须从 download.pytorch.org/whl/cu128 装以
+  避免 ABI 失配）。
+- **edge function image-segmentation**：复用 asset-vector-search 的 JWT 鉴权
+  模式转发三 action（encode/segment/health），参数白名单校验（≤16 点、坐标
+  0..8191、imageB64 ≤6MB），超时 encode 30s/segment 10s，4xx 原样透传、5xx
+  统一 502。前端经 functions.invoke 走现有 supabase origin——**零 CSP 改动**。
+  node:test 12 例。
+- **前端**：`segmentation-service.ts`（invoke 封装 + 错误分级：401/404 会话
+  过期/410 设备变更/502 不可用）+ `cutout-utils.ts`（纯坐标换算 + 灰度掩码
+  亮度→alpha 的 destination-in 全分辨率合成 + 0–3px 羽化）+
+  `useCutoutController`（编码会话/防抖分割/会话过期自动重编码重放/**悬停
+  实时预览**：鼠标移动即以「已有点集+悬停点」请求掩码——150ms+8px 双重
+  节流、在途丢弃、独立 seq 竞态守卫，预览层(alpha 70)与点击锁定层
+  (alpha 110)分层互不覆盖，点击/移出即清预览层）+
+  CutoutStage/CutoutPanel（mousemove/onMouseLeave 事件、双层掩码覆盖、
+  正负点标记、加载态、确认链路复用 onInsert/onSave）。vitest 20 例；E2E smart-cutout.spec（服务 route mock，
+  官方库插图→双击预览→编辑→抠图→掩码→确认→插入新图片→画布计数 +1）。
+- **CI**：新增 test:segment-server job（python:3.12-slim + pytest）。
+- 部署：`scripts/deploy-segment-server.sh`（宿主机执行：权重下载无 gate →
+  构建镜像 → 重建容器 → 健康检查）；冒烟 `scripts/smoke-image-segmentation.sh`
+  （真 JWT 全链路）。HTTP 内网全程可用（纯 HTTP JSON + canvas 合成，无
+  secure-context 依赖）。
+
+
 ### fix: #103 编辑态四项反馈修复——置灰/可移动/合并丢原图（CSP×blob 根因，2026-09-30）
 
 用户实测反馈四连修（最终轮：用户日志实锤根因后确认修复有效）：

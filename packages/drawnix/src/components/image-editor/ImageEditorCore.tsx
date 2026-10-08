@@ -26,6 +26,7 @@ import {
   Undo2,
   Redo2,
   Eye,
+  Wand2,
 } from 'lucide-react';
 import { MessagePlugin } from '../../utils/message-plugin';
 import { resolveEditorImageSource } from './resolve-editor-image-source';
@@ -41,6 +42,9 @@ import {
 } from './types';
 import { CropPanel } from './CropPanel';
 import { FilterPanel } from './FilterPanel';
+import { CutoutPanel } from './CutoutPanel';
+import { CutoutStage } from './CutoutStage';
+import { useCutoutController } from './cutout-controller';
 import './ImageEditorCore.scss';
 import { HoverTip } from '../shared/hover';
 
@@ -954,11 +958,27 @@ export const ImageEditorCore = forwardRef<
       [confirmedCropArea, cropArea]
     );
 
+    // 智能抠图:进入 cutout 模式时自动编码,离开时复位(内部自治)
+    const cutout = useCutoutController(mode === 'cutout', () => imageRef.current);
+
+    // 抠图结果复用现有保存链路:有 onSave 直接交付,否则弹保存选项
+    const handleCutoutConfirm = useCallback(
+      (dataUrl: string) => {
+        if (onSave) {
+          onSave(dataUrl);
+          return;
+        }
+        setPendingImageUrl(dataUrl);
+        setShowSaveOptions(true);
+      },
+      [onSave]
+    );
+
     // 拖拽平移处理
     const handlePanStart = useCallback(
       (e: React.MouseEvent) => {
-        // 避免与裁剪框拖动冲突
-        if (mode === 'crop') return;
+        // 避免与裁剪框拖动/抠图点选冲突
+        if (mode === 'crop' || mode === 'cutout') return;
 
         setIsPanning(true);
         setPanStart({
@@ -1161,6 +1181,17 @@ export const ImageEditorCore = forwardRef<
                 <Sliders size={16} />
                 <span>滤镜</span>
               </button>
+              <button
+                type="button"
+                className={`image-editor-core__mode-tab ${
+                  mode === 'cutout' ? 'active' : ''
+                }`}
+                onClick={() => handleModeChange('cutout')}
+                data-testid="cutout-mode-tab"
+              >
+                <Wand2 size={16} />
+                <span>抠图</span>
+              </button>
             </div>
 
             {/* 工具面板内容 */}
@@ -1181,6 +1212,8 @@ export const ImageEditorCore = forwardRef<
                   onAutoTrimWhitespace={handleAutoTrimWhitespace}
                   isDetectingWhitespace={isDetectingWhitespace}
                 />
+              ) : mode === 'cutout' ? (
+                <CutoutPanel controller={cutout} onConfirm={handleCutoutConfirm} />
               ) : (
                 <FilterPanel
                   filterType={filterType}
@@ -1259,6 +1292,8 @@ export const ImageEditorCore = forwardRef<
                     <img src={displaySrc} alt="Original" draggable={false} />
                   </div>
                 )
+              ) : mode === 'cutout' ? (
+                <CutoutStage controller={cutout} imageUrl={displaySrc} />
               ) : mode === 'crop' ? (
                 <CropCanvas
                   key={imageUrl}
