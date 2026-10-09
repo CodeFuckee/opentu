@@ -13,9 +13,11 @@ import {
   Cloud,
   Heart,
   UserRound,
+  Wand2,
 } from 'lucide-react';
 import { Checkbox } from 'tdesign-react';
 import { formatDate, formatFileSize } from '../../utils/asset-utils';
+import { openSmartCutout } from '../image-editor/smart-cutout-launcher';
 import { useAssetSize } from '../../hooks/useAssetSize';
 import { LazyImage } from '../lazy-image';
 import { useThumbnailUrl } from '../../hooks/useThumbnailUrl';
@@ -118,6 +120,18 @@ export const AssetItem = memo<AssetItemProps>(
         onDoubleClick?.(asset);
       },
       [asset, onDoubleClick]
+    );
+
+    // 智能抠图:不经画布直接对素材发起抠图(编辑器内可再插入/下载)
+    const isCutoutAvailable =
+      asset.type === 'IMAGE' && !asset.url.startsWith('data:image/svg+xml');
+    const handleCutoutClick = useCallback(
+      (e: React.MouseEvent) => {
+        e.stopPropagation();
+        e.preventDefault();
+        openSmartCutout({ imageUrl: asset.url });
+      },
+      [asset]
     );
 
     const handleContextMenu = useCallback(
@@ -304,6 +318,21 @@ export const AssetItem = memo<AssetItemProps>(
                 data-track="asset_item_insert"
               >
                 <Plus size={16} />
+              </button>
+            </HoverTip>
+          )}
+
+          {/* 智能抠图按钮 - 仅图片素材(非 SVG),与插入按钮并排 */}
+          {!isListMode && !isInSelectionMode && onDoubleClick && isCutoutAvailable && (
+            <HoverTip content="智能抠图" showArrow={false}>
+              <button
+                type="button"
+                className="asset-item__preview-btn asset-item__preview-btn--cutout"
+                onClick={handleCutoutClick}
+                aria-label="智能抠图"
+                data-track="asset_item_cutout"
+              >
+                <Wand2 size={16} />
               </button>
             </HoverTip>
           )}

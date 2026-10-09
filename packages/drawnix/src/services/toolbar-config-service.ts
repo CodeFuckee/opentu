@@ -250,10 +250,10 @@ class ToolbarConfigService {
 
     ALL_BUTTON_IDS.forEach((id) => {
       if (!existingIds.has(id)) {
-        // 新按钮默认隐藏，放在最后
+        // 新按钮默认隐藏，放在最后；「智能抠图」为新功能入口，默认可见
         newButtons.push({
           id,
-          visible: false,
+          visible: id === 'smart-cutout',
           order: config.buttons.length + newButtons.length,
         });
       }

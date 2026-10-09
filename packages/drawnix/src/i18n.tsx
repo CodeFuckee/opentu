@@ -19,6 +19,7 @@ export interface Translations {
   'toolbar.shape': string;
   'toolbar.image': string;
   'toolbar.mediaLibrary': string;
+  'toolbar.smartCutout': string;
   'toolbar.aiImage': string;
   'toolbar.aiVideo': string;
   'toolbar.tasks': string;
@@ -222,6 +223,7 @@ const translations: Record<Language, Translations> = {
     'toolbar.shape': '形状',
     'toolbar.image': '图片 — Cmd+U',
     'toolbar.mediaLibrary': '素材库',
+    'toolbar.smartCutout': '智能抠图',
     'toolbar.aiImage': 'AI 图片生成',
     'toolbar.aiVideo': 'AI 视频生成',
     'toolbar.tasks': '任务',
@@ -415,6 +417,7 @@ const translations: Record<Language, Translations> = {
     'toolbar.shape': 'Shape',
     'toolbar.image': 'Image — Cmd+U',
     'toolbar.mediaLibrary': 'Media Library',
+    'toolbar.smartCutout': 'Smart Cutout',
     'toolbar.aiImage': 'AI Image Generation',
     'toolbar.aiVideo': 'AI Video Generation',
     'toolbar.tasks': 'Tasks',

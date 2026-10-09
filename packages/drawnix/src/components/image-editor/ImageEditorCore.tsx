@@ -176,6 +176,8 @@ function detectWhitespace(
 export interface ImageEditorCoreProps {
   /** 图片 URL */
   imageUrl: string;
+  /** 初始编辑模式(默认裁剪;侧边栏「智能抠图」直落抠图模式) */
+  initialMode?: EditMode;
   /** 是否显示覆盖选项 */
   showOverwrite?: boolean;
   /** 覆盖原图回调 */
@@ -222,6 +224,7 @@ export const ImageEditorCore = forwardRef<
   (
     {
       imageUrl,
+      initialMode,
       showOverwrite = false,
       onOverwrite,
       onInsert,
@@ -231,8 +234,10 @@ export const ImageEditorCore = forwardRef<
     },
     ref
   ) => {
-    // 编辑模式
-    const [mode, setMode] = useState<EditMode>('crop');
+    // 编辑模式(初始模式仅在首次挂载生效;非法值回退裁剪)
+    const [mode, setMode] = useState<EditMode>(
+      initialMode === 'filter' || initialMode === 'cutout' ? initialMode : 'crop'
+    );
 
     // 展示源:虚拟 URL 在非安全上下文(无 SW)下经缓存 blob 降级解析后的实际源
     const [displaySrc, setDisplaySrc] = useState<string>(imageUrl);

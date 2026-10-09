@@ -73,6 +73,7 @@ import { withTextResize } from './plugins/with-text-resize';
 import { withImageGenerationAnchor } from './plugins/with-image-generation-anchor';
 import { withWorkZone } from './plugins/with-workzone';
 import { MultiSelectionHandles } from './components/multi-selection-handles';
+import { SmartCutoutHost } from './components/image-editor/smart-cutout-host';
 import {
   ChatDrawerProvider,
   useChatDrawer,
@@ -1642,6 +1643,8 @@ const DrawnixContent: React.FC<DrawnixContentProps> = ({
           ></Board>
           {/* 多选时的缩放控制点 */}
           <MultiSelectionHandles />
+          {/* 智能抠图编辑器宿主(订阅侧边栏/素材库的抠图请求) */}
+          <SmartCutoutHost board={board} />
           {/* 统一左侧工具栏 (桌面端和移动端一致) */}
           <UnifiedToolbar
             projectDrawerOpen={projectDrawerOpen}

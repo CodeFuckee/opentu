@@ -45,6 +45,7 @@ export const DEFAULT_VISIBLE_BUTTONS = [
   'text',
   'image',
   'media-library',
+  'smart-cutout',
   'ai-image',
   'ai-video',
 ];
@@ -62,6 +63,7 @@ export const ALL_BUTTON_IDS = [
   'text',
   'image',
   'media-library',
+  'smart-cutout',
   'ai-image',
   'ai-video',
   // 默认收起的按钮（放在更多工具里）

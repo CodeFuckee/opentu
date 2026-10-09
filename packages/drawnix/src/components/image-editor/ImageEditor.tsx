@@ -13,6 +13,7 @@ import './ImageEditor.scss';
 export const ImageEditor: React.FC<ImageEditorProps> = ({
   visible,
   imageUrl,
+  initialMode,
   onClose,
   onSave,
   onOverwrite,
@@ -37,6 +38,7 @@ export const ImageEditor: React.FC<ImageEditorProps> = ({
         <ImageEditorCore
           ref={editorRef}
           imageUrl={imageUrl}
+          initialMode={initialMode}
           showOverwrite={showOverwrite}
           onOverwrite={onOverwrite}
           onInsert={onInsert}

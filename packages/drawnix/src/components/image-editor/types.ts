@@ -85,6 +85,8 @@ export interface ImageEditorProps {
   visible: boolean;
   /** 图片 URL */
   imageUrl: string;
+  /** 初始编辑模式(默认裁剪;侧边栏「智能抠图」直落抠图模式) */
+  initialMode?: EditMode;
   /** 关闭回调 */
   onClose: () => void;
   /** 保存回调（编辑后的图片 URL，通用回调） */

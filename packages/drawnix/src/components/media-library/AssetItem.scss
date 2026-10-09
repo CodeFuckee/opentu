@@ -313,6 +313,11 @@
     }
   }
 
+  // 智能抠图按钮:与插入按钮同款样式,位于其左侧
+  &__preview-btn--cutout {
+    right: 48px;
+  }
+
   &:hover &__preview-btn,
   &:focus-within &__preview-btn {
     opacity: 1;

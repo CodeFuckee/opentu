@@ -29,11 +29,13 @@ import {
   ZoomInIcon,
   ZoomOutIcon,
   ImageUploadIcon,
+  WandIcon,
 } from '../icons';
 import { useBoard } from '@plait-board/react-board';
 import {
   ATTACHED_ELEMENT_CLASS_NAME,
   BoardTransforms,
+  getSelectedElements,
   PlaitBoard,
   PlaitPointerType,
 } from '@plait/core';
@@ -49,6 +51,9 @@ import { FreehandPanel, FREEHANDS } from './freehand-panel/freehand-panel';
 import { ShapePicker } from '../shape-picker';
 import { ArrowPicker } from '../arrow-picker';
 import { MessagePlugin } from 'tdesign-react';
+import { resolveCutoutTarget } from '../image-editor/resolve-cutout-target';
+import { openSmartCutout } from '../image-editor/smart-cutout-launcher';
+import { isWorkZoneElement } from '../../plugins/with-workzone';
 import { SelectionMode, Asset, AssetType } from '../../types/asset.types';
 import { insertImageFromUrl } from '../../data/image';
 import { insertVideoFromUrl } from '../../data/video';
@@ -111,6 +116,7 @@ type AppToolButtonProps = {
     | PopupKey
     | 'image'
     | 'media-library'
+    | 'smart-cutout'
     | 'ai-image'
     | 'ai-video'
     | 'extra-tools'
@@ -162,6 +168,12 @@ export const BUTTONS: AppToolButtonProps[] = [
     titleKey: 'toolbar.mediaLibrary',
     key: 'media-library',
     visibilityKey: 'media-library',
+  },
+  {
+    icon: <WandIcon />,
+    titleKey: 'toolbar.smartCutout',
+    key: 'smart-cutout',
+    visibilityKey: 'smart-cutout',
   },
   {
     icon: <AIImageIcon />,
@@ -359,6 +371,39 @@ export const CreationToolbar: React.FC<ToolbarSectionProps> = ({
     [board]
   );
 
+  // 智能抠图:选中单张位图 → 打开编辑器直落抠图模式;
+  // 未选中 → 提示并打开素材库引导选图;多选/SVG/非图片 → 对应提示
+  const handleSmartCutout = () => {
+    const selectedElements = getSelectedElements(board).filter(
+      (element) => !isWorkZoneElement(element)
+    );
+    const target = resolveCutoutTarget(selectedElements);
+    if (target.ok) {
+      const el = target.element;
+      openSmartCutout({
+        imageUrl: el.url,
+        sourceElement: {
+          id: el.id,
+          url: el.url,
+          points: el.points as [[number, number], [number, number]],
+          width: el.width,
+          height: el.height,
+        },
+      });
+      return;
+    }
+    const reasonMessages: Record<string, string> = {
+      empty: '请先在画布选中一张图片,或从素材库选择',
+      multiple: '请只选中一张图片进行抠图',
+      'not-image': '智能抠图仅支持图片素材',
+      'svg-image': 'SVG 图片暂不支持抠图',
+    };
+    MessagePlugin.warning(reasonMessages[target.reason] ?? '请选中一张图片');
+    if (target.reason === 'empty') {
+      handleOpenMediaLibrary();
+    }
+  };
+
   // 打开素材库
   const handleOpenMediaLibrary = useCallback(() => {
     if (onOpenMediaLibrary) {
@@ -544,6 +589,8 @@ export const CreationToolbar: React.FC<ToolbarSectionProps> = ({
       addImage(board);
     } else if (button.key === 'media-library') {
       handleOpenMediaLibrary();
+    } else if (button.key === 'smart-cutout') {
+      handleSmartCutout();
     } else if (button.key === 'ai-image') {
       openDialog(DialogType.aiImageGeneration);
     } else if (button.key === 'ai-video') {
