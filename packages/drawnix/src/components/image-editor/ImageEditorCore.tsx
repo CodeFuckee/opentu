@@ -245,6 +245,10 @@ export const ImageEditorCore = forwardRef<
       setDisplaySrc(imageUrl);
     }, [imageUrl]);
 
+    // 图片是否已加载完成:抠图自动编码依赖它(直落抠图模式时图片晚于模式就绪,
+    // 不做与门会导致 encode 空跑「图片尚未加载完成」且不再重试)
+    const [imageReady, setImageReady] = useState(false);
+
     // 裁剪状态
     const [cropArea, setCropArea] = useState<CropArea | null>(null);
     const [aspectRatio, setAspectRatio] = useState<number | null>(null);
@@ -321,6 +325,7 @@ export const ImageEditorCore = forwardRef<
         setDisplayScale(1); // 重置显示比例，等新图片加载后重新计算
         setImageSize({ width: 0, height: 0 }); // 重置图片尺寸，防止用旧尺寸初始化裁剪区域
         setPanOffset({ x: 0, y: 0 });
+        setImageReady(false);
         setMode('crop');
         // 重置历史记录
         const initialState: ImageEditState = {
@@ -354,6 +359,7 @@ export const ImageEditorCore = forwardRef<
           if (cancelled) return;
           imageRef.current = img;
           setImageSize({ width: img.naturalWidth, height: img.naturalHeight });
+          setImageReady(true);
         };
         img.onerror = () => {
           if (cancelled) return;
@@ -379,6 +385,7 @@ export const ImageEditorCore = forwardRef<
       return () => {
         cancelled = true;
         imageRef.current = null;
+        setImageReady(false);
         if (objectUrl) {
           URL.revokeObjectURL(objectUrl);
         }
@@ -963,8 +970,14 @@ export const ImageEditorCore = forwardRef<
       [confirmedCropArea, cropArea]
     );
 
-    // 智能抠图:进入 cutout 模式时自动编码,离开时复位(内部自治)
-    const cutout = useCutoutController(mode === 'cutout', () => imageRef.current);
+    // 智能抠图:进入 cutout 模式时自动编码,离开时复位(内部自治)。
+    // 与 imageReady 与门:直落抠图模式(initialMode='cutout')时图片晚于模式
+    // 就绪,等 onload 后 enabled 才翻 true,编码恰好触发一次(否则 encode
+    // 空跑「图片尚未加载完成」且不再重试)
+    const cutout = useCutoutController(
+      mode === 'cutout' && imageReady,
+      () => imageRef.current
+    );
 
     // 抠图结果复用现有保存链路:有 onSave 直接交付,否则弹保存选项
     const handleCutoutConfirm = useCallback(

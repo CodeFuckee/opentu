@@ -29,8 +29,14 @@ const stubController = {
   setFeather: vi.fn(),
 };
 
+// 记录 enabled 入参:直落抠图模式必须在图片加载完成后才自动编码
+const controllerCalls: boolean[] = [];
+
 vi.mock('./cutout-controller', () => ({
-  useCutoutController: vi.fn(() => stubController),
+  useCutoutController: vi.fn((enabled: boolean) => {
+    controllerCalls.push(enabled);
+    return stubController;
+  }),
 }));
 
 vi.mock('./CutoutPanel', () => ({
@@ -42,6 +48,41 @@ vi.mock('./CutoutStage', () => ({
 }));
 
 const DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==';
+
+/** 可控的 Image 桩:src 赋值后异步触发 onload,模拟图片加载完成 */
+function installControllableImage() {
+  // jsdom 无 ResizeObserver(图片加载后 display-scale effect 会用到)。
+  // 同时写 globalThis 与 window:vitest jsdom 下二者是不同对象,
+  // 组件内裸标识符按其中之一解析,双写保证可见
+  const resizeObserverStub = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+  (globalThis as unknown as Record<string, unknown>)['ResizeObserver'] =
+    resizeObserverStub;
+  (window as unknown as Record<string, unknown>)['ResizeObserver'] =
+    resizeObserverStub;
+  const OriginalImage = window.Image;
+  class MockImage {
+    onload: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    naturalWidth = 800;
+    naturalHeight = 600;
+    set src(_v: string) {
+      setTimeout(() => this.onload?.(), 0);
+    }
+    get src() {
+      return '';
+    }
+    crossOrigin = '';
+  }
+  vi.stubGlobal('Image', MockImage);
+  return () => {
+    vi.unstubAllGlobals();
+    void OriginalImage;
+  };
+}
 
 describe('ImageEditorCore initialMode', () => {
   it('默认初始模式为裁剪(现状回归)', () => {
@@ -70,5 +111,18 @@ describe('ImageEditorCore initialMode', () => {
     render(<ImageEditorCore imageUrl={DATA_URL} initialMode="bogus" />);
     const cropTab = screen.getByRole('button', { name: '裁剪' });
     expect(cropTab.className).toContain('active');
+  });
+
+  it('直落抠图模式:图片加载完成后才启用自动编码(先 false 后 true)', async () => {
+    const restore = installControllableImage();
+    controllerCalls.length = 0;
+    render(<ImageEditorCore imageUrl={DATA_URL} initialMode="cutout" />);
+    // 图片未加载时 enabled 必须为 false(否则 encode 空跑且不重试——#3655 回归)
+    expect(controllerCalls[0]).toBe(false);
+    await new Promise((r) => setTimeout(r, 10));
+    // 图片 onload 后 enabled 变 true,触发自动编码
+    expect(controllerCalls).toContain(true);
+    expect(controllerCalls[controllerCalls.length - 1]).toBe(true);
+    restore();
   });
 });

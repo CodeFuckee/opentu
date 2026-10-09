@@ -233,19 +233,35 @@ test.describe('侧边栏智能抠图', () => {
     const canvasImgs = page.locator('.viewport-container foreignObject img');
     await expect(canvasImgs).toHaveCount(2, { timeout: 20000 });
 
-    // 两次插入位置重叠:把第二张(顶层)拖开,避免后续点击命中同一张
-    const topBox = await canvasImgs.nth(1).boundingBox();
-    expect(topBox).toBeTruthy();
-    await page.mouse.move(topBox!.x + topBox!.width / 2, topBox!.y + topBox!.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(topBox!.x + topBox!.width / 2 + 220, topBox!.y + topBox!.height / 2 + 150, { steps: 8 });
-    await page.mouse.up();
-    await page.waitForTimeout(400);
-
-    // 点击第一张,再 shift+点击第二张 → 多选
+    // 两次插入位置重叠:把两张分别拖到确定的视口网格位,保证后续点击
+    // 各命中一张(位置以画布视口坐标为准,不依赖插图初始位置)
+    const dragTo = async (index: number, tx: number, ty: number) => {
+      const b = await canvasImgs.nth(index).boundingBox();
+      expect(b).toBeTruthy();
+      await page.mouse.move(b!.x + b!.width / 2, b!.y + b!.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(tx, ty, { steps: 8 });
+      await page.mouse.up();
+      await page.waitForTimeout(300);
+    };
+    await dragTo(0, 250, 180);
+    await dragTo(1, 700, 400);
+    // 拖完后两张必须都在视口内且分离,否则后续点击不可靠
     const box1 = await canvasImgs.nth(0).boundingBox();
     const box2 = await canvasImgs.nth(1).boundingBox();
     expect(box1 && box2).toBeTruthy();
+    for (const b of [box1!, box2!]) {
+      expect(b.x).toBeGreaterThanOrEqual(0);
+      expect(b.y).toBeGreaterThanOrEqual(0);
+      expect(b.x + b.width).toBeLessThanOrEqual(1280);
+      expect(b.y + b.height).toBeLessThanOrEqual(720);
+    }
+    const separated =
+      box1!.x + box1!.width < box2!.x || box2!.x + box2!.width < box1!.x ||
+      box1!.y + box1!.height < box2!.y || box2!.y + box2!.height < box1!.y;
+    expect(separated).toBe(true);
+
+    // 点击第一张,再 shift+点击第二张 → 多选
     await page.mouse.click(box1!.x + box1!.width / 2, box1!.y + box1!.height / 2);
     await page.keyboard.down('Shift');
     await page.mouse.click(box2!.x + box2!.width / 2, box2!.y + box2!.height / 2);
