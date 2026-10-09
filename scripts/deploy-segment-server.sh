@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# segment-server 部署脚本(在宿主机 10.37.80.25 上执行)
+# segment-server 部署脚本(在宿主机 10.0.0.220 上执行,2026-10 迁移自 10.37.80.25)
 #
-# 用法: ssh mdc@10.37.80.25 'bash -s' < scripts/deploy-segment-server.sh
+# 用法: ssh mdc@10.0.0.220 'bash -s' < scripts/deploy-segment-server.sh(SSH 免密需按新 IP 重配)
 #
 # 职责:
 #   1. 确保权重存在(缺失则从 fbaipublicfiles 直链下载,无 gate)

@@ -5,7 +5,7 @@
 #   test:e2e / build 全部成功后自动执行（needs 硬依赖，任一失败本作业不运行），
 #   把最新 main 部署到 8089 预览环境
 # - 后端与生产一致：使用生产环境 Supabase（构建期内置默认网关
-#   http://10.37.80.25:8021，与生产 8088 相同数据面）
+#   http://10.0.0.220:8021，与生产 8088 相同数据面）
 # - 端口 8089，作为预览版供小范围内测，生产实例（8088）不受任何影响：
 #   * 独立镜像名 yue-huabu-preview:*（不读写生产 yue-huabu:* 镜像）
 #   * 独立容器名 yue-huabu-preview（生产容器是 yue-huabu）
@@ -32,7 +32,7 @@ deploy:preview:
   timeout: 2 hours
   environment:
     name: preview
-    url: http://10.37.80.25:8089
+    url: http://10.0.0.220:8089
   rules:
     # main 分支的 push 流水线测试+构建全绿后自动部署预览；
     # 流水线 B（web/api 手动发版）不出现本作业，与生产发布流程零交集
@@ -62,4 +62,4 @@ deploy:preview:
     - sleep 5
     - docker ps --filter "name=^${PREVIEW_CONTAINER_NAME}$" --filter "status=running" --format "{{.Names}} -> {{.Ports}}"
     - docker exec "${PREVIEW_CONTAINER_NAME}" wget -q -O /dev/null http://127.0.0.1:80/ && echo "预览站点可访问 ✓"
-    - 'echo "预览环境部署完成：http://10.37.80.25:${PREVIEW_HOST_PORT}（commit ${CI_COMMIT_SHORT_SHA}，后端=生产 Supabase）"'
+    - 'echo "预览环境部署完成：http://10.0.0.220:${PREVIEW_HOST_PORT}（commit ${CI_COMMIT_SHORT_SHA}，后端=生产 Supabase）"'

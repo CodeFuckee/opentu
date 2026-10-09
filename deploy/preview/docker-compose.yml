@@ -11,7 +11,7 @@
 # - 独立 compose 项目名（本文件位于子目录 preview/ 且 CI 侧显式 -p opentu-preview，
 #   生产 deploy 作业的 `compose -f deploy/docker-compose.yml down --remove-orphans`
 #   项目名为 deploy，双方互不波及）
-# - 后端与生产一致：构建期内置生产 Supabase 默认值（http://10.37.80.25:8021）
+# - 后端与生产一致：构建期内置生产 Supabase 默认值（http://10.0.0.220:8021）
 
 services:
   yue-huabu-preview:

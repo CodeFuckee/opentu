@@ -35,7 +35,7 @@ deploy:production:
   timeout: 2 hours
   environment:
     name: production
-    url: http://10.37.80.25:8088
+    url: http://10.0.0.220:8088
   rules:
     # 仅 main 分支的 push 流水线提供手动生产部署入口；
     # 流水线 B（web/api 手动发版）不出现本作业，正式发版流程照旧

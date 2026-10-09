@@ -83,7 +83,8 @@ export default defineConfig({
           // 覆盖本机 gitignored apps/web/.env（避免烘焙 https/生产地址导致登录失败）
           env: {
             AITU_REWRITE_ENTRY_ASSETS_TO_CDN: '0',
-            VITE_SUPABASE_URL: 'http://10.37.80.25:8021',
+            VITE_SUPABASE_URL:
+              process.env['E2E_SUPABASE_URL'] || 'http://10.0.0.220:8021',
             VITE_SUPABASE_ANON_KEY:
               'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg4MTAyMzUyLCJleHAiOjIxMDM0NjIzNTJ9.nQP_hdmnIbCgVfsxlq6TTuRo_FKVYdrRaIDmKViiEBc',
           },
@@ -208,7 +209,7 @@ export default defineConfig({
       use: {
         ...devices['Desktop Chrome'],
         baseURL:
-          process.env['MANUAL_PROD_BASE_URL'] || 'http://10.37.80.25:8088',
+          process.env['MANUAL_PROD_BASE_URL'] || 'http://10.0.0.220:8088',
       },
     },
 
@@ -220,7 +221,7 @@ export default defineConfig({
       use: {
         ...devices['Desktop Chrome'],
         baseURL:
-          process.env['FEEDBACKLAND_BASE_URL'] || 'http://10.37.80.25:8090',
+          process.env['FEEDBACKLAND_BASE_URL'] || 'http://10.0.0.220:8090',
       },
     },
 

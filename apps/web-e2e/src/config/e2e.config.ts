@@ -73,7 +73,7 @@ export const SUPABASE = {
   url:
     process.env.E2E_SUPABASE_URL ||
     envFile.VITE_SUPABASE_URL ||
-    'http://10.37.80.25:8021',
+    'http://10.0.0.220:8021',
   anonKey:
     process.env.E2E_SUPABASE_ANON_KEY ||
     envFile.VITE_SUPABASE_ANON_KEY ||

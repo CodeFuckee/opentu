@@ -1195,7 +1195,7 @@ export default defineConfig({
     host: 'localhost',
     headers: {
       'Content-Security-Policy':
-        "default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://us.i.posthog.com https://us-assets.i.posthog.com https://wiki.tu-zi.com http://10.37.80.25:8021; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https: http:; connect-src 'self' http: https: ws: wss: data: blob:; frame-ancestors 'self' localhost:* 127.0.0.1:* https://api.tu-zi.com;",
+        "default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://us.i.posthog.com https://us-assets.i.posthog.com https://wiki.tu-zi.com http://10.0.0.220:8021; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https: http:; connect-src 'self' http: https: ws: wss: data: blob:; frame-ancestors 'self' localhost:* 127.0.0.1:* https://api.tu-zi.com;",
     },
   },
 
@@ -1208,7 +1208,7 @@ export default defineConfig({
       // http://10.37.80.25:8021 的登录请求）强制升级为 https，导致 ERR_SSL，
       // auth-setup 登录失败（dev server 无此头所以登录正常）。
       'Content-Security-Policy':
-        "default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://us.i.posthog.com https://us-assets.i.posthog.com https://wiki.tu-zi.com http://10.37.80.25:8021; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https: http:; connect-src 'self' https: http: wss: data: blob:; frame-ancestors 'self' localhost:* 127.0.0.1:* https://api.tu-zi.com;",
+        "default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://us.i.posthog.com https://us-assets.i.posthog.com https://wiki.tu-zi.com http://10.0.0.220:8021; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https: http:; connect-src 'self' https: http: wss: data: blob:; frame-ancestors 'self' localhost:* 127.0.0.1:* https://api.tu-zi.com;",
     },
   },
 

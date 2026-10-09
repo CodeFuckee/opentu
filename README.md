@@ -30,6 +30,9 @@
 
 - **AI 生成与模型路由**：统一调度图片、视频、音频、文本与 Agent 流程。
 - **画布工作区**：承载 AI 任务、素材、Frame、工具窗口与知识库内容。
+- **智能抠图**：左侧边栏「智能抠图」对选中画布图片（或素材库素材卡直达）一键进入
+  抠图工作台，SAM 2.1 点选正/负点 + 悬停实时预览，透明底 PNG 可插入画布/覆盖
+  原图/下载（推理由内网 segment-server 提供）。
 - **任务与素材管理**：通过任务队列、素材库、统一缓存和历史记录复用生成结果。
 - **云端同步（Supabase）**：登录后自动把画板、任务、提示词、工作流、知识库、聊天、音频、
   角色、素材、设置同步到私有云端，换浏览器/设备登录同一账号即可看到之前的记录。
@@ -94,7 +97,7 @@ pnpm manual:build      # 生成用户手册（web 构建时自动执行，产出
 - Docker：使用仓库根目录的 `Dockerfile` 构建静态站点镜像。
 - Hybrid CDN + 自托管：见 [NPM CDN 部署](./docs/NPM_CDN_DEPLOY.md) 与 [CDN 部署](./docs/CDN_DEPLOYMENT.md)。
 - 预览环境（内测）：main 分支 push 流水线在 quality + 全量测试 + 构建全部成功后，
-  **自动**把当前提交部署到宿主机 8089 端口（http://10.37.80.25:8089），后端与生产
+  **自动**把当前提交部署到宿主机 8089 端口（http://10.0.0.220:8089），后端与生产
   一致（生产 Supabase）；与生产实例完全隔离（独立镜像名/容器名/compose 项目名，
   端口清理仅限 8089），生产 8088 仍仅通过发版流水线手动部署。
 
@@ -109,12 +112,12 @@ pnpm manual:build      # 生成用户手册（web 构建时自动执行，产出
   部署前需在 GitLab CI/CD Variables 配置（`FL_` 前缀，缺少任一必填变量时构建会失败）：
   - `FL_DATABASE_URL`：Feedbackland 独立数据库连接串（如
     `postgres://postgres:<密码>@10.37.80.25:5432/feedbackland`）
-  - `FL_SUPABASE_URL`：自建 Supabase 网关地址（如 `http://10.37.80.25:8021`）
+  - `FL_SUPABASE_URL`：自建 Supabase 网关地址（如 `http://10.0.0.220:8021`）
   - `FL_SUPABASE_ANON_KEY`：anon key（公钥）
   - `FL_SUPABASE_SERVICE_ROLE_KEY`：服务端 service_role 密钥（机密）
   - `FL_OPENROUTER_API_KEY`（可选）：AI 洞察功能
 - 侧边栏 Feedbackland 按钮跳转地址为 `FEEDBACKLAND_URL` 常量
-  （`packages/drawnix/src/constants.ts`），当前指向 `http://10.37.80.25:8090`。
+  （`packages/drawnix/src/constants.ts`），当前指向 `http://10.0.0.220:8090`。
 - 首次部署前需在现有 Supabase 实例上做一次性数据准备：建 `feedbackland` 数据库 →
   执行 [`feedbackland/db/schema.sql`](./feedbackland/db/schema.sql) → 建 storage
   `images` 桶；并在 Supabase Auth 设置中关闭"邮箱确认"（Confirm email），否则注册后

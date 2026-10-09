@@ -4,7 +4,7 @@ set -e
 STORED=$(docker exec supabase-db psql -U supabase_admin -d postgres -t -A -c "select apikey from user_profiles where oa_account='chenkaidi'")
 STORED_RAW=${STORED#sk-}
 PW=$(docker exec supabase-db psql -U supabase_admin -d postgres -t -A -c "select newapi_password from user_profiles where oa_account='chenkaidi'")
-AT=$(curl -s -m10 -X POST http://10.37.80.25:3000/api/user/login \
+AT=$(curl -s -m10 -X POST http://10.0.0.220:3000/api/user/login \
   -H "Content-Type: application/json" \
   -d "{\"username\":\"chenkaidi\",\"password\":\"$PW\"}" | grep -o '"access_token":"[^"]*' | cut -d'"' -f4)
 

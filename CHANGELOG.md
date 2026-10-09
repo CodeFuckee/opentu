@@ -1,5 +1,45 @@
 ## Unreleased
 
+### fix: Supabase 宿主机 IP 迁移——10.37.80.25 → 10.0.0.220,活跃配置全量跟进（2026-10-09）
+
+内网宿主机整体换 IP(旧 IP 实测全端口失联,新 IP 8021/8088/8089/8090/3000 全部
+在线),更新活跃配置中的硬编码地址;历史文档/报告/openspec 中的旧 IP 属当时
+事实记录,不改。
+
+- **运行时默认值**:`apps/web/src/supabase/supabase-client.ts`(VITE_SUPABASE_URL
+  fallback)、`packages/drawnix/src/constants.ts` FEEDBACKLAND_URL;
+- **E2E**:`apps/web-e2e/playwright.config.ts` webServer 的 VITE_SUPABASE_URL
+  改为读 `E2E_SUPABASE_URL` 变量(默认新 IP),MANUAL_PROD_BASE_URL/
+  FEEDBACKLAND_BASE_URL 默认值跟进;`e2e.config.ts` 默认值跟进;
+- **CI**:production/preview/ops 三个 deploy 作业的 url 展示与 storage fetch
+  地址、注释;.gitlab-ci.yml 变量说明;
+- **脚本**:deploy-segment-server.sh / smoke-image-segmentation.sh /
+  cleanup-probe-tokens.sh;
+- **CSP**:`apps/web/vite.config.ts` dev×2 的 script-src 中 supabase origin;
+- **注意**:已部署的旧容器内烘焙的还是旧地址,待下次部署自然更新;越秀 runner
+  到新 IP 的连通性以流水线 test:e2e 实跑为准。
+
+### feat: 左侧边栏「智能抠图」入口——选中即抠，SAM 2.1 直达（2026-10-09）
+
+#41 抠图底层能力(编辑器内)之后补齐入口侧:左侧边栏新增「智能抠图」工具,
+选中画布单张图片点击即打开图片编辑器并**直落抠图模式**(免双击→编辑→手动切
+tab 三步),正/负点标注、悬停实时预览、羽化合成交互与编辑器内完全一致;确认后
+透明底 PNG 支持**插入画布/覆盖原图/下载**三选(覆盖走虚拟路径缓存+原位替换,
+可撤销链路与「编辑图片」保存链路同款)。
+
+- **入口行为**：未选中任何元素点击 → toast 提示并自动打开素材库引导；多选 →
+  提示只选一张；非图片/SVG → 明确提示不支持。
+- **素材库直达**：素材卡悬停新增「智能抠图」按钮(仅 IMAGE 类型非 SVG),
+  不经画布直接对素材发起抠图,确认后插入画布/下载。
+- **实现**：`ImageEditorCore` 新增 `initialMode` prop(默认 crop 行为不变);
+  新增 `smart-cutout-launcher`(模块级事件总线,解耦工具栏/素材库/编辑器三子树)+
+  `SmartCutoutHost`(画布上下文内订阅并托管编辑器与插入/覆盖接线)+
+  `resolve-cutout-target`(选中目标解析纯函数)+ `smart-cutout-persist`
+  (dataURL→虚拟路径缓存+自然尺寸)。老用户工具栏配置迁移特判:新按钮默认可见。
+- **测试**：vitest 24 例(目标解析边界 8/launcher 事件总线 6/initialMode 3/host
+  接线 7);E2E `smart-cutout-sidebar.spec` 3 例(P0 选中直落抠图→插入画布 +1;
+  P1 未选中引导素材库;P1 多选提示),推理服务 route mock 不依赖 GPU。
+
 ### feat: #41 智能抠图——点选目标一键抠透明底（服务端 SAM 2.1 GPU，2026-10-08）
 
 计划表 #41「选中元素 AI 操作菜单」的抠图底层能力先行落地：图片编辑器新增

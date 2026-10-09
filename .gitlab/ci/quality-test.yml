@@ -86,7 +86,8 @@ test:segment-server:
     - .venv/bin/python -m pytest tests/ -q
 
 # E2E 测试（Playwright，Playwright 官方镜像自带全部浏览器与系统依赖）
-# 需要访问内网 Supabase（10.37.80.25:8021）。yue-e2e 是 runner 22（越秀服务器，
+# 需要访问内网 Supabase（10.0.0.220:8021，2026-10 宿主机迁移自 10.37.80.25）。
+# yue-e2e 是 runner 22（越秀服务器，
 # shell executor，忽略 image）独有的标签，该 job 被钉死在这台机器上执行，
 # Playwright 系统依赖只需在这台宿主上装一次，换 runner 不会缺依赖。
 #

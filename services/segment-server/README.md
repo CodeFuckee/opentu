@@ -32,13 +32,13 @@ pip install fastapi uvicorn httpx pillow numpy pytest
 python -m pytest tests/ -q    # 20 例:契约校验/LRU+TTL/掩码编码/410 代数/降级路径
 ```
 
-## 部署（宿主机 10.37.80.25）
+## 部署（宿主机 10.0.0.220）
 
 ```bash
 # 仓库源码先同步到 /home/mdc/codes/segment-server/repo/services/
-ssh mdc@10.37.80.25 'bash -s' < scripts/deploy-segment-server.sh
+ssh mdc@10.0.0.220 'bash -s' < scripts/deploy-segment-server.sh
 # 全链路冒烟(真 JWT → edge function → GPU)
-ssh mdc@10.37.80.25 'bash -s' < scripts/smoke-image-segmentation.sh
+ssh mdc@10.0.0.220 'bash -s' < scripts/smoke-image-segmentation.sh
 ```
 
 镜像基底复用宿主机现成的 `davidamacey/opentranscribe-backend:v0.5.0`

@@ -2,7 +2,7 @@
 # image-segmentation edge function 全链路冒烟(真实 JWT + 真实 GPU 服务)
 set -euo pipefail
 
-SB=http://10.37.80.25:8021
+SB=http://10.0.0.220:8021
 ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg4MTAyMzUyLCJleHAiOjIxMDM0NjIzNTJ9.nQP_hdmnIbCgVfsxlq6TTuRo_FKVYdrRaIDmKViiEBc'
 FN=${SB}/functions/v1/image-segmentation
 
