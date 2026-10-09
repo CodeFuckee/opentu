@@ -11,6 +11,7 @@ import {
   countTemplates,
   listTemplates,
   listTemplateCategories,
+  normalizeTemplateCoverUrl,
   recordTemplateUsage,
 } from './template-service';
 
@@ -171,5 +172,73 @@ describe('template-service 查询形态', () => {
     const { client } = makeClient([], { message: 'rls denied' });
     configureTemplateGallery({ client: client as never });
     await expect(listTemplates()).rejects.toThrow(/模板查询失败: rls denied/);
+  });
+});
+
+describe('模板封面 URL 归一化(2026-10 宿主机迁移,存量 cover_public_url 指向已失联旧网关)', () => {
+  const CURRENT_BASE = 'http://10.0.0.220:8021';
+  const LEGACY_COVER =
+    'http://10.37.80.25:8021/storage/v1/object/public/images/templates/jzxz/abc-cover.jpg';
+  const CURRENT_COVER =
+    'http://10.0.0.220:8021/storage/v1/object/public/images/templates/jzxz/abc-cover.jpg';
+
+  beforeEach(() => {
+    configureTemplateGallery(null);
+  });
+
+  it('旧网关绝对直链改写为当前网关,路径原样保留', () => {
+    expect(normalizeTemplateCoverUrl(LEGACY_COVER, CURRENT_BASE)).toBe(
+      CURRENT_COVER
+    );
+  });
+
+  it('已是当前网关的 URL 原样返回(幂等)', () => {
+    expect(normalizeTemplateCoverUrl(CURRENT_COVER, CURRENT_BASE)).toBe(
+      CURRENT_COVER
+    );
+  });
+
+  it('非 supabase storage 形态的外部图床 URL 不改写', () => {
+    const external = 'https://image-assets.soutushenqi.com/acg/x.jpg';
+    expect(normalizeTemplateCoverUrl(external, CURRENT_BASE)).toBe(external);
+  });
+
+  it('末尾带查询串的 storage URL 改写 origin 后保留查询串', () => {
+    expect(
+      normalizeTemplateCoverUrl(
+        'http://10.37.80.25:8021/storage/v1/object/public/images/a.png?width=300',
+        CURRENT_BASE
+      )
+    ).toBe(`${CURRENT_BASE}/storage/v1/object/public/images/a.png?width=300`);
+  });
+
+  it('null / 空串 / 未配置 supabaseUrl 时安全返回原值', () => {
+    expect(normalizeTemplateCoverUrl(null, CURRENT_BASE)).toBeNull();
+    expect(normalizeTemplateCoverUrl('', CURRENT_BASE)).toBe('');
+    expect(normalizeTemplateCoverUrl(LEGACY_COVER, undefined)).toBe(
+      LEGACY_COVER
+    );
+  });
+
+  it('listTemplates:映射行时对 cover_public_url 应用归一化', async () => {
+    const { client } = makeClient([
+      {
+        id: 't1',
+        title: '封面指向旧网关的模板',
+        cover_public_url: LEGACY_COVER,
+      },
+      {
+        id: 't2',
+        title: '无封面模板',
+        cover_public_url: null,
+      },
+    ]);
+    configureTemplateGallery({
+      client: client as never,
+      supabaseUrl: CURRENT_BASE,
+    });
+    const rows = await listTemplates();
+    expect(rows[0].cover_public_url).toBe(CURRENT_COVER);
+    expect(rows[1].cover_public_url).toBeNull();
   });
 });

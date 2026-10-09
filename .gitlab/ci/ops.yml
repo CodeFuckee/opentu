@@ -23,7 +23,7 @@ feedbackland:redeploy:
   timeout: 2 hours
   environment:
     name: feedbackland
-    url: http://10.0.0.220:8090
+    url: http://10.37.80.25:8090
   rules:
     # 仅 main 分支的 push 流水线提供手动运维入口；
     # 流水线 B（web/api 手动发版）不出现本作业，发布流程照旧全量部署 Feedbackland
@@ -155,7 +155,7 @@ feedbackland:redeploy:
     - |
       if [ -n "${FL_SUPABASE_SERVICE_ROLE_KEY}" ]; then
         docker exec -e SR="${FL_SUPABASE_SERVICE_ROLE_KEY}" feedbackland node -e "
-          fetch('http://10.0.0.220:8021/storage/v1/bucket', {
+          fetch('http://10.37.80.25:8021/storage/v1/bucket', {
             method: 'POST',
             headers: { Authorization: 'Bearer ' + process.env.SR, 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: 'images', public: true })
@@ -186,4 +186,4 @@ feedbackland:redeploy:
         exit 1
       fi
       echo "Feedbackland 可访问 ✓"
-    - 'echo "Feedbackland 重新部署完成：http://10.0.0.220:8090"'
+    - 'echo "Feedbackland 重新部署完成：http://10.37.80.25:8090"'

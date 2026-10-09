@@ -27,7 +27,7 @@
 # 变量会构建失败——这是有意的）：
 #   FL_DATABASE_URL            Feedbackland 独立数据库连接串
 #                             （如 postgres://postgres:<密码>@10.37.80.25:5432/feedbackland）
-#   FL_SUPABASE_URL            自建 Supabase 网关地址（默认 http://10.0.0.220:8021）
+#   FL_SUPABASE_URL            自建 Supabase 网关地址（生产默认 http://10.37.80.25:8021）
 #   FL_SUPABASE_ANON_KEY       anon key（公钥，build 期内联）
 #   FL_SUPABASE_SERVICE_ROLE_KEY  service_role 密钥（机密，仅容器运行期使用）
 #   FL_OPENROUTER_API_KEY      可选，Feedbackland AI 洞察功能

@@ -4,6 +4,12 @@ WORKDIR /builder
 
 COPY . /builder
 
+# 前端 Supabase 网关为构建期内联(导入期常量)。缺省不传 → 使用仓库内 fallback
+# (生产地址 10.37.80.25);预览等开发环境部署时用
+# --build-arg VITE_SUPABASE_URL=http://10.0.0.220:8021 注入开发网关
+ARG VITE_SUPABASE_URL
+ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
+
 RUN corepack enable pnpm \
     && pnpm install --frozen-lockfile \
     # docker 镜像自托管部署：入口资源保持同源（不开 CDN 改写），否则

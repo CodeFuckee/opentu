@@ -44,7 +44,10 @@ deploy:preview:
 
     # 从当前 main 提交构建预览镜像（镜像名独立于生产 yue-huabu:*，不会覆盖
     # 生产正在使用的 latest 标签）
-    - docker build -t "${PREVIEW_IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}" -t "${PREVIEW_IMAGE_NAME}:latest" .
+    # 预览面向开发网络:注入开发网关地址(生产镜像不传参,用仓库 fallback 生产地址)
+    - docker build
+      --build-arg VITE_SUPABASE_URL=http://10.0.0.220:8021
+      -t "${PREVIEW_IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}" -t "${PREVIEW_IMAGE_NAME}:latest" .
 
     # 释放 8089 端口：仅删除预览同名容器 + 发布到 8089 端口的容器；
     # publish 过滤范围不含 8088（生产）/ 8090（Feedbackland），绝不误删

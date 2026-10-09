@@ -112,12 +112,12 @@ pnpm manual:build      # 生成用户手册（web 构建时自动执行，产出
   部署前需在 GitLab CI/CD Variables 配置（`FL_` 前缀，缺少任一必填变量时构建会失败）：
   - `FL_DATABASE_URL`：Feedbackland 独立数据库连接串（如
     `postgres://postgres:<密码>@10.37.80.25:5432/feedbackland`）
-  - `FL_SUPABASE_URL`：自建 Supabase 网关地址（如 `http://10.0.0.220:8021`）
+  - `FL_SUPABASE_URL`：自建 Supabase 网关地址（生产如 `http://10.37.80.25:8021`）
   - `FL_SUPABASE_ANON_KEY`：anon key（公钥）
   - `FL_SUPABASE_SERVICE_ROLE_KEY`：服务端 service_role 密钥（机密）
   - `FL_OPENROUTER_API_KEY`（可选）：AI 洞察功能
 - 侧边栏 Feedbackland 按钮跳转地址为 `FEEDBACKLAND_URL` 常量
-  （`packages/drawnix/src/constants.ts`），当前指向 `http://10.0.0.220:8090`。
+  （`packages/drawnix/src/constants.ts`），当前指向 `http://10.37.80.25:8090`。
 - 首次部署前需在现有 Supabase 实例上做一次性数据准备：建 `feedbackland` 数据库 →
   执行 [`feedbackland/db/schema.sql`](./feedbackland/db/schema.sql) → 建 storage
   `images` 桶；并在 Supabase Auth 设置中关闭"邮箱确认"（Confirm email），否则注册后

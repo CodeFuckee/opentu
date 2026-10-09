@@ -1,16 +1,38 @@
 ## Unreleased
 
-### fix: Supabase 宿主机 IP 迁移——10.37.80.25 → 10.0.0.220,活跃配置全量跟进（2026-10-09）
+### fix: AI 模板封面全部失联——存量绝对直链重写到当前网关（2026-10-09）
 
-内网宿主机整体换 IP(旧 IP 实测全端口失联,新 IP 8021/8088/8089/8090/3000 全部
-在线),更新活跃配置中的硬编码地址;历史文档/报告/openspec 中的旧 IP 属当时
-事实记录,不改。
+宿主机迁移后 AI 模板对话框 1334 行模板封面全部不显示:`ai_templates.cover_public_url`
+由 template-crawler 以宿主机当时网关(`SUPABASE_PUBLIC_URL`)拼**绝对地址**入库,
+全部指向已失联的开发旧网关;桶文件本身随迁移完好(新网关直链 200 实测)。
 
-- **运行时默认值**:`apps/web/src/supabase/supabase-client.ts`(VITE_SUPABASE_URL
-  fallback)、`packages/drawnix/src/constants.ts` FEEDBACKLAND_URL;
-- **E2E**:`apps/web-e2e/playwright.config.ts` webServer 的 VITE_SUPABASE_URL
-  改为读 `E2E_SUPABASE_URL` 变量(默认新 IP),MANUAL_PROD_BASE_URL/
-  FEEDBACKLAND_BASE_URL 默认值跟进;`e2e.config.ts` 默认值跟进;
+- **修复(方案 A,前端归一化)**:`template-service.ts` 新增
+  `normalizeTemplateCoverUrl`——凡命中 `/storage/v1/object/public/` 形态的封面
+  直链,origin 统一重写到当前运行环境配置的网关(路径/查询串保留);listTemplates
+  映射时应用,详情/列表全部消费点一并生效。开发环境(新网关)与生产环境(旧
+  网关)各自归一到各自可达地址,未来再迁移也自愈;外部图床(base_images 等)
+  不含标记,不受影响。
+- **测试**:template-service.test.ts 新增 6 例(旧→新改写/幂等/外部域名不动/
+  查询串保留/null 与未配置安全/listTemplates 映射),先红后绿。
+- **遗留(宿主机侧,用户自行处理)**:template-crawler 的 `SUPABASE_PUBLIC_URL`
+  env 若仍指旧网关,下轮爬取会继续写入坏行(前端归一化可兜底展示,但数据层
+  建议同步更新)。
+
+### fix: Supabase 网关分环境——开发迁 10.0.0.220,生产保持 10.37.80.25（2026-10-09,当日两轮修正）
+
+**环境事实(用户确认)**:仅开发环境迁移到 10.0.0.220;生产环境继续走
+10.37.80.25(双网络可达)。首轮改动误把运行时 fallback 全量切到新 IP——
+生产镜像为干净仓库直接 docker build,fallback 即生产烘焙值,再部署会把开发
+网关带进生产包;当日回滚修正。
+
+- **运行时默认值 = 生产地址(10.37.80.25)**:`supabase-client.ts` fallback 与
+  FEEDBACKLAND_URL 当日误切新 IP,已回滚;开发环境走 `apps/web/.env.local`
+  (gitignored)注入,不入库。
+- **构建参数化**:Dockerfile 新增 `ARG VITE_SUPABASE_URL`(缺省不传=生产地址);
+  preview 部署构建 `--build-arg` 注入开发网关,实现预览=开发 IP、生产=生产 IP。
+- **E2E(面向开发网关,默认新 IP)**:`playwright.config.ts` webServer 的
+  VITE_SUPABASE_URL 改读 `E2E_SUPABASE_URL` 变量;`e2e.config.ts` 默认值跟进;
+  MANUAL_PROD_BASE_URL/FEEDBACKLAND_BASE_URL(生产面)保持旧 IP。
 - **CI**:production/preview/ops 三个 deploy 作业的 url 展示与 storage fetch
   地址、注释;.gitlab-ci.yml 变量说明;
 - **脚本**:deploy-segment-server.sh / smoke-image-segmentation.sh /

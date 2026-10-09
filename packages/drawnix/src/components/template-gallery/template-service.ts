@@ -44,6 +44,25 @@ function requireClient() {
   return config.client;
 }
 
+/** supabase storage 公开直链的路径标记:命中即视为本自建 supabase 的直链 */
+const STORAGE_PUBLIC_MARKER = '/storage/v1/object/public/';
+
+/**
+ * 封面直链归一化:把 supabase storage 形态绝对 URL 的 origin 重写到当前网关。
+ * 背景:ai_templates.cover_public_url 由爬虫以宿主机当时的网关地址拼绝对 URL
+ * 入库(2026-10-09 宿主机迁移 10.37.80.25→10.0.0.220 后存量行全部失联);
+ * 展示层重写让存量行与未来网关变更都自愈。外部图床(不含该路径标记)原样返回。
+ */
+export function normalizeTemplateCoverUrl(
+  url: string | null | undefined,
+  currentBaseUrl: string | undefined
+): string | null | undefined {
+  if (!url || !currentBaseUrl) return url;
+  const markerIndex = url.indexOf(STORAGE_PUBLIC_MARKER);
+  if (markerIndex === -1) return url;
+  return `${currentBaseUrl.replace(/\/$/, '')}${url.slice(markerIndex)}`;
+}
+
 /** 分页查询 active 模板 */
 export async function listTemplates(
   query: TemplateQuery = {}
@@ -90,7 +109,16 @@ export async function listTemplates(
   if (error) {
     throw new Error(`模板查询失败: ${error.message}`);
   }
-  return (data ?? []) as AiTemplate[];
+  // 存量行的封面是爬虫以历史网关拼的绝对直链,宿主机迁移后失联——
+  // 展示层统一重写到当前网关(仅命中 supabase storage 公开直链形态)
+  const { supabaseUrl } = getTemplateGalleryConfig() ?? {};
+  return (data ?? []).map((row) => ({
+    ...(row as AiTemplate),
+    cover_public_url: normalizeTemplateCoverUrl(
+      (row as AiTemplate).cover_public_url,
+      supabaseUrl
+    ),
+  })) as AiTemplate[];
 }
 
 /** 窗口内去重的分类列表（供分类 tab 渲染） */
