@@ -14,6 +14,12 @@
 
 ## 〇、更新记录
 
+- **2026-10-09:#71/#79/#80 整合升格为 P0 专项「工作流编排系统」,技术方案已出**:
+  节点画布选型 React Flow(@xyflow/react,用户拍板),M1 生图链路最小闭环
+  (3 类 8 种节点),入口为工具箱 WinBox,M1 立即启动。技术方案见
+  openspec/changes/add-node-workflow-orchestrator/(proposal/design/tasks/spec);
+  底座盘点:workflow-engine 已 DAG 就绪(dependsOn 调度/MCP 工具调用/事件流),
+  缺的是节点画布与「图→步骤」编译层。#80 并入 M2、#79 并入 M3。
 - **2026-10-09:#41 抠图双入口全链路上线** 🚧(菜单壳与其余项仍待开发):
   2026-10-08 服务端 SAM 2.1 推理服务 segment-server(GPU fp32+CUDA OOM 降级,
   pytest 20 例)+ 图片编辑器「抠图」模式(正负点/悬停实时预览/羽化合成,
@@ -221,7 +227,7 @@
 
 | # | 新功能 | 借鉴来源 | 说明与落地 | 优先级 | 工作量 | 感知 |
 |---|---|---|---|---|---|---|
-| 71 | 节点式生图流水线编辑器 | [ComfyUI](https://github.com/comfyanonymous/ComfyUI) / [Dify](https://dify.ai) | 工作流引擎已有执行内核,补画布节点编排 UI(拖节点连线) | P1 | L | ★★ |
+| 71 | 🚧 专项「工作流编排系统」M1:节点画布 MVP | [ComfyUI](https://github.com/comfyanonymous/ComfyUI) / [Dify](https://dify.ai) | React Flow 画布 + 3 类 8 种节点(输入/生图/输出)+ 图→步骤编译器,复用 workflow-engine DAG 内核;**P0,M1 立即启动**;方案 openspec/changes/add-node-workflow-orchestrator | P0 | L | ★★→★★★ |
 | 72 | 画布 Agent(对话式操作) | [tldraw](https://tldraw.com) Agent / [AFFiNE](https://affine.pro) | "把这组图排九宫格/全部放大 2x/换风格重出"→工具调用,initTool 通道已有 | P1 | L | ★★★ |
 | 73 | MCP 服务端(画布暴露给外部 Agent) | [Excalidraw-MCP](https://github.com/nicholaschenai/excalidraw-mcp) | 本项目已是 MCP 客户端,反向暴露"读画布/插元素/跑生成"工具 | P1 | M | ★ |
 | 74 | 成本/余额感知自动路由 | [OpenRouter](https://openrouter.ai) / [OneAPI](https://github.com/songquanpeng/one-api) | fallback 链按价目(tu-zi 已接)与余额自动排序切换 | P1 | S | ★ |
@@ -229,8 +235,8 @@
 | 76 | 生成参数快照(PNG 内嵌+拖回复现) | ComfyUI metadata / [Midjourney](https://www.midjourney.com) | 出图参数写 PNG 元数据,拖回画布一键复现/改参重跑 | P1 | S | ★★★ |
 | 77 | Webhook 入口(企业 OA 触发生成) | [Zapier](https://zapier.com) / n8n | 服务端接 webhook→建任务→钉钉回执,内网 OA 集成 | P2 | M | ★ |
 | 78 | 失败任务智能诊断与自愈建议 | dev-monitor 已有归因 | 失败时给用户可读原因+一键切换模型重试 | P2 | M | ★★★ |
-| 79 | 工作流市场(流水线模板) | [Dify](https://dify.ai) 工作流市场 | 节点流水线(71)做成模板分发,复用模板中心 | P2 | M | ★★ |
-| 80 | 多任务编排视图(依赖 DAG) | Airflow 轻量版 | 任务队列可视化依赖与批进度(批量插入已有 batchId) | P2 | M | ★ |
+| 79 | 专项「工作流编排系统」M3:工作流市场 | [Dify](https://dify.ai) 工作流市场 | 节点图 JSON 导出/导入 + 发布到模板中心一键实例化;随编排系统 M3 落地 | P2 | M | ★★ |
+| 80 | 专项「工作流编排系统」M2:任务 DAG 视图 | Airflow 轻量版 | 任务队列依赖/批进度只读可视化(复用 React Flow 与编排节点样式);随编排系统 M2 落地 | P2 | M | ★ |
 
 ### I. 知识库、RAG 与文档智能(依托:KB notes/素材库/归档桶/#61 向量底座)
 
