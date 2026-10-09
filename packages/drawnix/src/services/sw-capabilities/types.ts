@@ -10,6 +10,7 @@ import type { ModelRef } from '../../utils/settings-manager';
  */
 export type DelegatedOperationType =
   | 'canvas_insert'
+  | 'insert_images'
   | 'insert_mermaid'
   | 'insert_mindmap'
   | 'insert_svg'

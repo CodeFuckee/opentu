@@ -26,6 +26,7 @@ import type {
   AudioGenerationParams,
 } from './types';
 import { insertImageFromUrl } from '../../data/image';
+import type { InsertionItem } from '../../services/canvas-operations/canvas-insertion';
 import {
   ensureGeneratedMediaArchive,
   GENERATED_ARCHIVE_WAIT_MS,
@@ -71,6 +72,7 @@ export class SWCapabilitiesHandler {
         return this.handleCanvasInsert(args as unknown as CanvasInsertParams);
 
       case 'insert_to_canvas':
+      case 'insert_images':
         return this.handleInsertToCanvas(args as unknown as CanvasInsertParams);
 
       case 'insert_mermaid':
@@ -195,7 +197,17 @@ export class SWCapabilitiesHandler {
       return { success: false, error: '画布未初始化', type: 'error' };
     }
 
-    const { items, startPoint, verticalGap = 50 } = params;
+    // urls 简写(编排器 insert_images 步骤):字符串数组展开为图片 items
+    const rawUrls = (params as unknown as Record<string, unknown>).urls;
+    const normalizedItems: InsertionItem[] | typeof params.items =
+      !params.items && Array.isArray(rawUrls)
+        ? (rawUrls as string[]).map(
+            (u) => ({ type: 'image', content: u }) as InsertionItem
+          )
+        : params.items;
+    const items = normalizedItems;
+    const startPoint = params.startPoint;
+    const verticalGap = params.verticalGap ?? 50;
 
     if (!items || items.length === 0) {
       return { success: false, error: '没有要插入的内容', type: 'error' };
@@ -322,7 +334,18 @@ export class SWCapabilitiesHandler {
       return { success: false, error: '画布未初始化', type: 'error' };
     }
 
-    const { items, startPoint, verticalGap = 50, horizontalGap = 20 } = params;
+    // urls 简写(编排器 insert_images 步骤):字符串数组展开为图片 items
+    const rawUrls = (params as unknown as Record<string, unknown>).urls;
+    const normalizedItems: InsertionItem[] | typeof params.items =
+      !params.items && Array.isArray(rawUrls)
+        ? (rawUrls as string[]).map(
+            (u) => ({ type: 'image', content: u }) as InsertionItem
+          )
+        : params.items;
+    const items = normalizedItems;
+    const startPoint = params.startPoint;
+    const verticalGap = params.verticalGap ?? 50;
+    const horizontalGap = params.horizontalGap ?? 20;
 
     if (!items || items.length === 0) {
       return { success: false, error: '没有要插入的内容', type: 'error' };

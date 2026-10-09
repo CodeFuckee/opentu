@@ -1,5 +1,27 @@
 ## Unreleased
 
+### feat: 工作流编排系统 M1——节点画布 + DAG 执行 + 生图闭环(计划表 #71/#79/#80 专项,2026-10-09)
+
+计划表 #71/#79/#80 整合升格为 P0 专项「工作流编排系统」,M1 已实现:工具箱新增
+「工作流编排」工具(React Flow 节点画布,WinBox 承载),3 类 8 种节点
+(提示词/参考图/模型参数/文生图/基于图生成/插入画布/存素材库/预览)拖拽连线
+编排"提示词/参考图 → 生图 → 落地"流程,DAG 并行执行、节点运行态染色、失败
+节点错误展示,图 JSON 版本化保存/打开。
+
+- **复用底座**:workflow-engine(依赖调度/任务轮询/abort/事件流)+ MCP 工具
+  通道(insert_to_canvas 等)+ 云同步 workflow 通道(图同步转 M2)——零新执行面
+- **新增**:graph-schema(版本化图模型)/ graph-compiler(图→WorkflowStep[] 编译:
+  环检测、端口类型校验、静态内联 + `{{stepId.field}}` 运行时占位符)/
+  graph-storage(IndexedDB 版本化存取)/ components/workflow-orchestrator
+  (React Flow 画布、节点组件、参数面板)
+- **引擎扩展**:`resolveStepArgs` 运行时占位符解析(整串数组替换/嵌入式插值/
+  数组摊平,未知引用保留)+ `archive_media` 步骤(生成图归档 ai-outputs 公开桶);
+  sw-capabilities 新增 `insert_images` 操作(urls 简写展开为图片条目)
+- **测试**:vitest 28 例(编译器 12/引擎占位符 5/存取 6/组件冒烟 3/抠图时序 2);
+  E2E workflow-orchestrator.spec 2 例(搭图保存刷新恢复/空图运行提示)
+- **新依赖**:`@xyflow/react`(React Flow 12,MIT,npm lockfile 内网分发)
+
+
 ### fix: AI 模板封面全部失联——存量绝对直链重写到当前网关（2026-10-09）
 
 宿主机迁移后 AI 模板对话框 1334 行模板封面全部不显示:`ai_templates.cover_public_url`

@@ -227,7 +227,7 @@
 
 | # | 新功能 | 借鉴来源 | 说明与落地 | 优先级 | 工作量 | 感知 |
 |---|---|---|---|---|---|---|
-| 71 | 🚧 专项「工作流编排系统」M1:节点画布 MVP | [ComfyUI](https://github.com/comfyanonymous/ComfyUI) / [Dify](https://dify.ai) | React Flow 画布 + 3 类 8 种节点(输入/生图/输出)+ 图→步骤编译器,复用 workflow-engine DAG 内核;**P0,M1 立即启动**;方案 openspec/changes/add-node-workflow-orchestrator | P0 | L | ★★→★★★ |
+| 71 | 🚧 专项「工作流编排系统」M1 已实现(2026-10-09,待过目合入):React Flow 画布+3 类 8 种节点+DAG 执行+保存/恢复;M2 分支/变量/#80 DAG 视图、M3 #79 市场 | [ComfyUI](https://github.com/comfyanonymous/ComfyUI) / [Dify](https://dify.ai) | React Flow 画布 + 3 类 8 种节点(输入/生图/输出)+ 图→步骤编译器,复用 workflow-engine DAG 内核;**P0,M1 立即启动**;方案 openspec/changes/add-node-workflow-orchestrator | P0 | L | ★★→★★★ |
 | 72 | 画布 Agent(对话式操作) | [tldraw](https://tldraw.com) Agent / [AFFiNE](https://affine.pro) | "把这组图排九宫格/全部放大 2x/换风格重出"→工具调用,initTool 通道已有 | P1 | L | ★★★ |
 | 73 | MCP 服务端(画布暴露给外部 Agent) | [Excalidraw-MCP](https://github.com/nicholaschenai/excalidraw-mcp) | 本项目已是 MCP 客户端,反向暴露"读画布/插元素/跑生成"工具 | P1 | M | ★ |
 | 74 | 成本/余额感知自动路由 | [OpenRouter](https://openrouter.ai) / [OneAPI](https://github.com/songquanpeng/one-api) | fallback 链按价目(tu-zi 已接)与余额自动排序切换 | P1 | S | ★ |

@@ -119,8 +119,11 @@ describe('ImageEditorCore initialMode', () => {
     render(<ImageEditorCore imageUrl={DATA_URL} initialMode="cutout" />);
     // 图片未加载时 enabled 必须为 false(否则 encode 空跑且不重试——#3655 回归)
     expect(controllerCalls[0]).toBe(false);
-    await new Promise((r) => setTimeout(r, 10));
-    // 图片 onload 后 enabled 变 true,触发自动编码
+    // 图片 onload 后 enabled 变 true,触发自动编码(轮询等待,容忍负载时序)
+    const deadline = Date.now() + 1000;
+    while (Date.now() < deadline && !controllerCalls.includes(true)) {
+      await new Promise((r) => setTimeout(r, 25));
+    }
     expect(controllerCalls).toContain(true);
     expect(controllerCalls[controllerCalls.length - 1]).toBe(true);
     restore();

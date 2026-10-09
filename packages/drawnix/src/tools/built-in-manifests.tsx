@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Workflow,
   DiscAlbum,
   Film,
   Images,
@@ -66,6 +67,17 @@ export const BUILT_IN_TOOL_MANIFESTS: ToolDefinition[] = [
     },
     defaultWidth: 680,
     defaultHeight: 700,
+  },
+  {
+    id: 'workflow-orchestrator',
+    name: '工作流编排',
+    description: '节点画布编排 AI 生成流程:提示词/参考图 → 生图 → 存素材库/插入画布,一次搭建反复复用',
+    icon: <Workflow size={18} strokeWidth={1.75} />,
+    category: ToolCategory.AI_TOOLS,
+    component: 'workflow-orchestrator',
+    supportsMultipleWindows: true,
+    defaultWidth: 1200,
+    defaultHeight: 800,
   },
   {
     id: 'batch-image',

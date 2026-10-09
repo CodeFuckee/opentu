@@ -8,6 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { resolveStepArgs } from '../workflow-engine/engine';
 import type {
   Workflow,
   WorkflowStep,
@@ -418,5 +419,67 @@ describe('WorkflowEngine Module', () => {
       const result = engine.getWorkflow('non-existent-id');
       expect(result).toBeUndefined();
     });
+  });
+});
+
+// ============================================================================
+// 编排器数据边:运行时占位符解析(resolveStepArgs)
+// ============================================================================
+
+
+describe('resolveStepArgs(编排器运行时占位符)', () => {
+  const workflow = {
+    steps: [
+      {
+        id: 'gen1',
+        mcp: 'generate_image',
+        args: {},
+        description: '',
+        status: 'completed' as const,
+        result: { urls: ['http://a/1.png', 'http://a/2.png'], taskId: 't1' },
+      },
+    ],
+  } as unknown as Workflow;
+
+  it('整串 {{id.urls}} 占位符替换为上游数组', () => {
+    const resolved = resolveStepArgs(
+      { urls: '{{gen1.urls}}' },
+      workflow
+    );
+    expect(resolved.urls).toEqual(['http://a/1.png', 'http://a/2.png']);
+  });
+
+  it('整串 {{id.url}} 缺失时回退语义由 {{id}} 简写承担', () => {
+    const resolved = resolveStepArgs({ u: '{{gen1.url}}' }, workflow);
+    // 上游无 url 字段 → 保留原样(由工具参数校验报错)
+    expect(resolved.u).toBe('{{gen1.url}}');
+    const primary = resolveStepArgs({ u: '{{gen1}}' }, workflow);
+    // 简写取 urls[0]
+    expect(primary.u).toBe('http://a/1.png');
+  });
+
+  it('嵌入式占位符做字符串插值', () => {
+    const resolved = resolveStepArgs(
+      { prompt: '风格A {{gen1.url}} 风格B' },
+      { ...workflow, steps: [{ ...workflow.steps[0], result: { url: 'http://x/f.png' } }] } as unknown as Workflow
+    );
+    expect(resolved.prompt).toBe('风格A http://x/f.png 风格B');
+  });
+
+  it('深嵌套对象与数组内的占位符都解析', () => {
+    const resolved = resolveStepArgs(
+      { nested: { list: ['{{gen1.urls}}'], tag: '{{gen1.taskId}}' } },
+      workflow
+    );
+    expect(resolved.nested.list).toEqual(['http://a/1.png', 'http://a/2.png']);
+    expect(resolved.nested.tag).toBe('t1');
+  });
+
+  it('未知引用保留原样不抛错', () => {
+    const resolved = resolveStepArgs(
+      { u: '{{ghost.urls}}' },
+      workflow
+    );
+    expect(resolved.u).toBe('{{ghost.urls}}');
   });
 });

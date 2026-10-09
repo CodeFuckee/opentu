@@ -307,6 +307,10 @@ export class WorkflowEngine {
   ): Promise<void> {
     const startTime = Date.now();
 
+    // 运行时占位符解析(编排器数据边):args 中的 `{{stepId.field}}` 在此从上游
+    // step.result 取值——compileGraph 静态内联不了的运行期数据(生成图 URL 等)
+    step.args = resolveStepArgs(step.args, workflow);
+
     // 更新步骤状态为 running
     step.status = 'running';
     workflow.updatedAt = Date.now();
@@ -607,6 +611,25 @@ export class WorkflowEngine {
       case 'generate_grid_image':
       case 'generate_inspiration_board':
       case 'generate_ppt':
+      case 'archive_media': {
+        // 编排器「存素材库」:把上游生成图归档到 ai-outputs 公开桶(直链可达、
+        // 素材库/归档体系可见),失败时保留原 URL 兜底
+        const urls = (step.args.urls as string[]) || [];
+        const { ensureGeneratedMediaArchive } = await import(
+          '../task-supabase-archive/service'
+        );
+        const entries = await ensureGeneratedMediaArchive(
+          null,
+          urls,
+          60_000
+        ).catch(() => null);
+        const publicUrls = (entries ?? [])
+          .map((e) => e.publicUrl)
+          .filter((u): u is string => !!u);
+        step.result = { urls: publicUrls.length > 0 ? publicUrls : urls };
+        break;
+      }
+
       case 'split_image':
       case 'generate_long_video':
       case 'insert_mermaid':
@@ -661,3 +684,58 @@ export class WorkflowEngine {
 
 // Re-export createWorkflow from workflow-factory
 export { createWorkflow } from './workflow-factory';
+
+/**
+ * 解析 args 中的 `{{stepId.field}}` 运行时占位符(编排器数据边)。
+ *
+ * 规则:
+ * - 整串占位符(如 urls 字段为 `"{{gen1.urls}}"`)→ 用上游字段值整体替换
+ *   (数组/字符串原类型),支持 `{{id}}` 简写(取 url || urls[0] || content);
+ * - 嵌入式占位符(如 `"前缀{{gen1.url}}后缀"`)→ 字符串插值;
+ * - 未知引用/上游未完成 → 保留原样(由工具自身的参数校验报错)。
+ */
+export function resolveStepArgs<T>(args: T, workflow: Workflow): T {
+  const findResult = (stepId: string): Record<string, unknown> | undefined => {
+    const upstream = workflow.steps.find((s) => s.id === stepId);
+    return upstream?.result as Record<string, unknown> | undefined;
+  };
+
+  const readField = (result: Record<string, unknown>, field?: string): unknown => {
+    if (!field) {
+      return (result.url as string) || (result.urls as string[])?.[0] || result.content;
+    }
+    return result[field];
+  };
+
+  const resolveString = (text: string): unknown => {
+    const whole = text.match(/^\{\{([^}.]+)(?:\.([a-zA-Z_]+))?\}\}$/);
+    if (whole) {
+      const result = findResult(whole[1]);
+      if (!result) return text;
+      const value = readField(result, whole[2]);
+      return value === undefined ? text : value;
+    }
+    return text.replace(/\{\{([^}.]+)(?:\.([a-zA-Z_]+))?\}\}/g, (_, id: string, field?: string) => {
+      const result = findResult(id);
+      if (!result) return _;
+      const value = readField(result, field);
+      return value === undefined ? _ : String(value);
+    });
+  };
+
+  const walk = (value: unknown): unknown => {
+    if (typeof value === 'string') return resolveString(value);
+    if (Array.isArray(value)) {
+      // 数组元素的整串数组占位符摊平一层:['{{gen.urls}}'] → [url, url, ...]
+      return value.map(walk).flat();
+    }
+    if (value && typeof value === 'object') {
+      const out: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(value)) out[k] = walk(v);
+      return out;
+    }
+    return value;
+  };
+
+  return walk(args) as T;
+}

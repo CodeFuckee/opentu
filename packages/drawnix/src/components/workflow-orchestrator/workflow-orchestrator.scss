@@ -1,0 +1,370 @@
+/**
+ * 工作流编排工具样式(WinBox 内容区)
+ */
+
+.wf-orch-tool {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--aitu-ui-surface, #f8fafc);
+  color: var(--aitu-ui-text-primary, #1e293b);
+  font-size: 13px;
+}
+
+.wf-orch-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--aitu-ui-border, #e2e8f0);
+  background: var(--aitu-ui-surface-elevated, #ffffff);
+  flex-wrap: wrap;
+
+  &__name {
+    width: 180px;
+    padding: 5px 8px;
+    border: 1px solid var(--aitu-ui-border, #e2e8f0);
+    border-radius: 6px;
+    background: var(--aitu-ui-surface, #ffffff);
+    color: inherit;
+    outline: none;
+
+    &:focus {
+      border-color: var(--aitu-ui-brand-text, #b45309);
+    }
+  }
+
+  &__group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+}
+
+.wf-orch-btn {
+  padding: 5px 12px;
+  border: 1px solid var(--aitu-ui-border, #e2e8f0);
+  border-radius: 6px;
+  background: var(--aitu-ui-surface, #ffffff);
+  color: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+
+  &:hover:not(:disabled) {
+    border-color: var(--aitu-ui-brand-text, #b45309);
+    color: var(--aitu-ui-brand-text, #b45309);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &--run {
+    background: var(--aitu-ui-brand-text, #b45309);
+    border-color: var(--aitu-ui-brand-text, #b45309);
+    color: #ffffff;
+
+    &:hover:not(:disabled) {
+      background: #92400e;
+      color: #ffffff;
+    }
+  }
+
+  &--stop {
+    background: #dc2626;
+    border-color: #dc2626;
+    color: #ffffff;
+
+    &:hover:not(:disabled) {
+      background: #b91c1c;
+      color: #ffffff;
+    }
+  }
+}
+
+.wf-orch-addwrap {
+  position: relative;
+}
+
+.wf-orch-addmenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  min-width: 140px;
+  padding: 4px;
+  border: 1px solid var(--aitu-ui-border, #e2e8f0);
+  border-radius: 8px;
+  background: var(--aitu-ui-surface-elevated, #ffffff);
+  box-shadow: var(--aitu-ui-shadow-hover, 0 8px 20px rgba(15, 23, 42, 0.12));
+
+  &__item {
+    display: block;
+    width: 100%;
+    padding: 6px 10px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover {
+      background: rgba(180, 83, 9, 0.08);
+    }
+  }
+}
+
+.wf-orch-canvas {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+
+  .react-flow {
+    background: var(--aitu-ui-surface, #f8fafc);
+  }
+
+  .react-flow__handle {
+    width: 9px;
+    height: 9px;
+    border: 2px solid #ffffff;
+    background: #94a3b8;
+
+    &.wf-orch-port--multi {
+      border-radius: 3px;
+      background: var(--aitu-ui-brand-text, #b45309);
+    }
+  }
+
+  .react-flow__edge-path {
+    stroke: #94a3b8;
+    stroke-width: 2;
+  }
+
+  .react-flow__edge.selected .react-flow__edge-path {
+    stroke: var(--aitu-ui-brand-text, #b45309);
+  }
+}
+
+.wf-orch-node {
+  min-width: 180px;
+  max-width: 240px;
+  padding: 8px 10px;
+  border: 1px solid var(--aitu-ui-border, #cbd5e1);
+  border-radius: 10px;
+  background: var(--aitu-ui-surface-elevated, #ffffff);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  font-size: 12px;
+
+  &--running {
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35);
+  }
+
+  &--completed {
+    border-color: #16a34a;
+  }
+
+  &--failed {
+    border-color: #dc2626;
+    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25);
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+
+  &__title {
+    font-weight: 600;
+    font-size: 12px;
+  }
+
+  &__status {
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.18);
+  }
+
+  &__fields {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &__row {
+    display: flex;
+    gap: 4px;
+  }
+
+  &__hint {
+    color: var(--aitu-ui-text-secondary, #64748b);
+    font-size: 11px;
+  }
+
+  &__error {
+    margin-top: 6px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    background: rgba(220, 38, 38, 0.08);
+    color: #b91c1c;
+    font-size: 11px;
+    word-break: break-all;
+  }
+
+  &__preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    min-height: 32px;
+  }
+
+  &__thumb {
+    width: 52px;
+    height: 52px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--aitu-ui-border, #e2e8f0);
+  }
+}
+
+.wf-orch-input {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--aitu-ui-border, #e2e8f0);
+  border-radius: 6px;
+  background: var(--aitu-ui-surface, #ffffff);
+  color: inherit;
+  font-size: 12px;
+  resize: vertical;
+  outline: none;
+
+  &:focus {
+    border-color: var(--aitu-ui-brand-text, #b45309);
+  }
+
+  &--narrow {
+    width: 64px;
+  }
+}
+
+.wf-orch-inspector {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 20;
+  width: 220px;
+  padding: 10px;
+  border: 1px solid var(--aitu-ui-border, #e2e8f0);
+  border-radius: 10px;
+  background: var(--aitu-ui-surface-elevated, #ffffff);
+  box-shadow: var(--aitu-ui-shadow-hover, 0 8px 20px rgba(15, 23, 42, 0.12));
+
+  &__title {
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  &__empty {
+    color: var(--aitu-ui-text-secondary, #64748b);
+    font-size: 12px;
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 8px;
+
+    label {
+      font-size: 11px;
+      color: var(--aitu-ui-text-secondary, #64748b);
+    }
+
+    input {
+      padding: 4px 6px;
+      border: 1px solid var(--aitu-ui-border, #e2e8f0);
+      border-radius: 6px;
+      background: var(--aitu-ui-surface, #ffffff);
+      color: inherit;
+      outline: none;
+
+      &:focus {
+        border-color: var(--aitu-ui-brand-text, #b45309);
+      }
+    }
+  }
+}
+
+.wf-orch-list {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 20;
+  width: 300px;
+  max-height: 70%;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid var(--aitu-ui-border, #e2e8f0);
+  border-radius: 10px;
+  background: var(--aitu-ui-surface-elevated, #ffffff);
+  box-shadow: var(--aitu-ui-shadow-hover, 0 8px 20px rgba(15, 23, 42, 0.12));
+
+  &__title {
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  &__empty {
+    color: var(--aitu-ui-text-secondary, #64748b);
+    font-size: 12px;
+    padding: 8px 0;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 6px 4px;
+    border-bottom: 1px solid var(--aitu-ui-border, #f1f5f9);
+  }
+
+  &__name {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    &:hover {
+      color: var(--aitu-ui-brand-text, #b45309);
+    }
+  }
+
+  &__meta {
+    font-size: 11px;
+    color: var(--aitu-ui-text-secondary, #94a3b8);
+  }
+
+  &__del {
+    border: none;
+    background: transparent;
+    color: #dc2626;
+    cursor: pointer;
+    font-size: 12px;
+  }
+
+  &__close {
+    margin-top: 8px;
+    width: 100%;
+  }
+}

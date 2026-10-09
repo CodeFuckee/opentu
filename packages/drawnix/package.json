@@ -20,6 +20,7 @@
     "@plait-board/mermaid-to-drawnix": "^0.0.7",
     "@supabase/supabase-js": "^2.112.4",
     "@tanstack/react-virtual": "^3.13.13",
+    "@xyflow/react": "^12.12.0",
     "is-hotkey": "^0.2.0",
     "jotai": "^2.18.0",
     "katex": "^0.16.27",
