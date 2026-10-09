@@ -227,25 +227,37 @@ test.describe('侧边栏智能抠图', () => {
     }
     await expect(page.getByTestId('unified-toolbar')).toBeVisible({ timeout: 15000 });
 
-    // 插入两张图
+    // 插入两张图(同一位置叠放,后插者在顶层)
     await insertOfficialImage(page);
     await insertOfficialImage(page);
     const canvasImgs = page.locator('.viewport-container foreignObject img');
     await expect(canvasImgs).toHaveCount(2, { timeout: 20000 });
 
-    // 两次插入位置重叠:把两张分别拖到确定的视口网格位,保证后续点击
-    // 各命中一张(位置以画布视口坐标为准,不依赖插图初始位置)
-    const dragTo = async (index: number, tx: number, ty: number) => {
-      const b = await canvasImgs.nth(index).boundingBox();
-      expect(b).toBeTruthy();
-      await page.mouse.move(b!.x + b!.width / 2, b!.y + b!.height / 2);
+    // 拖顶层(img[1])到槽位 B → 原位露出 img[0] → 再拖 img[0] 到槽位 A。
+    // 只依赖「顶层可见且可抓取」,不假设插入位置(CI 视口上插图可能带滚动)
+    const dragBy = async (
+      from: { x: number; y: number; width: number; height: number },
+      tx: number,
+      ty: number
+    ) => {
+      await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
       await page.mouse.down();
       await page.mouse.move(tx, ty, { steps: 8 });
       await page.mouse.up();
       await page.waitForTimeout(300);
     };
-    await dragTo(0, 250, 180);
-    await dragTo(1, 700, 400);
+    const topBox = await canvasImgs.nth(1).boundingBox();
+    expect(topBox).toBeTruthy();
+    await dragBy(topBox!, 700, 400);
+    // 「自适应」缩放把两张图都带回视口(插入可能伴随滚动,img[0] 或在视口外)
+    await page.getByTestId('zoom-display').click();
+    await page.locator('[data-track="view_nav_zoom_fit"]').click();
+    await page.waitForTimeout(600);
+    await page.keyboard.press('Escape');
+    const underBox = await canvasImgs.nth(0).boundingBox();
+    expect(underBox).toBeTruthy();
+    await dragBy(underBox!, 250, 180);
+
     // 拖完后两张必须都在视口内且分离,否则后续点击不可靠
     const box1 = await canvasImgs.nth(0).boundingBox();
     const box2 = await canvasImgs.nth(1).boundingBox();
