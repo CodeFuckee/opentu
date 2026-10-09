@@ -35,11 +35,28 @@
   CutoutStage/CutoutPanel（mousemove/onMouseLeave 事件、双层掩码覆盖、
   正负点标记、加载态、确认链路复用 onInsert/onSave）。vitest 20 例；E2E smart-cutout.spec（服务 route mock，
   官方库插图→双击预览→编辑→抠图→掩码→确认→插入新图片→画布计数 +1）。
-- **CI**：新增 test:segment-server job（python:3.12-slim + pytest）。
+- **CI**：新增 test:segment-server job（job 级 venv + pytest）。
 - 部署：`scripts/deploy-segment-server.sh`（宿主机执行：权重下载无 gate →
   构建镜像 → 重建容器 → 健康检查）；冒烟 `scripts/smoke-image-segmentation.sh`
   （真 JWT 全链路）。HTTP 内网全程可用（纯 HTTP JSON + canvas 合成，无
   secure-context 依赖）。
+
+
+### fix: main 流水线双红修复——test:segment-server PEP 668 与 probe 探针误提交（2026-10-09）
+
+0dd1fc27 推送后 main 流水线 test 阶段两 job 失败（#3532）：
+- **test:segment-server**：job 配置的 `image: python:3.12-slim` 在 ckd-runner
+  （shell 执行器）上不生效，`pip install` 直接打在宿主机 Debian 系统 Python
+  3.12 上，被 PEP 668 `externally-managed-environment` 拒绝秒挂。修复：改为在
+  job 工作区建 venv（`services/segment-server/.venv`，已被 .gitignore 覆盖），
+  依赖与 pytest 均走 venv 解释器；删除误导性的 image 行。本地以系统 Python
+  3.12 venv 实测 20 例全过。
+- **test:e2e**：`probe-move.spec.ts`「编辑态移动探针」是排查 #103 时的诊断
+  工具（末尾无条件 `throw new Error('PROBE ...')`，设计即必失败），随大提交
+  误入 main，在 CI 等待「素材已插入到画板」toast 超时 3 次重试全挂（每次
+  180s），拖垮整个 e2e job。修复：删除该探针（无其他引用；e2e 最终统计
+  1 failed 即它，另 1 flaky 为 E2E-IMG-08 首试超时 retry 通过、不致 job
+  失败，未处理）。
 
 
 ### fix: #103 编辑态四项反馈修复——置灰/可移动/合并丢原图（CSP×blob 根因，2026-09-30）
