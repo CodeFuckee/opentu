@@ -4,7 +4,7 @@
  * 画布元素(workflow-node + workflowFlow 箭头线)是唯一数据源;
  * 本模块把它们实时派生为 M1 的 OrchestratorGraph,编译/执行全部复用。
  */
-import { PlaitBoard, PlaitElement, RectangleClient } from '@plait/core';
+import { PlaitBoard, PlaitElement, Point, RectangleClient } from '@plait/core';
 import {
   isWorkflowConnectionElement,
   isWorkflowNodeElement,
@@ -77,9 +77,54 @@ export function collectWorkflowGraphs(board: PlaitBoard): WorkflowGroup[] {
   const { nodes, connections } = getWorkflowElements(board);
   if (nodes.length === 0) return [];
 
+  // 找出连线源头指向的画布图片元素(作为参考图输入源,虚拟为 reference-image 节点)
+  const nodeIds = new Set(nodes.map((n) => n.id));
+  const imageSources = new Map<string, PlaitElement>();
+  for (const conn of connections) {
+    if (
+      !nodeIds.has(conn.wfSource) &&
+      !imageSources.has(conn.wfSource)
+    ) {
+      const sourceEl = (board.children as PlaitElement[]).find(
+        (child) => child.id === conn.wfSource
+      );
+      if (
+        sourceEl &&
+        (sourceEl as { type?: string }).type === 'image' &&
+        (sourceEl as { url?: string }).url
+      ) {
+        imageSources.set(conn.wfSource, sourceEl);
+      }
+    }
+  }
+
+  // 图片源元素虚拟为 reference-image 节点加入图
+  const allNodes: Array<OrchestratorNode & { id: string }> = [
+    ...nodes.map((n) => ({
+      id: n.id,
+      type: n.nodeType,
+      params: { ...n.params },
+      geometry: {
+        x: RectangleClient.getRectangleByPoints(n.points).x,
+        y: RectangleClient.getRectangleByPoints(n.points).y,
+      },
+    })),
+    ...[...imageSources.entries()].map(([id, el]) => ({
+      id,
+      type: 'reference-image' as const,
+      params: { url: (el as { url?: string }).url ?? '' },
+      geometry: {
+        x: RectangleClient.getRectangleByPoints(el.points as Point[]).x,
+        y: RectangleClient.getRectangleByPoints(el.points as Point[]).y,
+      },
+    })),
+  ];
+
+  const allNodeIds = allNodes.map((n) => n.id);
+
   const validConnections = connections.filter((c) => {
-    const sourceExists = nodes.some((n) => n.id === c.source);
-    const targetExists = nodes.some((n) => n.id === c.target);
+    const sourceExists = allNodeIds.includes(c.wfSource);
+    const targetExists = allNodeIds.includes(c.wfTarget);
     return sourceExists && targetExists;
   });
 
@@ -90,23 +135,17 @@ export function collectWorkflowGraphs(board: PlaitBoard): WorkflowGroup[] {
     sourcePort: c.wfSourcePort,
     targetPort: c.wfTargetPort,
   }));
-  const groups = groupNodeIds(
-    nodes.map((n) => n.id),
-    edges
-  );
+  const groups = groupNodeIds(allNodeIds, edges);
 
   return groups.map((nodeIds) => {
     const idSet = new Set(nodeIds);
-    const groupNodes: OrchestratorNode[] = nodes
+    const groupNodes: OrchestratorNode[] = allNodes
       .filter((n) => idSet.has(n.id))
       .map((n) => ({
         id: n.id,
-        type: n.nodeType,
+        type: n.type,
         params: { ...n.params },
-        geometry: {
-          x: RectangleClient.getRectangleByPoints(n.points).x,
-          y: RectangleClient.getRectangleByPoints(n.points).y,
-        },
+        geometry: { ...n.geometry },
       }));
     const groupEdges = edges.filter(
       (e) => idSet.has(e.source) && idSet.has(e.target)

@@ -201,7 +201,7 @@ export const WorkflowNodeContent: React.FC<WorkflowNodeContentProps> = ({
     [element, board, createTempSvg, removeTempSvg]
   );
 
-  /** 输入端口:拖到画布图片元素 → 绑定该图为参考输入(仅生成类节点) */
+  /** 输入端口:拖到画布图片元素 → 创建可见连线,图片作为参考输入(仅生成类节点) */
   const startInputDrag = useCallback(
     (e: React.PointerEvent) => {
       if (element.nodeType !== 'image-generation' && element.nodeType !== 'image-variation') {
@@ -228,14 +228,14 @@ export const WorkflowNodeContent: React.FC<WorkflowNodeContentProps> = ({
         const pt = toBoardPoint(board, ev.clientX, ev.clientY);
         const imageEl = findImageAtPoint(board, pt);
         if (!imageEl) return;
-        // 提取图片 URL 并写入节点参数
-        const url = (imageEl as { url?: string }).url;
-        if (url) {
-          const existing = (element.params.referenceImages as string[]) ?? [];
-          WorkflowNodeTransforms.setParam(
-            board, element, 'referenceImages', [...existing, url]
-          );
-        }
+        // 创建可见 workflow 连线(图片→生成节点),编译器从图片元素提取 URL 作为参考图
+        WorkflowNodeTransforms.insertWorkflowConnection(
+          board,
+          imageEl as unknown as PlaitWorkflowNode,
+          element,
+          'outputs:image',
+          'inputs:referenceImages'
+        );
       };
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
