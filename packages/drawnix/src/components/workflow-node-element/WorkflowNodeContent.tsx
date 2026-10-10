@@ -4,7 +4,7 @@
  * - 卡片:类型头 + 参数内联编辑 + 运行态条 + ▶ 单节点运行
  * - 右端口(橙):按住拖到目标工作流节点 → 生成图数据流
  * - 左端口(蓝):按住拖到画布图片元素 → 绑定该图片为参考输入
- * - 连线预览用 board 坐标(与画布同空间,无偏移)
+ * - 连线拖拽通过全屏遮罩层捕获指针事件(隔离 Plait 画布拦截)
  * - 双击卡片:进入参数编辑浮层
  */
 import React, {
@@ -13,10 +13,8 @@ import React, {
   useState,
   useSyncExternalStore,
 } from 'react';
-import { PlaitBoard, PlaitElement } from '@plait/core';
+import type { PlaitBoard, PlaitElement } from '@plait/core';
 import type { PlaitWorkflowNode } from '../../types/workflow-node.types';
-import { isWorkflowNodeElement } from '../../types/workflow-node.types';
-import { HoverTip } from '../shared/hover';
 import { WorkflowNodeTransforms } from '../../data/workflow-node-transforms';
 import { workflowRunService } from '../../services/workflow-orchestrator/workflow-run-service';
 import { MessagePlugin } from '../../utils/message-plugin';
@@ -38,16 +36,6 @@ const STATUS_LABELS: Record<string, string> = {
   failed: '失败',
 };
 
-/** 屏幕 → 画布坐标(手动计算:视口原点 + 缩放逆变换) */
-
-/** 找光标下的画布图片元素 */
-
-/** 找光标下的工作流节点(排除自身) */
-
-/** 节点右缘中心(画布坐标) */
-
-/** 节点左缘中心(画布坐标) */
-
 export interface WorkflowNodeContentProps {
   element: PlaitWorkflowNode;
   board: PlaitBoard;
@@ -66,89 +54,120 @@ export const WorkflowNodeContent: React.FC<WorkflowNodeContentProps> = ({
   const status = snapshot.statuses[element.id];
   const error = snapshot.errors[element.id];
   const [editing, setEditing] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const connectStartRef = useRef<{ x: number; y: number } | null>(null);
+  const connectCurrentRef = useRef<{ x: number; y: number } | null>(null);
+  const [connectPreview, setConnectPreview] = useState<{ sx: number; sy: number; cx: number; cy: number } | null>(null);
 
   const setParam = (key: string, value: unknown) => {
     WorkflowNodeTransforms.setParam(board, element, key, value);
   };
 
-  // ---- 连线拖拽(board 坐标预览,临时 SVG 贴在 board host 上) ----
+  // ---- 全屏遮罩连线拖拽(隔离 Plait 画布事件拦截) ----
 
-  /** 输出端口:拖到目标工作流节点 → 生成图数据流(DOM 命中检测,无坐标换算) */
-  const startOutputDrag = useCallback(
-    (e: React.PointerEvent) => {
+  const startConnectionDrag = useCallback(
+    (e: React.PointerEvent, direction: 'out' | 'in') => {
       e.stopPropagation();
       e.preventDefault();
+      e.nativeEvent.stopImmediatePropagation();
+
+      const startX = e.clientX;
+      const startY = e.clientY;
+      connectStartRef.current = { x: startX, y: startY };
+
+      // 创建全屏遮罩层:捕获后续所有指针事件,Plait 画布完全感知不到
+      const overlay = document.createElement('div');
+      overlay.style.cssText = `
+        position: fixed; inset: 0; z-index: 99999;
+        cursor: crosshair; background: transparent;
+      `;
+      document.body.appendChild(overlay);
+
+      // 预览线 SVG(挂在遮罩内)
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;';
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('stroke', '#b45309');
+      line.setAttribute('stroke-width', '2');
+      line.setAttribute('stroke-dasharray', '6 4');
+      const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      dot.setAttribute('r', '5');
+      dot.setAttribute('fill', '#b45309');
+      svg.append(line, dot);
+      overlay.appendChild(svg);
+
+      setConnecting(true);
 
       const onMove = (ev: PointerEvent) => {
-        // 可选:实时更新预览线(此处不做,避免坐标偏移;靠目标高亮反馈)
-      };
-      const onUp = (ev: PointerEvent) => {
-        window.removeEventListener('pointermove', onMove);
-        window.removeEventListener('pointerup', onUp);
-        // DOM 命中检测:落点 → 目标节点卡片
+        line.setAttribute('x1', String(startX));
+        line.setAttribute('y1', String(startY));
+        line.setAttribute('x2', String(ev.clientX));
+        line.setAttribute('y2', String(ev.clientY));
+        dot.setAttribute('cx', String(ev.clientX));
+        dot.setAttribute('cy', String(ev.clientY));
+        // 高亮命中的目标卡片
         const el = document.elementFromPoint(ev.clientX, ev.clientY);
         const card = el?.closest('.wf-node-card') as HTMLElement | null;
-        const targetId = card?.getAttribute('data-node-id');
-        if (!targetId || targetId === element.id) return;
-        const targetElement = (board.children as PlaitWorkflowNode[]).find(
-          (n) => n.id === targetId
-        );
-        if (!targetElement) return;
-        const targetPort =
-          targetElement.nodeType === 'image-generation' || targetElement.nodeType === 'image-variation'
-            ? 'inputs:referenceImages'
-            : 'inputs:images';
-        WorkflowNodeTransforms.insertWorkflowConnection(
-          board, element, targetElement,
-          'outputs:images', targetPort
-        );
-        MessagePlugin.success('已连线');
+        document.querySelectorAll('.wf-node-card').forEach((c) => {
+          c.classList.toggle('wf-node-card--connect-target',
+            c !== card && !!card && c.getAttribute('data-node-id') !== element.id);
+        });
+        if (card && card.getAttribute('data-node-id') !== element.id) {
+          card.classList.add('wf-node-card--connect-target');
+        }
       };
-      window.addEventListener('pointermove', onMove);
-      window.addEventListener('pointerup', onUp);
-    },
-    [element, board]
-  );
 
-  /** 输入端口:拖到画布图片元素 → 创建可见连线,图片作为参考输入(仅生成类节点) */
-  const startInputDrag = useCallback(
-    (e: React.PointerEvent) => {
-      if (element.nodeType !== 'image-generation' && element.nodeType !== 'image-variation') {
-        return;
-      }
-      e.stopPropagation();
-      e.preventDefault();
       const onUp = (ev: PointerEvent) => {
+        overlay.remove();
         window.removeEventListener('pointermove', onMove);
         window.removeEventListener('pointerup', onUp);
-        // DOM 命中检测:落点 → 画布图片 SVG 元素
-        const el = document.elementFromPoint(ev.clientX, ev.clientY);
-        // Plait 图片渲染在 foreignObject 内的 img 或 SVG image 标签
-        const imgEl = el?.closest('img') ?? el?.closest('image');
-        if (!imgEl) return;
-        // 通过 img src 反查画布元素
-        const src = imgEl.getAttribute('src') ??
-          imgEl.getAttribute('href') ?? '';
-        if (!src) return;
-        const target = (board.children as PlaitElement[]).find((child) => {
-          if ((child as { url?: string }).url && src.includes((child as { url?: string }).url!.split('/').pop() ?? '')) return true;
-          return false;
-        });
-        if (!target) return;
-        WorkflowNodeTransforms.insertWorkflowConnection(
-          board,
-          target as unknown as PlaitWorkflowNode,
-          element,
-          'outputs:image',
-          'inputs:referenceImages'
+        setConnecting(false);
+        document.querySelectorAll('.wf-node-card--connect-target').forEach((c) =>
+          c.classList.remove('wf-node-card--connect-target')
         );
-        MessagePlugin.success('已绑定参考图');
+
+        // 暂时禁用遮罩(已移除),用 elementFromPoint 精确命中
+        const el = document.elementFromPoint(ev.clientX, ev.clientY);
+        if (!el) return;
+
+        if (direction === 'out') {
+          // 输出→目标工作流节点
+          const card = el.closest('.wf-node-card') as HTMLElement | null;
+          const targetId = card?.getAttribute('data-node-id');
+          if (!targetId || targetId === element.id) return;
+          const targetElement = (board.children as PlaitWorkflowNode[]).find(
+            (n) => n.id === targetId
+          );
+          if (!targetElement) return;
+          const targetPort =
+            targetElement.nodeType === 'image-generation' || targetElement.nodeType === 'image-variation'
+              ? 'inputs:referenceImages'
+              : 'inputs:images';
+          WorkflowNodeTransforms.insertWorkflowConnection(
+            board, element, targetElement, 'outputs:images', targetPort
+          );
+          MessagePlugin.success('已连线');
+        } else {
+          // 输入→画布图片元素
+          const img = el.closest('img') ?? el.querySelector('img');
+          const src = img?.getAttribute('src') ?? '';
+          if (!src) {
+            MessagePlugin.warning('请拖到画布上的图片元素上');
+            return;
+          }
+          const imageNode = (board.children as PlaitElement[]).find(
+            (child) => (child as { url?: string }).url === src
+          );
+          if (!imageNode) return;
+          WorkflowNodeTransforms.insertWorkflowConnection(
+            board, imageNode as never, element, 'outputs:image', 'inputs:referenceImages'
+          );
+          MessagePlugin.success('已绑定参考图');
+        }
       };
-      const onMove = (ev: PointerEvent) => {
-        // 跟踪不做视觉预览(避免坐标偏移)
-      };
-      window.addEventListener('pointermove', onMove);
-      window.addEventListener('pointerup', onUp);
+
+      overlay.addEventListener('pointermove', onMove);
+      overlay.addEventListener('pointerup', onUp);
     },
     [element, board]
   );
@@ -225,23 +244,29 @@ export const WorkflowNodeContent: React.FC<WorkflowNodeContentProps> = ({
         setEditing(true);
       }}
     >
-      {/* 输入端口(左侧,蓝色,仅生成类节点) */}
       {isGenerative && (
-        <HoverTip content="拖到画布图片绑定参考输入" showArrow={false}>
-          <div
-            className="wf-node-port wf-node-port--in"
-            onPointerDown={startInputDrag}
-          />
-        </HoverTip>
+        <div
+          style={{
+            position: 'absolute', left: -7, top: '50%', transform: 'translateY(-50%)',
+            width: 14, height: 14, borderRadius: '50%', cursor: 'crosshair', zIndex: 5,
+            background: '#3b82f6', border: '2px solid #ffffff',
+            boxShadow: '0 1px 4px rgba(15,23,42,0.25)',
+          }}
+          data-tip="拖到画布图片绑定参考输入"
+          onPointerDown={(e) => startConnectionDrag(e, 'in')}
+        />
       )}
 
-      {/* 输出端口(右侧,橙色,拖到目标工作流节点) */}
-      <HoverTip content="拖到目标节点建立连线" showArrow={false}>
-        <div
-          className="wf-node-port wf-node-port--out"
-          onPointerDown={startOutputDrag}
-        />
-      </HoverTip>
+      <div
+        style={{
+          position: 'absolute', right: -7, top: '50%', transform: 'translateY(-50%)',
+          width: 14, height: 14, borderRadius: '50%', cursor: 'crosshair', zIndex: 5,
+          background: '#b45309', border: '2px solid #ffffff',
+          boxShadow: '0 1px 4px rgba(15,23,42,0.25)',
+        }}
+        data-tip="拖到目标节点建立连线"
+        onPointerDown={(e) => startConnectionDrag(e, 'out')}
+      />
 
       <div className="wf-node-card__header">
         <span className="wf-node-card__title">
