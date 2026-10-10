@@ -2,11 +2,10 @@
  * 工作流编排(主画布原生)E2E(@functional)
  *
  * 覆盖 C1 用户路径:
- * - P0 工具箱打开面板 → 添加 3 节点到主画布 → 端口拖拽连线 → 双击填提示词
- *   → 填提示词 → 刷新后节点/连线/参数随画板恢复;
- *   (生成执行链路由引擎/编译器单测 mock 覆盖,E2E 不跑真实生成)
+ * - P0 工具箱打开面板 → 添加 3 节点到主画布 → 端口拖拽连线 → 填唯一提示词
+ *   → 刷新后节点与唯一提示词随画板恢复(画板节点跨运行累积,断言用唯一文本锚定);
  * - P1 空画布运行全部 → 提示「画布上还没有工作流节点」。
- * 生成执行链路由引擎/编译器单测 mock 覆盖,E2E 不依赖真实模型。
+ * 真实生成执行链路由引擎/编译器单测 mock 覆盖,E2E 不运行真实生成。
  */
 import type { Page } from '@playwright/test';
 import { test, expect } from '../fixtures/test-base';
@@ -32,7 +31,6 @@ async function addNode(page: Page, label: string) {
   await page.waitForTimeout(250);
 }
 
-/** 画布节点卡片(按可见标题文本过滤) */
 function cardOf(page: Page, label: string) {
   return page.locator('.wf-node-card', { hasText: label }).first();
 }
@@ -54,9 +52,7 @@ async function connect(page: Page, fromLabel: string, toLabel: string) {
 }
 
 test.describe('工作流编排(主画布)', () => {
-  test('P0 搭建生图编排并运行(无 Key 失败态可见),刷新后节点/连线随画板恢复', async ({
-    page,
-  }) => {
+  test('P0 搭建生图编排,刷新后节点与唯一提示词随画板恢复', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByTestId('unified-toolbar')).toBeVisible({ timeout: 15000 });
     for (let i = 0; i < 5; i++) {
@@ -75,24 +71,31 @@ test.describe('工作流编排(主画布)', () => {
     await addNode(page, '提示词');
     await addNode(page, '文生图');
     await addNode(page, '存素材库');
-    await expect(page.locator('.wf-node-card')).toHaveCount(3);
 
     await connect(page, '提示词', '文生图');
     await connect(page, '文生图', '存素材库');
 
-    // 填提示词(节点内联输入)
+    // 唯一提示词锚定(画板节点跨运行累积,不能按数量断言)
+    const uniq = `柴犬E2E_${Date.now()}`;
     await cardOf(page, '提示词')
       .locator('textarea')
-      .fill('一只柴犬在草地上奔跑');
+      .fill(`一只柴犬在草地上奔跑 ${uniq}`);
 
-    // 刷新:节点/连线随画板恢复(生成执行链路由单测 mock 覆盖,E2E 不跑真实生成)
     await page.reload();
     await expect(page.getByTestId('unified-toolbar')).toBeVisible({ timeout: 15000 });
-    await expect(page.locator('.wf-node-card')).toHaveCount(3, { timeout: 20000 });
-    await expect(cardOf(page, '提示词').locator('textarea')).toHaveValue(
-      '一只柴犬在草地上奔跑',
-      { timeout: 10000 }
-    );
+    await expect
+      .poll(
+        async () =>
+          page
+            .locator('.wf-node-card textarea')
+            .evaluateAll(
+              (els, uid: string) =>
+                els.some((el) => (el as HTMLTextAreaElement).value.includes(uid)),
+              uniq
+            ),
+        { timeout: 20000 }
+      )
+      .toBe(true);
   });
 
   test('P1 空画布运行全部 → 提示「画布上还没有工作流节点」', async ({ page }) => {
