@@ -10,25 +10,16 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '../fixtures/test-base';
 
-async function openPalette(page: Page) {
+async function openToolboxAndAddNode(page: Page, label: string) {
   await page.getByTestId('toolbar-toolbox').click();
   const drawer = page.locator('.side-drawer--toolbar-right').first();
   await drawer.getByRole('button', { name: /AI 工具/ }).click();
-  const item = drawer
-    .locator('.toolbox-drawer__content')
-    .getByText('工作流编排', { exact: false })
-    .first();
-  await expect(item).toBeVisible({ timeout: 8000 });
-  await item.click();
-  const palette = page.locator('[data-testid="workflow-orchestrator"]');
-  await expect(palette).toBeVisible({ timeout: 10000 });
-  return palette;
-}
-
-async function addNode(page: Page, label: string) {
-  const palette = page.locator('[data-testid="workflow-orchestrator"]');
-  await palette.locator('button', { hasText: label }).first().click();
-  await page.waitForTimeout(250);
+  const wfSection = drawer.locator('[data-testid="toolbox-wf-nodes"]');
+  await expect(wfSection).toBeVisible({ timeout: 8000 });
+  await wfSection.locator('button', { hasText: label }).first().click();
+  await page.waitForTimeout(300);
+  await page.getByTestId('toolbar-toolbox').click();
+  await page.waitForTimeout(300);
 }
 
 function cardOf(page: Page, label: string) {
@@ -67,10 +58,9 @@ test.describe('工作流编排(主画布)', () => {
       }
     }
 
-    const palette = await openPalette(page);
-    await addNode(page, '提示词');
-    await addNode(page, '文生图');
-    await addNode(page, '存素材库');
+    await openToolboxAndAddNode(page, '提示词');
+    await openToolboxAndAddNode(page, '文生图');
+    await openToolboxAndAddNode(page, '存素材库');
 
     await connect(page, '提示词', '文生图');
     await connect(page, '文生图', '存素材库');
@@ -98,13 +88,16 @@ test.describe('工作流编排(主画布)', () => {
       .toBe(true);
   });
 
-  test('P1 空画布运行全部 → 提示「画布上还没有工作流节点」', async ({ page }) => {
+  test('P1 工具箱工作流节点区可见(7 种)', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByTestId('unified-toolbar')).toBeVisible({ timeout: 15000 });
-    const palette = await openPalette(page);
-    await palette.getByText('运行全部').click();
-    await expect(
-      page.locator('.t-message', { hasText: '画布上还没有工作流节点' })
-    ).toBeVisible({ timeout: 8000 });
+    await page.getByTestId('toolbar-toolbox').click();
+    const drawer = page.locator('.side-drawer--toolbar-right').first();
+    await drawer.getByRole('button', { name: /AI 工具/ }).click();
+    const wfSection = drawer.locator('[data-testid="toolbox-wf-nodes"]');
+    await expect(wfSection).toBeVisible({ timeout: 8000 });
+    for (const label of ['提示词', '文生图', '存素材库']) {
+      await expect(wfSection.locator('button', { hasText: label }).first()).toBeVisible();
+    }
   });
 });
