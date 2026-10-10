@@ -13,17 +13,13 @@ import React, {
   useState,
   useSyncExternalStore,
 } from 'react';
-import {
-  PlaitBoard,
-  PlaitElement,
-  Point,
-  RectangleClient,
-} from '@plait/core';
+import { PlaitBoard, PlaitElement } from '@plait/core';
 import type { PlaitWorkflowNode } from '../../types/workflow-node.types';
 import { isWorkflowNodeElement } from '../../types/workflow-node.types';
 import { HoverTip } from '../shared/hover';
 import { WorkflowNodeTransforms } from '../../data/workflow-node-transforms';
 import { workflowRunService } from '../../services/workflow-orchestrator/workflow-run-service';
+import { MessagePlugin } from '../../utils/message-plugin';
 
 const TYPE_LABELS: Record<string, string> = {
   prompt: '提示词',
@@ -43,69 +39,14 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 /** 屏幕 → 画布坐标(手动计算:视口原点 + 缩放逆变换) */
-function toBoardPoint(
-  board: PlaitBoard,
-  clientX: number,
-  clientY: number
-): Point {
-  const container = PlaitBoard.getBoardContainer(board).getBoundingClientRect();
-  const zoom = board.viewport.zoom;
-  const origination = board.viewport.origination ?? [0, 0];
-  return [
-    (clientX - container.left) / zoom + origination[0],
-    (clientY - container.top) / zoom + origination[1],
-  ];
-}
 
 /** 找光标下的画布图片元素 */
-function findImageAtPoint(board: PlaitBoard, point: Point): PlaitElement | null {
-  for (const child of board.children as PlaitElement[]) {
-    if ((child as { type?: string }).type !== 'image') continue;
-    const rect = RectangleClient.getRectangleByPoints(child.points as Point[]);
-    if (
-      point[0] >= rect.x &&
-      point[0] <= rect.x + rect.width &&
-      point[1] >= rect.y &&
-      point[1] <= rect.y + rect.height
-    ) {
-      return child;
-    }
-  }
-  return null;
-}
 
 /** 找光标下的工作流节点(排除自身) */
-function findWorkflowNodeAtPoint(
-  board: PlaitBoard,
-  point: Point,
-  excludeId: string
-): PlaitWorkflowNode | null {
-  for (const child of board.children as PlaitElement[]) {
-    if (!isWorkflowNodeElement(child) || child.id === excludeId) continue;
-    const rect = RectangleClient.getRectangleByPoints(child.points as Point[]);
-    if (
-      point[0] >= rect.x &&
-      point[0] <= rect.x + rect.width &&
-      point[1] >= rect.y &&
-      point[1] <= rect.y + rect.height
-    ) {
-      return child;
-    }
-  }
-  return null;
-}
 
 /** 节点右缘中心(画布坐标) */
-function nodeRightCenter(element: PlaitWorkflowNode): Point {
-  const rect = RectangleClient.getRectangleByPoints(element.points);
-  return [rect.x + rect.width, rect.y + rect.height / 2];
-}
 
 /** 节点左缘中心(画布坐标) */
-function nodeLeftCenter(element: PlaitWorkflowNode): Point {
-  const rect = RectangleClient.getRectangleByPoints(element.points);
-  return [rect.x, rect.y + rect.height / 2];
-}
 
 export interface WorkflowNodeContentProps {
   element: PlaitWorkflowNode;
@@ -131,74 +72,42 @@ export const WorkflowNodeContent: React.FC<WorkflowNodeContentProps> = ({
   };
 
   // ---- 连线拖拽(board 坐标预览,临时 SVG 贴在 board host 上) ----
-  const tempSvgRef = useRef<SVGSVGElement | null>(null);
 
-  const createTempSvg = useCallback(() => {
-    const host = document.querySelector('.plait-board-container svg') ?? PlaitBoard.getActiveHost(board);
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.style.position = 'absolute';
-    svg.style.top = '0';
-    svg.style.left = '0';
-    svg.style.width = '100%';
-    svg.style.height = '100%';
-    svg.style.pointerEvents = 'none';
-    svg.style.overflow = 'visible';
-    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    line.setAttribute('stroke', '#b45309');
-    line.setAttribute('stroke-width', '2');
-    line.setAttribute('stroke-dasharray', '6 4');
-    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    circle.setAttribute('r', '5');
-    circle.setAttribute('fill', '#b45309');
-    svg.append(line, circle);
-    (host as HTMLElement).appendChild(svg);
-    tempSvgRef.current = svg;
-    return { svg, line, circle };
-  }, [board]);
-
-  const removeTempSvg = useCallback(() => {
-    tempSvgRef.current?.remove();
-    tempSvgRef.current = null;
-  }, []);
-
-  /** 输出端口:拖到目标工作流节点 → 生成图数据流 */
+  /** 输出端口:拖到目标工作流节点 → 生成图数据流(DOM 命中检测,无坐标换算) */
   const startOutputDrag = useCallback(
     (e: React.PointerEvent) => {
       e.stopPropagation();
       e.preventDefault();
-      const start = nodeRightCenter(element);
-      const { line, circle } = createTempSvg();
-      line.setAttribute('x1', String(start[0]));
-      line.setAttribute('y1', String(start[1]));
 
       const onMove = (ev: PointerEvent) => {
-        const pt = toBoardPoint(board, ev.clientX, ev.clientY);
-        line.setAttribute('x2', String(pt[0]));
-        line.setAttribute('y2', String(pt[1]));
-        circle.setAttribute('cx', String(pt[0]));
-        circle.setAttribute('cy', String(pt[1]));
+        // 可选:实时更新预览线(此处不做,避免坐标偏移;靠目标高亮反馈)
       };
       const onUp = (ev: PointerEvent) => {
         window.removeEventListener('pointermove', onMove);
         window.removeEventListener('pointerup', onUp);
-        removeTempSvg();
-        const pt = toBoardPoint(board, ev.clientX, ev.clientY);
-        const target = findWorkflowNodeAtPoint(board, pt, element.id);
-        if (!target) return;
-        // 端口类型按目标节点类型推断:存/插/预览接收 image[]
+        // DOM 命中检测:落点 → 目标节点卡片
+        const el = document.elementFromPoint(ev.clientX, ev.clientY);
+        const card = el?.closest('.wf-node-card') as HTMLElement | null;
+        const targetId = card?.getAttribute('data-node-id');
+        if (!targetId || targetId === element.id) return;
+        const targetElement = (board.children as PlaitWorkflowNode[]).find(
+          (n) => n.id === targetId
+        );
+        if (!targetElement) return;
         const targetPort =
-          target.nodeType === 'image-generation' || target.nodeType === 'image-variation'
+          targetElement.nodeType === 'image-generation' || targetElement.nodeType === 'image-variation'
             ? 'inputs:referenceImages'
             : 'inputs:images';
         WorkflowNodeTransforms.insertWorkflowConnection(
-          board, element, target,
+          board, element, targetElement,
           'outputs:images', targetPort
         );
+        MessagePlugin.success('已连线');
       };
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
     },
-    [element, board, createTempSvg, removeTempSvg]
+    [element, board]
   );
 
   /** 输入端口:拖到画布图片元素 → 创建可见连线,图片作为参考输入(仅生成类节点) */
@@ -209,38 +118,39 @@ export const WorkflowNodeContent: React.FC<WorkflowNodeContentProps> = ({
       }
       e.stopPropagation();
       e.preventDefault();
-      const start = nodeLeftCenter(element);
-      const { line, circle } = createTempSvg();
-      line.setAttribute('x1', String(start[0]));
-      line.setAttribute('y1', String(start[1]));
-
-      const onMove = (ev: PointerEvent) => {
-        const pt = toBoardPoint(board, ev.clientX, ev.clientY);
-        line.setAttribute('x2', String(pt[0]));
-        line.setAttribute('y2', String(pt[1]));
-        circle.setAttribute('cx', String(pt[0]));
-        circle.setAttribute('cy', String(pt[1]));
-      };
       const onUp = (ev: PointerEvent) => {
         window.removeEventListener('pointermove', onMove);
         window.removeEventListener('pointerup', onUp);
-        removeTempSvg();
-        const pt = toBoardPoint(board, ev.clientX, ev.clientY);
-        const imageEl = findImageAtPoint(board, pt);
-        if (!imageEl) return;
-        // 创建可见 workflow 连线(图片→生成节点),编译器从图片元素提取 URL 作为参考图
+        // DOM 命中检测:落点 → 画布图片 SVG 元素
+        const el = document.elementFromPoint(ev.clientX, ev.clientY);
+        // Plait 图片渲染在 foreignObject 内的 img 或 SVG image 标签
+        const imgEl = el?.closest('img') ?? el?.closest('image');
+        if (!imgEl) return;
+        // 通过 img src 反查画布元素
+        const src = imgEl.getAttribute('src') ??
+          imgEl.getAttribute('href') ?? '';
+        if (!src) return;
+        const target = (board.children as PlaitElement[]).find((child) => {
+          if ((child as { url?: string }).url && src.includes((child as { url?: string }).url!.split('/').pop() ?? '')) return true;
+          return false;
+        });
+        if (!target) return;
         WorkflowNodeTransforms.insertWorkflowConnection(
           board,
-          imageEl as unknown as PlaitWorkflowNode,
+          target as unknown as PlaitWorkflowNode,
           element,
           'outputs:image',
           'inputs:referenceImages'
         );
+        MessagePlugin.success('已绑定参考图');
+      };
+      const onMove = (ev: PointerEvent) => {
+        // 跟踪不做视觉预览(避免坐标偏移)
       };
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
     },
-    [element, board, createTempSvg, removeTempSvg]
+    [element, board]
   );
 
   const renderField = () => {

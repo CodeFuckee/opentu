@@ -131,9 +131,12 @@ export class WorkflowNodeTransforms {
 
   private static defaultInsertPoint(board: PlaitBoard): Point {
     const origination = getViewportOrigination(board);
+    const existing = (board.children as PlaitElement[]).filter(
+      (child) => (child as { type?: string }).type === 'workflow-node'
+    ).length;
     return [
-      (origination?.[0] ?? 0) + 200 + Math.round(Math.random() * 120),
-      (origination?.[1] ?? 0) + 160 + Math.round(Math.random() * 120),
+      (origination?.[0] ?? 0) + 160 + (existing % 4) * 280,
+      (origination?.[1] ?? 0) + 140 + Math.floor(existing / 4) * 200,
     ];
   }
 }
