@@ -252,6 +252,7 @@ export const WorkflowNodeContent: React.FC<WorkflowNodeContentProps> = ({
             background: '#3b82f6', border: '2px solid #ffffff',
             boxShadow: '0 1px 4px rgba(15,23,42,0.25)',
           }}
+          className="wf-node-port wf-node-port--in"
           data-tip="拖到画布图片绑定参考输入"
           onPointerDown={(e) => startConnectionDrag(e, 'in')}
         />
@@ -264,6 +265,7 @@ export const WorkflowNodeContent: React.FC<WorkflowNodeContentProps> = ({
           background: '#b45309', border: '2px solid #ffffff',
           boxShadow: '0 1px 4px rgba(15,23,42,0.25)',
         }}
+        className="wf-node-port wf-node-port--out"
         data-tip="拖到目标节点建立连线"
         onPointerDown={(e) => startConnectionDrag(e, 'out')}
       />
