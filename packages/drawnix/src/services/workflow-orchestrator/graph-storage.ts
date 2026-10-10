@@ -50,7 +50,9 @@ export async function listOrchestratorGraphs(): Promise<OrchestratorGraph[]> {
     const raw = await kvStorageService.get<unknown>(String(key));
     if (raw) graphs.push(migrateGraph(raw));
   }
-  graphs.sort((a, b) => b.updatedAt - a.updatedAt);
+  graphs.sort(
+    (a, b) => b.updatedAt - a.updatedAt || a.id.localeCompare(b.id)
+  );
   return graphs;
 }
 

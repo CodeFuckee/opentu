@@ -66,8 +66,10 @@ describe('graph-storage', () => {
   it('列表按 updatedAt 降序', async () => {
     const a = createEmptyGraph('A');
     const b = createEmptyGraph('B');
-    await saveOrchestratorGraph({ ...a, updatedAt: 1000 });
-    await saveOrchestratorGraph({ ...b, updatedAt: 2000 });
+    // updatedAt 由存储层按保存时刻刷新,两次保存留真实时间差保证排序确定性
+    await saveOrchestratorGraph(a);
+    await new Promise((r) => setTimeout(r, 5));
+    await saveOrchestratorGraph(b);
     const list = await listOrchestratorGraphs();
     expect(list.map((g) => g.name)).toEqual(['B', 'A']);
   });
