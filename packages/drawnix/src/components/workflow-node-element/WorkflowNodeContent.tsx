@@ -60,7 +60,7 @@ export const WorkflowNodeContent: React.FC<WorkflowNodeContentProps> = ({
   const [connectPreview, setConnectPreview] = useState<{ sx: number; sy: number; cx: number; cy: number } | null>(null);
 
   const setParam = (key: string, value: unknown) => {
-    WorkflowNodeTransforms.setParam(board, element, key, value);
+    WorkflowNodeTransforms.setParam(board, element.id, key, value);
   };
 
   // ---- 全屏遮罩连线拖拽(隔离 Plait 画布事件拦截) ----

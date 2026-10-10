@@ -94,15 +94,17 @@ export class WorkflowNodeTransforms {
   /** 更新节点参数字段 */
   static setParam(
     board: PlaitBoard,
-    element: PlaitWorkflowNode,
+    elementId: string,
     key: string,
     value: unknown
   ): void {
-    const index = board.children.findIndex((child) => child.id === element.id);
+    const index = board.children.findIndex((child) => child.id === elementId);
     if (index < 0) return;
+    // 从 board 读最新 params(防 stale prop 竞态覆盖)
+    const fresh = (board.children[index] as unknown as PlaitWorkflowNode).params ?? {};
     Transforms.setNode(
       board,
-      { params: { ...element.params, [key]: value } } as Partial<PlaitElement>,
+      { params: { ...fresh, [key]: value } } as Partial<PlaitElement>,
       [index]
     );
   }
