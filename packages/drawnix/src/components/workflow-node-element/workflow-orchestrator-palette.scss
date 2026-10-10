@@ -1,0 +1,343 @@
+/**
+ * 工作流编排面板 + 主画布节点卡片样式
+ */
+
+// ===== 面板(WinBox 内容) =====
+.wf-orch-palette {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 12px;
+  background: var(--aitu-ui-surface, #f8fafc);
+  color: var(--aitu-ui-text-primary, #1e293b);
+  font-size: 13px;
+
+  &__section-title {
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  &__section {
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--aitu-ui-border, #f1f5f9);
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
+  &__add {
+    padding: 8px 10px;
+    border: 1px solid var(--aitu-ui-border, #e2e8f0);
+    border-radius: 8px;
+    background: var(--aitu-ui-surface-elevated, #ffffff);
+    color: inherit;
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+
+    &:hover {
+      border-color: var(--aitu-ui-brand-text, #b45309);
+      color: var(--aitu-ui-brand-text, #b45309);
+    }
+  }
+
+  &__row {
+    display: flex;
+    gap: 6px;
+  }
+
+  &__btn {
+    padding: 6px 14px;
+    border: 1px solid var(--aitu-ui-border, #e2e8f0);
+    border-radius: 8px;
+    background: var(--aitu-ui-surface-elevated, #ffffff);
+    color: inherit;
+    cursor: pointer;
+
+    &:hover {
+      border-color: var(--aitu-ui-brand-text, #b45309);
+    }
+
+    &--run {
+      background: var(--aitu-ui-brand-text, #b45309);
+      border-color: var(--aitu-ui-brand-text, #b45309);
+      color: #ffffff;
+
+      &:hover {
+        background: #92400e;
+        color: #ffffff;
+      }
+    }
+
+    &--stop {
+      background: #dc2626;
+      border-color: #dc2626;
+      color: #ffffff;
+    }
+  }
+
+  &__hint {
+    margin-top: 6px;
+    color: var(--aitu-ui-text-secondary, #64748b);
+    font-size: 12px;
+  }
+
+  &__imports {
+    margin-top: 6px;
+  }
+
+  &__import-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 4px 0;
+  }
+
+  &__import-name {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--aitu-ui-brand-text, #b45309);
+    }
+  }
+
+  &__import-del {
+    border: none;
+    background: transparent;
+    color: #dc2626;
+    cursor: pointer;
+    font-size: 12px;
+  }
+}
+
+// ===== 主画布节点卡片 =====
+.wf-node-card {
+  width: 100%;
+  height: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--aitu-ui-border, #cbd5e1);
+  border-radius: 10px;
+  background: var(--aitu-ui-surface-elevated, #ffffff);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  color: var(--aitu-ui-text-primary, #1e293b);
+  font-size: 12px;
+  box-sizing: border-box;
+  user-select: none;
+
+  &--running {
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35);
+  }
+
+  &--completed {
+    border-color: #16a34a;
+  }
+
+  &--failed {
+    border-color: #dc2626;
+    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25);
+  }
+
+  &--editing {
+    box-shadow: 0 0 0 2px rgba(180, 83, 9, 0.35);
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+
+  &__title {
+    font-weight: 600;
+    font-size: 12px;
+  }
+
+  &__header-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  &__header .wf-node-run-btn {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid var(--aitu-ui-border, #e2e8f0);
+    border-radius: 6px;
+    background: var(--aitu-ui-surface, #ffffff);
+    color: var(--aitu-ui-brand-text, #b45309);
+    cursor: pointer;
+    font-size: 10px;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  &__header .wf-node-run-btn:hover {
+    border-color: var(--aitu-ui-brand-text, #b45309);
+  }
+
+  &:hover .wf-node-run-btn {
+    opacity: 1;
+  }
+
+  &__body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &__row {
+    display: flex;
+    gap: 4px;
+  }
+
+  &__hint {
+    color: var(--aitu-ui-text-secondary, #94a3b8);
+    font-size: 11px;
+  }
+
+  &__error {
+    margin-top: 6px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    background: rgba(220, 38, 38, 0.08);
+    color: #b91c1c;
+    font-size: 11px;
+    word-break: break-all;
+  }
+}
+
+.wf-node-status {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.18);
+
+  &--running {
+    background: rgba(245, 158, 11, 0.18);
+    color: #b45309;
+  }
+
+  &--completed {
+    background: rgba(22, 163, 74, 0.15);
+    color: #15803d;
+  }
+
+  &--failed {
+    background: rgba(220, 38, 38, 0.12);
+    color: #b91c1c;
+  }
+}
+
+.wf-node-input {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--aitu-ui-border, #e2e8f0);
+  border-radius: 6px;
+  background: var(--aitu-ui-surface, #ffffff);
+  color: inherit;
+  font-size: 12px;
+  resize: none;
+  outline: none;
+
+  &:focus {
+    border-color: var(--aitu-ui-brand-text, #b45309);
+  }
+
+  &--narrow {
+    width: 60px;
+  }
+}
+
+// 端口(节点右缘,拖出连线)
+.wf-node-port {
+  &--out {
+    position: absolute;
+    right: -7px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--aitu-ui-brand-text, #b45309);
+    border: 2px solid #ffffff;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.25);
+    cursor: crosshair;
+  }
+}
+
+// 参数编辑浮层(双击进入)
+.wf-node-edit-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 50;
+  width: max-content;
+  min-width: 220px;
+  max-width: 320px;
+  padding: 10px;
+  border: 1px solid var(--aitu-ui-border, #e2e8f0);
+  border-radius: 10px;
+  background: var(--aitu-ui-surface-elevated, #ffffff);
+  box-shadow: var(--aitu-ui-shadow-hover, 0 8px 20px rgba(15, 23, 42, 0.15));
+
+  &__title {
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 8px;
+
+    label {
+      font-size: 11px;
+      color: var(--aitu-ui-text-secondary, #64748b);
+    }
+
+    input {
+      padding: 4px 6px;
+      border: 1px solid var(--aitu-ui-border, #e2e8f0);
+      border-radius: 6px;
+      background: var(--aitu-ui-surface, #ffffff);
+      color: inherit;
+      outline: none;
+
+      &:focus {
+        border-color: var(--aitu-ui-brand-text, #b45309);
+      }
+    }
+  }
+
+  &__empty {
+    color: var(--aitu-ui-text-secondary, #94a3b8);
+    font-size: 12px;
+  }
+
+  &__done {
+    width: 100%;
+    padding: 5px 0;
+    border: 1px solid var(--aitu-ui-brand-text, #b45309);
+    border-radius: 6px;
+    background: var(--aitu-ui-brand-text, #b45309);
+    color: #ffffff;
+    cursor: pointer;
+  }
+}

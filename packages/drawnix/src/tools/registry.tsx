@@ -11,8 +11,8 @@ const INTERNAL_COMPONENT_LOADERS = new Map<string, InternalComponentLoader>([
   [
     'workflow-orchestrator',
     () =>
-      import('../components/workflow-orchestrator').then((module) => ({
-        default: module.WorkflowOrchestratorTool,
+      import('../components/workflow-node-element/WorkflowOrchestratorPalette').then((module) => ({
+        default: module.WorkflowOrchestratorPalette,
       })),
   ],
   [

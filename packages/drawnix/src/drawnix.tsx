@@ -94,6 +94,7 @@ import { withFrame } from './plugins/with-frame';
 import { withCard } from './plugins/with-card';
 import { withCardResize } from './plugins/with-card-resize';
 import { withAudioNode } from './plugins/with-audio-node';
+import { withWorkflowNode } from './plugins/with-workflow-node';
 import { withAudioNodeResize } from './plugins/with-audio-node-resize';
 import { useAutoCompleteShapePicker } from './hooks/useAutoCompleteShapePicker';
 import { withDefaultFill } from './plugins/with-default-fill';
@@ -781,6 +782,7 @@ export const Drawnix: React.FC<DrawnixProps> = ({
       withCard, // Card 标签贴 - Markdown 粘贴和 Agent 输出的卡片展示
       withCardResize, // Card 缩放 - 拖拽缩放 Card 标签贴
       withAudioNode, // Audio Node - 画布内可播放的音频组件节点
+      withWorkflowNode, // 工作流编排节点 - 主画布原生节点元素
       withAudioNodeResize, // Audio Node 缩放 - 拖拽缩放音频组件节点
       withDefaultFill, // 默认填充 - 让新创建的图形有白色填充，方便双击编辑
       withGradientFill, // 渐变填充 - 支持渐变和图片填充渲染
