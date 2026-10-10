@@ -14,6 +14,7 @@ import React, {
 } from 'react';
 import type { PlaitBoard } from '@plait/core';
 import type { PlaitWorkflowNode } from '../../types/workflow-node.types';
+import { HoverTip } from '../shared/hover';
 import { WorkflowNodeTransforms } from '../../data/workflow-node-transforms';
 import { workflowRunService } from '../../services/workflow-orchestrator/workflow-run-service';
 
@@ -198,11 +199,12 @@ export const WorkflowNodeContent: React.FC<WorkflowNodeContentProps> = ({
       }}
     >
       {/* 输出端口(右侧,拖出连线) */}
-      <div
-        className="wf-node-port wf-node-port--out"
-        title="拖到目标节点建立连线"
-        onPointerDown={startConnection}
-      />
+      <HoverTip content="拖到目标节点建立连线" showArrow={false}>
+        <div
+          className="wf-node-port wf-node-port--out"
+          onPointerDown={startConnection}
+        />
+      </HoverTip>
 
       <div className="wf-node-card__header">
         <span className="wf-node-card__title">
@@ -217,7 +219,7 @@ export const WorkflowNodeContent: React.FC<WorkflowNodeContentProps> = ({
           <button
             type="button"
             className="wf-node-run-btn"
-            title="运行该节点及其上游"
+            aria-label="运行该节点及其上游"
             onClick={(e) => {
               e.stopPropagation();
               runService.runNode(element.id);
