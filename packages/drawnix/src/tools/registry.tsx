@@ -9,13 +9,6 @@ type InternalComponentLoader = () => Promise<{
 
 const INTERNAL_COMPONENT_LOADERS = new Map<string, InternalComponentLoader>([
   [
-    'workflow-orchestrator',
-    () =>
-      import('../components/workflow-node-element/WorkflowOrchestratorPalette').then((module) => ({
-        default: module.WorkflowOrchestratorPalette,
-      })),
-  ],
-  [
     'batch-image',
     () =>
       import('./tools/batch-image').then((module) => ({

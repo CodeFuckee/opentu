@@ -373,3 +373,38 @@
     }
   }
 }
+
+// 工作流节点按钮区
+.toolbox-drawer__wf-section {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.toolbox-drawer__wf-title {
+  font-weight: 600;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.toolbox-drawer__wf-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+}
+
+.toolbox-drawer__wf-btn {
+  padding: 6px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1e293b;
+  cursor: pointer;
+  font-size: 12px;
+  transition: border-color 0.15s, color 0.15s;
+
+  &:hover {
+    border-color: #b45309;
+    color: #b45309;
+  }
+}

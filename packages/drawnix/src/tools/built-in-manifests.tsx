@@ -69,17 +69,6 @@ export const BUILT_IN_TOOL_MANIFESTS: ToolDefinition[] = [
     defaultHeight: 700,
   },
   {
-    id: 'workflow-orchestrator',
-    name: '工作流编排',
-    description: '节点画布编排 AI 生成流程:提示词/参考图 → 生图 → 存素材库/插入画布,一次搭建反复复用',
-    icon: <Workflow size={18} strokeWidth={1.75} />,
-    category: ToolCategory.AI_TOOLS,
-    component: 'workflow-orchestrator',
-    supportsMultipleWindows: true,
-    defaultWidth: 1200,
-    defaultHeight: 800,
-  },
-  {
     id: 'batch-image',
     name: '批量出图工具',
     description: 'Excel式批量AI图片生成，支持批量编辑、图片参考和历史追踪',

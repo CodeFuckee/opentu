@@ -28,6 +28,7 @@ import {
 } from '../../constants/toolbox-shared';
 import { toolRegistry } from '../../tools/registry';
 import { ToolList } from './ToolList';
+import { WorkflowNodeTransforms } from '../../data/workflow-node-transforms';
 import { CustomToolDialog } from '../custom-tool-dialog/CustomToolDialog';
 import { BaseDrawer } from '../side-drawer';
 import { useConfirmDialog } from '../dialog/ConfirmDialog';
@@ -560,6 +561,35 @@ export const ToolboxDrawer: React.FC<ToolboxDrawerProps> = ({
             onToolDelete={handleDeleteTool}
           />
         )}
+
+        {/* 工作流节点(点击直接落画布) */}
+        <div className="toolbox-drawer__wf-section" data-testid="toolbox-wf-nodes">
+          <div className="toolbox-drawer__wf-title">工作流节点</div>
+          <div className="toolbox-drawer__wf-grid">
+            {[
+              { type: 'prompt', label: '提示词' },
+              { type: 'model-picker', label: '模型与参数' },
+              { type: 'image-generation', label: '文生图' },
+              { type: 'image-variation', label: '基于图生成' },
+              { type: 'insert-canvas', label: '插入画布' },
+              { type: 'save-library', label: '存素材库' },
+              { type: 'preview', label: '预览' },
+            ].map((n) => (
+              <button
+                key={n.type}
+                type="button"
+                className="toolbox-drawer__wf-btn"
+                onClick={() => {
+                  if (board) {
+                    WorkflowNodeTransforms.insertWorkflowNode(board, n.type as never);
+                  }
+                }}
+              >
+                {n.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </BaseDrawer>
 
       {/* Custom Tool Dialog */}
