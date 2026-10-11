@@ -123,15 +123,17 @@
 }
 
 // ===== 主画布节点卡片 =====
+// MD3（adopt-material-design-3）：卡片表面/描边/阴影走 --md3-* 令牌（MD3 Card：
+// surface-container-low + outline-variant + elevation-1），选择器与几何保持不变
 .wf-node-card {
   width: 100%;
   height: 100%;
   padding: 8px 10px;
-  border: 1px solid var(--aitu-ui-border, #cbd5e1);
-  border-radius: 10px;
-  background: var(--aitu-ui-surface-elevated, #ffffff);
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
-  color: var(--aitu-ui-text-primary, #1e293b);
+  border: 1px solid var(--md3-outline-variant, var(--aitu-ui-border, #cbd5e1));
+  border-radius: 12px;
+  background: var(--md3-surface-container-low, var(--aitu-ui-surface-elevated, #ffffff));
+  box-shadow: var(--md3-elevation-1, 0 2px 8px rgba(15, 23, 42, 0.08));
+  color: var(--md3-on-surface, var(--aitu-ui-text-primary, #1e293b));
   font-size: 12px;
   box-sizing: border-box;
   user-select: none;

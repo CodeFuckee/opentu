@@ -229,10 +229,58 @@ export function getMd3Theme(mode: Md3Mode): Theme {
   return theme;
 }
 
-/** MD3 令牌 → `--md3-*` CSS 变量（供迁移中的组件消费，存量 --color-* 不动） */
+/**
+ * MD3 令牌 → CSS 变量。
+ *
+ * 两组输出：
+ * 1. `--md3-*`：迁移组件直接消费的规范令牌；
+ * 2. 存量 `--color-*` / 壳层变量回写——组件底座 MUI 化后，把高频存量变量切到
+ *    MD3 值，让菜单/工具栏/抽屉/弹窗等既有界面整体获得 MD3 配色（含暗色）。
+ *    品牌锚点 --brand-primary 保持 #F39C12 不变。
+ */
 export function md3CssVariableStyle(mode: Md3Mode): Record<string, string> {
   const s = mode === 'light' ? MD3_LIGHT : MD3_DARK;
+  const legacy = {
+    // 表面梯度
+    '--island-bg-color': s.surfaceContainerLow,
+    '--island-border-color': s.outlineVariant,
+    '--dialog-border-color': s.outlineVariant,
+    '--color-surface-lowest': s.surfaceContainerLowest,
+    '--color-surface-low': s.surfaceContainerLow,
+    '--color-surface-mid': s.surfaceContainer,
+    '--color-surface-high': s.surfaceContainerHigh,
+    '--color-on-surface': s.onSurface,
+    '--text-primary-color': s.onSurface,
+    '--color-surface-primary-container': s.primaryContainer,
+    '--color-on-primary-container': s.onPrimaryContainer,
+    '--color-border-outline': s.outline,
+    '--color-border-outline-variant': s.outlineVariant,
+    '--button-hover-bg': s.surfaceContainerHigh,
+    '--button-active-bg': s.surfaceContainerHigh,
+    '--button-active-border': s.primary,
+    '--default-border-color': s.outlineVariant,
+    '--focus-highlight-color': s.primary,
+    '--link-color': s.primary,
+    '--shadow-island': 'var(--md3-elevation-2)',
+    // 品牌锚点不动（存量渐变/品牌装饰继续引用）
+    '--brand-primary': BRAND_PRIMARY,
+    '--color-primary': BRAND_PRIMARY,
+    '--color-primary-hover': mode === 'light' ? '#E67E22' : '#FFB86B',
+    '--color-brand-hover': mode === 'light' ? '#E67E22' : '#FFB86B',
+    '--aitu-ui-surface': s.surfaceContainerLow,
+    '--aitu-ui-surface-elevated': s.surfaceContainerLow,
+    '--aitu-ui-surface-subtle': s.surfaceContainer,
+    '--aitu-ui-surface-muted': s.surfaceContainerHigh,
+    '--aitu-ui-text-primary': s.onSurface,
+    '--aitu-ui-text-secondary': s.onSurfaceVariant,
+    '--aitu-ui-text-tertiary': s.outline,
+    '--aitu-ui-border': s.outlineVariant,
+    '--aitu-ui-border-subtle': s.outlineVariant,
+    '--aitu-ui-hover-bg': s.surfaceContainerHigh,
+    '--aitu-ui-brand-text': s.primary,
+  };
   return {
+    ...legacy,
     '--md3-primary': s.primary,
     '--md3-on-primary': s.onPrimary,
     '--md3-primary-container': s.primaryContainer,

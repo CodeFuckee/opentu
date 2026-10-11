@@ -1,7 +1,7 @@
 @import '../../styles/z-index.scss';
 
 .Dialog-overlay {
-    background: rgba(#121212, 0.2);
+    background: var(--md3-scrim, rgba(#121212, 0.2));
     display: grid;
     place-items: center;
     z-index: $z-dialog; // Layer 5: Modals
@@ -9,7 +9,10 @@
 
 .Dialog {
     margin: 15px;
-    background-color: white;
+    // MD3（adopt-material-design-3）：面板 surface-container-high + elevation-3 + 16dp 圆角
+    background-color: var(--md3-surface-container-high, #ffffff);
+    color: var(--md3-on-surface, inherit);
     padding: 15px;
-    border-radius: 4px;
+    border-radius: 16px;
+    box-shadow: var(--md3-elevation-3, none);
 }
