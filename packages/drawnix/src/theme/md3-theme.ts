@@ -256,6 +256,12 @@ export function md3CssVariableStyle(mode: Md3Mode): Record<string, string> {
     '--md3-surface-container-highest': s.surfaceContainerHighest,
     '--md3-outline': s.outline,
     '--md3-outline-variant': s.outlineVariant,
+    '--md3-elevation-1':
+      '0px 1px 2px rgba(0, 0, 0, 0.30), 0px 1px 3px 1px rgba(0, 0, 0, 0.15)',
+    '--md3-elevation-2':
+      '0px 1px 2px rgba(0, 0, 0, 0.30), 0px 2px 6px 2px rgba(0, 0, 0, 0.15)',
+    '--md3-elevation-3':
+      '0px 4px 8px 3px rgba(0, 0, 0, 0.15), 0px 1px 3px rgba(0, 0, 0, 0.30)',
     '--md3-brand': BRAND_PRIMARY,
     '--md3-font-family': FONT_FAMILY,
   };

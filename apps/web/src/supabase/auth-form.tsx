@@ -1,11 +1,14 @@
 /**
- * 登录 / 注册内联表单
+ * 登录 / 注册内联表单（MD3 迁移：MUI TextField/Button，openspec adopt-material-design-3）
  *
  * 直接渲染在认证门禁卡片内（不使用 Dialog 弹窗）。
  * 登录/注册成功后由 AuthProvider 的会话状态驱动 AuthGate 自动切换到工作区。
+ * 全局消息沿用 MessagePlugin（TDesign Message 包装，后续批次统一收敛）。
  */
 import { useCallback, useState } from 'react';
-import { Button, Input, MessagePlugin } from 'tdesign-react';
+import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
+import { MessagePlugin } from 'tdesign-react';
 import { useAuth } from './auth-context';
 import {
   getLoginErrorMessage,
@@ -111,54 +114,51 @@ export function AuthForm({ mode, onModeChange }: AuthFormProps) {
         {isSignUp ? '注册账号' : '登录 Yue画布'}
       </h2>
       <div className="auth-form-fields">
-        <div>
-          <Input
-            value={account}
-            type="text"
-            placeholder="oa账号（小写）"
-            autocomplete="username"
-            clearable
-            disabled={submitting}
-            onChange={(value) => setAccount(String(value))}
-            onEnter={canSubmit ? handleSubmit : undefined}
-          />
-          {fieldErrors.account && (
-            <div className="auth-field-error">{fieldErrors.account}</div>
-          )}
-        </div>
-        <div>
-          <Input
-            value={password}
-            type="password"
-            placeholder={`密码（至少 ${MIN_PASSWORD_LENGTH} 位）`}
-            clearable
-            disabled={submitting}
-            onChange={(value) => setPassword(String(value))}
-            onEnter={canSubmit ? handleSubmit : undefined}
-          />
-          {fieldErrors.password && (
-            <div className="auth-field-error">{fieldErrors.password}</div>
-          )}
-        </div>
+        <TextField
+          value={account}
+          type="text"
+          placeholder="oa账号（小写）"
+          slotProps={{ htmlInput: { autoComplete: 'username' } }}
+          disabled={submitting}
+          onChange={(e) => setAccount(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && canSubmit) handleSubmit();
+          }}
+          error={!!fieldErrors.account}
+          helperText={fieldErrors.account}
+          fullWidth
+        />
+        <TextField
+          value={password}
+          type="password"
+          placeholder={`密码（至少 ${MIN_PASSWORD_LENGTH} 位）`}
+          disabled={submitting}
+          onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && canSubmit) handleSubmit();
+          }}
+          error={!!fieldErrors.password}
+          helperText={fieldErrors.password}
+          fullWidth
+        />
         {isSignUp && (
-          <div>
-            <Input
-              value={confirm}
-              type="password"
-              placeholder="确认密码"
-              clearable
-              disabled={submitting}
-              onChange={(value) => setConfirm(String(value))}
-              onEnter={canSubmit ? handleSubmit : undefined}
-            />
-            {fieldErrors.confirm && (
-              <div className="auth-field-error">{fieldErrors.confirm}</div>
-            )}
-          </div>
+          <TextField
+            value={confirm}
+            type="password"
+            placeholder="确认密码"
+            disabled={submitting}
+            onChange={(e) => setConfirm(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && canSubmit) handleSubmit();
+            }}
+            error={!!fieldErrors.confirm}
+            helperText={fieldErrors.confirm}
+            fullWidth
+          />
         )}
         <Button
-          theme="primary"
-          block
+          variant="contained"
+          fullWidth
           loading={submitting}
           disabled={!canSubmit}
           onClick={handleSubmit}
@@ -169,7 +169,6 @@ export function AuthForm({ mode, onModeChange }: AuthFormProps) {
           {isSignUp ? (
             <Button
               variant="text"
-              theme="primary"
               disabled={submitting}
               onClick={() => switchMode('signin')}
             >
@@ -178,7 +177,6 @@ export function AuthForm({ mode, onModeChange }: AuthFormProps) {
           ) : (
             <Button
               variant="text"
-              theme="primary"
               disabled={submitting}
               onClick={() => switchMode('signup')}
             >
