@@ -102,4 +102,37 @@ test.describe('工作流编排(主画布)', () => {
       await expect(wfSection.locator('button', { hasText: label }).first()).toBeVisible();
     }
   });
+
+  test('P0 文生图节点可删除(Delete 键 + 垃圾桶按钮)', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByTestId('unified-toolbar')).toBeVisible({ timeout: 15000 });
+
+    // 回归:with-workflow-node 的 getDeletedFragment 曾漏 push 节点本身,
+    // deleteFragment(board) 拿到空列表静默无操作——节点选中也删不掉。
+    await openToolboxAndAddNode(page, '文生图');
+    const card = cardOf(page, '文生图');
+    await expect(card).toBeVisible({ timeout: 8000 });
+
+    // 路径一:点卡片头部选中 → Delete 键
+    const header = card.locator('.wf-node-card__header');
+    const hb = await header.boundingBox();
+    await page.mouse.click(hb!.x + 20, hb!.y + hb!.height / 2);
+    await expect(page.getByTestId('popup-toolbar')).toBeVisible({ timeout: 8000 });
+    await page.keyboard.press('Delete');
+    await expect(cardOf(page, '文生图')).toHaveCount(0, { timeout: 8000 });
+
+    // 路径二:再加一个节点 → 选中 → popup 垃圾桶按钮
+    await openToolboxAndAddNode(page, '文生图');
+    const card2 = cardOf(page, '文生图');
+    await expect(card2).toBeVisible({ timeout: 8000 });
+    const hb2 = await card2.locator('.wf-node-card__header').boundingBox();
+    await page.mouse.click(hb2!.x + 20, hb2!.y + hb2!.height / 2);
+    await expect(page.getByTestId('popup-toolbar')).toBeVisible({ timeout: 8000 });
+    await page
+      .getByTestId('popup-toolbar')
+      .locator('button.trash')
+      .first()
+      .click({ force: true });
+    await expect(cardOf(page, '文生图')).toHaveCount(0, { timeout: 8000 });
+  });
 });

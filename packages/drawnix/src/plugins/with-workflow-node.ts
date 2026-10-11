@@ -102,11 +102,14 @@ export const withWorkflowNode: PlaitPlugin = (board: PlaitBoard) => {
   };
 
   // 删除工作流节点时,级联删除其出/入数据流连线
+  // 注意:节点本身必须由本插件 push 进待删列表(drawnix 删除管线无兜底,
+  // 各插件自报家门,漏 push 即静默无操作——节点删不掉)
   board.getDeletedFragment = (data: PlaitElement[]) => {
     const selectedNodes = getSelectedElements(board).filter(
       isWorkflowNodeElement
     );
     if (selectedNodes.length > 0) {
+      data.push(...selectedNodes);
       const nodeIds = new Set(selectedNodes.map((n) => n.id));
       const boundConnections = board.children.filter(
         (child) =>

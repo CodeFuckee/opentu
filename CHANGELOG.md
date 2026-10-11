@@ -1,5 +1,25 @@
 ## Unreleased
 
+### fix: 工作流节点无法删除——getDeletedFragment 漏报选中节点本身（2026-10-11）
+
+主画布上的工作流节点（文生图等）选中后按 Delete 或点 popup 工具栏垃圾桶均
+静默无操作:drawnix 删除管线是「各插件在 `getDeletedFragment` 里把自己类型
+的选中元素 push 进待删列表」（with-draw/with-image-generation-anchor 等皆是），
+`with-workflow-node` 只 push 了级联连线、漏 push 节点本身，纯工作流节点选中时
+待删列表为空，`CoreTransforms.removeElements(board, [])` 空转且无任何报错。
+
+- **修复**:`with-workflow-node.ts` 的 `getDeletedFragment` 补
+  `data.push(...selectedNodes)`（连线级联逻辑不变），与全部其他插件的
+  「自报家门」模式对齐；Delete 键与垃圾桶两条入口同时恢复。
+- **测试**:with-workflow-node.test.ts 新增 3 例（无连线节点必须进入待删片段/
+  级联连线且不误删对端节点/未选中时不动片段数据），先红后绿；
+  E2E workflow-orchestrator.spec 新增「文生图节点可删除（Delete 键+垃圾桶）」
+  P0 用例。
+- **排查附注**:本地 E2E 一度被 10 月 10 日遗留的 `vite preview`(7200 端口,
+  旧构建产物)毒化——playwright `reuseExistingServer` 复用了它,表现为端口
+  className 丢失等幻觉失败;杀掉旧进程、用 CI 同款 `E2E_WEB_SERVER=preview`
+  跑真实构建产物后全部通过。
+
 ### feat: 工作流编排系统 M1——节点画布 + DAG 执行 + 生图闭环(计划表 #71/#79/#80 专项,2026-10-09)
 
 计划表 #71/#79/#80 整合升格为 P0 专项「工作流编排系统」,M1 已实现:工具箱新增
