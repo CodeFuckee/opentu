@@ -21,7 +21,9 @@ import {
   fetchCanvasUsage,
   scaleCostByDepartment,
   pushReport,
+  aggregateButtonUsage,
   aggregateOverview,
+  buildButtonUsageSummary,
   buildDashboardHtml,
   verifyDashboardAdmin,
   type DashboardEnv,
@@ -640,6 +642,10 @@ test('buildDashboardHtml：自包含页面，内嵌 anon key，自带管理员�
   // 用户使用排行面板：全量用户横向条形（数据取 tasks.userUsage，带滚动容器）
   assert.ok(html.includes('id="userRank"'), '页面缺少用户使用排行容器');
   assert.ok(html.includes('tasks.userUsage'), '页面必须渲染 tasks.userUsage');
+  // 按钮使用统计面板（add-button-usage-stats）：容器 + 独立接口调用 + 零使用区块
+  assert.ok(html.includes('id="buttonUsage"'), '页面缺少按钮使用统计容器');
+  assert.ok(html.includes("basePath() + 'button-usage'"), '页面必须调用 button-usage 接口');
+  assert.ok(html.includes('零使用清单'), '页面缺少零使用清单区块');
   // 周期选择：自然月快选（仅提供 2026-08 / 2026-09 两个月，用户拍板），load 按月拼 start/end 区间
   assert.ok(html.includes('populateMonthOptions'), '页面缺少月份快选生成逻辑');
   assert.ok(html.includes('monthRange'), '页面缺少自然月区间计算');
@@ -996,4 +1002,93 @@ test('aggregateLeadership：未配置委外单价或无产出时降本字段为 
   // 有单价但无实际金额 → 节约不可算
   assert.equal(noRows.outsourceEquivalentCny, null);
   assert.equal(noRows.savedCny, null);
+});
+
+// ============================================================================
+// 按钮使用统计（add-button-usage-stats）
+// ============================================================================
+
+test('buildButtonUsageSummary：排行/趋势/零使用聚合', () => {
+  const now = Date.parse('2026-10-11T10:00:00+08:00');
+  const iso = (offsetDays: number, hour = 10) =>
+    new Date(now - offsetDays * 86400000).toISOString();
+  const rows = [
+    // 近 7 天高频：btn_a 两次（两个用户）
+    { button_id: 'btn_a', button_label: '按钮A', oa_account: 'u1', created_at: iso(1) },
+    { button_id: 'btn_a', button_label: '', oa_account: 'u2', created_at: iso(2) },
+    // 8 天前：只进 30 天榜
+    { button_id: 'btn_b', button_label: '按钮B', oa_account: 'u1', created_at: iso(8) },
+    // inventory 基线：inv_c 点击过、inv_d 从未点击
+    { button_id: 'inv:btn_c', button_label: null, oa_account: 'u1', created_at: iso(3) },
+    { button_id: 'inv:btn_d', button_label: null, oa_account: 'u1', created_at: iso(3) },
+    { button_id: 'inv:btn_e', button_label: null, oa_account: 'u1', created_at: iso(3) },
+    { button_id: 'btn_c', button_label: '按钮C', oa_account: 'u1', created_at: iso(4) },
+    // 窗口外（31 天前）：不进任何聚合
+    { button_id: 'btn_old', button_label: '旧', oa_account: 'u1', created_at: iso(31) },
+  ];
+
+  const summary = buildButtonUsageSummary(rows as never, now);
+
+  // 7 天榜：btn_a(2) 与 btn_c(1)（btn_b 在 7 天窗口外，仅进 30 天榜）
+  assert.equal(summary.top7d.length, 2);
+  assert.equal(summary.top7d[0].buttonId, 'btn_a');
+  assert.equal(summary.top7d[1].buttonId, 'btn_c');
+  assert.equal(summary.top7d[0].count, 2);
+  assert.equal(summary.top7d[0].users, 2);
+  // label 取最近一次非空（第二行的空 label 不覆盖第一行）
+  assert.equal(summary.top7d[0].label, '按钮A');
+
+  // 30 天榜按次数降序：btn_a(2) > btn_b(1) = btn_c(1)
+  assert.equal(summary.top30d.length, 3);
+  assert.equal(summary.top30d[0].buttonId, 'btn_a');
+  assert.equal(summary.top30d[1].buttonId, 'btn_b');
+  assert.equal(summary.top30d[2].buttonId, 'btn_c');
+
+  // 日趋势：两个不同的东八区日（1 天前与 8 天前/4 天前同日性不假设）
+  assert.ok(summary.dailyTrend.length >= 2);
+  const totalCount = summary.dailyTrend.reduce((s, d) => s + d.count, 0);
+  assert.equal(totalCount, 4); // btn_a×2 + btn_b + btn_c（inventory 不计入）
+
+  // 零使用：基线 3 个 − 被点击的 btn_c = btn_d、btn_e
+  assert.equal(summary.inventoryCount, 3);
+  assert.deepEqual(summary.unused, ['btn_d', 'btn_e']);
+});
+
+test('buildButtonUsageSummary：空数据安全', () => {
+  const summary = buildButtonUsageSummary([], Date.now());
+  assert.deepEqual(summary, {
+    top7d: [],
+    top30d: [],
+    dailyTrend: [],
+    unused: [],
+    inventoryCount: 0,
+  });
+});
+
+test('aggregateButtonUsage：service_role 查询与聚合编排', async () => {
+  const calls: string[] = [];
+  const fetchFn = routeFetch(
+    [
+      {
+        match: (url) => url.includes('/rest/v1/ui_click_events'),
+        respond: (url) => {
+          assert.ok(url.includes('created_at=gte.'));
+          assert.ok(url.includes('button_id,button_label,oa_account,created_at'));
+          return json(200, [
+            {
+              button_id: 'btn_x',
+              button_label: 'X',
+              oa_account: 'u1',
+              created_at: new Date().toISOString(),
+            },
+          ]);
+        },
+      },
+    ],
+    calls
+  );
+  const summary = await aggregateButtonUsage(ENV, { fetch: fetchFn as unknown as typeof fetch });
+  assert.equal(summary.top30d.length, 1);
+  assert.equal(summary.top30d[0].buttonId, 'btn_x');
+  assert.ok(calls.length === 1);
 });

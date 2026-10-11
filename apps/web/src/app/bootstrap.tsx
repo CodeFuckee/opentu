@@ -23,6 +23,7 @@ import {
 import { initSWConsoleCapture } from '../utils/sw-console-capture';
 import { AuthProvider } from '../supabase/auth-context';
 import { AuthGate } from '../supabase/auth-gate';
+import { UiStatsCaptureMount } from '../analytics/UiStatsCaptureMount';
 
 const isLocalDev =
   typeof window !== 'undefined' &&
@@ -778,6 +779,7 @@ root.render(
     <ErrorBoundary>
       <AuthProvider>
         <AuthGate>
+          <UiStatsCaptureMount />
           <App />
         </AuthGate>
       </AuthProvider>

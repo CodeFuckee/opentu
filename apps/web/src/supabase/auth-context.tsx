@@ -75,7 +75,7 @@ async function requestNewApiKey(userId: string, account: string): Promise<void> 
  * 取当前会话 access_token（供 ai-proxy 托管路由使用）。
  * 临期（<30s）时先刷新一次，避免把过期 JWT 发给代理。
  */
-async function getAccessToken(): Promise<string | null> {
+export async function getAccessToken(): Promise<string | null> {
   const client = getSupabaseClient();
   const { data } = await client.auth.getSession();
   const session = data.session;

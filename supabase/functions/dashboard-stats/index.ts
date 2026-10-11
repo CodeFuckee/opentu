@@ -8,6 +8,7 @@
  * SUPABASE_ANON_KEY，容器内已配置）：
  *   GET  /functions/v1/dashboard-stats/            → 200 自包含 HTML 看板页面
  *   GET  /functions/v1/dashboard-stats/overview?days=N → 200 JSON 四类聚合统计
+ *   GET  /functions/v1/dashboard-stats/button-usage    → 200 JSON 按钮使用统计（近7/30天排行+趋势+零使用）
  *   POST /functions/v1/dashboard-stats/push-report → 推送周报到生产群（DINGTALK_WEBHOOK）
  *   POST /functions/v1/dashboard-stats/push-test   → 完整周报链路推开发群（DEV_DINGTALK_WEBHOOK，强制 DEV_DINGTALK_SECRET 加签）
  *   OPTIONS                                        → 204 CORS
@@ -19,6 +20,7 @@
  * SUPABASE_ANON_KEY 缺失时拒绝启动（不再硬编码兜底）。
  */
 import {
+  aggregateButtonUsage,
   aggregateOverview,
   buildDashboardHtml,
   pushReport,
@@ -113,6 +115,22 @@ Deno.serve(async (request: Request) => {
           },
         });
       }
+      if (route.kind === 'button-usage') {
+        // 门禁：仅管理员（与 overview 同门槛）；查询失败不影响主看板
+        const gate = await verifyDashboardAdmin(env, request);
+        if (!gate.ok) {
+          return jsonError(gate.status, gate.error);
+        }
+        const summary = await aggregateButtonUsage(env, {});
+        return new Response(JSON.stringify(summary), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store',
+            ...CORS_HEADERS,
+          },
+        });
+      }
       return jsonError(404, `unknown dashboard-stats path: ${urlPath}`);
     }
 
@@ -167,7 +185,7 @@ Deno.serve(async (request: Request) => {
 /** 解析路径：页面（BASE 本身 / index.html / 尾部斜杠）或数据接口（overview/push-report/push-test） */
 function parseRoute(
   urlPath: string
-): { kind: 'page' } | { kind: 'overview' } | { kind: 'push' } | { kind: 'push-test' } | { kind: 'unknown' } {
+): { kind: 'page' } | { kind: 'overview' } | { kind: 'button-usage' } | { kind: 'push' } | { kind: 'push-test' } | { kind: 'unknown' } {
   const suffix = urlPath.startsWith('/functions/v1' + BASE)
     ? urlPath.slice(('/functions/v1' + BASE).length)
     : urlPath.startsWith(BASE)
@@ -183,6 +201,9 @@ function parseRoute(
   }
   if (clean === '/overview') {
     return { kind: 'overview' };
+  }
+  if (clean === '/button-usage') {
+    return { kind: 'button-usage' };
   }
   if (clean === '/push-report') {
     return { kind: 'push' };

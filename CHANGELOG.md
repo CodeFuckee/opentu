@@ -1,5 +1,26 @@
 ## Unreleased
 
+### feat: 按钮使用统计——全按钮点击采集 + 数据看板「按钮使用」面板（2026-10-11）
+
+产品功能多但缺使用数据，无法判断哪些功能高频、哪些零使用。项目虽有 PostHog 埋点
+（257 处 data-track），但全按钮自动采集被关闭、覆盖不全，且依赖外网与境外云。本次
+落自建内网方案（openspec `add-button-usage-stats`）：不依赖外网、数据留在自家
+Supabase、嵌入既有数据看板，PostHog 保持现状。
+
+- **采集**：apps/web 壳层捕获阶段监听整页按钮点击（含画布内），自动识别
+  （data-track > data-testid > aria-label > text:文本前 20 字），批量 20 条/15s，
+  pagehide 兜底，失败本地缓存重试；启动时上报按钮清单（inv: 前缀）作零使用基线
+- **入库**：新增 `ui_click_events` 表（RLS 仅 authenticated insert）与
+  `ui-stats` 边缘函数（JWT 鉴权、单批 ≤100、oa_account 取邮箱 @ 前缀）
+- **看板**：dashboard-stats 新增「按钮使用统计」面板（`/button-usage` 接口，仅管理员）：
+  近 7/30 天排行（次数/人数/最近使用）、30 天按日趋势、零使用清单（基线−点击，局限：
+  懒挂载按钮不在基线）
+- **测试**：ui-stats node:test 12 例、dashboard-stats 新增聚合/编排/面板断言 3 例
+  （28 pass）、采集器 vitest 12 例；单测共 52 例先红后绿
+- **部署（手工）**：迁移 SQL + scp 部署 ui-stats/dashboard-stats 两函数，见
+  `docs/button-usage-stats.md`
+
+
 ### fix: 工作流节点删除后画布残留黄色选中矩形——组件销毁漏清 activeHost 图层（2026-10-11）
 
 节点删除本身修通后用户反馈:节点消失了,画布上还留着一个黄色矩形边框。

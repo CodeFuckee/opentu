@@ -1439,6 +1439,149 @@ export async function aggregateOverview(
 }
 
 // ============================================================================
+// 按钮使用统计（openspec add-button-usage-stats）
+// ============================================================================
+
+export interface ButtonUsageRow {
+  button_id: string;
+  button_label: string | null;
+  oa_account: string;
+  created_at: string;
+}
+
+export interface ButtonUsageEntry {
+  buttonId: string;
+  label: string;
+  count: number;
+  users: number;
+  lastSeenAt: string;
+}
+
+export interface ButtonUsageSummary {
+  /** 近 7 天排行（按点击次数降序，前 15） */
+  top7d: ButtonUsageEntry[];
+  /** 近 30 天排行（按点击次数降序，前 15） */
+  top30d: ButtonUsageEntry[];
+  /** 近 30 天按日点击合计（东八区，含 inventory 之外的点击） */
+  dailyTrend: Array<{ date: string; count: number }>;
+  /** 近 30 天零点击的按钮（inventory 基线差集，前 50） */
+  unused: string[];
+  /** inventory 基线按钮总数（零使用计算的分母口径） */
+  inventoryCount: number;
+}
+
+/** 东八区 YYYY-MM-DD */
+function toCstDate(ms: number): string {
+  return new Date(ms + TZ_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+/**
+ * 由 30 天窗口内的原始事件行聚合按钮使用摘要（纯函数，便于单测）。
+ * - 排行：仅统计非 inv: 点击；label 取最近一次出现的非空 label
+ * - 零使用：inv: 基线 − 窗口内被点击过的按钮
+ */
+export function buildButtonUsageSummary(
+  rows: ButtonUsageRow[],
+  nowMs: number = Date.now()
+): ButtonUsageSummary {
+  const ms7 = nowMs - 7 * 86400000;
+  const ms30 = nowMs - 30 * 86400000;
+
+  interface Acc {
+    count: number;
+    users: Set<string>;
+    lastSeenAt: string;
+    label: string;
+  }
+  const acc7 = new Map<string, Acc>();
+  const acc30 = new Map<string, Acc>();
+  const clicked30 = new Set<string>();
+  const inventory = new Set<string>();
+  const daily = new Map<string, number>();
+
+  for (const row of rows) {
+    const ts = Date.parse(row.created_at);
+    if (!Number.isFinite(ts) || ts < ms30 || ts > nowMs) continue;
+    const id = row.button_id || '';
+    if (!id) continue;
+
+    if (id.startsWith('inv:')) {
+      inventory.add(id.slice(4));
+      continue;
+    }
+
+    clicked30.add(id);
+    const dailyKey = toCstDate(ts);
+    daily.set(dailyKey, (daily.get(dailyKey) ?? 0) + 1);
+
+    const ensure = (map: Map<string, Acc>, windowStart: number): Acc | null => {
+      if (ts < windowStart) return null;
+      let acc = map.get(id);
+      if (!acc) {
+        acc = { count: 0, users: new Set<string>(), lastSeenAt: '', label: '' };
+        map.set(id, acc);
+      }
+      return acc;
+    };
+    const a7 = ensure(acc7, ms7);
+    const a30 = ensure(acc30, ms30);
+    for (const acc of [a7, a30]) {
+      if (!acc) continue;
+      acc.count += 1;
+      acc.users.add(row.oa_account);
+      if (ts >= Date.parse(acc.lastSeenAt || '') || !acc.lastSeenAt) {
+        acc.lastSeenAt = row.created_at;
+      }
+      const label = (row.button_label ?? '').trim();
+      if (label && !acc.label) acc.label = label;
+    }
+  }
+
+  const toEntries = (map: Map<string, Acc>): ButtonUsageEntry[] =>
+    [...map.entries()]
+      .map(([buttonId, acc]) => ({
+        buttonId,
+        label: acc.label || buttonId,
+        count: acc.count,
+        users: acc.users.size,
+        lastSeenAt: acc.lastSeenAt,
+      }))
+      .sort((a, b) => b.count - a.count || b.users - a.users)
+      .slice(0, 15);
+
+  const trend: Array<{ date: string; count: number }> = [...daily.entries()]
+    .map(([date, count]) => ({ date, count }))
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
+
+  const unused = [...inventory]
+    .filter((id) => !clicked30.has(id))
+    .sort()
+    .slice(0, 50);
+
+  return {
+    top7d: toEntries(acc7),
+    top30d: toEntries(acc30),
+    dailyTrend: trend,
+    unused,
+    inventoryCount: inventory.size,
+  };
+}
+
+/** 拉取 30 天窗口内的按钮事件行（service_role 直查，绕过 RLS） */
+export async function aggregateButtonUsage(
+  env: DashboardEnv,
+  deps: DashboardDeps = {}
+): Promise<ButtonUsageSummary> {
+  const from = dateNDaysAgo(30);
+  const { rows } = await restGet(
+    env,
+    `/rest/v1/ui_click_events?select=button_id,button_label,oa_account,created_at&created_at=gte.${from}&limit=50000`,
+    deps
+  );
+  return buildButtonUsageSummary(rows as unknown as ButtonUsageRow[]);
+}
+
+// ============================================================================
 // HTML 看板页面（自包含，无外部依赖）
 // ============================================================================
 
@@ -1620,6 +1763,9 @@ export function buildDashboardHtml(anonKey: string): string {
 </div>
 <div class="grid">
   <div class="panel"><h2>用户使用排行<span id="userRankCount" style="margin-left:8px;font-size:12px;color:var(--muted);font-weight:400"></span></h2><div id="userRank" class="rank-scroll"><div class="sk"></div></div></div>
+  <div class="panel"><h2>按钮使用统计<span style="margin-left:8px;font-size:12px;color:var(--muted);font-weight:400">近 7 / 30 天 · 零使用基线=启动清单</span></h2>
+    <div id="buttonUsage"><div class="sk"></div></div>
+  </div>
 </div>
 <div class="grid">
   <div class="panel"><h2>部门使用汇总</h2><table id="deptSummary"><thead><tr><th>部门</th><th>用户数</th><th>使用次数</th><th>金额</th><th>占比</th></tr></thead><tbody></tbody></table></div>
@@ -2045,12 +2191,60 @@ async function load(){
     }
     if(!res.ok){ throw new Error('HTTP ' + res.status); }
     render(await res.json());
+    loadButtonUsage();
   } catch(err){
     document.getElementById('kpiCards').innerHTML =
       '<div class="card" style="grid-column:1/-1"><div class="error">加载失败：'+esc(err && err.message ? err.message : err)+'</div></div>';
   }
 }
 
+var LAST_BUTTON_USAGE = null;
+async function loadButtonUsage(){
+  var host = document.getElementById('buttonUsage');
+  try{
+    var request = function(){ return fetch(basePath() + 'button-usage', { headers: authHeaders() }); };
+    var res = await request();
+    if(res.status===401){
+      if(await tryRefresh()){ res = await request(); }
+      if(res.status===401){ host.innerHTML='<div class="error">登录已过期</div>'; return; }
+    }
+    if(res.status===403){ host.innerHTML='<div class="error">仅管理员可查看</div>'; return; }
+    if(!res.ok){ throw new Error('HTTP '+res.status); }
+    var d = await res.json();
+    LAST_BUTTON_USAGE = d;
+    var esc2 = esc;
+    var html = '';
+    var table = function(title, rows){
+      var body = (rows||[]).map(function(r,i){
+        return '<tr><td>'+(i+1)+'</td><td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc2(r.buttonId)+'">'+esc2(r.label)+'</td><td>'+r.count+'</td><td>'+r.users+'</td><td>'+fmtDate(r.lastSeenAt)+'</td></tr>';
+      }).join('');
+      if(!body) return '<div style="color:var(--muted);font-size:12px;margin:6px 0 12px">'+title+'：暂无数据</div>';
+      return '<div style="font-size:12px;color:var(--muted);margin:8px 0 4px">'+title+'</div>'+
+        '<table><thead><tr><th>#</th><th>按钮</th><th>次数</th><th>人数</th><th>最近使用</th></tr></thead><tbody>'+body+'</tbody></table>';
+    };
+    html += table('近 7 天排行', d.top7d);
+    html += table('近 30 天排行', d.top30d);
+    if(d.dailyTrend && d.dailyTrend.length){
+      var maxC = Math.max.apply(null, d.dailyTrend.map(function(x){return x.count;}).concat([1]));
+      var bars = d.dailyTrend.map(function(x){
+        var h = Math.round((x.count/maxC)*46)+2;
+        return '<div style="display:inline-block;vertical-align:bottom;margin-right:2px;text-align:center"><div style="width:10px;height:'+h+'px;background:linear-gradient(180deg,var(--accent),var(--accent2));border-radius:2px 2px 0 0" title="'+x.date+'：'+x.count+'"></div></div>';
+      }).join('');
+      html += '<div style="font-size:12px;color:var(--muted);margin:8px 0 4px">近 30 天按日点击合计</div><div style="display:flex;align-items:flex-end;height:52px">'+bars+'</div>';
+    }
+    if(d.inventoryCount>0){
+      html += '<div style="font-size:12px;color:var(--muted);margin:8px 0 4px">零使用清单（基线 '+d.inventoryCount+' 个按钮，近 30 天零点击）</div>';
+      if(d.unused && d.unused.length){
+        html += '<div style="font-size:12px;line-height:1.9">'+d.unused.map(function(u){return '<span style="display:inline-block;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:1px 8px;margin:2px">'+esc2(u)+'</span>';}).join('')+'</div>';
+      } else {
+        html += '<div style="color:var(--muted);font-size:12px">近 30 天基线内按钮均有点击</div>';
+      }
+    }
+    host.innerHTML = html;
+  }catch(err){
+    host.innerHTML = '<div class="error">按钮统计加载失败：'+esc(err && err.message ? err.message : err)+'</div>';
+  }
+}
 document.getElementById('refreshBtn').addEventListener('click', load);
 document.getElementById('daysSel').addEventListener('change', load);
 document.getElementById('copyReportBtn').addEventListener('click', function(){
