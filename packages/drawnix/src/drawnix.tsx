@@ -95,6 +95,7 @@ import { withCard } from './plugins/with-card';
 import { withCardResize } from './plugins/with-card-resize';
 import { withAudioNode } from './plugins/with-audio-node';
 import { withWorkflowNode } from './plugins/with-workflow-node';
+import { Md3ThemeProvider } from './theme/md3-theme-provider';
 import { withAudioNodeResize } from './plugins/with-audio-node-resize';
 import { useAutoCompleteShapePicker } from './hooks/useAutoCompleteShapePicker';
 import { withDefaultFill } from './plugins/with-default-fill';
@@ -1601,7 +1602,11 @@ const DrawnixContent: React.FC<DrawnixContentProps> = ({
     setTaskPanelExpanded,
   ]);
 
+  const md3Mode: 'light' | 'dark' =
+    theme?.themeColorMode === ThemeColorMode.dark ? 'dark' : 'light';
+
   return (
+    <Md3ThemeProvider mode={md3Mode}>
     <div
       className={classNames('drawnix', {
         'drawnix--mobile': appState.isMobile,
@@ -1823,5 +1828,6 @@ const DrawnixContent: React.FC<DrawnixContentProps> = ({
         )}
       </div>
     </div>
+    </Md3ThemeProvider>
   );
 };

@@ -1,8 +1,13 @@
 // Credits to excalidraw
+// MD3 迁移（adopt-material-design-3）：button/icon/submit 态内部实现替换为
+// MUI IconButton（对外 props/className/testid/data-track/aria 全量透传，调用方
+// 零改动）；radio 态保留原生 input[type=radio] 语义（E2E getByRole('radio') 与
+// 键盘快捷键依赖），视觉由 tool-icon.scss 渐进对齐 MD3 令牌。
 import './tool-icon.scss';
 
 import type { CSSProperties } from 'react';
 import React, { useEffect, useRef, useState } from 'react';
+import IconButton from '@mui/material/IconButton';
 import { PopupPlacement } from 'tdesign-react';
 import { AbortError } from '../errors';
 import { isPromiseLike } from '@aitu/utils';
@@ -114,8 +119,11 @@ export const ToolButton = React.forwardRef((props: ToolButtonProps, ref) => {
       | 'button'
       | 'submit';
 
+    // MD3：IconButton 提供涟漪/焦点态；存量 tool-icon 类继续主导尺寸与内嵌布局
     const buttonElement = (
-      <button
+      <IconButton
+        component="button"
+        type={type}
         className={classNames(
           'tool-icon_type_button',
           sizeCn,
@@ -133,7 +141,7 @@ export const ToolButton = React.forwardRef((props: ToolButtonProps, ref) => {
         data-track={props['data-track']}
         hidden={props.hidden}
         aria-label={props['aria-label']}
-        type={type}
+        aria-keyshortcuts={props['aria-keyshortcuts']}
         onClick={onClick}
         onPointerDown={(event) => {
           props.onPointerDown?.({
@@ -144,8 +152,16 @@ export const ToolButton = React.forwardRef((props: ToolButtonProps, ref) => {
         onPointerUp={(event) => {
           props.onPointerUp?.({ pointerType: event.pointerType || null });
         }}
-        ref={innerRef}
+        ref={innerRef as React.Ref<HTMLButtonElement>}
         disabled={isLoading || !!props.disabled}
+        sx={{
+          // 存量 tool-icon.scss 主导尺寸/圆角/背景，这里只关掉 MUI 默认占位
+          padding: 0,
+          width: 'auto',
+          height: 'auto',
+          borderRadius: 'inherit',
+          '&:hover': { backgroundColor: 'transparent' },
+        }}
       >
         {(props.icon || props.label) && (
           <div
@@ -167,7 +183,7 @@ export const ToolButton = React.forwardRef((props: ToolButtonProps, ref) => {
         {props.children && (
           <div className="tool-icon__icon">{props.children}</div>
         )}
-      </button>
+      </IconButton>
     );
 
     if (tooltipContent) {

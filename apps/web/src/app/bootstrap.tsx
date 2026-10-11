@@ -23,6 +23,7 @@ import {
 import { initSWConsoleCapture } from '../utils/sw-console-capture';
 import { AuthProvider } from '../supabase/auth-context';
 import { AuthGate } from '../supabase/auth-gate';
+import { Md3ThemeProvider } from '@drawnix/drawnix';
 import { UiStatsCaptureMount } from '../analytics/UiStatsCaptureMount';
 
 const isLocalDev =
@@ -777,12 +778,14 @@ const root = ReactDOM.createRoot(
 root.render(
   <StrictMode>
     <ErrorBoundary>
-      <AuthProvider>
-        <AuthGate>
-          <UiStatsCaptureMount />
-          <App />
-        </AuthGate>
-      </AuthProvider>
+      <Md3ThemeProvider>
+        <AuthProvider>
+          <AuthGate>
+            <UiStatsCaptureMount />
+            <App />
+          </AuthGate>
+        </AuthProvider>
+      </Md3ThemeProvider>
     </ErrorBoundary>
   </StrictMode>
 );

@@ -55,3 +55,12 @@ export { externalSkillService } from './services/external-skill-service';
 
 // Export unified log service (for error log export)
 export { unifiedLogService } from './services/unified-log-service';
+
+// MD3 theme (adopt-material-design-3)
+export { Md3ThemeProvider } from './theme/md3-theme-provider';
+export {
+  getMd3Theme,
+  md3CssVariableStyle,
+  BRAND_PRIMARY,
+  type Md3Mode,
+} from './theme/md3-theme';
