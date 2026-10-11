@@ -206,7 +206,9 @@ export async function clickSyncAction(
   const actionBtn = dialog.getByRole('button', {
     name: new RegExp(buttonName),
   });
-  await expect(actionBtn).toBeVisible({ timeout: TIMEOUTS.confirmDialog });
+  // 登录后的自动同步进行中时操作按钮不渲染（显示"同步正在进行中"）——
+  // 这是合法状态：放宽到 30s 等自动同步结束、按钮回归，避免时序 flake
+  await expect(actionBtn).toBeVisible({ timeout: 30_000 });
   await actionBtn.click();
 
   // 「上传本地」「下载远程」会弹出确认对话框（「确认上传覆盖」/「确认下载覆盖」），
