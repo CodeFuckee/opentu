@@ -137,6 +137,10 @@ export class WorkflowNodeComponent
 
   destroy(): void {
     this.nodeGenerator.destroy();
+    // 选中矩形画在 activeHost 图层(g.active-host-g),不在元素自己的 g 里——
+    // 框架删除元素时只移除元素 g,漏掉这步会把 #b45309 选中边框永久留在画布
+    // (参照 audio-node.component 的 destroy)
+    this.activeGenerator.destroy();
     super.destroy();
   }
 }

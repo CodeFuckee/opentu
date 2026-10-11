@@ -1,5 +1,27 @@
 ## Unreleased
 
+### fix: 工作流节点删除后画布残留黄色选中矩形——组件销毁漏清 activeHost 图层（2026-10-11）
+
+节点删除本身修通后用户反馈:节点消失了,画布上还留着一个黄色矩形边框。
+选中矩形由 `WorkflowNodeSelectionGenerator` 画在 **activeHost 图层**
+(`g.active-host-g`),不在元素自己的 `g` 里——框架删除元素时只移除元素 g;
+正常「取消选中」靠 `processDrawing({selected:false})` 自动清理,而「删除选中
+元素」只走组件 `destroy()`。`WorkflowNodeComponent.destroy()` 只清了
+`nodeGenerator`,漏了 `activeGenerator`(参照实现 audio-node.component 有此
+清理),`#b45309` 选中边框就此永久残留。
+
+- **修复**:`workflow-node.component.ts` 的 `destroy()` 补
+  `this.activeGenerator.destroy()`,对齐 audio-node 模式。
+- **测试**:workflow-node.component.test.ts 新增 2 例(destroy 必须清
+  activeGenerator——先红/destroy 同时清 nodeGenerator);
+  E2E 删除用例两条路径各加「删除后 `.active-host-g .selection-rectangle`
+  归零」断言。
+- **排查附注**:本地手动 `nx build web` 若不带
+  `AITU_REWRITE_ENTRY_ASSETS_TO_CDN=0`,产物入口资产会被改写到 jsDelivr CDN,
+  内网 HTTP + CSP(`script-src 'self'`)下脚本被拒、启动层永久卡 82% 白屏
+  (playwright webServer 配置注入该 env 正是为此);且该 env 不进 nx 缓存
+  hash,坏产物会占住缓存位,重建需 `--skip-nx-cache`。
+
 ### fix: 工作流节点无法删除——getDeletedFragment 漏报选中节点本身（2026-10-11）
 
 主画布上的工作流节点（文生图等）选中后按 Delete 或点 popup 工具栏垃圾桶均

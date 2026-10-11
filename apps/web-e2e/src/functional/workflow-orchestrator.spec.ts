@@ -120,6 +120,11 @@ test.describe('工作流编排(主画布)', () => {
     await expect(page.getByTestId('popup-toolbar')).toBeVisible({ timeout: 8000 });
     await page.keyboard.press('Delete');
     await expect(cardOf(page, '文生图')).toHaveCount(0, { timeout: 8000 });
+    // 回归:选中矩形画在 activeHost 图层,组件 destroy 曾漏清理——
+    // 删除后节点消失但 #b45309 边框永久残留画布
+    await expect(page.locator('.active-host-g .selection-rectangle')).toHaveCount(0, {
+      timeout: 8000,
+    });
 
     // 路径二:再加一个节点 → 选中 → popup 垃圾桶按钮
     await openToolboxAndAddNode(page, '文生图');
@@ -134,5 +139,8 @@ test.describe('工作流编排(主画布)', () => {
       .first()
       .click({ force: true });
     await expect(cardOf(page, '文生图')).toHaveCount(0, { timeout: 8000 });
+    await expect(page.locator('.active-host-g .selection-rectangle')).toHaveCount(0, {
+      timeout: 8000,
+    });
   });
 });
