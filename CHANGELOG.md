@@ -1,5 +1,27 @@
 ## Unreleased
 
+### feat: 前端全面迁移 Material Design 3——MUI 组件库+MD3 主题（阶段一，openspec adopt-material-design-3）
+
+产品决定统一迁移 Material Design 组件体系（用户拍板：MUI/全量/含画布浮层）。
+本批次落地主题基座与全部承载面，存量界面获得 MD3 配色与明暗主题能力：
+
+- **主题基座**：@mui/material 9.5 + Emotion；品牌橙 #F39C12 种子色生成 MD3 全套
+  color roles（light/dark）；MD3 typography/shape/elevation；系统字体栈；
+  `Md3ThemeProvider` 挂载画布根与登录壳
+- **CSS 变量桥**：`--md3-*` 规范令牌 + 高频存量变量（island/surface/on-surface/
+  outline 等）回写 MD3 值——菜单/工具栏/抽屉/弹窗等既有界面整体获得 MD3 配色，
+  品牌锚点 #F39C12 保持
+- **原语 MUI 化**：ToolButton button 态 → IconButton（对外 API/className/testid/
+  data-track/aria 全量透传，radio 态保留原生语义）；HoverTip（111 处）内部 →
+  MUI Tooltip（TDesign 旧 props 全兼容）；Island → Paper；登录表单 → MUI
+  TextField/Button
+- **承载面令牌化**：Dialog 基座（scrim/surface-container-high/elevation-3/16dp）、
+  工作流节点卡片（surface-container-low + outline-variant，端口几何不动）
+- **兼容红线**：全部 E2E 依赖选择器与统计钩子保留；编排 E2E 4/4、smoke 全过
+- **后续批次**（tasks.md 留痕）：抽屉/业务模块组件形态深替换、长尾模块、dashboard
+  HTML 配色对齐
+
+
 ### feat: 按钮使用统计——全按钮点击采集 + 数据看板「按钮使用」面板（2026-10-11）
 
 产品功能多但缺使用数据，无法判断哪些功能高频、哪些零使用。项目虽有 PostHog 埋点
