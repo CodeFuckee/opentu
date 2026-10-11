@@ -151,7 +151,7 @@ export class UiStatsCapture {
     const resolved = resolveButton(event.target);
     if (!resolved) return;
     this.enqueue({
-      page: typeof location !== 'undefined' ? location.pathname : '/',
+      page: window.location.pathname,
       buttonId: resolved.id,
       buttonLabel: resolved.label,
     });
