@@ -599,7 +599,9 @@ async function runCloudSyncImageScenario(
       for (const entry of imageEntries) {
         await expect
           .poll(() => isCloudMediaObjectReady(pageA, entry.remoteUrl), {
-            timeout: TIMEOUTS.syncAction,
+            // 媒体字节上传（fire-and-forget）受 dev storage 吞吐波动影响，
+            // 30s 窗口在网关抖动期不够——放宽到 60s（8MB 级夹具也够）
+            timeout: 60_000,
             intervals: [POLL_INTERVALS.canvas],
           })
           .toBe(true);
