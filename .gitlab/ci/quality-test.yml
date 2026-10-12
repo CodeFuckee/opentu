@@ -181,31 +181,30 @@ test:e2e:
     # 之上涨并突破用例等待窗（雪球）。本 job 运行于 supabase 主机，可直接 psql。
     - |
       # 同步行 + 媒体对象全清理：夹具图片 8MB/张，账号桶里累积后媒体下载
-      # （串行）轻松突破用例等待窗。storage 表禁止直删，走 Storage API。
+      # （串行）轻松突破用例等待窗。storage 表禁止直删，媒体走 Storage API。
       docker exec supabase-db psql -U supabase_admin -d postgres -c \
         "delete from public.user_sync_data where user_id in (select id from auth.users where email like 'e2e_sync_%@yjk.com');" \
         || echo "[e2e] 同步行清理失败（不阻塞套件）"
       docker exec supabase-db psql -U supabase_admin -d postgres -c \
         "delete from public.user_sync_media where user_id in (select id from auth.users where email like 'e2e_sync_%@yjk.com');" \
         || echo "[e2e] 媒体元数据清理失败（不阻塞套件）"
-      - |
       E2E_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg4MTAyMzUyLCJleHAiOjIxMDM0NjIzNTJ9.nQP_hdmnIbCgVfsxlq6TTuRo_FKVYdrRaIDmKViiEBc"
       E2E_PW="${E2E_TEST_PASSWORD:-E2eTest_2026!}"
-      # 媒体对象路径列表来自 DB（storage 表只读），删除走 Storage API（按账号 JWT）
+      # 媒体对象路径来自 DB（storage 表只读），删除走 Storage API（按账号 JWT）
       docker exec supabase-db psql -U supabase_admin -d postgres -t -A -c \
         "select name from storage.objects where bucket_id='yue-sync' and name like 'e2e_sync_%';" \
         | while read -r obj; do
-            [ -z "$obj" ] && continue
-            SLOT=$(printf '%s' "$obj" | cut -d/ -f1 | sed 's/e2e_sync_//')
-            TOKEN=$(curl -s -X POST "http://localhost:8021/auth/v1/token?grant_type=password" \
-              -H "apikey: ${E2E_ANON}" -H "Content-Type: application/json" \
-              -d "{\"email\":\"e2e_sync_${SLOT}@yjk.com\",\"password\":\"${E2E_PW}\"}" \
-              | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
-            [ -z "$TOKEN" ] && continue
-            curl -s -X DELETE "http://localhost:8021/storage/v1/object/yue-sync/${obj}" \
-              -H "apikey: ${E2E_ANON}" -H "Authorization: Bearer ${TOKEN}" > /dev/null
-          done
-      echo "[e2e] 测试账号同步数据与媒体已清理
+          [ -z "$obj" ] && continue
+          SLOT=$(printf '%s' "$obj" | cut -d/ -f1 | sed 's/e2e_sync_//')
+          TOKEN=$(curl -s -X POST "http://localhost:8021/auth/v1/token?grant_type=password" \
+            -H "apikey: ${E2E_ANON}" -H "Content-Type: application/json" \
+            -d "{\"email\":\"e2e_sync_${SLOT}@yjk.com\",\"password\":\"${E2E_PW}\"}" \
+            | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
+          [ -z "$TOKEN" ] && continue
+          curl -s -X DELETE "http://localhost:8021/storage/v1/object/yue-sync/${obj}" \
+            -H "apikey: ${E2E_ANON}" -H "Authorization: Bearer ${TOKEN}" > /dev/null
+        done
+      echo "[e2e] 测试账号同步数据与媒体已清理"
     # 空 E2E_ARGS => 运行 playwright.config.ts 中定义的全部 project（全量 E2E）
     - |
       if [ -n "${E2E_ARGS}" ]; then
