@@ -14,6 +14,10 @@ I/O 层——落「键全量、内容增量」：
   同步完成后控制台输出，性能观测与回归对比
 - **E2E 数据治理**：test:e2e job（supabase 主机）启动前清理 e2e_sync_% 账号
   user_sync_data，杜绝「失败 retry 添数据→同步更慢→更失败」的雪球
+- **HoverTip 可访问名修复**：MUI 9 对字符串 tooltip 会向 child 注入
+  `aria-label=title`，覆盖按钮可见文本的可访问名（按文本匹配的 E2E 选择器全部
+  失配）——字符串 content 包 element 走 aria-labelledby 路线，非悬浮态可访问名
+  保持可见文本
 - **验证**：supabase-sync 单测 89 例（新增 stageTimings×2、增量窗口透传/键扫描
   墓碑/旧路径兼容×3）；drawnix 全量 1644 passed；cloud-sync 簇 E2E 本地复跑
 - **暂缓**：本地收集增量化（IndexedDB 记录读取无列裁剪、键扫描收益存疑）——

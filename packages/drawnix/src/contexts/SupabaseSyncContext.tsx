@@ -162,6 +162,8 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
       },
       syncMedia: async (c: unknown, userId: string) =>
         syncMediaToSupabase(config, userId),
+      // 增量窗口（openspec improve-sync-performance）：syncRef 实时取值避免
+      // useCallback 空依赖闭包过期；null = 首同步全量
       lastSyncTime: syncRef.current.last,
     };
   }, []);

@@ -68,9 +68,15 @@ export function HoverTip({
   // 受控显隐：TDesign 的 visible=true 表示常显（hover 之外仍展示）
   const controlledOpen = visible === true;
 
+  // MUI 9 对「字符串 title」会给 child 注入 aria-label=title（覆盖按钮可见文本
+  // 的可访问名，破坏按文本匹配的 E2E 选择器）——包成 element 走 aria-labelledby
+  // 路线：非悬浮态可访问名保持 child 自身文本，悬浮态由 tooltip 提供
+  const tooltipTitle: React.ReactNode =
+    typeof content === 'string' ? <span>{content}</span> : content;
+
   return (
     <MuiTooltip
-      title={content}
+      title={tooltipTitle}
       placement={toMuiPlacement(placement)}
       arrow={showArrow}
       enterDelay={controlledOpen ? -1 : delay}
