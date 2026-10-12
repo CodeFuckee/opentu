@@ -16,7 +16,7 @@
 
 .github-bridge:
   stage: test
-  tags: ["$LINUX_X64_RUNNER_TAG"]
+  tags: ["linux-x64"]
   script:
     - bash ci/bridge.sh
     # 常驻守护 MACOS_FETCH_ARTIFACTS 依赖的 Job-Token registry 读路径
