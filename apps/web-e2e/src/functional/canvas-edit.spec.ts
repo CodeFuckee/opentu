@@ -53,7 +53,8 @@ test.describe('画布即编辑器', () => {
     const view = page.getByTestId('official-library-view');
     await expect(view).toBeVisible({ timeout: 20000 });
     const card = page.locator('.asset-item').first();
-    await expect(card).toBeVisible({ timeout: 15000 });
+    // 官方库分类聚合（3 万行全表）在 CI 并发/网关抖动下偶发超 15s
+    await expect(card).toBeVisible({ timeout: 30000 });
     // 悬浮「插入到画布」按钮是 onClick(handleInsertClick);双击=开预览不可用。
     // hover 后直接向按钮派发 click,避开 HoverTip 气泡对 force click 的遮挡
     await card.hover();

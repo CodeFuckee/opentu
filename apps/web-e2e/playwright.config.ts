@@ -35,7 +35,7 @@ export default defineConfig({
      Playwright 默认 workers=CPU/2（本机/runner 可达 16），超过池大小会按
      workerIndex%8 复用账号——同账号双 worker 并发同步互踩（「同步正在进行中」
      互拒/状态互扰），cloud-sync 簇间歇失败（openspec improve-sync-performance） */
-  workers: 8,
+  workers: 4,
 
   /* 测试超时设置 */
   timeout: 60000,

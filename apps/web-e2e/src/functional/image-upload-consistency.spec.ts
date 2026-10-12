@@ -269,7 +269,8 @@ test.describe('AI 输入条上传', () => {
       buffer: largePng(),
     });
 
-    await expect(rejectToast(page)).toBeVisible({ timeout: 10000 });
+    // >25MB 文件的解码/校验在慢环境下也慢（CI 并发实测 22s 窗曾不够）
+    await expect(rejectToast(page)).toBeVisible({ timeout: 25000 });
     await expect(aiBarPreviews(page)).toHaveCount(0);
   });
 
@@ -298,9 +299,10 @@ test.describe('AI 输入条上传', () => {
     });
 
     // 压缩完成提示（压缩目标是 5MB，纹理图可能压不到位，但成功提示必然出现）。
-    // 冷启动/慢环境下 canvas 压缩明显变慢，给足 60s
+    // 冷启动/慢环境下 canvas 压缩明显变慢（CI 多浏览器并发抢 CPU 实测超 60s），
+    // 给足 120s
     await expect(page.getByText(/压缩完成/).first()).toBeVisible({
-      timeout: 60000,
+      timeout: 120000,
     });
     await expect(aiBarPreviews(page).first()).toBeVisible({ timeout: 15000 });
   });
