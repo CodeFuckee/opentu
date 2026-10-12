@@ -76,6 +76,10 @@ export function HoverTip({
 
   return (
     <MuiTooltip
+      // describeChild：child 的可访问名保持自身文本（tooltip 走 aria-describedby
+      // 描述），MUI 默认模式会在 open/close 循环里给 child 挂 aria-labelledby
+      // 指向 popper——可访问名漂移成 tooltip 文案，按文本匹配的 E2E 全部失配
+      describeChild
       title={tooltipTitle}
       placement={toMuiPlacement(placement)}
       arrow={showArrow}
