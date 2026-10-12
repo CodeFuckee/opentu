@@ -1,5 +1,27 @@
 ## Unreleased
 
+### feat: 数据看板自定义时间范围 + 统计数据导出 Excel（openspec add-dashboard-range-export）
+
+看板此前只能选周/30/90 天与两个月自然月快选，无法查任意区间；统计出口只有整页
+PNG 截图与文本周报，汇报贴数靠人工搬运。本次补齐（后端 `/overview` 代码里已有
+start/end 区间能力但规格未记录、页面无入口）：
+
+- **自定义区间**：周期下拉新增「自定义区间…」，起止日期（type=date，HTTP 内网可用）
+  +「应用」按东八区精确区间查询；后端 `/overview` 的 start/end 校验收紧——格式非
+  YYYY-MM-DD、非真实日历日期（2026-02-30）、只给其一、start>end 一律 400（原先
+  静默回退 days 窗口易掩盖调用方 bug）
+- **导出 Excel**：新端点 `GET /export`（管理员门禁同 overview，参数同 overview）
+  零依赖手写 xlsx（stored ZIP + 最小 SpreadsheetML，看板自包含页面禁引外部包，
+  纯函数可单测），12 个 sheet 与页面各面板同口径（概览/核心指标/操作类型/模型
+  分布/每日趋势/24小时/部门排行/用户排行/部门汇总/月度趋势/部门分布/按钮统计，
+  按钮统计固定近 7/30 天口径不随区间变化）；页面「导出Excel」按钮复用当前区间
+  blob 下载（文件名含统计周期），401 先刷新会话重试
+- **验证**：dashboard-stats 单测 36 例（新增 6：xlsx 结构与转义与 sheet 名清洗/
+  区间校验边界/工作簿 12 sheet 数值同口径/null 降级/页面入口），supabase 全部
+  边缘函数单测 223 例通过；导出产物经 python zipfile+XML 解析验证
+- **预览**：preview-dashboard-stats.mjs 补 /export（真实生成 xlsx）与
+  /button-usage mock，本地过目无需后端
+
 ### feat: 同步性能专项——远程拉取增量化+阶段计时+E2E 数据治理（openspec improve-sync-performance）
 
 云同步为全量比对式，数据增长后同步耗时线性上涨（E2E 测试账号 5226 行/2.2MB 时突破

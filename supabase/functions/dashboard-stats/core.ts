@@ -1582,6 +1582,525 @@ export async function aggregateButtonUsage(
 }
 
 // ============================================================================
+// 自定义区间校验 + 统计数据导出 Excel（openspec add-dashboard-range-export）
+// ============================================================================
+
+export interface OverviewRange {
+  start: string;
+  end: string;
+}
+
+export type OverviewRangeParse =
+  | { ok: true; range?: OverviewRange }
+  | { ok: false; error: string };
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** 真实日历日期校验（V8 Date.parse 对 2026-02-30 宽容滚动，须显式回验年月日） */
+function isRealCalendarDate(s: string): boolean {
+  const y = Number(s.slice(0, 4));
+  const m = Number(s.slice(5, 7));
+  const d = Number(s.slice(8, 10));
+  const utc = new Date(Date.UTC(y, m - 1, d));
+  return (
+    utc.getUTCFullYear() === y && utc.getUTCMonth() === m - 1 && utc.getUTCDate() === d
+  );
+}
+
+/**
+ * 校验 overview/export 的 start/end 区间参数（东八区，YYYY-MM-DD）。
+ * 两者都缺省 → days 窗口模式（range undefined）；只给其一、格式非法、
+ * 非真实日历日期或 start 晚于 end → 400 错误文案（不静默回退，避免掩盖调用方 bug）。
+ */
+export function parseOverviewRange(start: unknown, end: unknown): OverviewRangeParse {
+  const hasStart = typeof start === 'string' && start !== '';
+  const hasEnd = typeof end === 'string' && end !== '';
+  if (!hasStart && !hasEnd) {
+    return { ok: true };
+  }
+  if (hasStart !== hasEnd) {
+    return { ok: false, error: 'start 与 end 需同时提供（或都不提供走 days 窗口）' };
+  }
+  const s = start as string;
+  const e = end as string;
+  if (!DATE_RE.test(s) || !DATE_RE.test(e)) {
+    return { ok: false, error: 'start/end 需为 YYYY-MM-DD 格式（如 2026-08-07）' };
+  }
+  if (!isRealCalendarDate(s) || !isRealCalendarDate(e)) {
+    return { ok: false, error: 'start/end 需为真实日历日期（如 2026-02-30 不合法）' };
+  }
+  if (s > e) {
+    return { ok: false, error: 'start 不能晚于 end' };
+  }
+  return { ok: true, range: { start: s, end: e } };
+}
+
+// ----------------------------------------------------------------------------
+// 零依赖 xlsx 写入器（stored ZIP + 最小 SpreadsheetML）。
+// 看板函数不引外部依赖（页面自包含有测试守护），xlsx 以 stored（不压缩）条目
+// 手工打包：[Content_Types].xml + rels + workbook + styles + worksheets，
+// 文本用 inlineStr 单元格，数字用数值单元格。Excel/WPS 可直接打开。
+// ----------------------------------------------------------------------------
+
+export interface XlsxSheet {
+  /** sheet 名（>31 字符截断；Excel 非法字符 :\\/?*[] 清洗为下划线） */
+  name: string;
+  rows: Array<Array<string | number | null>>;
+  /** 各列显示宽度（可选，仅影响打开观感） */
+  widths?: number[];
+}
+
+const XML_DECL = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+
+const CRC32_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let k = 0; k < 8; k++) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+    table[i] = c >>> 0;
+  }
+  return table;
+})();
+
+function crc32(bytes: Uint8Array): number {
+  let c = 0xffffffff;
+  for (let i = 0; i < bytes.length; i++) {
+    c = CRC32_TABLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+  }
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+function xmlEscape(text: string): string {
+  return text.replace(/[&<>"']/g, (ch) =>
+    ch === '&'
+      ? '&amp;'
+      : ch === '<'
+        ? '&lt;'
+        : ch === '>'
+          ? '&gt;'
+          : ch === '"'
+            ? '&quot;'
+            : '&apos;'
+  );
+}
+
+/** Excel sheet 名清洗：非法字符 :\\/?*[] → 下划线，截断到 31 字符 */
+function xlsxSheetName(raw: string): string {
+  return raw.replace(/[:\\/?*[\]]/g, '_').slice(0, 31);
+}
+
+function columnRef(index: number): string {
+  let n = index + 1;
+  let ref = '';
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    ref = String.fromCharCode(65 + rem) + ref;
+    n = Math.floor((n - 1) / 26);
+  }
+  return ref;
+}
+
+function sheetXml(sheet: XlsxSheet): string {
+  const rowsXml = sheet.rows
+    .map((row, r) => {
+      const cells = row
+        .map((value, c) => {
+          if (value === null || value === undefined || value === '') {
+            return '';
+          }
+          const ref = `${columnRef(c)}${r + 1}`;
+          if (typeof value === 'number' && Number.isFinite(value)) {
+            return `<c r="${ref}"><v>${value}</v></c>`;
+          }
+          return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${xmlEscape(String(value))}</t></is></c>`;
+        })
+        .join('');
+      return `<row r="${r + 1}">${cells}</row>`;
+    })
+    .join('');
+  const colsXml = (sheet.widths || [])
+    .map(
+      (w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`
+    )
+    .join('');
+  return `${XML_DECL}<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${colsXml ? `<cols>${colsXml}</cols>` : ''}<sheetData>${rowsXml}</sheetData></worksheet>`;
+}
+
+function concatBytes(parts: Uint8Array[]): Uint8Array {
+  const total = parts.reduce((n, p) => n + p.length, 0);
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const p of parts) {
+    out.set(p, off);
+    off += p.length;
+  }
+  return out;
+}
+
+/** 打包为 stored（不压缩）ZIP：本地文件头 + 数据 + 中央目录 + EOCD。固定 DOS 时间保证产物确定性。 */
+function zipStored(files: Array<{ name: string; data: Uint8Array }>): Uint8Array {
+  const enc = new TextEncoder();
+  const chunks: Uint8Array[] = [];
+  const central: Uint8Array[] = [];
+  let offset = 0;
+  const dosTime = 0;
+  const dosDate = ((2026 - 1980) << 9) | (1 << 5) | 1;
+  const u16 = (v: number) => new Uint8Array([v & 0xff, (v >>> 8) & 0xff]);
+  const u32 = (v: number) =>
+    new Uint8Array([v & 0xff, (v >>> 8) & 0xff, (v >>> 16) & 0xff, (v >>> 24) & 0xff]);
+
+  for (const file of files) {
+    const nameBytes = enc.encode(file.name);
+    const crc = crc32(file.data);
+    const local = concatBytes([
+      u32(0x04034b50),
+      u16(20),
+      u16(0x0800),
+      u16(0),
+      u16(dosTime),
+      u16(dosDate),
+      u32(crc),
+      u32(file.data.length),
+      u32(file.data.length),
+      u16(nameBytes.length),
+      u16(0),
+      nameBytes,
+      file.data,
+    ]);
+    chunks.push(local);
+    central.push(
+      concatBytes([
+        u32(0x02014b50),
+        u16(20),
+        u16(20),
+        u16(0x0800),
+        u16(0),
+        u16(dosTime),
+        u16(dosDate),
+        u32(crc),
+        u32(file.data.length),
+        u32(file.data.length),
+        u16(nameBytes.length),
+        u16(0),
+        u16(0),
+        u16(0),
+        u16(0),
+        u32(0),
+        u32(offset),
+        nameBytes,
+      ])
+    );
+    offset += local.length;
+  }
+
+  const centralBytes = concatBytes(central);
+  return concatBytes([
+    ...chunks,
+    centralBytes,
+    concatBytes([
+      u32(0x06054b50),
+      u16(0),
+      u16(0),
+      u16(files.length),
+      u16(files.length),
+      u32(centralBytes.length),
+      u32(offset),
+      u16(0),
+    ]),
+  ]);
+}
+
+/** 由 sheet 列表生成最小合法 .xlsx 字节流（零依赖，纯函数） */
+export function buildXlsx(sheets: XlsxSheet[]): Uint8Array {
+  const enc = new TextEncoder();
+  const files: Array<{ name: string; data: Uint8Array }> = [];
+
+  const contentTypes =
+    `${XML_DECL}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+    '<Default Extension="xml" ContentType="application/xml"/>' +
+    '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+    '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+    sheets
+      .map(
+        (_, i) =>
+          `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`
+      )
+      .join('') +
+    '</Types>';
+  files.push({ name: '[Content_Types].xml', data: enc.encode(contentTypes) });
+
+  files.push({
+    name: '_rels/.rels',
+    data: enc.encode(
+      `${XML_DECL}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
+        '</Relationships>'
+    ),
+  });
+
+  files.push({
+    name: 'xl/workbook.xml',
+    data: enc.encode(
+      `${XML_DECL}<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>` +
+        sheets
+          .map(
+            (s, i) =>
+              `<sheet name="${xmlEscape(xlsxSheetName(s.name))}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`
+          )
+          .join('') +
+        '</sheets></workbook>'
+    ),
+  });
+
+  files.push({
+    name: 'xl/_rels/workbook.xml.rels',
+    data: enc.encode(
+      `${XML_DECL}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+        sheets
+          .map(
+            (_, i) =>
+              `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`
+          )
+          .join('') +
+        `<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>` +
+        '</Relationships>'
+    ),
+  });
+
+  files.push({
+    name: 'xl/styles.xml',
+    data: enc.encode(
+      `${XML_DECL}<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+        '<fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts>' +
+        '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>' +
+        '<borders count="1"><border/></borders>' +
+        '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+        '<cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs>' +
+        '</styleSheet>'
+    ),
+  });
+
+  sheets.forEach((sheet, i) => {
+    files.push({
+      name: `xl/worksheets/sheet${i + 1}.xml`,
+      data: enc.encode(sheetXml(sheet)),
+    });
+  });
+
+  return zipStored(files);
+}
+
+// ----------------------------------------------------------------------------
+// 看板 overview → 多 sheet 工作簿（口径与页面渲染一致）
+// ----------------------------------------------------------------------------
+
+export interface OverviewWorkbookOptions {
+  /** 统计周期标签（如「2026-08-07 ~ 2026-09-30」「近 30 天」），写入概览 sheet */
+  rangeLabel?: string;
+  /** 按钮使用摘要（固定近 7/30 天口径，与面板一致）；提供时追加「按钮统计」sheet */
+  buttonUsage?: ButtonUsageSummary | null;
+}
+
+type Cell = string | number | null;
+
+function fmtDurationMs(ms: number): string {
+  if (!ms) return '-';
+  const s = ms / 1000;
+  if (s < 60) return `${Math.round(s)} 秒`;
+  if (s < 3600) return `${(s / 60).toFixed(1)} 分钟`;
+  return `${(s / 3600).toFixed(1)} 小时`;
+}
+
+function sortedEntries(map: Record<string, number>): Array<[string, number]> {
+  return Object.entries(map || {}).sort((a, b) => b[1] - a[1]);
+}
+
+/** 组装看板统计的完整工作簿（12 类 sheet；纯函数，/export 端点与预览脚本共用） */
+export function buildOverviewWorkbook(
+  overview: DashboardOverview,
+  opts: OverviewWorkbookOptions = {}
+): Uint8Array {
+  const t = overview.tasks;
+  const u = overview.users;
+  const L = overview.leadership;
+  const rate = overview.usdCnyRate;
+  const rangeLabel = opts.rangeLabel || `近 ${overview.days} 天`;
+  const sheets: XlsxSheet[] = [];
+
+  sheets.push({
+    name: '概览',
+    widths: [22, 34],
+    rows: [
+      ['指标', '数值'],
+      ['统计周期', rangeLabel],
+      ['生成时间', overview.generatedAt],
+      ['数据覆盖天数', overview.days],
+      ['总操作次数', t.total],
+      ['活跃用户数', t.activeUsers],
+      ['平均耗时', fmtDurationMs(t.avgDurationMs)],
+      ['消耗金额(USD)', t.totalCostUsd == null ? '-' : t.totalCostUsd],
+      ['近30天消耗金额(USD)', overview.monthCostUsd == null ? '-' : overview.monthCostUsd],
+      ['最近一周任务数', overview.weekTasks],
+      ['汇率(USD→CNY)', rate],
+    ],
+  });
+
+  sheets.push({
+    name: '核心指标',
+    widths: [24, 34],
+    rows: [
+      ['指标', '数值'],
+      ['生成图片(张)', L.windowImages],
+      ['生图任务次数', L.windowImageTasks],
+      ['平均出图耗时', fmtDurationMs(L.avgImageDurationMs)],
+      ['最常用模型', L.topModel || '-'],
+      ['最常用模型次数', L.topModelCount],
+      ['使用模型类型数', L.modelTypes],
+      ['Token 消耗', L.tokens == null ? '-' : L.tokens],
+      ['累计调用次数', L.allTimeCalls == null ? '-' : L.allTimeCalls],
+      ['累计生图任务', L.allTimeImageTasks == null ? '-' : L.allTimeImageTasks],
+      ['单张委外参考价(CNY)', L.outsourcePriceCny == null ? '未配置' : L.outsourcePriceCny],
+      ['等效委外成本(CNY)', L.outsourceEquivalentCny == null ? '-' : L.outsourceEquivalentCny],
+      ['节省委外费用(CNY)', L.savedCny == null ? '-' : L.savedCny],
+    ],
+  });
+
+  const sharePct = (count: number) =>
+    t.total ? `${((count / t.total) * 100).toFixed(1)}%` : '-';
+  sheets.push({
+    name: '操作类型分布',
+    widths: [20, 12, 10],
+    rows: [
+      ['类型', '次数', '占比'],
+      ...sortedEntries(t.byType).map(([k, v]) => [k, v, sharePct(v)] as Cell[]),
+    ],
+  });
+  sheets.push({
+    name: '模型使用分布',
+    widths: [34, 12, 10],
+    rows: [
+      ['模型', '次数', '占比'],
+      ...sortedEntries(t.byModel).map(([k, v]) => [k, v, sharePct(v)] as Cell[]),
+    ],
+  });
+
+  sheets.push({
+    name: '每日趋势',
+    widths: [14, 10],
+    rows: [
+      ['日期', '次数'],
+      ...(t.dailyTrend || []).map((p) => [p.date, p.count] as Cell[]),
+    ],
+  });
+  sheets.push({
+    name: '24小时分布',
+    widths: [16, 10],
+    rows: [
+      ['小时', '次数'],
+      ...(t.hourly || []).map(
+        (count, hour) =>
+          [
+            `${String(hour).padStart(2, '0')}:00-${String((hour + 1) % 24).padStart(2, '0')}:00`,
+            count,
+          ] as Cell[]
+      ),
+    ],
+  });
+
+  sheets.push({
+    name: '部门使用排行',
+    widths: [20, 12],
+    rows: [
+      ['部门', '使用次数'],
+      ...sortedEntries(u.usageByRegion).map(([k, v]) => [k, v] as Cell[]),
+    ],
+  });
+  sheets.push({
+    name: '用户使用排行',
+    widths: [24, 16, 16, 12],
+    rows: [
+      ['用户ID', '姓名', '部门', '使用次数'],
+      ...(t.userUsage || []).map(
+        (row) =>
+          [row.userId, row.displayName || row.userId, row.department || '-', row.count] as Cell[]
+      ),
+    ],
+  });
+  // 与页面「部门使用汇总」同口径：用户数=byDepartment、次数=usageByDepartment、
+  // 金额 CNY=costByDepartment×汇率、占比=次数/总次数（1 位小数）
+  sheets.push({
+    name: '部门使用汇总',
+    widths: [20, 10, 12, 14, 10],
+    rows: [
+      ['部门', '用户数', '使用次数', '金额(CNY)', '占比'],
+      ...sortedEntries(u.usageByDepartment).map(([dept, count]) => {
+        const costUsd = u.costByDepartment ? u.costByDepartment[dept] : undefined;
+        return [
+          dept,
+          (u.byDepartment && u.byDepartment[dept]) || 0,
+          count,
+          costUsd == null ? '-' : Math.round(costUsd * rate * 100) / 100,
+          t.total ? `${((count / t.total) * 100).toFixed(1)}%` : '-',
+        ] as Cell[];
+      }),
+    ],
+  });
+
+  sheets.push({
+    name: '月度用量趋势',
+    widths: [14, 12],
+    rows: [
+      ['周期', '用量'],
+      ...(overview.usage.byPeriod || []).map((p) => [p.period, p.used] as Cell[]),
+    ],
+  });
+  sheets.push({
+    name: '部门分布',
+    widths: [20, 10],
+    rows: [
+      ['部门', '人数'],
+      ...sortedEntries(u.byDepartment).map(([k, v]) => [k, v] as Cell[]),
+    ],
+  });
+
+  if (opts.buttonUsage) {
+    const b = opts.buttonUsage;
+    const rows: Cell[][] = [['榜单', '排名', '按钮', '点击次数', '使用人数', '最近使用']];
+    rows.push(
+      ...(b.top7d || []).map(
+        (row, i) => ['近 7 天排行', i + 1, row.label, row.count, row.users, row.lastSeenAt] as Cell[]
+      )
+    );
+    rows.push(
+      ...(b.top30d || []).map(
+        (row, i) => ['近 30 天排行', i + 1, row.label, row.count, row.users, row.lastSeenAt] as Cell[]
+      )
+    );
+    if (b.inventoryCount > 0) {
+      rows.push(
+        ...(b.unused || []).map(
+          (label) =>
+            [
+              `零使用清单（近 30 天基线 ${b.inventoryCount} 个按钮）`,
+              null,
+              label,
+              null,
+              null,
+              null,
+            ] as Cell[]
+        )
+      );
+    }
+    sheets.push({ name: '按钮统计', widths: [30, 8, 36, 10, 10, 22], rows });
+  }
+
+  return buildXlsx(sheets);
+}
+
+// ============================================================================
 // HTML 看板页面（自包含，无外部依赖）
 // ============================================================================
 
@@ -1663,8 +2182,8 @@ export function buildDashboardHtml(anonKey: string): string {
   h1 { font-size:18px; font-weight:700; letter-spacing:.5px; background:linear-gradient(90deg,#a5c4ff,#22d3ee); -webkit-background-clip:text; background-clip:text; color:transparent; }
   .wrap { position:relative; z-index:1; max-width:1280px; margin:0 auto; padding:6px 26px 0; }
   .controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-  button, select { background:rgba(148,163,184,.1); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:7px 12px; font-size:13px; cursor:pointer; transition:.15s; }
-  button:hover, select:hover { border-color:var(--accent); background:rgba(91,140,255,.12); }
+  button, select, input[type="date"] { background:rgba(148,163,184,.1); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:7px 12px; font-size:13px; cursor:pointer; transition:.15s; color-scheme:dark; }
+  button:hover, select:hover, input[type="date"]:hover { border-color:var(--accent); background:rgba(91,140,255,.12); }
   .meta { color:var(--muted); font-size:12px; }
   .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px; margin:16px 0; }
   .cards.small { grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); }
@@ -1730,9 +2249,17 @@ export function buildDashboardHtml(anonKey: string): string {
       <option value="week" selected>最近一周（周一~周日）</option>
       <option value="30">近 30 天</option>
       <option value="90">近 90 天</option>
+      <option value="custom">自定义区间…</option>
     </select>
+    <span id="customRangeBox" style="display:none">
+      <input type="date" id="rangeStart" aria-label="起始日期">
+      <span class="meta">~</span>
+      <input type="date" id="rangeEnd" aria-label="结束日期">
+      <button id="applyRangeBtn">应用</button>
+    </span>
     <button id="refreshBtn">刷新</button>
     <button id="exportBtn">导出图片</button>
+    <button id="exportXlsxBtn" title="导出当前统计区间全部统计数据为 Excel（.xlsx），与页面各面板同口径">导出Excel</button>
     <button id="pushBtn">推送</button>
     <button id="pushTestBtn" title="用 DEV_DINGTALK_WEBHOOK 配置向开发群推送完整周报（需 DEV_DINGTALK_SECRET 强制加签；结果以钉钉群实际收到为准，页面不回显）">推送测试</button>
     <button id="copyReportBtn">复制报告</button>
@@ -2115,9 +2642,11 @@ function basePath(){
 }
 
 var CURRENT_RANGE_LABEL = '';
-// 当前周期模式：'30'（近 30 天）/ '90' / 'week' / 'month:YYYY-MM'。
+// 当前周期模式：'30'（近 30 天）/ '90' / 'week' / 'month:YYYY-MM' / 'custom'（自定义区间）。
 // 固定「近 30 天」口径的卡片仅在 '30' 模式显示（页面与导出图片同源渲染）。
 var CURRENT_MODE = '30';
+// 当前查询对应的导出请求串（load 时同步更新，导出 Excel 复用同一区间）
+var LAST_EXPORT_QS = '';
 
 function weekRange(){
   var now=new Date();
@@ -2149,7 +2678,9 @@ var MONTH_OPTIONS = ['2026-09', '2026-08'];
 function populateMonthOptions(){
   var sel=document.getElementById('daysSel');
   if(!sel) return;
-  sel.insertAdjacentHTML('beforeend', MONTH_OPTIONS.map(function(ym){
+  // 月份快选插到「自定义区间…」之前，保持自定义项为最后一个选项
+  var anchor=sel.querySelector('option[value=custom]');
+  (anchor||sel).insertAdjacentHTML('beforebegin', MONTH_OPTIONS.map(function(ym){
     return '<option value="month:'+ym+'">'+ym+'（自然月）</option>';
   }).join(''));
 }
@@ -2170,12 +2701,26 @@ async function load(){
     days=7;
     CURRENT_MODE='week';
     qs='overview?start='+r.start+'&end='+r.end+'&days=7';
+  } else if(mode==='custom'){
+    // 自定义区间：东八区 YYYY-MM-DD，后端按 start 00:00:00 ~ end 23:59:59 过滤
+    var s=document.getElementById('rangeStart').value;
+    var e=document.getElementById('rangeEnd').value;
+    if(!s||!e){ alert('请先选择起始与结束日期'); return; }
+    if(s>e){ alert('起始日期不能晚于结束日期'); return; }
+    var n=Math.round((Date.parse(e+'T00:00:00')-Date.parse(s+'T00:00:00'))/86400000)+1;
+    if(!(n>0)){ alert('日期区间无效'); return; }
+    CURRENT_RANGE_LABEL=s+' ~ '+e;
+    days=n;
+    CURRENT_MODE='custom';
+    qs='overview?start='+s+'&end='+e+'&days='+n;
   } else {
     days=Number(mode)||30;
     CURRENT_RANGE_LABEL='近 '+days+' 天';
     CURRENT_MODE=String(days);
     qs='overview?days='+days;
   }
+  // 导出 Excel 复用当前区间（export 与 overview 参数完全一致）
+  LAST_EXPORT_QS='export?'+qs.split('?')[1];
   var requestOverview = function(){
     return fetch(basePath() + qs, { headers: authHeaders() });
   };
@@ -2246,7 +2791,50 @@ async function loadButtonUsage(){
   }
 }
 document.getElementById('refreshBtn').addEventListener('click', load);
-document.getElementById('daysSel').addEventListener('change', load);
+document.getElementById('daysSel').addEventListener('change', function(){
+  // 切到「自定义区间」只展开日期输入，选好点「应用」再查询；其余模式立即重载
+  document.getElementById('customRangeBox').style.display = this.value==='custom' ? 'inline' : 'none';
+  if(this.value!=='custom'){ load(); }
+});
+document.getElementById('applyRangeBtn').addEventListener('click', function(){
+  var s=document.getElementById('rangeStart').value;
+  var e=document.getElementById('rangeEnd').value;
+  if(!s||!e){ alert('请选择起始与结束日期'); return; }
+  if(s>e){ alert('起始日期不能晚于结束日期'); return; }
+  load();
+});
+// 导出 Excel：后端 /export 按当前查询区间聚合生成 .xlsx（管理员门禁同 overview，
+// 含按钮统计 sheet——其口径固定近 7/30 天，不随区间变化）
+document.getElementById('exportXlsxBtn').addEventListener('click', function(){
+  var btn=this;
+  if(!LAST_OVERVIEW || !LAST_EXPORT_QS){ alert('数据尚未加载，请先查询'); return; }
+  btn.disabled=true;
+  btn.textContent='导出中…';
+  var request=function(){ return fetch(basePath() + LAST_EXPORT_QS, { headers: authHeaders() }); };
+  request().then(function(res){
+    if(res.status===401){ return tryRefresh().then(function(ok){ return ok ? request() : res; }); }
+    return res;
+  }).then(function(res){
+    if(res.status===401){ throw new Error('登录已过期，请重新登录'); }
+    if(res.status===403){ throw new Error('仅管理员可导出'); }
+    if(!res.ok){ throw new Error('HTTP '+res.status); }
+    return res.blob();
+  }).then(function(blob){
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=('数据看板-'+CURRENT_RANGE_LABEL+'.xlsx').replace(/[\\/:*?"<>|]/g,'-');
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); },3000);
+    btn.disabled=false;
+    btn.textContent='导出Excel';
+  }).catch(function(e){
+    btn.disabled=false;
+    btn.textContent='导出Excel';
+    alert('导出失败：'+(e&&e.message?e.message:e));
+  });
+});
 document.getElementById('copyReportBtn').addEventListener('click', function(){
   var btn=this;
   var text = LAST_OVERVIEW ? buildReportText(LAST_OVERVIEW, CURRENT_RANGE_LABEL) : '';
@@ -2292,6 +2880,8 @@ function buildExportCanvas(scale){
   (headEl || clone).appendChild(fixStyle);
   var ceb = clone.querySelector('#exportBtn');
   if (ceb) { ceb.textContent = '导出图片'; }
+  var cxb = clone.querySelector('#exportXlsxBtn');
+  if (cxb) { cxb.textContent = '导出Excel'; }
   var cpb = clone.querySelector('#copyReportBtn');
   if (cpb) { cpb.textContent = '复制报告'; }
   var psh = clone.querySelector('#pushBtn');

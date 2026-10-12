@@ -8,6 +8,9 @@
  * SUPABASE_ANON_KEY，容器内已配置）：
  *   GET  /functions/v1/dashboard-stats/            → 200 自包含 HTML 看板页面
  *   GET  /functions/v1/dashboard-stats/overview?days=N → 200 JSON 四类聚合统计
+ *        （start=YYYY-MM-DD&end=YYYY-MM-DD 指定东八区精确区间，优先于 days；非法 400）
+ *   GET  /functions/v1/dashboard-stats/export      → 200 .xlsx 统计数据导出
+ *        （参数同 overview，多 sheet 与页面同口径；按钮统计 sheet 固定近 7/30 天）
  *   GET  /functions/v1/dashboard-stats/button-usage    → 200 JSON 按钮使用统计（近7/30天排行+趋势+零使用）
  *   POST /functions/v1/dashboard-stats/push-report → 推送周报到生产群（DINGTALK_WEBHOOK）
  *   POST /functions/v1/dashboard-stats/push-test   → 完整周报链路推开发群（DEV_DINGTALK_WEBHOOK，强制 DEV_DINGTALK_SECRET 加签）
@@ -23,8 +26,11 @@ import {
   aggregateButtonUsage,
   aggregateOverview,
   buildDashboardHtml,
+  buildOverviewWorkbook,
+  parseOverviewRange,
   pushReport,
   verifyDashboardAdmin,
+  type ButtonUsageSummary,
   type DashboardEnv,
 } from './core.ts';
 
@@ -90,26 +96,63 @@ Deno.serve(async (request: Request) => {
         const params = new URL(request.url).searchParams;
         const daysParam = params.get('days');
         const days = typeof daysParam === 'string' ? Number(daysParam) : 30;
-        const startParam = params.get('start');
-        const endParam = params.get('end');
-        const dateRe = /^\d{4}-\d{2}-\d{2}$/;
-        const range =
-          typeof startParam === 'string' &&
-          typeof endParam === 'string' &&
-          dateRe.test(startParam) &&
-          dateRe.test(endParam)
-            ? { start: startParam, end: endParam }
-            : undefined;
+        // start/end 区间（东八区 YYYY-MM-DD）优先于 days 窗口；非法直接 400
+        const rangeResult = parseOverviewRange(params.get('start'), params.get('end'));
+        if (!rangeResult.ok) {
+          return jsonError(400, rangeResult.error);
+        }
         const overview = await aggregateOverview(
           env,
           Number.isFinite(days) ? days : 30,
           {},
-          range
+          rangeResult.range
         );
         return new Response(JSON.stringify(overview), {
           status: 200,
           headers: {
             'Content-Type': 'application/json',
+            'Cache-Control': 'no-store',
+            ...CORS_HEADERS,
+          },
+        });
+      }
+      if (route.kind === 'export') {
+        // 统计数据导出 Excel：门禁与参数同 overview；返回 .xlsx 附件。
+        // 按钮统计为固定近 7/30 天口径（与面板一致），失败降级为不含该 sheet。
+        const gate = await verifyDashboardAdmin(env, request);
+        if (!gate.ok) {
+          return jsonError(gate.status, gate.error);
+        }
+        const params = new URL(request.url).searchParams;
+        const daysParam = params.get('days');
+        const days = typeof daysParam === 'string' ? Number(daysParam) : 30;
+        const rangeResult = parseOverviewRange(params.get('start'), params.get('end'));
+        if (!rangeResult.ok) {
+          return jsonError(400, rangeResult.error);
+        }
+        const overview = await aggregateOverview(
+          env,
+          Number.isFinite(days) ? days : 30,
+          {},
+          rangeResult.range
+        );
+        let buttonUsage: ButtonUsageSummary | null = null;
+        try {
+          buttonUsage = await aggregateButtonUsage(env, {});
+        } catch {
+          buttonUsage = null;
+        }
+        const rangeLabel = rangeResult.range
+          ? `${rangeResult.range.start} ~ ${rangeResult.range.end}`
+          : `近 ${overview.days} 天`;
+        const bytes = buildOverviewWorkbook(overview, { rangeLabel, buttonUsage });
+        const utf8Name = `数据看板-${rangeLabel}.xlsx`;
+        return new Response(bytes as unknown as BodyInit, {
+          status: 200,
+          headers: {
+            'Content-Type':
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition': `attachment; filename="dashboard-stats.xlsx"; filename*=UTF-8''${encodeURIComponent(utf8Name)}`,
             'Cache-Control': 'no-store',
             ...CORS_HEADERS,
           },
@@ -182,10 +225,10 @@ Deno.serve(async (request: Request) => {
   }
 });
 
-/** 解析路径：页面（BASE 本身 / index.html / 尾部斜杠）或数据接口（overview/push-report/push-test） */
+/** 解析路径：页面（BASE 本身 / index.html / 尾部斜杠）或数据接口（overview/export/push-report/push-test） */
 function parseRoute(
   urlPath: string
-): { kind: 'page' } | { kind: 'overview' } | { kind: 'button-usage' } | { kind: 'push' } | { kind: 'push-test' } | { kind: 'unknown' } {
+): { kind: 'page' } | { kind: 'overview' } | { kind: 'export' } | { kind: 'button-usage' } | { kind: 'push' } | { kind: 'push-test' } | { kind: 'unknown' } {
   const suffix = urlPath.startsWith('/functions/v1' + BASE)
     ? urlPath.slice(('/functions/v1' + BASE).length)
     : urlPath.startsWith(BASE)
@@ -201,6 +244,9 @@ function parseRoute(
   }
   if (clean === '/overview') {
     return { kind: 'overview' };
+  }
+  if (clean === '/export') {
+    return { kind: 'export' };
   }
   if (clean === '/button-usage') {
     return { kind: 'button-usage' };

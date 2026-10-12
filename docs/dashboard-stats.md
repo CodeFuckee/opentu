@@ -7,7 +7,10 @@
 ## 功能
 
 - `GET /functions/v1/dashboard-stats/` → 自包含 HTML 看板页面（内联 CSS/JS/SVG 图表，无外部依赖）
-- `GET /functions/v1/dashboard-stats/overview?days=N` → 三类聚合统计 JSON（默认 days=30，范围 1~365）
+- `GET /functions/v1/dashboard-stats/overview?days=N` → 三类聚合统计 JSON（默认 days=30，范围 1~365；
+  可用 `start=YYYY-MM-DD&end=YYYY-MM-DD` 指定东八区精确区间，优先于 days，非法参数返回 400）
+- `GET /functions/v1/dashboard-stats/export?days=N[&start=&end=]` → 统计数据导出 Excel（.xlsx 附件，
+  参数与 overview 一致，多 sheet 与页面同口径；需管理员 JWT）
 
 页面统计块（对照原 newapi 看板口径补全）：
 
@@ -37,6 +40,27 @@ Token 消耗取网关消耗日志 `prompt_tokens + completion_tokens` 求和；�
 **推送到钉钉**：页面右上角「推送」按钮把当前看板截图 + 周报文字经钉钉群机器人发送。图片先上传 Gitee 仓库中转（raw 直链放入 markdown），机器人用加签方式调用。依赖 `configs` 表四个键（已预置，值需填写）：`DINGTALK_WEBHOOK`（机器人 Webhook）、`DINGTALK_SECRET`（加签密钥）、`GITEE_TOKEN`（Gitee 私人令牌，需仓库写权限）、`GITEE_REPO`（中转仓库，默认 tju-kdj_admin/dingding-talk-images）。未填 webhook 时推送返回明确错误。
 
 除特别注明外，任务类统计口径均为**仅成功（completed）任务**。
+
+## 自定义时间范围与 Excel 导出（openspec add-dashboard-range-export）
+
+**自定义区间**：周期下拉选「自定义区间…」，填起止日期（如 2026-08-07 ~ 2026-09-30）
+后点「应用」，按东八区 `start` 当日 00:00:00 ~ `end` 当日 23:59:59 精确过滤（优先于
+days 窗口）。接口直调示例：
+
+```bash
+curl -s -H "Authorization: Bearer $ADMIN_JWT" \
+  "http://10.37.80.25:8021/functions/v1/dashboard-stats/overview?start=2026-08-07&end=2026-09-30&days=55"
+```
+
+非法区间（格式非 YYYY-MM-DD、非真实日历日期如 2026-02-30、只给其一、start 晚于
+end）返回 400 与中文错误说明。
+
+**导出 Excel**：页面「导出Excel」按钮按当前查询区间请求 `/export`，下载
+`数据看板-<统计周期>.xlsx`。零依赖手写 xlsx（stored ZIP + 最小 SpreadsheetML，
+无外部包，页面/函数不引第三方库）。工作簿 12 个 sheet：概览、核心指标、操作类型
+分布、模型使用分布、每日趋势、24小时分布、部门使用排行、用户使用排行、部门使用
+汇总（金额 CNY=USD×汇率、占比与页面同口径）、月度用量趋势、部门分布、按钮统计
+（固定近 7/30 天口径，与面板一致，不随导出区间变化；聚合失败时该 sheet 省略）。
 
 ## 实现
 
@@ -89,5 +113,10 @@ curl -s -H "Authorization: Bearer $ANON_KEY" \
       `leadership` 区块），`tasks/usage/users/leadership` 区块均有数据
 - [ ] 修改 `days=7/90` 后任务趋势与过滤窗口随之变化
 - [ ] `node --test supabase/functions/*/core.test.ts` 全绿
+- [ ] 自定义区间：页面选「自定义区间…」填起止日期点「应用」，趋势/排行随之变化；
+      `overview?start=2026-02-30&end=2026-03-01` 返回 400
+- [ ] 导出 Excel：`export?start=2026-08-07&end=2026-09-30` 返回 .xlsx（12 sheet），
+      Excel/WPS 可打开且数值与同参数 overview 一致
 - [ ] 本地纯前端过目（无需后端）：`node scripts/preview-dashboard-stats.mjs [端口]`
-      打开提示的地址，登录壳已跳过，看板用 mock 数据渲染全部区块（含领导视角）
+      打开提示的地址，登录壳已跳过，看板用 mock 数据渲染全部区块（含领导视角；
+      自定义区间与导出 Excel 均可用，/export 返回真实生成的 xlsx）

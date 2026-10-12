@@ -12,7 +12,10 @@
  */
 
 import { createServer } from 'node:http';
-import { buildDashboardHtml } from '../supabase/functions/dashboard-stats/core.ts';
+import {
+  buildDashboardHtml,
+  buildOverviewWorkbook,
+} from '../supabase/functions/dashboard-stats/core.ts';
 
 const port = Number(process.argv[2] || 7291);
 
@@ -51,6 +54,12 @@ const fixture = {
     topUsers: [
       { userId: 'u1', displayName: '孟杜翀', department: '方案中心', count: 86 },
       { userId: 'u2', displayName: '李敏浩', department: '方案中心', count: 64 },
+    ],
+    userUsage: [
+      { userId: 'u1', displayName: '孟杜翀', department: '方案中心', count: 86 },
+      { userId: 'u2', displayName: '李敏浩', department: '方案中心', count: 64 },
+      { userId: 'u3', displayName: '周砚秋', department: '环艺中心', count: 51 },
+      { userId: 'u4', displayName: '陈临', department: '智能建造', count: 40 },
     ],
     totalCostUsd: 96.5,
   },
@@ -94,6 +103,38 @@ const fixture = {
   },
 };
 
+// 按钮使用统计 mock（固定近 7/30 天口径，与生产面板一致，不随预览区间变化）
+const buttonUsageFixture = {
+  top7d: [
+    { buttonId: 'btn-ai-generate', label: '生成图片', count: 128, users: 18, lastSeenAt: iso(0, 18) },
+    { buttonId: 'btn-export-png', label: '导出图片', count: 66, users: 9, lastSeenAt: iso(1, 10) },
+  ],
+  top30d: [
+    { buttonId: 'btn-ai-generate', label: '生成图片', count: 512, users: 26, lastSeenAt: iso(0, 18) },
+    { buttonId: 'btn-export-png', label: '导出图片', count: 240, users: 14, lastSeenAt: iso(1, 10) },
+  ],
+  dailyTrend: dailyTrend.map((p) => ({ date: p.date, count: p.count * 4 })),
+  unused: ['inv:toolbox-legacy-plugin'],
+  inventoryCount: 257,
+};
+
+// 预览导出 Excel：用同一 mock fixture 走生产同款 buildOverviewWorkbook（浏览器下载后可直接打开）
+function exportXlsx(searchParams) {
+  const overview = JSON.parse(JSON.stringify(fixture));
+  const start = searchParams.get('start');
+  const end = searchParams.get('end');
+  if (start && end) {
+    overview.days = Math.max(
+      1,
+      Math.round((Date.parse(`${end}T00:00:00`) - Date.parse(`${start}T00:00:00`)) / 86400000) + 1
+    );
+  }
+  return buildOverviewWorkbook(overview, {
+    rangeLabel: start && end ? `${start} ~ ${end}` : `近 ${overview.days} 天`,
+    buttonUsage: buttonUsageFixture,
+  });
+}
+
 // 预览专用：跳过登录壳，直接加载数据（线上页面不受影响）。
 // 精确字符串 replace：源文案变化即静默退化成「预览页要登录」，未命中时告警
 const loginShellSource = 'if(session){ load(); } else { showLogin(); }';
@@ -107,9 +148,30 @@ html = html.replace(loginShellSource, 'load();');
 
 const server = createServer((req, res) => {
   const url = new URL(req.url, `http://localhost:${port}`);
-  if (url.pathname.replace(/\/+$/, '').endsWith('/overview')) {
+  const path = url.pathname.replace(/\/+$/, '');
+  if (path.endsWith('/overview')) {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(fixture));
+    return;
+  }
+  if (path.endsWith('/button-usage')) {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(buttonUsageFixture));
+    return;
+  }
+  if (path.endsWith('/export')) {
+    try {
+      const bytes = exportXlsx(url.searchParams);
+      res.writeHead(200, {
+        'Content-Type':
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': 'attachment; filename="dashboard-stats.xlsx"',
+      });
+      res.end(Buffer.from(bytes));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: String(err && err.message ? err.message : err) }));
+    }
     return;
   }
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });

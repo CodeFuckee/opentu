@@ -25,8 +25,13 @@ import {
   aggregateOverview,
   buildButtonUsageSummary,
   buildDashboardHtml,
+  buildOverviewWorkbook,
+  buildXlsx,
+  parseOverviewRange,
   verifyDashboardAdmin,
+  type ButtonUsageSummary,
   type DashboardEnv,
+  type DashboardOverview,
 } from './core.ts';
 
 const ANON_KEY = 'test-anon-key';
@@ -1091,4 +1096,335 @@ test('aggregateButtonUsage：service_role 查询与聚合编排', async () => {
   assert.equal(summary.top30d.length, 1);
   assert.equal(summary.top30d[0].buttonId, 'btn_x');
   assert.ok(calls.length === 1);
+});
+
+// ============================================================
+// Excel 导出（add-dashboard-range-export）：零依赖 xlsx 写入器、
+// 区间参数校验、工作簿组装与页面入口
+// ============================================================
+
+/** 解析零依赖写入器产出的 stored ZIP（顺序本地头，无 data descriptor），返回 条目名→文本 */
+function readStoredZipEntries(bytes: Uint8Array): Map<string, string> {
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const dec = new TextDecoder();
+  const entries = new Map<string, string>();
+  let off = 0;
+  while (off + 30 <= bytes.length && dv.getUint32(off, true) === 0x04034b50) {
+    const flags = dv.getUint16(off + 6, true);
+    const method = dv.getUint16(off + 8, true);
+    const size = dv.getUint32(off + 18, true);
+    const nameLen = dv.getUint16(off + 26, true);
+    const extraLen = dv.getUint16(off + 28, true);
+    const name = dec.decode(bytes.subarray(off + 30, off + 30 + nameLen));
+    assert.equal(method, 0, `${name} 应为 stored（不压缩）条目`);
+    assert.equal(flags & 0x0008, 0, `${name} 不得使用 data descriptor`);
+    const dataStart = off + 30 + nameLen + extraLen;
+    entries.set(name, dec.decode(bytes.subarray(dataStart, dataStart + size)));
+    off = dataStart + size;
+  }
+  assert.equal(dv.getUint32(off, true), 0x02014b50, '本地条目后应紧跟中央目录');
+  return entries;
+}
+
+const OVERVIEW_FIXTURE: DashboardOverview = {
+  generatedAt: '2026-10-12T08:00:00.000Z',
+  days: 55,
+  usdCnyRate: 7,
+  weekTasks: 100,
+  monthCostUsd: 88.8,
+  tasks: {
+    total: 320,
+    byType: { image: 210, chat: 68, video: 30, audio: 12 },
+    byModel: { 'gemini-2.5-pro-image': 200, 'gpt-image-2': 120 },
+    activeUsers: 23,
+    avgDurationMs: 42000,
+    dailyTrend: [
+      { date: '2026-08-07', count: 3 },
+      { date: '2026-08-08', count: 5 },
+    ],
+    hourly: Array.from({ length: 24 }, (_, i) => i),
+    topUsers: [{ userId: 'u1', displayName: '孟杜翀', department: '方案中心', count: 86 }],
+    userUsage: [
+      { userId: 'u1', displayName: '孟杜翀', department: '方案中心', count: 86 },
+      { userId: 'u2', displayName: null, department: null, count: 64 },
+    ],
+    totalCostUsd: 96.5,
+  },
+  usage: {
+    quotaLimit: 200,
+    byPeriod: [
+      { period: '2026-08', used: 810 },
+      { period: '2026-09', used: 640 },
+    ],
+    latestPeriod: '2026-09',
+    latestUsed: 640,
+    topUsers: [],
+  },
+  users: {
+    total: 46,
+    byDepartment: { 方案中心: 18, 环艺中心: 9 },
+    byRegion: { 广州: 22, 深圳: 10 },
+    usageByDepartment: { 方案中心: 156, 环艺中心: 62 },
+    usageByRegion: { 广州: 168, 深圳: 74 },
+    costByDepartment: { 方案中心: 47.1, 环艺中心: 18.7 },
+    staffDirectory: 300,
+    enabledDepartments: 8,
+  },
+  leadership: {
+    windowImages: 458,
+    windowImageTasks: 210,
+    avgImageDurationMs: 38000,
+    topModel: 'gemini-2.5-pro-image',
+    topModelCount: 200,
+    modelTypes: 2,
+    tokens: 1623784,
+    allTimeCalls: 8298,
+    allTimeImageTasks: 3590,
+    outsourcePriceCny: 80,
+    outsourceEquivalentCny: 36640,
+    savedCny: 36630.35,
+  },
+};
+
+const BUTTON_USAGE_FIXTURE: ButtonUsageSummary = {
+  top7d: [
+    { buttonId: 'btn_a', label: '生成图片', count: 30, users: 5, lastSeenAt: '2026-10-10T02:00:00.000Z' },
+  ],
+  top30d: [
+    { buttonId: 'btn_a', label: '生成图片', count: 120, users: 9, lastSeenAt: '2026-10-10T02:00:00.000Z' },
+  ],
+  dailyTrend: [{ date: '2026-10-09', count: 6 }],
+  unused: ['inv:legacy-btn'],
+  inventoryCount: 257,
+};
+
+test('buildXlsx：产出可解析的 stored ZIP，workbook/rels/sheet 条目齐全且顺序一致', () => {
+  const bytes = buildXlsx([
+    { name: '概览', rows: [['指标', '数值'], ['总数', 42]] },
+    { name: '每日趋势', rows: [['日期', '次数'], ['2026-08-07', 3]] },
+  ]);
+  assert.equal(bytes[0], 0x50, 'ZIP 魔数 P');
+  assert.equal(bytes[1], 0x4b, 'ZIP 魔数 K');
+  const entries = readStoredZipEntries(bytes);
+  for (const name of [
+    '[Content_Types].xml',
+    '_rels/.rels',
+    'xl/workbook.xml',
+    'xl/_rels/workbook.xml.rels',
+    'xl/worksheets/sheet1.xml',
+    'xl/worksheets/sheet2.xml',
+  ]) {
+    assert.ok(entries.has(name), `缺少条目 ${name}`);
+  }
+  const wb = entries.get('xl/workbook.xml')!;
+  assert.ok(wb.includes('name="概览"'), 'workbook 应声明第一个 sheet 名');
+  assert.ok(wb.includes('name="每日趋势"'));
+  assert.ok(
+    wb.indexOf('name="概览"') < wb.indexOf('name="每日趋势"'),
+    'workbook sheet 顺序应与传入顺序一致'
+  );
+  const s1 = entries.get('xl/worksheets/sheet1.xml')!;
+  assert.ok(s1.includes('总数'), 'sheet1 应含表头文本');
+  assert.ok(s1.includes('<v>42</v>'), '数字应写为数值单元格');
+  const ct = entries.get('[Content_Types].xml')!;
+  assert.ok(ct.includes('/xl/worksheets/sheet1.xml'));
+  assert.ok(ct.includes('/xl/worksheets/sheet2.xml'));
+  const rels = entries.get('xl/_rels/workbook.xml.rels')!;
+  assert.ok(rels.includes('worksheets/sheet1.xml'));
+  assert.ok(rels.includes('worksheets/sheet2.xml'));
+});
+
+test('buildXlsx：单元格类型与 XML 转义、null 省略、字符串保留原样', () => {
+  const bytes = buildXlsx([
+    {
+      name: 'S',
+      rows: [['a<b>&"c"', null, 42.5, '007', '中文✓']],
+    },
+  ]);
+  const xml = readStoredZipEntries(bytes).get('xl/worksheets/sheet1.xml')!;
+  assert.ok(xml.includes('a&lt;b&gt;&amp;&quot;c&quot;'), 'XML 特殊字符必须转义');
+  assert.ok(xml.includes('<v>42.5</v>'), '小数写为数值单元格');
+  assert.ok(xml.includes('>007<'), '字符串数字保留文本形态（不丢前导零）');
+  assert.ok(xml.includes('中文✓'), '中文/emoji 原样保留（UTF-8）');
+  assert.ok(xml.includes('xml:space="preserve"'), '文本单元格保留空白语义');
+  const cells = xml.match(/<c /g) || [];
+  assert.equal(cells.length, 4, 'null 单元格应省略（5 列中 4 个非空）');
+});
+
+test('buildXlsx：sheet 名清洗非法字符并截断到 31 字符；空表仍产出合法 sheetData', () => {
+  const longName = 'x'.repeat(40);
+  const dirty = 'A/B\\C:D*E?F[G]H';
+  const bytes = buildXlsx([
+    { name: longName, rows: [['h']] },
+    { name: dirty, rows: [] },
+  ]);
+  const wb = readStoredZipEntries(bytes).get('xl/workbook.xml')!;
+  assert.ok(wb.includes('x'.repeat(31)), 'sheet 名截断到 31 字符');
+  assert.ok(wb.includes('A_B_C_D_E_F_G_H'), 'Excel 非法字符 :\\/?:*[] 清洗为下划线');
+  const s2 = readStoredZipEntries(bytes).get('xl/worksheets/sheet2.xml')!;
+  assert.ok(s2.includes('sheetData'), '空表也要有 sheetData');
+});
+
+test('parseOverviewRange：合法区间/仅 days/缺一/格式错/假日期/倒置/同日', () => {
+  const ok = parseOverviewRange('2026-08-07', '2026-09-30');
+  assert.equal(ok.ok, true);
+  assert.deepEqual(ok.ok && ok.range, { start: '2026-08-07', end: '2026-09-30' });
+
+  const daysOnly = parseOverviewRange(null, null);
+  assert.equal(daysOnly.ok, true, '两者都缺省 = days 模式，合法');
+  assert.equal(daysOnly.ok && daysOnly.range, undefined);
+
+  const half = parseOverviewRange('2026-08-07', null);
+  assert.equal(half.ok, false, '只给 start 非法');
+  assert.match(half.ok ? '' : half.error, /同时/);
+
+  const badFormat = parseOverviewRange('2026-8-7', '2026-09-30');
+  assert.equal(badFormat.ok, false, '非零填充格式非法');
+  assert.match(badFormat.ok ? '' : badFormat.error, /YYYY-MM-DD/);
+
+  const fakeDate = parseOverviewRange('2026-02-30', '2026-03-01');
+  assert.equal(fakeDate.ok, false, '非真实日历日期（2 月 30 日）非法');
+
+  const inverted = parseOverviewRange('2026-09-30', '2026-08-07');
+  assert.equal(inverted.ok, false, 'start 晚于 end 非法');
+  assert.match(inverted.ok ? '' : inverted.error, /晚于/);
+
+  const sameDay = parseOverviewRange('2026-08-07', '2026-08-07');
+  assert.equal(sameDay.ok, true, '同日单日区间合法');
+});
+
+test('buildOverviewWorkbook：11 类基础 sheet 齐全、顺序固定、数值与 overview 同口径', () => {
+  const bytes = buildOverviewWorkbook(OVERVIEW_FIXTURE, {
+    rangeLabel: '2026-08-07 ~ 2026-09-30',
+  });
+  const entries = readStoredZipEntries(bytes);
+  const wb = entries.get('xl/workbook.xml')!;
+  const names = [
+    '概览',
+    '核心指标',
+    '操作类型分布',
+    '模型使用分布',
+    '每日趋势',
+    '24小时分布',
+    '部门使用排行',
+    '用户使用排行',
+    '部门使用汇总',
+    '月度用量趋势',
+    '部门分布',
+  ];
+  let pos = -1;
+  for (const n of names) {
+    const at = wb.indexOf(`name="${n}"`);
+    assert.ok(at >= 0, `缺少 sheet：${n}`);
+    assert.ok(at > pos, `sheet ${n} 顺序不对`);
+    pos = at;
+  }
+  assert.ok(!wb.includes('按钮统计'), '未提供 buttonUsage 时不得有按钮统计 sheet');
+  const overrides = (entries.get('[Content_Types].xml')!.match(/worksheets\/sheet/g) || []).length;
+  assert.equal(overrides, 11, '未含按钮统计时共 11 个 sheet');
+
+  // 概览（sheet1）：区间标签 + KPI 数值
+  const s1 = entries.get('xl/worksheets/sheet1.xml')!;
+  assert.ok(s1.includes('2026-08-07 ~ 2026-09-30'), '概览应含统计周期标签');
+  assert.ok(s1.includes('<v>320</v>'), '概览应含总操作次数');
+  assert.ok(s1.includes('<v>23</v>'), '概览应含活跃用户数');
+
+  // 操作类型分布：次数与占比（210/320 = 65.6%）
+  const s3 = entries.get('xl/worksheets/sheet3.xml')!;
+  assert.ok(s3.includes('image') && s3.includes('<v>210</v>') && s3.includes('65.6%'));
+
+  // 每日趋势：逐日行
+  const s5 = entries.get('xl/worksheets/sheet5.xml')!;
+  assert.ok(s5.includes('2026-08-07') && s5.includes('<v>3</v>'));
+  assert.ok(s5.includes('2026-08-08') && s5.includes('<v>5</v>'));
+
+  // 24 小时分布：表头 + 24 行
+  const s6 = entries.get('xl/worksheets/sheet6.xml')!;
+  assert.equal((s6.match(/<row /g) || []).length, 25, '24 小时分布应为表头+24 行');
+
+  // 用户使用排行：姓名与次数（含 null 部门降级）
+  const s8 = entries.get('xl/worksheets/sheet8.xml')!;
+  assert.ok(s8.includes('孟杜翀') && s8.includes('<v>86</v>'));
+  assert.ok(s8.includes('u2') && s8.includes('<v>64</v>'));
+
+  // 部门使用汇总：金额 CNY = USD × 汇率（47.1×7=329.7）、占比 = 156/320 = 48.75%（与页面同口径）
+  const s9 = entries.get('xl/worksheets/sheet9.xml')!;
+  assert.ok(s9.includes('方案中心'));
+  assert.ok(s9.includes('<v>18</v>'), '用户数取 users.byDepartment');
+  assert.ok(s9.includes('<v>156</v>'), '使用次数取 users.usageByDepartment');
+  assert.ok(s9.includes('<v>329.7</v>'), '金额列应为 CNY（USD×汇率）');
+  assert.ok(s9.includes('48.8%'), '占比列与页面口径一致（1 位小数）');
+
+  // 月度用量趋势 / 部门分布 / 部门使用排行
+  const s10 = entries.get('xl/worksheets/sheet10.xml')!;
+  assert.ok(s10.includes('2026-08') && s10.includes('<v>810</v>'));
+  const s11 = entries.get('xl/worksheets/sheet11.xml')!;
+  assert.ok(s11.includes('方案中心') && s11.includes('<v>18</v>'));
+  const s7 = entries.get('xl/worksheets/sheet7.xml')!;
+  assert.ok(s7.includes('广州') && s7.includes('<v>168</v>'));
+
+  // 核心指标（sheet2）：领导视角数值
+  const s2 = entries.get('xl/worksheets/sheet2.xml')!;
+  assert.ok(s2.includes('<v>458</v>'), '生成图片张数');
+  assert.ok(s2.includes('<v>8298</v>'), '累计调用次数');
+  assert.ok(s2.includes('gemini-2.5-pro-image'), '最常用模型');
+});
+
+test('buildOverviewWorkbook：附 buttonUsage 时追加按钮统计 sheet（固定 7/30 天口径标注）', () => {
+  const bytes = buildOverviewWorkbook(OVERVIEW_FIXTURE, {
+    rangeLabel: '近 30 天',
+    buttonUsage: BUTTON_USAGE_FIXTURE,
+  });
+  const entries = readStoredZipEntries(bytes);
+  const wb = entries.get('xl/workbook.xml')!;
+  assert.ok(wb.includes('name="按钮统计"'), '应追加按钮统计 sheet');
+  const s12 = entries.get('xl/worksheets/sheet12.xml')!;
+  assert.ok(s12.includes('近 7 天'), '按钮统计须标注固定 7/30 天口径');
+  assert.ok(s12.includes('近 30 天'));
+  assert.ok(s12.includes('生成图片') && s12.includes('<v>120</v>'));
+  assert.ok(s12.includes('inv:legacy-btn'), '零使用清单入表');
+  assert.ok(s12.includes('2026-10-10T02:00:00.000Z'), '最近使用时间原样导出');
+});
+
+test('buildOverviewWorkbook：null 数值降级展示（- / 未配置），不产出 NaN 单元格', () => {
+  const overview = structuredClone(OVERVIEW_FIXTURE);
+  overview.tasks.totalCostUsd = null;
+  overview.monthCostUsd = null;
+  overview.leadership.tokens = null;
+  overview.leadership.outsourcePriceCny = null;
+  const bytes = buildOverviewWorkbook(overview, { rangeLabel: '近 30 天' });
+  const entries = readStoredZipEntries(bytes);
+  const s1 = entries.get('xl/worksheets/sheet1.xml')!;
+  assert.ok(s1.includes('>-<'), 'null 金额在概览中降级为 -');
+  const s2 = entries.get('xl/worksheets/sheet2.xml')!;
+  assert.ok(s2.includes('>-<'), 'null Token 消耗降级为 -');
+  assert.ok(s2.includes('未配置'), 'null 委外单价提示未配置');
+  for (const [, xml] of entries) {
+    assert.ok(!xml.includes('NaN'), '任何单元格不得出现 NaN');
+    assert.ok(!xml.includes('undefined'), '任何单元格不得出现 undefined');
+  }
+});
+
+test('buildDashboardHtml：自定义区间入口与导出 Excel 按钮（add-dashboard-range-export）', () => {
+  const html = buildDashboardHtml(ANON_KEY);
+  // 自定义区间：下拉选项 + 起止日期输入 + 应用按钮 + load 的 custom 分支
+  assert.ok(html.includes('value="custom"'), '下拉需有自定义区间选项');
+  assert.ok(html.includes('id="customRangeBox"'), '缺少自定义区间输入容器');
+  assert.ok((html.match(/type="date"/g) || []).length >= 2, '需要起/止两个日期输入框');
+  assert.ok(html.includes('id="applyRangeBtn"'), '缺少应用按钮');
+  assert.ok(html.includes("'custom'"), 'load 必须处理自定义区间分支');
+  assert.ok(html.includes("CURRENT_MODE='custom'"), '自定义区间需跟踪周期模式');
+  assert.ok(html.includes('起始日期不能晚于结束日期'), '前端需校验 start<=end');
+  // 月份快选插入在自定义项之前（自定义项是最后一个选项）
+  assert.ok(
+    /value="custom"[\s\S]*populateMonthOptions[\s\S]*function populateMonthOptions/.test(html) ||
+      html.includes("insertAdjacentHTML('beforebegin'"),
+    '月份快选不得排到自定义项之后'
+  );
+  // 导出 Excel：按钮 + export 接口请求 + 复用当前区间 + 401 刷新重试
+  assert.ok(html.includes('id="exportXlsxBtn"'), '缺少导出 Excel 按钮');
+  assert.ok(html.includes("'export?'"), '页面必须以 export? 发起导出请求');
+  assert.ok(html.includes('LAST_EXPORT_QS'), '导出需复用当前查询区间参数');
+  assert.ok(html.includes('tryRefresh'), '401 时应刷新会话重试');
+  assert.ok(html.includes('仅管理员可导出'), '403 需给出管理员提示');
 });
