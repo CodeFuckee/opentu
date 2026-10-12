@@ -1,0 +1,51 @@
+# =============================================================================
+# E2E 桥接 GitHub Actions（试点）
+# -----------------------------------------------------------------------------
+# 原理与 work-review 项目的 macos-bridge 相同（同一个桥接仓库
+# CodeFuckee/gl-macos-bridge）：本作业跑在 linux-x64 shell runner 上，
+# 把 ci/e2e-github.sh（base64+上下文）POST 给桥接仓库的 repository_dispatch，
+# GitHub 侧按 kind=linux 路由到 ubuntu-latest 一次性 VM 执行：
+#   临时 Supabase（官方 compose 钉版，随作业销毁）→ 仓库迁移+种子 →
+#   测试账号池引导 → nx build web + vite preview → Playwright。
+# 不依赖 LAN Supabase（10.0.0.220:8021）与 yue-e2e 宿主机，runner 在公网。
+# 门禁：桥接作业轮询 GitHub run 终态并镜像为退出码（原 test:e2e 同语义）。
+# 产物：dist/（playwright-report + test-results 瘦身后）→ package registry
+#       → 桥接作业拉回还原为本作业 artifacts。
+# 试点阶段手动触发（allow_failure）；验证稳定后可切为主力并退役 yue-e2e 作业。
+# =============================================================================
+
+.github-bridge:
+  stage: test
+  tags: ["$LINUX_X64_RUNNER_TAG"]
+  script:
+    - bash ci/bridge.sh
+    # 常驻守护 MACOS_FETCH_ARTIFACTS 依赖的 Job-Token registry 读路径
+    - bash ci/registry-roundtrip.sh
+  # 作业级 timeout：须大于 GitHub 侧 timeout-minutes(175m) + 轮询余量
+  timeout: 3h
+  # 流水线级 pnpm cache 是 runner 持久缓存，桥接作业拉/推纯浪费，禁用
+  cache: []
+  variables:
+    GH_BRIDGE_REPO: "CodeFuckee/gl-macos-bridge"
+    GH_POLL_TIMEOUT_MIN: "170"
+
+test:e2e-github:
+  extends: .github-bridge
+  variables:
+    BRIDGE_KIND: "linux"
+    MACOS_SCRIPT: "ci/e2e-github.sh"
+    MACOS_ENV_PASSTHROUGH: "PNPM_VERSION"
+    MACOS_FETCH_ARTIFACTS: "true"
+    GH_POLL_TIMEOUT_MIN: "170"
+  artifacts:
+    when: always
+    expire_in: 7 days
+    paths:
+      - dist/
+  rules:
+    # masked+protected 变量缺失/为空（未保护分支）→ 跳过
+    - if: '$GH_BRIDGE_TOKEN == null || $GH_BRIDGE_TOKEN == ""'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
+      when: manual
+      allow_failure: true
