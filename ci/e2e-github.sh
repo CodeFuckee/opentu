@@ -42,18 +42,18 @@ done
 echo "[e2e] Supabase 就绪"
 
 echo "[e2e] ② 应用迁移与种子（字母序、容错续跑——迁移均为幂等风格）"
+# 必须在栈目录内执行 compose exec：-f 指定时项目名取自文件目录（docker），
+# 与 up 时（supabase-stack）不一致会导致 exec 连不上运行中的栈
+apply_sql() {
+  (cd "$SUPA_DIR" && docker compose exec -T db \
+    psql -v ON_ERROR_STOP=0 -U supabase_admin -d postgres) < "$1" 2>&1
+}
 cd "$CI_PROJECT_DIR"
-for f in supabase/migrations/*.sql; do
-  echo "  · $(basename "$f")"
-  docker compose -f "$SUPA_DIR/docker-compose.yaml" exec -T db \
-    psql -v ON_ERROR_STOP=0 -U supabase_admin -d postgres < "$f" >/dev/null \
-    || echo "  ⚠ ${f##*/} 有报错（继续）"
-done
-for f in supabase/seed/*.sql; do
-  echo "  · seed/$(basename "$f")"
-  docker compose -f "$SUPA_DIR/docker-compose.yaml" exec -T db \
-    psql -v ON_ERROR_STOP=0 -U supabase_admin -d postgres < "$f" >/dev/null \
-    || echo "  ⚠ ${f##*/} 有报错（继续）"
+for f in supabase/migrations/*.sql supabase/seed/*.sql; do
+  echo "  · ${f#supabase/}"
+  out=$(apply_sql "$f") || true
+  err=$(grep -aE "ERROR" <<<"$out" | head -2)
+  [ -n "$err" ] && { echo "$err" | sed 's/^/    ⚠ /'; } || true
 done
 
 echo "[e2e] ③ 引导测试账号池（e2e_sync_a..h）与存储桶"
