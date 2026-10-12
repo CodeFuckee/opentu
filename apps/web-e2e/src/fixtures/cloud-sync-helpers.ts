@@ -209,6 +209,19 @@ export async function clickSyncAction(
   // 登录后的自动同步进行中时操作按钮不渲染（显示"同步正在进行中"）——
   // 这是合法状态：放宽到 30s 等自动同步结束、按钮回归，避免时序 flake
   await expect(actionBtn).toBeVisible({ timeout: 30_000 });
+
+  // 诊断追踪：记录网关 in-flight 请求（同步挂起时区分网络/本地 await）
+  const inflight = new Set<string>();
+  const trackStart = (r: { url(): string }) => {
+    if (r.url().includes('8021')) inflight.add(r.url().slice(-80));
+  };
+  const trackDone = (r: { url(): string }) => {
+    inflight.delete(r.url().slice(-80));
+  };
+  page.on('request', trackStart);
+  page.on('requestfinished', trackDone);
+  page.on('requestfailed', trackDone);
+
   await actionBtn.click();
 
   // 「上传本地」「下载远程」会弹出确认对话框（「确认上传覆盖」/「确认下载覆盖」），
@@ -226,7 +239,17 @@ export async function clickSyncAction(
   }
 
   // 等待同步中状态结束：动作按钮重新可用（文本恢复，非「同步中...」）
-  await expect(actionBtn).toBeEnabled({ timeout: TIMEOUTS.syncAction });
+  await expect(actionBtn)
+    .toBeEnabled({ timeout: TIMEOUTS.syncAction })
+    .catch(async (e: Error) => {
+      // 现场诊断：弹窗状态 + 未完成的网关请求（区分「同步网络挂起」与其它）
+      const statusText = await dialog
+        .innerText()
+        .catch(() => '(弹窗已消失)');
+      throw new Error(
+        `同步按钮未在窗口内恢复可用。弹窗状态: ${statusText.replace(/\n/g, ' | ').slice(0, 160)} | in-flight: ${JSON.stringify([...inflight])}`
+      );
+    });
   await page.waitForTimeout(1500);
 }
 
