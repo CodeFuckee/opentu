@@ -212,6 +212,12 @@ test:e2e:
       else
         pnpm exec nx e2e web-e2e
       fi
+    # artifacts 瘦身（runner→GitLab 上传链路仅 ~330KB/s，大产物会卡 1h 超时）：
+    # 删除视频与 trace 大件，保留 error-context.md/截图（轻量诊断件）
+    - |
+      find apps/web-e2e/test-results -name "*.webm" -delete 2>/dev/null || true
+      find apps/web-e2e/test-results -type d -name "trace" -exec rm -rf {} + 2>/dev/null || true
+      du -sh apps/web-e2e/test-results apps/web-e2e/playwright-report 2>/dev/null || true
   artifacts:
     when: always
     expire_in: 7 days
