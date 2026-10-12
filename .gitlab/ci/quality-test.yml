@@ -176,6 +176,13 @@ test:e2e:
         pnpm exec playwright install chromium || true
       fi
   script:
+    # 测试账号数据治理（openspec improve-sync-performance）：清理固定账号池
+    # （e2e_sync_%）的云端同步数据——失败的 retry 会给账号添数据，同步耗时随
+    # 之上涨并突破用例等待窗（雪球）。本 job 运行于 supabase 主机，可直接 psql。
+    - |
+      docker exec supabase-db psql -U supabase_admin -d postgres -c \
+        "delete from public.user_sync_data where user_id in (select id from auth.users where email like 'e2e_sync_%@yjk.com');" \
+        || echo "[e2e] 同步数据清理失败（不阻塞套件，账号仍可同步）"
     # 空 E2E_ARGS => 运行 playwright.config.ts 中定义的全部 project（全量 E2E）
     - |
       if [ -n "${E2E_ARGS}" ]; then

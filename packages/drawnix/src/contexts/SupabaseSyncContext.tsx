@@ -22,6 +22,7 @@ import { runSync } from '../services/supabase-sync/sync-engine';
 import { collectLocalDataForSync } from '../services/supabase-sync/local-collector';
 import {
   fetchRemoteEntities,
+  fetchRemoteEntityKeys,
   upsertRemoteEntities,
   softDeleteRemoteEntities,
 } from '../services/supabase-sync/repository';
@@ -106,9 +107,16 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
       client,
       user: null as never, // 运行时填充
       collectLocal: collectLocalDataForSync,
-      fetchRemote: async (c: unknown, userId: string) => {
-        const { entities } = await fetchRemoteEntities(config, userId);
+      fetchRemote: async (
+        c: unknown,
+        userId: string,
+        options?: { sinceMs?: number | null }
+      ) => {
+        const { entities } = await fetchRemoteEntities(config, userId, options);
         return entities;
+      },
+      fetchRemoteKeys: async (c: unknown, userId: string) => {
+        return fetchRemoteEntityKeys(config, userId);
       },
       upsertRemote: async (
         c: unknown,
@@ -215,6 +223,18 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
         setSyncStatus('synced');
         setError(null);
         pendingChangesRef.current = false;
+        // 阶段耗时（openspec improve-sync-performance）：性能观测与回归对比
+        if (result.stageTimings) {
+          console.info(
+            '[SupabaseSync] stage timings:',
+            `collect=${result.stageTimings.collectMs}ms`,
+            `remoteFetch=${result.stageTimings.remoteFetchMs}ms`,
+            `diff=${result.stageTimings.diffMs}ms`,
+            `upload=${result.stageTimings.uploadMs}ms`,
+            `download=${result.stageTimings.downloadMs}ms`,
+            `total=${result.stageTimings.totalMs}ms`
+          );
+        }
         logSuccess('云同步完成', {
           uploaded: result.uploaded,
           downloaded: result.downloaded,

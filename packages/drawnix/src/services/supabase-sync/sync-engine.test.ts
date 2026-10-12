@@ -181,4 +181,82 @@ describe('runSync', () => {
     const result = await runSync(deps);
     expect(result.success).toBe(true);
   });
+
+  it('结果携带各阶段耗时 stageTimings（openspec improve-sync-performance）', async () => {
+    const local = [makeEntity('b1')];
+    const { deps } = setupDeps({ local, remote: [] });
+    const result = await runSync(deps);
+    expect(result.success).toBe(true);
+    expect(result.stageTimings).toBeDefined();
+    const t = result.stageTimings!;
+    for (const key of [
+      'collectMs',
+      'remoteFetchMs',
+      'diffMs',
+      'uploadMs',
+      'downloadMs',
+      'totalMs',
+    ] as const) {
+      expect(t[key]).toBeGreaterThanOrEqual(0);
+    }
+    // 各阶段之和不超过总耗时（允许取整误差）
+    const sum =
+      t.collectMs + t.remoteFetchMs + t.diffMs + t.uploadMs + t.downloadMs;
+    expect(sum).toBeLessThanOrEqual(t.totalMs + 5);
+  });
+
+  it('提供 fetchRemoteKeys 时：窗口参数透传且键集合来自键扫描（增量模式）', async () => {
+    const now = Date.now();
+    const local = [makeEntity('keep-1')];
+    const { deps, softDeleteRemote } = setupDeps({
+      local,
+      remote: [],
+      lastSyncTime: now - 60_000,
+    });
+    // 键扫描返回：keep-1（在）与 gone-1（本地已删、云端仍在）——gone-1 不在
+    // 窗口内容里（updated_at 早于窗口），靠键扫描进入 knownRemoteKeys
+    const fetchRemoteKeys = vi.fn().mockResolvedValue({
+      keys: [
+        { entityType: 'board', entityId: 'keep-1', updatedAt: now, deletedAt: null },
+        { entityType: 'board', entityId: 'gone-1', updatedAt: now - 600_000, deletedAt: null },
+      ],
+      error: undefined,
+    });
+    const fetchRemote = vi.fn().mockResolvedValue([]);
+    (deps as unknown as { fetchRemoteKeys: unknown }).fetchRemoteKeys = fetchRemoteKeys;
+    (deps as unknown as { fetchRemote: unknown }).fetchRemote = fetchRemote;
+
+    const result = await runSync(deps);
+    expect(result.success).toBe(true);
+    // 窗口参数 = lastSyncTime 透传给内容拉取
+    expect(fetchRemote).toHaveBeenCalledWith(deps.client, 'u1', {
+      sinceMs: now - 60_000,
+    });
+    // 键扫描被调用
+    expect(fetchRemoteKeys).toHaveBeenCalledTimes(1);
+    // 本地缺失 + knownRemoteKeys 含 gone-1（来自键扫描）→ 云端墓碑
+    expect(softDeleteRemote).toHaveBeenCalledWith(
+      deps.client,
+      'u1',
+      ['board:gone-1']
+    );
+  });
+
+  it('未提供 fetchRemoteKeys 时保持旧行为（无窗口参数，键来自内容结果）', async () => {
+    const local = [makeEntity('b1')];
+    const remote = [makeEntity('r1')];
+    const { deps, fetchRemote } = setupDeps({ local, remote });
+    const result = await runSync(deps);
+    expect(result.success).toBe(true);
+    expect(fetchRemote).toHaveBeenCalledWith(deps.client, 'u1');
+  });
+
+  it('未登录早退也携带 stageTimings', async () => {
+    const { deps } = setupDeps({ local: [], remote: [] });
+    deps.user = null;
+    const result = await runSync(deps);
+    expect(result.success).toBe(false);
+    expect(result.stageTimings).toBeDefined();
+    expect(result.stageTimings!.totalMs).toBeGreaterThanOrEqual(0);
+  });
 });

@@ -1,5 +1,25 @@
 ## Unreleased
 
+### feat: 同步性能专项——远程拉取增量化+阶段计时+E2E 数据治理（openspec improve-sync-performance）
+
+云同步为全量比对式，数据增长后同步耗时线性上涨（E2E 测试账号 5226 行/2.2MB 时突破
+用例等待窗，cloud-sync 簇 5 用例失败）。比对与 checksum 本就是增量友好的，瓶颈在
+I/O 层——落「键全量、内容增量」：
+
+- **远程拉取增量化**：新增轻列键扫描 fetchRemoteEntityKeys（全量键集合，供墓碑
+  判定）；实体内容拉取加 `updated_at > lastSync` 窗口过滤（软删除 bump updated_at，
+  墓碑天然入窗；首同步退化为全量）；补齐增量模式缺口——键扫描含、窗口内无变更、
+  本地缺失的键并入云端墓碑集合（merge 只遍历窗口内容看不到它们）
+- **阶段计时**：runSync 结果携带 stageTimings（收集/拉取/比对/上传/下载/总耗时），
+  同步完成后控制台输出，性能观测与回归对比
+- **E2E 数据治理**：test:e2e job（supabase 主机）启动前清理 e2e_sync_% 账号
+  user_sync_data，杜绝「失败 retry 添数据→同步更慢→更失败」的雪球
+- **验证**：supabase-sync 单测 89 例（新增 stageTimings×2、增量窗口透传/键扫描
+  墓碑/旧路径兼容×3）；drawnix 全量 1644 passed；cloud-sync 簇 E2E 本地复跑
+- **暂缓**：本地收集增量化（IndexedDB 记录读取无列裁剪、键扫描收益存疑）——
+  待 stageTimings 数据确认 collectMs 占比后再决定（tasks.md 留痕）
+
+
 ### feat: 前端全面迁移 Material Design 3——MUI 组件库+MD3 主题（阶段一，openspec adopt-material-design-3）
 
 产品决定统一迁移 Material Design 组件体系（用户拍板：MUI/全量/含画布浮层）。

@@ -32,6 +32,14 @@ export const SYNC_ENTITY_TYPES = [
 
 export type SyncEntityType = (typeof SYNC_ENTITY_TYPES)[number];
 
+/** 远程实体键扫描行（轻列，键全量扫描用；不含 content） */
+export interface RemoteEntityKey {
+  entityType: SyncEntityType;
+  entityId: string;
+  updatedAt: number;
+  deletedAt: number | null;
+}
+
 /** 云端一行实体的客户端映射（updated_at 用 epoch ms 便于比较） */
 export interface SyncEntity {
   entity_type: SyncEntityType;
@@ -68,6 +76,22 @@ export interface SyncDiffResult {
   toTombstoneRemotely: string[];
 }
 
+/** 同步各阶段耗时（ms，openspec improve-sync-performance 阶段计时） */
+export interface SyncStageTimings {
+  /** 本地快照收集 */
+  collectMs: number;
+  /** 远程实体拉取 */
+  remoteFetchMs: number;
+  /** 差异比对 */
+  diffMs: number;
+  /** 上传本地变更 */
+  uploadMs: number;
+  /** 下载远程变更（含冲突应用/本地删除/云端墓碑） */
+  downloadMs: number;
+  /** 总耗时 */
+  totalMs: number;
+}
+
 /** 单次同步结果 */
 export interface SupabaseSyncResult {
   success: boolean;
@@ -77,6 +101,8 @@ export interface SupabaseSyncResult {
   conflicts: number;
   error?: string;
   duration: number;
+  /** 各阶段耗时（可用性观测与性能回归对比；极早失败可能缺失） */
+  stageTimings?: SyncStageTimings;
 }
 
 /** 媒体同步状态 */

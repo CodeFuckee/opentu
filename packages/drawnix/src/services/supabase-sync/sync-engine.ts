@@ -14,7 +14,12 @@
 
 import { compareEntityDiff, toDiffInput, type DiffInputEntity } from './merge';
 import { entityKey, parseEntityKey, yieldToMain } from './checksum';
-import type { SyncEntity, SupabaseSyncResult } from './types';
+import type {
+  RemoteEntityKey,
+  SyncEntity,
+  SyncStageTimings,
+  SupabaseSyncResult,
+} from './types';
 
 /** 单批 upsert 实体数上限 */
 export const BATCH_SIZE = 200;
@@ -42,8 +47,23 @@ export interface SupabaseSyncDeps {
     entities: SyncEntity[];
     stats: { total: number };
   }>;
-  /** 拉取远程全部实体（按用户） */
-  fetchRemote: (client: unknown, userId: string) => Promise<SyncEntity[]>;
+  /**
+   * 拉取远程实体内容。options.sinceMs 非 null 时仅拉窗口内变更
+   * （openspec improve-sync-performance）；实现可忽略窗口（退化为全量，兼容旧 mock）。
+   */
+  fetchRemote: (
+    client: unknown,
+    userId: string,
+    options?: { sinceMs?: number | null }
+  ) => Promise<SyncEntity[]>;
+  /**
+   * 远程实体键扫描（轻列全量，供墓碑判定）。可选：缺省时以 fetchRemote 结果的
+   * 键充当 knownRemoteKeys（旧行为，内容全量拉取时等价）。
+   */
+  fetchRemoteKeys?: (
+    client: unknown,
+    userId: string
+  ) => Promise<{ keys: RemoteEntityKey[]; error?: unknown }>;
   /** 批量 upsert 实体（含新增/更新） */
   upsertRemote: (
     client: unknown,
@@ -83,8 +103,18 @@ export async function runSync(
   deps: SupabaseSyncDeps
 ): Promise<SupabaseSyncResult> {
   const startTime = Date.now();
+  // 阶段计时（openspec improve-sync-performance）：失败路径也携带已流逝阶段
+  const timings: SyncStageTimings = {
+    collectMs: 0,
+    remoteFetchMs: 0,
+    diffMs: 0,
+    uploadMs: 0,
+    downloadMs: 0,
+    totalMs: 0,
+  };
 
   if (!deps.user) {
+    timings.totalMs = Date.now() - startTime;
     return {
       success: false,
       uploaded: 0,
@@ -93,21 +123,58 @@ export async function runSync(
       conflicts: 0,
       error: '未登录，无法同步',
       duration: Date.now() - startTime,
+      stageTimings: { ...timings },
     };
   }
 
   try {
     // 1. 收集本地
+    let t0 = performance.now();
     const local = await deps.collectLocal();
+    timings.collectMs = Math.round(performance.now() - t0);
     const localEntities = local.entities;
 
-    // 2. 拉取远程
-    const remoteEntities = await deps.fetchRemote(deps.client, deps.user.id);
+    // 2. 拉取远程（键全量 + 内容窗口；openspec improve-sync-performance）
+    t0 = performance.now();
+    let knownRemoteKeys: Set<string>;
+    let remoteEntities: SyncEntity[];
+    if (deps.fetchRemoteKeys) {
+      // 键全量扫描（轻列，墓碑判定语义与全量模式一致）
+      const { keys, error: keysError } = await deps.fetchRemoteKeys(
+        deps.client,
+        deps.user.id
+      );
+      if (keysError) {
+        timings.totalMs = Date.now() - startTime;
+        return {
+          success: false,
+          uploaded: 0,
+          downloaded: 0,
+          deleted: 0,
+          conflicts: 0,
+          error:
+            keysError instanceof Error ? keysError.message : String(keysError),
+          duration: Date.now() - startTime,
+          stageTimings: { ...timings },
+        };
+      }
+      knownRemoteKeys = new Set(
+        keys.map((k) => entityKey(k.entityType, k.entityId))
+      );
+      // 内容仅拉窗口内变更（首同步 lastSync=null 时实现内部退化为全量）
+      remoteEntities = await deps.fetchRemote(deps.client, deps.user.id, {
+        sinceMs: deps.lastSyncTime ?? null,
+      });
+    } else {
+      remoteEntities = await deps.fetchRemote(deps.client, deps.user.id);
+      knownRemoteKeys = new Set(
+        remoteEntities.map((e) => entityKey(e.entity_type, e.entity_id))
+      );
+    }
+    timings.remoteFetchMs = Math.round(performance.now() - t0);
 
     // 3. 比较变更
-    const knownRemoteKeys = new Set(
-      remoteEntities.map((e) => entityKey(e.entity_type, e.entity_id))
-    );
+    t0 = performance.now();
 
     const diff = compareEntityDiff(
       localEntities.map(toDiffInput),
@@ -117,6 +184,25 @@ export async function runSync(
         knownRemoteKeys,
       }
     );
+    timings.diffMs = Math.round(performance.now() - t0);
+
+    // 增量模式缺口补齐（openspec improve-sync-performance）：merge 只遍历窗口
+    // 内容，看不到「键扫描含、窗口内无变更、本地也缺失」的键——该组合意味着
+    // 本地删除过（否则 collector 会收集它），并入云端墓碑集合。语义与全量模式
+    // （knownRemoteKeys 来自内容结果）完全一致；首次同步不判墓碑。
+    if (deps.fetchRemoteKeys && deps.lastSyncTime != null) {
+      const localKeySet = new Set(
+        localEntities.map((e) => entityKey(e.entity_type, e.entity_id))
+      );
+      const windowKeySet = new Set(
+        remoteEntities.map((e) => entityKey(e.entity_type, e.entity_id))
+      );
+      for (const key of knownRemoteKeys) {
+        if (!localKeySet.has(key) && !windowKeySet.has(key)) {
+          diff.toTombstoneRemotely.push(key);
+        }
+      }
+    }
 
     let uploaded = 0;
     let downloaded = 0;
@@ -138,6 +224,7 @@ export async function runSync(
       }
     }
     if (toUploadEntities.length > 0) {
+      const upStart = performance.now();
       for (let i = 0; i < toUploadEntities.length; i += BATCH_SIZE) {
         const batch = toUploadEntities.slice(i, i + BATCH_SIZE);
         const { error } = await deps.upsertRemote(
@@ -146,6 +233,8 @@ export async function runSync(
           batch
         );
         if (error) {
+          timings.uploadMs = Math.round(performance.now() - upStart);
+          timings.totalMs = Date.now() - startTime;
           return {
             success: false,
             uploaded: 0,
@@ -154,6 +243,7 @@ export async function runSync(
             conflicts: diff.conflicts.length,
             error: error instanceof Error ? error.message : String(error),
             duration: Date.now() - startTime,
+            stageTimings: { ...timings },
           };
         }
         if (i % (BATCH_SIZE * 2) === 0) {
@@ -161,9 +251,11 @@ export async function runSync(
         }
       }
       uploaded = toUploadEntities.length;
+      timings.uploadMs = Math.round(performance.now() - upStart);
     }
 
     // 4b. 冲突合并
+    const downloadStart = performance.now();
     const conflictedKeys = [...diff.conflicts];
     for (const key of conflictedKeys) {
       const localEntity = localByKey.get(key);
@@ -241,6 +333,7 @@ export async function runSync(
         deleted += diff.toTombstoneRemotely.length;
       }
     }
+    timings.downloadMs = Math.round(performance.now() - downloadStart);
 
     // 6. 媒体同步（fire-and-forget：失败不阻塞主流程，但需留痕可观测）
     if (deps.syncMedia) {
@@ -249,6 +342,7 @@ export async function runSync(
       });
     }
 
+    timings.totalMs = Date.now() - startTime;
     return {
       success: true,
       uploaded,
@@ -256,8 +350,10 @@ export async function runSync(
       deleted,
       conflicts: conflictedKeys.length,
       duration: Date.now() - startTime,
+      stageTimings: { ...timings },
     };
   } catch (error) {
+    timings.totalMs = Date.now() - startTime;
     return {
       success: false,
       uploaded: 0,
@@ -266,6 +362,7 @@ export async function runSync(
       conflicts: 0,
       error: error instanceof Error ? error.message : String(error),
       duration: Date.now() - startTime,
+      stageTimings: { ...timings },
     };
   }
 }

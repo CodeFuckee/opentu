@@ -6,7 +6,12 @@
  */
 
 import type { SupabaseSyncConfig } from './types';
-import type { SyncEntity, SyncMediaItem, SyncEntityType } from './types';
+import type {
+  SyncEntity,
+  SyncMediaItem,
+  SyncEntityType,
+  RemoteEntityKey,
+} from './types';
 import { entityKey, parseEntityKey } from './checksum';
 
 /** 表名常量 */
@@ -51,18 +56,93 @@ function toIso(value: number): string {
 }
 
 /**
- * 拉取用户全部同步实体。
- * PostgREST 单次返回有行数上限，超大数据（数千实体）可用分页；默认按 updated_at 升序分页取全量。
+ * 远程实体键扫描（轻列：不含 content——键全量用于墓碑判定，行数可能数千但
+ * 单行体积极小；openspec improve-sync-performance「键全量、内容增量」）。
  */
-export async function fetchRemoteEntities(
+export async function fetchRemoteEntityKeys(
   config: SupabaseSyncConfig,
   userId: string
-): Promise<{ entities: SyncEntity[]; error?: unknown }> {
+): Promise<{ keys: RemoteEntityKey[]; error?: unknown }> {
   try {
     const client = config.client as {
       from: (table: string) => {
         select: (cols: string) => {
           eq: (col: string, val: string) => {
+            range: (from: number, to: number) => Promise<{
+              data: Array<Record<string, unknown>> | null;
+              error: unknown;
+            }>;
+          };
+        };
+      };
+    };
+    const PAGE = 1000;
+    const keys: RemoteEntityKey[] = [];
+    let offset = 0;
+    for (;;) {
+      const { data, error } = await client
+        .from(SYNC_DATA_TABLE)
+        .select('entity_type,entity_id,updated_at,deleted_at')
+        .eq('user_id', userId)
+        .range(offset, offset + PAGE - 1);
+      if (error) {
+        return { keys: [], error };
+      }
+      const rows = data ?? [];
+      if (rows.length === 0) {
+        break;
+      }
+      for (const row of rows) {
+        const entityType = row.entity_type as string;
+        const entityId = row.entity_id as string;
+        if (!entityType || !entityId) {
+          continue;
+        }
+        keys.push({
+          entityType: entityType as RemoteEntityKey['entityType'],
+          entityId,
+          updatedAt: parseTimestamp(row.updated_at),
+          deletedAt: row.deleted_at ? parseTimestamp(row.deleted_at) : null,
+        });
+      }
+      if (rows.length < PAGE) {
+        break;
+      }
+      offset += PAGE;
+    }
+    return { keys };
+  } catch (error) {
+    return { keys: [], error };
+  }
+}
+
+/**
+ * 拉取用户全部同步实体。
+ * PostgREST 单次返回有行数上限，超大数据（数千实体）可用分页；默认按 updated_at 升序分页取全量。
+ */
+export async function fetchRemoteEntities(
+  config: SupabaseSyncConfig,
+  userId: string,
+  options?: { sinceMs?: number | null }
+): Promise<{ entities: SyncEntity[]; error?: unknown }> {
+  try {
+    // 增量窗口（openspec improve-sync-performance）：lastSync 存在时只拉窗口内
+    // 变更行（软删除会 bump updated_at，墓碑天然入窗）；null = 首同步全量
+    const sinceMs = options?.sinceMs ?? null;
+    const client = config.client as {
+      from: (table: string) => {
+        select: (cols: string) => {
+          eq: (col: string, val: string) => {
+            gte?: (col: string, val: string) => {
+              order: (col: string, opts?: { ascending?: boolean }) => {
+                range: (from: number, to: number) => {
+                  limit: (n: number) => Promise<{
+                    data: Array<Record<string, unknown>> | null;
+                    error: unknown;
+                  }>;
+                };
+              };
+            };
             order: (col: string, opts?: { ascending?: boolean }) => {
               range: (from: number, to: number) => {
                 limit: (n: number) => Promise<{
@@ -79,10 +159,14 @@ export async function fetchRemoteEntities(
     const entities: SyncEntity[] = [];
     let offset = 0;
     for (;;) {
-      const { data, error } = await client
+      let query = client
         .from(SYNC_DATA_TABLE)
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_id', userId);
+      if (sinceMs !== null && query.gte) {
+        query = query.gte('updated_at', toIso(sinceMs));
+      }
+      const { data, error } = await query
         .order('updated_at', { ascending: true })
         .range(offset, offset + PAGE - 1)
         .limit(PAGE);
