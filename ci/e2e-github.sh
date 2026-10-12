@@ -25,13 +25,16 @@ curl -fsSL -o /tmp/supa.tgz \
 tar -xzf /tmp/supa.tgz -C /tmp
 cp -r "/tmp/supabase-${SUPABASE_RELEASE#v}/docker/." .
 cp .env.example .env
-# API 网关(Kong)映射到 8021：与自建实例端口习惯一致
-sed -i 's/^HTTP_PORT=.*/HTTP_PORT=8021/' .env
+# API 网关(Kong)映射到 8021：与自建实例端口习惯一致。
+# 注意 .env 变量名随版本变化：老版 HTTP_PORT，v1.26+ 是 KONG_HTTP_PORT（映射
+# "${KONG_HTTP_PORT}:8000/tcp"）——两个都改，谁存在谁生效
+sed -i 's/^KONG_HTTP_PORT=.*/KONG_HTTP_PORT=8021/; s/^HTTP_PORT=.*/HTTP_PORT=8021/' .env
 docker compose up -d --quiet-pull
+# 2 核 runner 首次拉起+初始化较慢，健康等待给足 10 分钟
 for i in $(seq 1 60); do
   curl -sf "${STACK_URL}/auth/v1/health" >/dev/null 2>&1 && break
-  [ "$i" = 60 ] && { echo "supabase 5 分钟未就绪" >&2; docker compose logs --tail 40 >&2; exit 1; }
-  sleep 5
+  [ "$i" = 60 ] && { echo "supabase 10 分钟未就绪" >&2; docker compose ps >&2; docker compose logs --tail 30 auth kong >&2; exit 1; }
+  sleep 10
 done
 echo "[e2e] Supabase 就绪"
 
