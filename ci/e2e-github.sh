@@ -30,16 +30,16 @@ cp .env.example .env
 # "${KONG_HTTP_PORT}:8000/tcp"）——两个都改，谁存在谁生效
 sed -i 's/^KONG_HTTP_PORT=.*/KONG_HTTP_PORT=8021/; s/^HTTP_PORT=.*/HTTP_PORT=8021/' .env
 docker compose up -d --quiet-pull
-# 2 核 runner 首次拉起+初始化较慢，健康等待给足 10 分钟
+ANON_KEY=$(grep '^ANON_KEY=' .env | cut -d= -f2-)
+SERVICE_ROLE=$(grep '^SERVICE_ROLE_KEY=' .env | cut -d= -f2-)
+# 2 核 runner 首次拉起+初始化较慢，健康等待给足 10 分钟。
+# 新版 Kong 对所有路由（含 /auth/v1/health）都要求 apikey——裸 curl 恒 401
 for i in $(seq 1 60); do
-  curl -sf "${STACK_URL}/auth/v1/health" >/dev/null 2>&1 && break
+  curl -sf "${STACK_URL}/auth/v1/health" -H "apikey: ${ANON_KEY}" >/dev/null 2>&1 && break
   [ "$i" = 60 ] && { echo "supabase 10 分钟未就绪" >&2; docker compose ps >&2; docker compose logs --tail 30 auth kong >&2; exit 1; }
   sleep 10
 done
 echo "[e2e] Supabase 就绪"
-
-ANON_KEY=$(grep '^ANON_KEY=' .env | cut -d= -f2-)
-SERVICE_ROLE=$(grep '^SERVICE_ROLE_KEY=' .env | cut -d= -f2-)
 
 echo "[e2e] ② 应用迁移与种子（字母序、容错续跑——迁移均为幂等风格）"
 cd "$CI_PROJECT_DIR"
