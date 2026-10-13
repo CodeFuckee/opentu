@@ -341,15 +341,16 @@ export E2E_SUPABASE_URL="$STACK_URL"
 export E2E_SUPABASE_ANON_KEY="$ANON_KEY"
 export E2E_SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE"
 export E2E_TEST_PASSWORD="$PW"
-# 测试失败也要先收集报告再退出（失败轮的 error-context 是唯一的诊断来源）
+# 测试失败也要先收集报告再退出（失败轮的 error-context 是唯一的诊断来源）；
+# nx e2e 输出尾部随包回传（GitHub 日志 admin-only，包是唯一可读通道）
 E2E_RC=0
 if [ -n "$E2E_ARGS" ]; then
-  pnpm exec nx e2e web-e2e -- $E2E_ARGS || E2E_RC=$?
+  pnpm exec nx e2e web-e2e -- $E2E_ARGS 2>&1 | tail -c 500000 > dist/e2e.log || E2E_RC=$?
 else
-  pnpm exec nx e2e web-e2e || E2E_RC=$?
+  pnpm exec nx e2e web-e2e 2>&1 | tail -c 500000 > dist/e2e.log || E2E_RC=$?
 fi
 
-echo "[e2e] ⑥ 收集报告进 dist/（e2e 退出码 ${E2E_RC}）"
+echo "[e2e] ⑥ 收集报告进 dist/（e2e 退出码 ${E2E_RC}；日志尾部见 dist/e2e.log）"
 mkdir -p dist
 cp -r apps/web-e2e/playwright-report dist/ 2>/dev/null || true
 cp -r apps/web-e2e/test-results dist/ 2>/dev/null || true
