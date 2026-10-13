@@ -67,6 +67,10 @@ done
 echo "[e2e] ③ 引导测试账号池（e2e_sync_a..h）与存储桶"
 api() { curl -sS -X "$1" "${STACK_URL}$2" -H "apikey: $3" -H "Authorization: Bearer $3" \
         -H 'Content-Type: application/json' ${4:+-d "$4"}; }
+up() { curl -sS --fail -m 600 -X POST "${STACK_URL}/storage/v1/object/$1" \
+        -H "apikey: ${SERVICE_ROLE}" -H "Authorization: Bearer ${SERVICE_ROLE}" \
+        -H "Content-Type: application/octet-stream" -H "x-upsert: true" \
+        --data-binary @"$2" >/dev/null; }
 api POST /storage/v1/bucket "$SERVICE_ROLE" '{"id":"yue-sync","name":"yue-sync","public":false}' \
   >/dev/null || echo "  ⚠ yue-sync 桶已存在"
 api POST /storage/v1/bucket "$SERVICE_ROLE" '{"id":"ai-outputs","name":"ai-outputs","public":true}' \
@@ -176,6 +180,30 @@ PYSEED
 apply_sql /tmp/e2e-seed.sql >/dev/null 2>&1 || true
 echo "[e2e] ③b 完成"
 
+echo "[e2e] ③c 上传 CLIP 模型与 transformers 库到临时桶（以图搜图运行时从桶加载）"
+tmpm=$(mktemp -d)
+fetch() { curl -sSL --fail -m 900 -o "$2" "$1" || { echo "  ⚠ 下载失败: $1" >&2; return 1; }; }
+fetch "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3/dist/transformers.min.mjs" "$tmpm/transformers.bundle.mjs" \
+  && fetch "https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main/config.json" "$tmpm/config.json" \
+  && fetch "https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main/preprocessor_config.json" "$tmpm/preprocessor_config.json" \
+  && fetch "https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main/tokenizer.json" "$tmpm/tokenizer.json" \
+  && fetch "https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main/onnx/model_quantized.onnx" "$tmpm/model_quantized.onnx" \
+  || echo "  ⚠ CLIP 模型文件下载不完整，以图搜图用例将失败（不阻塞其余用例）"
+for w in ort-wasm-simd-threaded.jsep.wasm ort-wasm-simd-threaded.jsep.mjs ort-wasm-simd-threaded.wasm ort-wasm-simd-threaded.mjs; do
+  fetch "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3/dist/$w" "$tmpm/$w" 2>/dev/null \
+    && up "models/clip/ort/$w" "$tmpm/$w" 2>/dev/null || true
+done
+for pair in "lib/transformers.bundle.mjs:transformers.bundle.mjs" \
+            "Xenova/clip-vit-base-patch32/config.json:config.json" \
+            "Xenova/clip-vit-base-patch32/preprocessor_config.json:preprocessor_config.json" \
+            "Xenova/clip-vit-base-patch32/tokenizer.json:tokenizer.json" \
+            "Xenova/clip-vit-base-patch32/onnx/model_quantized.onnx:model_quantized.onnx"; do
+  dst="${pair%%:*}"; src="${pair#*:}"
+  [ -f "$tmpm/$src" ] && up "models/clip/$dst" "$tmpm/$src" 2>/dev/null \
+    && echo "  · models/clip/$dst" || true
+done
+rm -rf "$tmpm"
+
 echo "[e2e] ④ 安装依赖与 Playwright（--with-deps 自装系统包与浏览器）"
 corepack enable --install-directory "$HOME/.local/bin" 2>/dev/null || corepack enable
 export PATH="$HOME/.local/bin:$PATH"
@@ -189,6 +217,7 @@ export VITE_SUPABASE_URL="$STACK_URL"
 export VITE_SUPABASE_ANON_KEY="$ANON_KEY"
 export E2E_SUPABASE_URL="$STACK_URL"
 export E2E_SUPABASE_ANON_KEY="$ANON_KEY"
+export E2E_SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE"
 export E2E_TEST_PASSWORD="$PW"
 if [ -n "$E2E_ARGS" ]; then
   pnpm exec nx e2e web-e2e -- $E2E_ARGS
