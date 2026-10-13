@@ -16,7 +16,7 @@ cd "${CI_PROJECT_DIR:?CI_PROJECT_DIR 未注入}"
 SUPABASE_RELEASE="${SUPABASE_RELEASE:-v1.26.08}"
 SUPA_DIR="$HOME/supabase-stack"
 STACK_URL="http://127.0.0.1:8021"
-E2E_ARGS="${E2E_ARGS:---project=smoke --project=functional --grep-invert=二次打开(缓存命中秒加载)|插入视角后编辑图片|模板封面图片全部正常加载}"
+E2E_ARGS="${E2E_ARGS:---project=smoke --project=functional --grep-invert=二次打开|插入视角后编辑图片|模板封面图片全部正常加载}"
 # --grep-invert 摘除的用例为 2 核桥接机的环境受限项（模型加载 30s 看门狗不可调、
 # 模板封面种子媒体缺失），GitLab 内网 e2e（4030 全绿）继续守护它们
 
