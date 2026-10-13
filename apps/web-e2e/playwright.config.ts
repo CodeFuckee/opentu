@@ -91,7 +91,11 @@ export default defineConfig({
             AITU_REWRITE_ENTRY_ASSETS_TO_CDN: '0',
             VITE_SUPABASE_URL:
               process.env['E2E_SUPABASE_URL'] || 'http://10.0.0.220:8021',
+            // anon key 同样可被环境覆盖：GitHub 桥接（ci/e2e-github.sh）的临时栈
+            // 有自己的 key-auth 凭据，硬编码内网 key 会被 Kong 拒为 401
+            // Unauthorized（auth-setup 登录失败）。GitLab 内网未导出时回退内网 key。
             VITE_SUPABASE_ANON_KEY:
+              process.env['E2E_SUPABASE_ANON_KEY'] ||
               'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg4MTAyMzUyLCJleHAiOjIxMDM0NjIzNTJ9.nQP_hdmnIbCgVfsxlq6TTuRo_FKVYdrRaIDmKViiEBc',
           },
         }
