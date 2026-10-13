@@ -218,8 +218,12 @@ test:e2e:
       find apps/web-e2e/test-results -name "*.webm" -delete 2>/dev/null || true
       find apps/web-e2e/test-results -type d -name "trace" -exec rm -rf {} + 2>/dev/null || true
       du -sh apps/web-e2e/test-results apps/web-e2e/playwright-report 2>/dev/null || true
+  # 仅失败时上传：绿跑的上传也会经 home.chenkaidi.top:509（WAF/反代）卡死——
+  # 实测固定 1h "Client.Timeout exceeded while awaiting headers" 后重试直至
+  # 2h job 超时（2026-10-12/13 连续 7 条流水线死于同一处，Playwright 本身全绿）。
+  # 失败现场（error-context/截图/报告）只在 on_failure 上传，调试价值不受损。
   artifacts:
-    when: always
+    when: on_failure
     expire_in: 7 days
     paths:
       - apps/web-e2e/playwright-report/
