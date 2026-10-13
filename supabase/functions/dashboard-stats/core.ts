@@ -483,6 +483,10 @@ export interface DashboardOverview {
     byPeriod: Array<{ period: string; used: number }>;
     latestPeriod: string;
     latestUsed: number;
+    /** 所选时间窗口覆盖自然月的用量合计（月粒度近似；随 USAGE_MULTIPLIER 缩放） */
+    windowTotalUsed: number;
+    /** 参与区间合计的周期列表（如 ['2026-08','2026-09']），页面副标题展示口径 */
+    windowMonths: string[];
     topUsers: Array<{
       oaAccount: string | null;
       /** Display Name：auth.users.user_metadata.displayName 优先，其次 staff_directory.name，均无为 null（页面回退 oaAccount） */
@@ -909,6 +913,67 @@ export function aggregateTaskParticipation(
   return { topUsers, userUsage, usageByDepartment, usageByRegion, costByDepartment };
 }
 
+/**
+ * 所选时间窗口覆盖的自然月列表（东八区，YYYY-MM 升序）。
+ * range 优先；否则按 days 从当前时刻回溯。月粒度近似：窗口只覆盖月内部分
+ * 时该月仍整月计入（与「月度用量趋势」面板的月柱同口径）。
+ */
+export function windowMonthsForRange(
+  range?: { start: string; end: string },
+  days = 0
+): string[] {
+  let startMs: number;
+  let endMs: number;
+  if (range && range.start && range.end) {
+    startMs = Date.parse(`${range.start}T00:00:00+08:00`);
+    endMs = Date.parse(`${range.end}T00:00:00+08:00`);
+  } else {
+    endMs = Date.now();
+    startMs = endMs - Math.max(0, days) * 86400000;
+  }
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || startMs > endMs) {
+    return [];
+  }
+  const startUtc = new Date(startMs + TZ_OFFSET_MS);
+  const endUtc = new Date(endMs + TZ_OFFSET_MS);
+  const months: string[] = [];
+  let year = startUtc.getUTCFullYear();
+  let month = startUtc.getUTCMonth();
+  const endYear = endUtc.getUTCFullYear();
+  const endMonth = endUtc.getUTCMonth();
+  while (year < endYear || (year === endYear && month <= endMonth)) {
+    months.push(`${year}-${String(month + 1).padStart(2, '0')}`);
+    month += 1;
+    if (month > 11) {
+      month = 0;
+      year += 1;
+    }
+    if (months.length > 1200) {
+      break; // 防御：异常超长窗口
+    }
+  }
+  return months;
+}
+
+/**
+ * 区间总用量：byPeriod 中落在窗口月集合内的周期求和。
+ * 周期键兼容月粒度（YYYY-MM）与日粒度（YYYY-MM-DD）——按前 7 位月前缀匹配；
+ * 'unknown' 等异常周期不匹配任何月。
+ */
+export function usageTotalForWindow(
+  byPeriod: Array<{ period: string; used: number }>,
+  months: string[]
+): number {
+  if (!months.length) {
+    return 0;
+  }
+  const monthSet = new Set(months);
+  return (byPeriod || []).reduce((sum, item) => {
+    const key = (item.period || '').slice(0, 7);
+    return monthSet.has(key) ? sum + Number(item.used || 0) : sum;
+  }, 0);
+}
+
 /** 用量与额度：generation_usage + user_profiles join + 部门配置限额 */
 export function aggregateUsage(
   usageRows: UsageRow[],
@@ -1070,6 +1135,9 @@ export function applyUsageMultiplier(
         used: Math.round(item.used * multiplier),
       })),
       latestUsed: Math.round(overview.usage.latestUsed * multiplier),
+      // 区间总用量与其他使用次数同倍数缩放；周期列表是标签不缩放
+      windowTotalUsed: Math.round((overview.usage.windowTotalUsed ?? 0) * multiplier),
+      windowMonths: overview.usage.windowMonths ?? [],
       topUsers: overview.usage.topUsers.map((user) => ({
         ...user,
         used: Math.round(user.used * multiplier),
@@ -1344,6 +1412,9 @@ export async function aggregateOverview(
 
   const quotaLimit = await readQuotaLimit(env, deps);
   const tasksAgg = aggregateTasks(taskRows);
+  // 区间总用量口径：窗口覆盖的自然月（东八区）+ generation_usage 全量周期求和
+  const usageMonths = windowMonthsForRange(range, safeDays);
+  const usageAgg = aggregateUsage(usageRows, profileRows, quotaLimit, nameByOa, nameByUser);
   const participation = aggregateTaskParticipation(
     taskRows,
     profileRows,
@@ -1414,7 +1485,12 @@ export async function aggregateOverview(
         userUsage: participation.userUsage,
         totalCostUsd,
       },
-      usage: aggregateUsage(usageRows, profileRows, quotaLimit, nameByOa, nameByUser),
+      usage: {
+        ...usageAgg,
+        // 区间总用量：窗口覆盖自然月合计（月度口径，随 USAGE_MULTIPLIER 统一缩放）
+        windowTotalUsed: usageTotalForWindow(usageAgg.byPeriod, usageMonths),
+        windowMonths: usageMonths,
+      },
       users: {
         ...aggregateUsers(
           profileRows,
@@ -2469,6 +2545,10 @@ function kpiCards(o){
   // 固定「近 30 天」口径的消耗卡仅在近 30 天周期显示；其余周期（周/月/90 天）隐藏，避免口径错位
   if(CURRENT_MODE!=='30'){
     big = big.filter(function(c){ return c[0]!=='近30天消耗金额'; });
+  }
+  // 长周期（>30 天）追加区间总用量：generation_usage 窗口覆盖自然月合计（月粒度口径）
+  if(o.days>30 && q.windowTotalUsed!=null){
+    big.push(['区间总用量', q.windowTotalUsed, '周期 '+(q.windowMonths&&q.windowMonths.length?q.windowMonths.join('、'):'-')+'（自然月合计）', '']);
   }
   document.getElementById('kpiCards').innerHTML = big.map(function(c){
     return '<div class="card"><div class="label">'+esc(c[0])+'</div><div class="value" style="font-size:30px">'+esc(c[1])+'</div><div class="sub">'+esc(c[2])+'</div>'+(c[3]||'')+'</div>';

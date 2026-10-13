@@ -55,6 +55,11 @@ curl -s -H "Authorization: Bearer $ADMIN_JWT" \
 非法区间（格式非 YYYY-MM-DD、非真实日历日期如 2026-02-30、只给其一、start 晚于
 end）返回 400 与中文错误说明。
 
+**区间总用量**：所选区间天数 > 30 时，KPI 区追加「区间总用量」卡——generation_usage
+在窗口覆盖自然月（东八区）内的合计，月粒度近似（窗口只覆盖月内部分时该月整月计入，
+副标题列出覆盖周期）；随 `USAGE_MULTIPLIER` 同倍数缩放。overview 对应字段为
+`usage.windowTotalUsed` / `usage.windowMonths`。
+
 **导出 Excel**：页面「导出Excel」按钮按当前查询区间请求 `/export`，下载
 `数据看板-<统计周期>.xlsx`。零依赖手写 xlsx（stored ZIP + 最小 SpreadsheetML，
 无外部包，页面/函数不引第三方库）。工作簿 12 个 sheet：概览、核心指标、操作类型

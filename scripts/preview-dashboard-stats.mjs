@@ -72,6 +72,9 @@ const fixture = {
     ],
     latestPeriod: '2026-09',
     latestUsed: 640,
+    // 区间总用量：窗口覆盖自然月合计（>30 天区间的 KPI 卡用，页面 days>30 时显示）
+    windowTotalUsed: 1450,
+    windowMonths: ['2026-08', '2026-09'],
     topUsers: [
       { oaAccount: 'mengdc', displayName: '孟杜翀', department: '方案中心', used: 86 },
       { oaAccount: 'limh', displayName: '李敏浩', department: '方案中心', used: 64 },

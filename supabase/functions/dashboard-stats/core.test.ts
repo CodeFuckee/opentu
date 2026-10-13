@@ -28,6 +28,7 @@ import {
   buildOverviewWorkbook,
   buildXlsx,
   parseOverviewRange,
+  usageTotalForWindow,
   verifyDashboardAdmin,
   type ButtonUsageSummary,
   type DashboardEnv,
@@ -419,7 +420,12 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
   assert.ok(calls.some((url) => url.includes('/auth/v1/admin/users')));
 
   // 周窗口：range 日期转换为东八区 ISO 后作为任务过滤上下界
-  await aggregateOverview(ENV, 7, { fetch: fetchImpl }, { start: '2026-08-25', end: '2026-08-31' });
+  const rangeOverview = await aggregateOverview(
+    ENV,
+    7,
+    { fetch: fetchImpl },
+    { start: '2026-08-25', end: '2026-08-31' }
+  );
   assert.ok(
     calls.some((url) => url.includes('created_at=gte.2026-08-25T00%3A00%3A00%2B08%3A00')),
     'range 模式应按东八区起始时间过滤任务'
@@ -428,6 +434,9 @@ test('aggregateOverview：编排各 REST 查询并返回四类聚合', async () 
     calls.some((url) => url.includes('created_at=lt.2026-08-31T23%3A59%3A59%2B08%3A00')),
     'range 模式应按东八区结束时间截断任务'
   );
+  // 区间总用量：usage 行 period 为日粒度 '2026-08-01'，按月前缀计入窗口覆盖月
+  assert.deepEqual(rangeOverview.usage.windowMonths, ['2026-08']);
+  assert.equal(rangeOverview.usage.windowTotalUsed, 12);
 });
 
 test('fetchAuthDisplayNames：主端点 404 时降级内部 auth 服务；全失败返回空映射', async () => {
@@ -1427,4 +1436,71 @@ test('buildDashboardHtml：自定义区间入口与导出 Excel 按钮（add-das
   assert.ok(html.includes('LAST_EXPORT_QS'), '导出需复用当前查询区间参数');
   assert.ok(html.includes('tryRefresh'), '401 时应刷新会话重试');
   assert.ok(html.includes('仅管理员可导出'), '403 需给出管理员提示');
+});
+
+// ============================================================
+// 区间总用量（add-dashboard-window-usage-total）：窗口月合计、
+// 倍数缩放与页面卡片区
+// ============================================================
+
+test('usageTotalForWindow：覆盖月求和、日粒度周期按月前缀计入、无重叠/空数据为 0', () => {
+  const byPeriod = [
+    { period: '2026-07', used: 100 },
+    { period: '2026-08', used: 810 },
+    { period: '2026-09', used: 640 },
+  ];
+  // 月粒度周期：窗口覆盖 2026-08 ~ 2026-09
+  assert.equal(
+    usageTotalForWindow(byPeriod, ['2026-08', '2026-09']),
+    1450
+  );
+  // 日粒度周期（generation_usage 兼容 YYYY-MM-DD 形态）按前 7 位计入
+  assert.equal(
+    usageTotalForWindow(
+      [
+        { period: '2026-08-30', used: 5 },
+        { period: '2026-09-01', used: 7 },
+        { period: '2026-07-02', used: 99 },
+      ],
+      ['2026-08', '2026-09']
+    ),
+    12
+  );
+  // 单月窗口
+  assert.equal(usageTotalForWindow(byPeriod, ['2026-08']), 810);
+  // 无重叠 / 空月集合 / 空数据 → 0
+  assert.equal(usageTotalForWindow(byPeriod, ['2025-01']), 0);
+  assert.equal(usageTotalForWindow(byPeriod, []), 0);
+  assert.equal(usageTotalForWindow([], ['2026-08']), 0);
+  // unknown 周期（行缺 period 的兜底键）不得计入任何月
+  assert.equal(
+    usageTotalForWindow([{ period: 'unknown', used: 50 }], ['2026-08', '2026-09']),
+    0
+  );
+});
+
+test('applyUsageMultiplier：windowTotalUsed 随倍数缩放，windowMonths 不变；字段缺省不产 NaN', () => {
+  const base = makeOverviewFixture() as never as Record<string, never>;
+  (base.usage as Record<string, unknown>).windowTotalUsed = 100;
+  (base.usage as Record<string, unknown>).windowMonths = ['2026-09'];
+  const scaled = applyUsageMultiplier(base as never, 2);
+  assert.equal((scaled.usage as { windowTotalUsed: number }).windowTotalUsed, 200);
+  assert.deepEqual((scaled.usage as { windowMonths: string[] }).windowMonths, [
+    '2026-09',
+  ]);
+
+  // fixture 未带新字段（旧形态）时缩放为 0，不出现 NaN
+  const legacy = applyUsageMultiplier(makeOverviewFixture() as never, 3);
+  assert.equal((legacy.usage as { windowTotalUsed: number }).windowTotalUsed, 0);
+});
+
+test('buildDashboardHtml：区间总用量卡存在且按 days>30 门控（add-dashboard-window-usage-total）', () => {
+  const html = buildDashboardHtml(ANON_KEY);
+  assert.ok(html.includes('区间总用量'), 'KPI 需有区间总用量卡');
+  assert.ok(html.includes('windowTotalUsed'), '卡片需读 usage.windowTotalUsed');
+  assert.ok(
+    html.includes('windowMonths'),
+    '副标题需展示覆盖周期（usage.windowMonths）'
+  );
+  assert.ok(/o\.days\s*>\s*30/.test(html), '卡片必须以 days>30 门控显示');
 });

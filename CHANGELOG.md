@@ -1,5 +1,16 @@
 ## Unreleased
 
+### feat: 数据看板长周期显示「区间总用量」（openspec add-dashboard-window-usage-total）
+
+KPI 用量只有「本月用量」（最新周期），选长区间（如 2026-08-07 ~ 2026-09-30 或近
+90 天）时没有整段汇总数：
+
+- overview `usage` 新增 `windowTotalUsed`（窗口覆盖自然月的 generation_usage 合计，
+  月粒度近似，随 USAGE_MULTIPLIER 同倍数缩放）与 `windowMonths`（参与周期列表）
+- 页面 KPI 在区间天数 > 30 时追加「区间总用量」卡，副标题透明标注覆盖周期
+- 验证：dashboard-stats 39 例（新增 3：窗口月合计含日粒度周期前缀匹配/unknown 排除、
+  倍数缩放与缺省不产 NaN、页面卡片区门控），supabase 全部边缘函数单测 226 例通过
+
 ### feat: 数据看板自定义时间范围 + 统计数据导出 Excel（openspec add-dashboard-range-export）
 
 看板此前只能选周/30/90 天与两个月自然月快选，无法查任意区间；统计出口只有整页
