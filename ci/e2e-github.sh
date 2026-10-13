@@ -95,6 +95,23 @@ for a in a b c d e f g h; do
   fi
 done
 
+echo "[e2e] ③e 认证探针（结果进 dist/auth-probe.txt，随诊断包回传）"
+mkdir -p dist
+{
+  echo "== .env 认证开关 =="
+  grep -E '^ENABLE_EMAIL|^DISABLE_SIGNUP' "$SUPA_DIR/.env" || true
+  echo "== admin 查询 e2e_sync_a（存在性/确认态）=="
+  curl -s -m 15 "${STACK_URL}/auth/v1/admin/users?email=e2e_sync_a@yjk.com" \
+    -H "apikey: ${SERVICE_ROLE}" -H "Authorization: Bearer ${SERVICE_ROLE}" | head -c 700
+  echo
+  echo "== 栈级密码登录探针 =="
+  curl -s -m 15 -X POST "${STACK_URL}/auth/v1/token?grant_type=password" \
+    -H "apikey: ${ANON_KEY}" -H "Content-Type: application/json" \
+    -d "{\"email\":\"e2e_sync_a@yjk.com\",\"password\":\"${PW}\"}" | head -c 400
+  echo
+} > dist/auth-probe.txt 2>&1
+echo "  · auth-probe.txt 已写入"
+
 echo "[e2e] ③b 自造业务数据（jzxz 素材/向量/文件）"
 STACK_URL="$STACK_URL" SERVICE_ROLE="$SERVICE_ROLE" python3 - <<'PYSEED'
 import json, os, random, struct, urllib.request

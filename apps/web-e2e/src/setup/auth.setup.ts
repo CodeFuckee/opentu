@@ -35,8 +35,23 @@ setup('以统一配置账号登录并保存会话', async ({ page }) => {
   await page.getByPlaceholder('密码（至少 6 位）').fill(E2E_TEST_PASSWORD);
   await page.getByRole('button', { name: '登录', exact: true }).click();
 
+  // 登录失败诊断：抓取错误吐司文本与控制台错误（toast 数秒后消失，必须立即捕获；
+  // 桥接环境若 GoTrue 拒绝登录，这里的文本就是唯一线索）
+  const consoleErrors: string[] = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') {
+      consoleErrors.push(msg.text().slice(0, 200));
+    }
+  });
+  const toastText = await page
+    .locator('.t-message')
+    .first()
+    .textContent({ timeout: 5000 })
+    .catch(() => '');
+
   // 登录成功后 AuthGate 自动切换到工作区
-  await expect(page.locator('.drawnix')).toBeVisible({ timeout: 30000 });
+  const diag = `登录后工作区未出现。错误吐司: ${toastText || '(未捕获到吐司)'}；控制台错误: ${consoleErrors.slice(0, 5).join(' | ') || '(无)'}`;
+  await expect(page.locator('.drawnix'), diag).toBeVisible({ timeout: 30000 });
 
   await page.context().storageState({ path: E2E_STATE_PATH });
 });
