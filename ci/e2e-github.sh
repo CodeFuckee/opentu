@@ -13,6 +13,9 @@
 set -euo pipefail
 cd "${CI_PROJECT_DIR:?CI_PROJECT_DIR 未注入}"
 
+# 失败现场陷阱：ERR 即写行号与最近命令进 dist（随包回传，免去 GitHub 日志依赖）
+trap 'echo "FAILED line=${LINENO} last_exit=$?" > dist/failure.txt 2>/dev/null; exit 1' ERR
+
 SUPABASE_RELEASE="${SUPABASE_RELEASE:-v1.26.08}"
 SUPA_DIR="$HOME/supabase-stack"
 STACK_URL="http://127.0.0.1:8021"
