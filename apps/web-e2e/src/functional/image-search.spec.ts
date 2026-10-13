@@ -9,6 +9,10 @@ import { test, expect } from '../fixtures/test-base';
 import path from 'node:path';
 
 const FIXTURE = path.resolve(__dirname, '../../../../test-files/image-search-fixture.png');
+// 慢环境（2 核桥接 runner）：CLIP 模型下载/初始化+编码超出默认 60s 用例上限
+if (process.env.E2E_SLOW_ENV === '1') {
+  test.setTimeout(180_000);
+}
 
 test.describe('以图搜图', () => {
   test('上传图片搜出同款素材并可退出相似模式', async ({ page }) => {
