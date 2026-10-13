@@ -223,6 +223,8 @@ test.describe('模板中心', () => {
   });
 
   test('E2E-011 模板封面图片全部正常加载', async ({ page }) => {
+    // 桥接临时栈无模板封面种子媒体（断言 ≥30 张加载），内网 e2e 守护本用例
+    test.skip(process.env.E2E_BRIDGE === '1', '桥接环境缺模板封面种子媒体，内网 e2e 守护');
     // 记录封面请求中失败的状态码（≥400）
     const badResponses: string[] = [];
     page.on('response', (response) => {

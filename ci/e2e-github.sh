@@ -20,9 +20,10 @@ trap 'echo "FAILED line=${LINENO} last_exit=$?" > dist/failure.txt 2>/dev/null; 
 SUPABASE_RELEASE="${SUPABASE_RELEASE:-v1.26.08}"
 SUPA_DIR="$HOME/supabase-stack"
 STACK_URL="http://127.0.0.1:8021"
-E2E_ARGS="${E2E_ARGS:---project=smoke --project=functional --grep-invert=二次打开|插入视角后编辑图片|模板封面图片全部正常加载}"
-# --grep-invert 摘除的用例为 2 核桥接机的环境受限项（模型加载 30s 看门狗不可调、
-# 模板封面种子媒体缺失），GitLab 内网 e2e（4030 全绿）继续守护它们
+E2E_ARGS="${E2E_ARGS:---project=smoke --project=functional}"
+# 注意：E2E_ARGS 不可含 |（nx 经 sh 重构目标命令行，管道符会截断命令——
+# 曾致 playwright EPIPE 猝死）。桥接环境受限用例的摘除走用例内
+# test.skip(process.env.E2E_BRIDGE === '1') 门控，本脚本导出 E2E_BRIDGE=1
 
 echo "[e2e] ① 下载并启动临时 Supabase（${SUPABASE_RELEASE}）"
 rm -rf "$SUPA_DIR" && mkdir -p "$SUPA_DIR" && cd "$SUPA_DIR"
@@ -332,6 +333,8 @@ echo "[e2e] ⑤ 运行 E2E（${E2E_ARGS}；webServer=preview 生产产物模式�
 export E2E_WEB_SERVER="${E2E_WEB_SERVER:-preview}"
 # 慢环境标记：模型初始化/编码类用例据此放宽用例级超时（如以图搜图 60s→180s）
 export E2E_SLOW_ENV=1
+# 桥接环境受限用例的跳过门控（glb 二次打开/插入视角、模板封面 E2E-011）
+export E2E_BRIDGE=1
 # web 构建堆上限：runner 默认堆下 nx build web 偶发 OOM 中断（表现为 dist/apps
 # 只剩 public 资源、无测试结果）
 export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=6144}"

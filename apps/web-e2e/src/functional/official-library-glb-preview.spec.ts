@@ -80,6 +80,9 @@ test.describe('官方素材库 3D 预览', () => {
   });
 
   test('二次打开(缓存命中秒加载)加载提示必须立即消失', async ({ page }) => {
+    // 桥接 2 核环境：模型二次加载难在 8s 窗口内完成（30s 组件看门狗先降级），
+    // 内网 e2e 守护本用例（E2E_BRIDGE 由 ci/e2e-github.sh 导出）
+    test.skip(process.env.E2E_BRIDGE === '1', '桥接 2 核环境受限，内网 e2e 守护');
     await page.goto('/');
     const previewBtn = await openGlbPreview(page);
     const viewer = page.locator('.glb-viewer-dialog model-viewer');
@@ -105,6 +108,9 @@ test.describe('官方素材库 3D 预览', () => {
   });
 
   test('插入视角后编辑图片不得 404(非安全上下文虚拟 URL 降级)', async ({ page }) => {
+    // 桥接 2 核环境：插入视角按钮在模型 ready 后才出现，30s 看门狗先降级，
+    // 内网 e2e 守护本用例
+    test.skip(process.env.E2E_BRIDGE === '1', '桥接 2 核环境受限，内网 e2e 守护');
     await page.goto('/');
     await openGlbPreview(page);
     const viewer = page.locator('.glb-viewer-dialog model-viewer');
