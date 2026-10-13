@@ -205,22 +205,29 @@ test:e2e:
             -H "apikey: ${E2E_ANON}" -H "Authorization: Bearer ${TOKEN}" > /dev/null
         done
       echo "[e2e] 测试账号同步数据与媒体已清理"
-    # 空 E2E_ARGS => 运行 playwright.config.ts 中定义的全部 project（全量 E2E）
+    # 空 E2E_ARGS => 运行 playwright.config.ts 中定义的全部 project（全量 E2E）。
+    # 失败也要先跑完瘦身再退出（失败轮 error-context 是唯一诊断来源，且不瘦身
+    # 会连原始视频一起上传）
     - |
+      E2E_RC=0
       if [ -n "${E2E_ARGS}" ]; then
-        pnpm exec nx e2e web-e2e -- ${E2E_ARGS}
+        pnpm exec nx e2e web-e2e -- ${E2E_ARGS} || E2E_RC=$?
       else
-        pnpm exec nx e2e web-e2e
+        pnpm exec nx e2e web-e2e || E2E_RC=$?
       fi
-    # artifacts 瘦身（runner→GitLab 上传链路仅 ~330KB/s，大产物会卡 1h 超时）：
-    # 删除视频与 trace 大件，保留 error-context.md/截图（轻量诊断件）
+      echo "[e2e] playwright 退出码 ${E2E_RC}"
+    # artifacts 瘦身（runner→GitLab 上传链路仅 ~330KB/s）：删除视频/trace 后
+    # 再按体积清扫——媒体用例会把 8MB 级图片/glb attach 进报告，test-results
+    # 原件 + HTML 报告内嵌双份实测可达 2.2GB，1h 客户端超时内必然传不完。
+    # 诊断只需 error-context.md 与失败截图（均 <2M），大件全删。
     - |
       find apps/web-e2e/test-results -name "*.webm" -delete 2>/dev/null || true
       find apps/web-e2e/test-results -type d -name "trace" -exec rm -rf {} + 2>/dev/null || true
+      find apps/web-e2e -type f -size +2M -delete 2>/dev/null || true
       du -sh apps/web-e2e/test-results apps/web-e2e/playwright-report 2>/dev/null || true
-  # 仅失败时上传：绿跑的上传也会经 home.chenkaidi.top:509（WAF/反代）卡死——
-  # 实测固定 1h "Client.Timeout exceeded while awaiting headers" 后重试直至
-  # 2h job 超时（2026-10-12/13 连续 7 条流水线死于同一处，Playwright 本身全绿）。
+      exit ${E2E_RC:-0}
+  # 仅失败时上传：绿跑零上传（体积为主因的 1h 上传超时详见上方瘦身注释；
+  # 雷池白名单后链路已恢复，但体积不砍仍会撞 runner 1h 客户端超时）。
   # 失败现场（error-context/截图/报告）只在 on_failure 上传，调试价值不受损。
   artifacts:
     when: on_failure
