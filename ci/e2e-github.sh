@@ -191,7 +191,7 @@ fetch "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3/dist/transformer
   || echo "  ⚠ CLIP 模型文件下载不完整，以图搜图用例将失败（不阻塞其余用例）"
 for w in ort-wasm-simd-threaded.jsep.wasm ort-wasm-simd-threaded.jsep.mjs ort-wasm-simd-threaded.wasm ort-wasm-simd-threaded.mjs; do
   fetch "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3/dist/$w" "$tmpm/$w" 2>/dev/null \
-    && up "models/clip/ort/$w" "$tmpm/$w" 2>/dev/null || true
+    && up "ai-outputs/models/clip/ort/$w" "$tmpm/$w" 2>/dev/null || true
 done
 for pair in "lib/transformers.bundle.mjs:transformers.bundle.mjs" \
             "Xenova/clip-vit-base-patch32/config.json:config.json" \
@@ -199,10 +199,76 @@ for pair in "lib/transformers.bundle.mjs:transformers.bundle.mjs" \
             "Xenova/clip-vit-base-patch32/tokenizer.json:tokenizer.json" \
             "Xenova/clip-vit-base-patch32/onnx/model_quantized.onnx:model_quantized.onnx"; do
   dst="${pair%%:*}"; src="${pair#*:}"
-  [ -f "$tmpm/$src" ] && up "models/clip/$dst" "$tmpm/$src" 2>/dev/null \
-    && echo "  · models/clip/$dst" || true
+  # 注意桶名：应用从公开桶 ai-outputs 的 models/clip 子路径加载（无独立 models 桶）
+  [ -f "$tmpm/$src" ] && up "ai-outputs/models/clip/$dst" "$tmpm/$src" 2>/dev/null \
+    && echo "  · ai-outputs/models/clip/$dst" || true
 done
 rm -rf "$tmpm"
+
+echo "[e2e] ③d 本地 mock 生图上游（canvas-URL 用例的真生图链路）"
+# ai-proxy 按 configs.NEWAPI_URL/NEWAPI_KEY 转发生图请求；configs 表只存在于
+# 内部库（迁移未含），临时栈补建。上游 URL 必须是 edge-functions 容器可达的
+# 宿主机地址（compose 网关 IP），返回的图片 URL 也要能被浏览器取到——同一
+# 网关地址两者皆可达。
+GW=$(docker network inspect supabase-stack_default \
+  --format '{{(index .IPAM.Config 0).Gateway}}' 2>/dev/null || echo 172.17.0.1)
+cat > /tmp/e2e-configs.sql <<SQL
+create table if not exists public.configs (key text primary key, value text not null);
+insert into public.configs (key, value) values
+  ('NEWAPI_URL', 'http://${GW}:9999'),
+  ('NEWAPI_KEY', 'sk-mock-e2e')
+on conflict (key) do update set value = excluded.value;
+SQL
+apply_sql /tmp/e2e-configs.sql >/dev/null 2>&1 || true
+export MOCK_GW="$GW"
+python3 - <<'PYMOCK' &
+import struct, zlib
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+def png():
+    w = h = 64; rgb = (120, 160, 200)
+    raw = b"".join(b"\x00" + bytes(rgb) * w for _ in range(h))
+    def chunk(t, d):
+        c = t + d
+        return struct.pack(">I", len(d)) + c + struct.pack(">I", zlib.crc32(c))
+    ihdr = struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr)
+            + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
+
+IMG = png()
+
+class Handler(BaseHTTPRequestHandler):
+    def _send(self, ctype, body):
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self):
+        self._send("image/png", IMG)
+
+    def do_POST(self):
+        import json, os
+        length = int(self.headers.get("Content-Length") or 0)
+        if length:
+            self.rfile.read(length)
+        gw = os.environ.get("MOCK_GW", "127.0.0.1")
+        body = json.dumps({"created": 1, "data": [
+            {"url": f"http://{gw}:9999/mock-image.png"}]}).encode()
+        self._send("application/json", body)
+
+    def log_message(self, *args):
+        pass
+
+HTTPServer(("0.0.0.0", 9999), Handler).serve_forever()
+PYMOCK
+MOCK_PID=$!
+trap 'kill ${MOCK_PID} 2>/dev/null || true' EXIT
+sleep 0.5
+curl -sf "http://127.0.0.1:9999/mock-image.png" -o /dev/null \
+  && echo "  · mock 生图上游就绪（${GW}:9999，配额走 consume_image_quota 默认 200/月）" \
+  || echo "  ⚠ mock 上游未就绪，canvas-URL 用例将失败（不阻塞其余用例）"
 
 echo "[e2e] ④ 安装依赖与 Playwright（--with-deps 自装系统包与浏览器）"
 corepack enable --install-directory "$HOME/.local/bin" 2>/dev/null || corepack enable
@@ -213,6 +279,9 @@ pnpm install --frozen-lockfile
 sudo -E env "PATH=$PATH" pnpm exec playwright install --with-deps chromium
 
 echo "[e2e] ⑤ 运行 E2E（${E2E_ARGS}；webServer=preview 生产产物模式）"
+# 生产产物模式（nx build web + vite preview）：dev server 在 2 核冷机上编译
+# model-viewer 等懒块会突破用例等待窗（glb 预览两用例即因此降级失败）
+export E2E_WEB_SERVER="${E2E_WEB_SERVER:-preview}"
 export VITE_SUPABASE_URL="$STACK_URL"
 export VITE_SUPABASE_ANON_KEY="$ANON_KEY"
 export E2E_SUPABASE_URL="$STACK_URL"
