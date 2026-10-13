@@ -29,6 +29,13 @@ cp .env.example .env
 # 注意 .env 变量名随版本变化：老版 HTTP_PORT，v1.26+ 是 KONG_HTTP_PORT（映射
 # "${KONG_HTTP_PORT}:8000/tcp"）——两个都改，谁存在谁生效
 sed -i 's/^KONG_HTTP_PORT=.*/KONG_HTTP_PORT=8021/; s/^HTTP_PORT=.*/HTTP_PORT=8021/' .env
+# 仓库自定义 edge functions 覆盖部署（ui-stats/asset-vector-search 等是应用
+# 运行时依赖，缺失会以 500 出现在页面控制台，cloud-sync 的"控制台无报错"
+# 断言即因此挂）——覆盖官方示例函数，随边缘运行时按目录名提供服务
+if [ -d "$CI_PROJECT_DIR/supabase/functions" ]; then
+  mkdir -p volumes/functions
+  cp -r "$CI_PROJECT_DIR/supabase/functions/." volumes/functions/
+fi
 docker compose up -d --quiet-pull
 ANON_KEY=$(grep '^ANON_KEY=' .env | cut -d= -f2-)
 SERVICE_ROLE=$(grep '^SERVICE_ROLE_KEY=' .env | cut -d= -f2-)
@@ -72,6 +79,102 @@ for a in a b c d e f g h; do
   [ "$code" = "200" ] && echo "  · e2e_sync_${a} 已创建" \
     || echo "  · e2e_sync_${a} 跳过（HTTP ${code}，通常=已存在）"
 done
+
+echo "[e2e] ③b 自造业务数据（jzxz 素材/向量/文件）"
+python3 - <<'PYSEED'
+import json, os, random, struct, urllib.request
+
+STACK = os.environ["STACK_URL"]
+SROLE = os.environ["SERVICE_ROLE"]
+
+def upload(bucket, path, data, ctype):
+    req = urllib.request.Request(
+        f"{STACK}/storage/v1/object/{bucket}/{path}", data=data, method="POST",
+        headers={"apikey": SROLE, "Authorization": f"Bearer {SROLE}",
+                 "Content-Type": ctype, "x-upsert": "true"})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        r.read()
+
+def png_bytes(w, h, rgb):
+    import zlib
+    raw = b"".join(b"\x00" + bytes(rgb) * w for _ in range(h))
+    def chunk(t, d):
+        c = t + d
+        return struct.pack(">I", len(d)) + c + struct.pack(">I", zlib.crc32(c))
+    ihdr = struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr)
+            + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
+
+def glb_bytes():
+    # 最小合法 GLB：单三角网格（model-viewer 可加载渲染）
+    positions = [0,0,0, 1,0,0, 0,1,0]
+    indices = [0,1,2]
+    bin_data = struct.pack("<9f", *positions) + struct.pack("<3H", *indices)
+    bin_data += b"\x00" * ((4 - len(bin_data) % 4) % 4)
+    gltf = {
+        "asset": {"version": "2.0"},
+        "scene": 0, "scenes": [{"nodes": [0]}],
+        "nodes": [{"mesh": 0}],
+        "meshes": [{"primitives": [{"attributes": {"POSITION": 1}, "indices": 0, "mode": 4}]}],
+        "accessors": [
+            {"bufferView": 1, "componentType": 5123, "count": 3, "type": "SCALAR"},
+            {"bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3",
+             "min": [0,0,0], "max": [1,1,0]},
+        ],
+        "bufferViews": [
+            {"buffer": 0, "byteOffset": len(struct.pack("<9f", *positions)),
+             "byteLength": 6, "target": 34963},
+            {"buffer": 0, "byteOffset": 0, "byteLength": 36, "target": 34962},
+        ],
+        "buffers": [{"byteLength": len(bin_data)}],
+    }
+    js = json.dumps(gltf).encode()
+    js += b" " * ((4 - len(js) % 4) % 4)
+    total = 12 + 8 + len(js) + 8 + len(bin_data)
+    return (struct.pack("<4sII", b"glTF", 2, total)
+            + struct.pack("<4sI", b"JSON", len(js)) + js
+            + struct.pack("<4sI", b"BIN\x00", len(bin_data)) + bin_data)
+
+rng = random.Random(42)
+def rand_vec():
+    v = [rng.uniform(-1, 1) for _ in range(512)]
+    n = sum(x*x for x in v) ** 0.5
+    return "[" + ",".join(f"{x/n:.6f}" for x in v) + "]"
+
+# 上传素材文件（公开桶由迁移创建）
+glb = glb_bytes()
+upload("jzxz-home-materials", "e2e/betty.glb", glb, "model/gltf-binary")
+upload("jzxz-home-materials", "e2e/betty-cover.png", png_bytes(64, 64, (180, 140, 90)), "image/png")
+for i, rgb in enumerate([(120, 160, 200), (200, 120, 120), (120, 200, 140)], 1):
+    upload("jzxz-materials", f"e2e/tex-{i}.png", png_bytes(64, 64, rgb), "image/png")
+
+# 业务行（psql 由外层 apply_sql 应用）
+sql = """
+insert into jzxz_home_materials (source_id, name, category, tags, image_paths, glb_path, glb_bytes, glb_name)
+values ('e2e-betty', '餐椅丨BETTY TK3', '家居库', '{餐椅,e2e}',
+        '["e2e/betty-cover.png"]'::jsonb, 'e2e/betty.glb', %(glb_bytes)s, 'betty.glb')
+on conflict (source_id) do nothing;
+insert into jzxz_materials (source_id, gallery, category, tag, name, width, height, preview_path, file_path)
+values ('e2e-tex-1','家居库','贴图','e2e','E2E-TEX-1',64,64,'e2e/tex-1.png','e2e/tex-1.png'),
+       ('e2e-tex-2','家居库','贴图','e2e','E2E-TEX-2',64,64,'e2e/tex-2.png','e2e/tex-2.png'),
+       ('e2e-tex-3','家居库','贴图','e2e','E2E-TEX-3',64,64,'e2e/tex-3.png','e2e/tex-3.png')
+on conflict (source_id) do nothing;
+insert into asset_vectors (asset_type, asset_id, image_url, embedding, model_version)
+values ('jzxz_home_materials','e2e-betty',
+        '%(base)s/storage/v1/object/public/jzxz-home-materials/e2e/betty-cover.png',
+        '%(v1)s'::vector,'clip-vit-b32-int8-v1'),
+       ('jzxz_materials','e2e-tex-1',
+        '%(base)s/storage/v1/object/public/jzxz-materials/e2e/tex-1.png',
+        '%(v2)s'::vector,'clip-vit-b32-int8-v1')
+on conflict (asset_type, asset_id, image_url) do nothing;
+""" % {"glb_bytes": len(glb),
+       "base": STACK,
+       "v1": rand_vec(), "v2": rand_vec()}
+open("/tmp/e2e-seed.sql", "w").write(sql)
+print("[seed] 文件已上传，SQL 就绪")
+PYSEED
+apply_sql /tmp/e2e-seed.sql >/dev/null 2>&1 || true
+echo "[e2e] ③b 完成"
 
 echo "[e2e] ④ 安装依赖与 Playwright（--with-deps 自装系统包与浏览器）"
 corepack enable --install-directory "$HOME/.local/bin" 2>/dev/null || corepack enable
