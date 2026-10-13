@@ -81,7 +81,7 @@ for a in a b c d e f g h; do
 done
 
 echo "[e2e] ③b 自造业务数据（jzxz 素材/向量/文件）"
-python3 - <<'PYSEED'
+STACK_URL="$STACK_URL" SERVICE_ROLE="$SERVICE_ROLE" python3 - <<'PYSEED'
 import json, os, random, struct, urllib.request
 
 STACK = os.environ["STACK_URL"]
