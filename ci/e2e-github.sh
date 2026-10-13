@@ -25,6 +25,12 @@ curl -fsSL -o /tmp/supa.tgz \
 tar -xzf /tmp/supa.tgz -C /tmp
 cp -r "/tmp/supabase-${SUPABASE_RELEASE#v}/docker/." .
 cp .env.example .env
+# GoTrue 邮箱自动确认必须开：默认 false 时匿名 signup（auth-setup 的注册步骤）
+# 会产出"未确认"账号——临时栈无 SMTP 收确认信，密码登录恒 400 email_not_confirmed，
+# auth-setup 卡死在登录页。compose 已把该变量接线到 gotrue（ENABLE_EMAIL_AUTOCONFIRM）
+grep -q '^ENABLE_EMAIL_AUTOCONFIRM=' .env \
+  && sed -i 's/^ENABLE_EMAIL_AUTOCONFIRM=.*/ENABLE_EMAIL_AUTOCONFIRM=true/' .env \
+  || echo 'ENABLE_EMAIL_AUTOCONFIRM=true' >> .env
 # API 网关(Kong)映射到 8021：与自建实例端口习惯一致。
 # 注意 .env 变量名随版本变化：老版 HTTP_PORT，v1.26+ 是 KONG_HTTP_PORT（映射
 # "${KONG_HTTP_PORT}:8000/tcp"）——两个都改，谁存在谁生效
@@ -79,9 +85,14 @@ PW="${E2E_TEST_PASSWORD:-E2eTest_2026!}"
 for a in a b c d e f g h; do
   code=$(api POST /auth/v1/admin/users "$SERVICE_ROLE" \
     "{\"email\":\"e2e_sync_${a}@yjk.com\",\"password\":\"${PW}\",\"email_confirm\":true}" \
-    -o /dev/null -w '%{http_code}' || echo 000)
-  [ "$code" = "200" ] && echo "  · e2e_sync_${a} 已创建" \
-    || echo "  · e2e_sync_${a} 跳过（HTTP ${code}，通常=已存在）"
+    -o /tmp/acct-resp.json -w '%{http_code}' || echo 000)
+  if [ "$code" = "200" ]; then
+    echo "  · e2e_sync_${a} 已创建（已确认）"
+  else
+    # 非 200 不静默：既可能是 422 已存在，也可能是真实失败（失败时 auth-setup
+    # 的登录会卡死在登录页）——把响应体打出来才能分辨
+    echo "  ⚠ e2e_sync_${a} 管理员创建 HTTP ${code}: $(head -c 200 /tmp/acct-resp.json 2>/dev/null)"
+  fi
 done
 
 echo "[e2e] ③b 自造业务数据（jzxz 素材/向量/文件）"
