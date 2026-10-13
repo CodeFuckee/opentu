@@ -52,7 +52,8 @@ cd "$CI_PROJECT_DIR"
 for f in supabase/migrations/*.sql supabase/seed/*.sql; do
   echo "  · ${f#supabase/}"
   out=$(apply_sql "$f") || true
-  err=$(grep -aE "ERROR" <<<"$out" | head -2)
+  # pipefail 下 grep 无匹配会让整条管道返回 1，必须内联兜底（set -e 直接杀脚本）
+  err=$(grep -aE "ERROR" <<<"$out" | head -2 || true)
   [ -n "$err" ] && { echo "$err" | sed 's/^/    ⚠ /'; } || true
 done
 
