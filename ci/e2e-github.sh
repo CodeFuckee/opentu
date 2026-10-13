@@ -14,6 +14,7 @@ set -euo pipefail
 cd "${CI_PROJECT_DIR:?CI_PROJECT_DIR 未注入}"
 
 # 失败现场陷阱：ERR 即写行号与最近命令进 dist（随包回传，免去 GitHub 日志依赖）
+mkdir -p dist
 trap 'echo "FAILED line=${LINENO} last_exit=$?" > dist/failure.txt 2>/dev/null; exit 1' ERR
 
 SUPABASE_RELEASE="${SUPABASE_RELEASE:-v1.26.08}"
@@ -313,12 +314,27 @@ pnpm config set store-dir .pnpm-store
 pnpm install --frozen-lockfile
 sudo -E env "PATH=$PATH" pnpm exec playwright install --with-deps chromium
 
+echo "[e2e] ④b 预构建 web（preview 产物；nx 本地缓存使 playwright webServer 二次构建秒过）"
+# 失败日志尾部进诊断包（GitHub 日志 admin-only，包是唯一可读通道）
+mkdir -p dist
+set -o pipefail
+if ! pnpm exec nx build web 2>&1 | tail -c 300000 > dist/build.log; then
+  echo "[e2e] ⚠ nx build web 失败，日志尾部 3000 字节见下" >&2
+  tail -c 3000 dist/build.log >&2 || true
+  exit 1
+fi
+tail -c 600 dist/build.log
+echo "[e2e] ④b 预构建完成"
+
 echo "[e2e] ⑤ 运行 E2E（${E2E_ARGS}；webServer=preview 生产产物模式）"
 # 生产产物模式（nx build web + vite preview）：dev server 在 2 核冷机上编译
 # model-viewer 等懒块会突破用例等待窗（glb 预览两用例即因此降级失败）
 export E2E_WEB_SERVER="${E2E_WEB_SERVER:-preview}"
 # 慢环境标记：模型初始化/编码类用例据此放宽用例级超时（如以图搜图 60s→180s）
 export E2E_SLOW_ENV=1
+# web 构建堆上限：runner 默认堆下 nx build web 偶发 OOM 中断（表现为 dist/apps
+# 只剩 public 资源、无测试结果）
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=6144}"
 export VITE_SUPABASE_URL="$STACK_URL"
 export VITE_SUPABASE_ANON_KEY="$ANON_KEY"
 export E2E_SUPABASE_URL="$STACK_URL"
