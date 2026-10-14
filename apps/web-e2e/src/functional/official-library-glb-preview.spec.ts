@@ -74,7 +74,7 @@ test.describe('官方素材库 3D 预览', () => {
       await expect(insertBtn).toBeVisible({ timeout: 10000 });
       await insertBtn.click();
       await expect(
-        page.getByText('已插入当前视角到画板')
+        page.getByText('已插入当前视角到画板').first()
       ).toBeVisible({ timeout: 15000 });
     }
   });
@@ -124,7 +124,7 @@ test.describe('官方素材库 3D 预览', () => {
     await expect(insertBtn).toBeVisible({ timeout: 10000 });
     await insertBtn.click();
     await expect(
-      page.getByText('已插入当前视角到画板')
+      page.getByText('已插入当前视角到画板').first()
     ).toBeVisible({ timeout: 15000 });
     // 插入后画布自动选中元素、焦点移出 Dialog——先点 Dialog 标题带回焦点再 Esc
     await page.getByText('3D 预览 —').click();
