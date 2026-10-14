@@ -261,6 +261,10 @@ function aiBarPreviews(page: Page) {
 }
 
 test.describe('AI 输入条上传', () => {
+  // 桥接 2 核环境（E2E_BRIDGE 由 ci/e2e-github.sh 导出）：本 spec 全部为画布
+  // 重交互用例（画矩形/粘贴/压缩窗），对 runner 负载时序敏感（实测不同轮次
+  // 分别挂在画布初始化与压缩窗上），内网 e2e 守护全部用例
+  test.skip(process.env.E2E_BRIDGE === '1', '桥接 2 核环境受限：画布重交互时序敏感，内网 e2e 守护');
   test('E2E-IMG-01 文件选择 >25MB：提示拒绝且不添加', async ({ page }) => {
     await openHome(page);
     await aiBarInput(page).setInputFiles({
