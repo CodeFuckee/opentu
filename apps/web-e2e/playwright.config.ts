@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 import { nxE2EPreset } from '@nx/playwright/preset';
 
 import { workspaceRoot } from '@nx/devkit';
-import { E2E_STATE_PATH } from './src/config/e2e.config';
+import { E2E_STATE_PATH, SUPABASE } from './src/config/e2e.config';
 
 // For CI, you may want to set BASE_URL to the deployed application.
 const baseURL = process.env['BASE_URL'] || 'http://localhost:7200';
@@ -89,14 +89,13 @@ export default defineConfig({
           // 覆盖本机 gitignored apps/web/.env（避免烘焙 https/生产地址导致登录失败）
           env: {
             AITU_REWRITE_ENTRY_ASSETS_TO_CDN: '0',
-            VITE_SUPABASE_URL:
-              process.env['E2E_SUPABASE_URL'] || 'http://10.0.0.220:8021',
-            // anon key 同样可被环境覆盖：GitHub 桥接（ci/e2e-github.sh）的临时栈
-            // 有自己的 key-auth 凭据，硬编码内网 key 会被 Kong 拒为 401
-            // Unauthorized（auth-setup 登录失败）。GitLab 内网未导出时回退内网 key。
-            VITE_SUPABASE_ANON_KEY:
-              process.env['E2E_SUPABASE_ANON_KEY'] ||
-              'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg4MTAyMzUyLCJleHAiOjIxMDM0NjIzNTJ9.nQP_hdmnIbCgVfsxlq6TTuRo_FKVYdrRaIDmKViiEBc',
+            // Supabase 连接取值单一来源：e2e.config 的 SUPABASE（env → apps/web/.env
+            // → 内网默认）。此前 anon key 在此硬编码内网值，GitHub 桥接的临时栈
+            // key-auth 凭据不同，登录被 Kong 拒为 401 Unauthorized（auth-setup
+            // 卡死登录页）。桥接脚本导出 E2E_SUPABASE_URL/ANON_KEY，此处经
+            // SUPABASE 的 env 链自动采用临时栈值
+            VITE_SUPABASE_URL: SUPABASE.url,
+            VITE_SUPABASE_ANON_KEY: SUPABASE.anonKey,
           },
         }
       : {

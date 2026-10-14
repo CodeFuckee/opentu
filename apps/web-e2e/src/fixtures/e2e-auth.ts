@@ -47,6 +47,30 @@ export async function ensureE2EAccountRegistered(
     typeof account === 'string'
       ? E2E_TEST_PASSWORD
       : (account.password ?? E2E_TEST_PASSWORD);
+
+  // service_role 可用时走 admin API 注册：账号天然"已确认"，不依赖环境 GoTrue
+  // 的邮箱自动确认开关（桥接临时栈默认关、无 SMTP 可收确认信，匿名 signup 会
+  // 产出未确认账号导致密码登录 400 email_not_confirmed）。422 = 已存在（幂等）。
+  if (SUPABASE.serviceRoleKey) {
+    const admin = await fetch(`${SUPABASE.url}/auth/v1/admin/users`, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE.serviceRoleKey,
+        Authorization: `Bearer ${SUPABASE.serviceRoleKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password, email_confirm: true }),
+    });
+    if (admin.ok || admin.status === 422) {
+      return true;
+    }
+    console.warn(
+      `[e2e-auth] admin 注册失败 HTTP ${admin.status}，回退匿名 signup（要求环境开启邮箱自动确认）`
+    );
+  }
+
+  // 无 service_role 的回退路径：匿名 signup（要求环境开启邮箱自动确认）。
+  // 只允许注册统一配置中的固定账号（TEST_ACCOUNTS）或自定义账号，禁止随机新建。
   const res = await fetch(`${SUPABASE.url}/auth/v1/signup`, {
     method: 'POST',
     headers: {
