@@ -7,7 +7,7 @@
  *   loading/close；第二参数 duration ms），既有调用点零改动。
  * - 宿主未挂载（极端时序/纯工具环境）时降级 console.warn，不抛错。
  */
-import type { ReactNode } from 'react';
+import { isValidElement, type ReactNode } from 'react';
 import {
   hasMd3MessageListeners,
   showMd3Message,
@@ -54,24 +54,50 @@ function isResolvedMessageInstance(
   );
 }
 
+/**
+ * 归一化 TDesign 兼容入参：首参可为纯文本/节点，也可为选项对象
+ * `{ content, duration }`（TDesign MessagePlugin 的合法形态，存量调用点在用）
+ */
+function normalizeMessageArgs(args: MessageArgs): {
+  content: ReactNode;
+  duration: number;
+} {
+  const [first, second] = args;
+  if (
+    typeof first === 'object' &&
+    first !== null &&
+    !isValidElement(first) &&
+    'content' in (first as Record<string, unknown>)
+  ) {
+    const opts = first as { content: ReactNode; duration?: number };
+    return {
+      content: opts.content as ReactNode,
+      duration:
+        typeof opts.duration === 'number' && opts.duration > 0
+          ? opts.duration
+          : DEFAULT_DURATION,
+    };
+  }
+  return {
+    content: first as ReactNode,
+    duration:
+      typeof second === 'number' && second > 0 ? second : DEFAULT_DURATION,
+  };
+}
+
 function callMessage(
   method: Exclude<Md3MessageSeverity, 'loading'>,
   args: MessageArgs
 ): void {
-  const [content, duration] = args;
   if (!hasMd3MessageListeners()) {
     console.warn(
       '[MessagePlugin] Md3MessageHost 未挂载，消息未渲染:',
-      typeof content === 'string' ? content : '(node)'
+      typeof args[0] === 'string' ? args[0] : '(node)'
     );
     return;
   }
-  showMd3Message({
-    severity: method,
-    content: content as ReactNode,
-    duration:
-      typeof duration === 'number' && duration > 0 ? duration : DEFAULT_DURATION,
-  });
+  const { content, duration } = normalizeMessageArgs(args);
+  showMd3Message({ severity: method, content, duration });
 }
 
 export const MessagePlugin = {
@@ -88,11 +114,11 @@ export const MessagePlugin = {
     callMessage('info', args);
   },
   loading(...args: MessageArgs): LazyMessageInstance {
-    const [content] = args;
+    const { content } = normalizeMessageArgs(args);
     const handle: Md3MessageHandle = hasMd3MessageListeners()
       ? showMd3Message({
           severity: 'loading',
-          content: content as ReactNode,
+          content,
           duration: LOADING_DURATION,
         })
       : { close: () => undefined };

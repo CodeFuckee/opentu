@@ -59,6 +59,17 @@ describe('Md3MessageHost / MessagePlugin', () => {
     expect(container.textContent).not.toContain('处理中…');
   });
 
+  it('TDesign 对象形态入参（{content, duration}）正确渲染——回归 #31 崩溃', () => {
+    act(() => {
+      root.render(<Md3MessageHost />);
+    });
+    act(() => {
+      MessagePlugin.success({ content: '对象参数消息', duration: 0 });
+    });
+    expect(container.textContent).toContain('对象参数消息');
+    expect(container.querySelector('.MuiAlert-root')).not.toBeNull();
+  });
+
   it('duration 到期自动关闭', () => {
     act(() => {
       root.render(<Md3MessageHost />);
