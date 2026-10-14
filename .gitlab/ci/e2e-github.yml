@@ -19,8 +19,9 @@
   tags: ["linux-x64"]
   script:
     - bash ci/bridge.sh
-    # 常驻守护 MACOS_FETCH_ARTIFACTS 依赖的 Job-Token registry 读路径
-    - bash ci/registry-roundtrip.sh
+    # 不做 registry-roundtrip：百 MB 级 dist 经网关回拉在当前链路上结构不稳定
+    # （超时/SIGPIPE，多次实测），且 e2e 红绿判定只依赖 GitHub run 结论（bridge.sh
+    # 已镜像）。诊断包留在 GitHub 侧 package registry，需要时手动经 GitLab API 取回。
   # 作业级 timeout：须大于 GitHub 侧 timeout-minutes(175m) + 轮询余量
   timeout: 3h
   # 流水线级 pnpm cache 是 runner 持久缓存，桥接作业拉/推纯浪费，禁用
@@ -35,13 +36,10 @@ test:e2e-github:
     BRIDGE_KIND: "linux"
     MACOS_SCRIPT: "ci/e2e-github.sh"
     MACOS_ENV_PASSTHROUGH: "PNPM_VERSION"
-    MACOS_FETCH_ARTIFACTS: "true"
+    # 不回拉产物：大文件经网关回传/取回均不稳定（多次实测），作业红绿只镜像
+    # GitHub 侧 E2E 判定；诊断包留存在 package registry（linux-bridge 包）可手动取
+    MACOS_FETCH_ARTIFACTS: "false"
     GH_POLL_TIMEOUT_MIN: "170"
-  artifacts:
-    when: always
-    expire_in: 7 days
-    paths:
-      - dist/
   rules:
     # masked+protected 变量缺失/为空（未保护分支）→ 跳过
     - if: '$GH_BRIDGE_TOKEN == null || $GH_BRIDGE_TOKEN == ""'
