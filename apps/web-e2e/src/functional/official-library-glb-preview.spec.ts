@@ -74,7 +74,7 @@ test.describe('官方素材库 3D 预览', () => {
       await expect(insertBtn).toBeVisible({ timeout: 10000 });
       await insertBtn.click();
       await expect(
-        page.locator('.t-message', { hasText: '已插入当前视角到画板' })
+        page.getByText('已插入当前视角到画板')
       ).toBeVisible({ timeout: 15000 });
     }
   });
@@ -124,7 +124,7 @@ test.describe('官方素材库 3D 预览', () => {
     await expect(insertBtn).toBeVisible({ timeout: 10000 });
     await insertBtn.click();
     await expect(
-      page.locator('.t-message', { hasText: '已插入当前视角到画板' })
+      page.getByText('已插入当前视角到画板')
     ).toBeVisible({ timeout: 15000 });
     // 插入后画布自动选中元素、焦点移出 Dialog——先点 Dialog 标题带回焦点再 Esc
     await page.getByText('3D 预览 —').click();
@@ -170,7 +170,7 @@ test.describe('官方素材库 3D 预览', () => {
     });
     // 回归核心断言:全程不出现「图片加载失败」(虚拟 URL 降级兜底)
     await expect(
-      page.locator('.t-message', { hasText: '图片加载失败' })
+      page.getByText('图片加载失败')
     ).toBeHidden();
   });
 });

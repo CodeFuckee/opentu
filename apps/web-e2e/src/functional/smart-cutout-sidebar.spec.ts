@@ -204,7 +204,7 @@ test.describe('侧边栏智能抠图', () => {
 
     // 引导提示 + 素材库自动打开
     await expect(
-      page.locator('.t-message', { hasText: '请先在画布选中一张图片' })
+      page.getByText('请先在画布选中一张图片')
     ).toBeVisible({ timeout: 10000 });
     await expect(page.locator('.winbox-media-library')).toBeVisible({ timeout: 15000 });
   });
@@ -281,7 +281,7 @@ test.describe('侧边栏智能抠图', () => {
 
     await SIDEBAR_CUTOUT_BTN(page).click();
     await expect(
-      page.locator('.t-message', { hasText: '请只选中一张图片' })
+      page.getByText('请只选中一张图片')
     ).toBeVisible({ timeout: 10000 });
     // 编辑器不应打开
     await expect(page.locator('.image-editor-core')).toHaveCount(0, { timeout: 5000 });
