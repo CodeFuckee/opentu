@@ -354,8 +354,17 @@ else
 fi
 
 echo "[e2e] ⑥ 收集报告进 dist/（e2e 退出码 ${E2E_RC}；日志尾部见 dist/e2e.log）"
-mkdir -p dist
-cp -r apps/web-e2e/playwright-report dist/ 2>/dev/null || true
-cp -r apps/web-e2e/test-results dist/ 2>/dev/null || true
+# 失败轮才收集报告/现场，并就地瘦身（webm/trace/>2M 大件删除——视频与模型
+# 下载缓存曾把失败轮包撑到 150MB+）；绿跑 dist 只留小日志。
+# 构建产物 dist/apps（百 MB 级）永不出境——附件回传不带走它
+if [ "$E2E_RC" != "0" ]; then
+  cp -r apps/web-e2e/playwright-report dist/ 2>/dev/null || true
+  cp -r apps/web-e2e/test-results dist/ 2>/dev/null || true
+  find dist/test-results -name "*.webm" -delete 2>/dev/null || true
+  find dist/test-results -type d -name "trace" -exec rm -rf {} + 2>/dev/null || true
+  find dist -type f -size +2M -delete 2>/dev/null || true
+  du -sh dist/ 2>/dev/null || true
+fi
+rm -rf dist/apps
 echo "[e2e] 完成（e2e 退出码 ${E2E_RC}）"
 exit "$E2E_RC"
