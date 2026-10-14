@@ -16,8 +16,23 @@ if [ "${CI_SERVER_PORT:-443}" != "443" ]; then
 fi
 
 echo "roundtrip: GET ${URL}"
-curl -sS --fail --max-time 300 -H "Job-Token: ${CI_JOB_TOKEN:?}" -o /tmp/roundtrip.tgz "$URL" \
-  || { echo "roundtrip: ✗ Job-Token 下载失败（MACOS_FETCH_ARTIFACTS 还原路径将不可用）" >&2; exit 1; }
+# 大包经网关下载偶发中断（SIGPIPE/连接重置），重试 3 次每次放宽超时
+roundtrip_ok=0
+for attempt in 1 2 3; do
+  timeout=$((attempt * 300))
+  if curl -sS --fail --max-time "$timeout" -H "Job-Token: ${CI_JOB_TOKEN:?}" \
+      -o /tmp/roundtrip.tgz "$URL"; then
+    roundtrip_ok=1
+    break
+  fi
+  echo "roundtrip: ⚠ 第 ${attempt} 次下载失败，重试" >&2
+  rm -f /tmp/roundtrip.tgz
+  sleep 15
+done
+if [ "$roundtrip_ok" != "1" ]; then
+  echo "roundtrip: ✗ Job-Token 下载失败（已重试 3 次；MACOS_FETCH_ARTIFACTS 还原路径将不可用）" >&2
+  exit 1
+fi
 
 # smoke 的 dist/ 只有一个文件，校验 tar 根目录是 dist/
 root=$(tar -tzf /tmp/roundtrip.tgz | head -1)
