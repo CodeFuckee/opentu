@@ -1,8 +1,20 @@
-import 'tdesign-react/es/message/style/css';
+/**
+ * 全局消息服务（TDesign MessagePlugin 兼容 API，MUI Alert 渲染层）。
+ *
+ * - 渲染由 theme/md3-message.tsx 的 Md3MessageHost 承担（挂载在
+ *   Md3ThemeProvider 内），本模块仅向全局总线发布消息。
+ * - 导出 API 与 TDesign MessagePlugin 保持一致（success/error/warning/info/
+ *   loading/close；第二参数 duration ms），既有调用点零改动。
+ * - 宿主未挂载（极端时序/纯工具环境）时降级 console.warn，不抛错。
+ */
+import type { ReactNode } from 'react';
+import {
+  hasMd3MessageListeners,
+  showMd3Message,
+  type Md3MessageHandle,
+  type Md3MessageSeverity,
+} from '../theme/md3-message';
 
-type TDesignMessagePlugin =
-  typeof import('tdesign-react/es/message')['MessagePlugin'];
-type MessageMethod = Exclude<keyof TDesignMessagePlugin, 'close'>;
 type MessageArgs = [unknown, number?];
 type MessageInstanceLike = { close?: () => void } | null | undefined;
 type ResolvedMessageInstanceLike = NonNullable<MessageInstanceLike>;
@@ -11,16 +23,8 @@ type LazyMessageInstance = Promise<MessageInstanceLike> & {
   instancePromise: Promise<MessageInstanceLike>;
 };
 
-let messagePluginPromise: Promise<TDesignMessagePlugin> | null = null;
-
-function loadMessagePlugin(): Promise<TDesignMessagePlugin> {
-  if (!messagePluginPromise) {
-    messagePluginPromise = import('tdesign-react/es/message').then(
-      (module) => module.MessagePlugin
-    );
-  }
-  return messagePluginPromise;
-}
+const DEFAULT_DURATION = 3000;
+const LOADING_DURATION = 0; // loading 常驻，由 close() 关闭
 
 function isLazyMessageInstance(value: unknown): value is LazyMessageInstance {
   return (
@@ -50,15 +54,24 @@ function isResolvedMessageInstance(
   );
 }
 
-function callMessage(method: MessageMethod, args: MessageArgs): void {
-  void loadMessagePlugin()
-    .then((plugin) => {
-      const handler = plugin[method] as (...handlerArgs: MessageArgs) => unknown;
-      handler(...args);
-    })
-    .catch((error) => {
-      console.warn('[MessagePlugin] failed to load tdesign-react:', error);
-    });
+function callMessage(
+  method: Exclude<Md3MessageSeverity, 'loading'>,
+  args: MessageArgs
+): void {
+  const [content, duration] = args;
+  if (!hasMd3MessageListeners()) {
+    console.warn(
+      '[MessagePlugin] Md3MessageHost 未挂载，消息未渲染:',
+      typeof content === 'string' ? content : '(node)'
+    );
+    return;
+  }
+  showMd3Message({
+    severity: method,
+    content: content as ReactNode,
+    duration:
+      typeof duration === 'number' && duration > 0 ? duration : DEFAULT_DURATION,
+  });
 }
 
 export const MessagePlugin = {
@@ -75,9 +88,17 @@ export const MessagePlugin = {
     callMessage('info', args);
   },
   loading(...args: MessageArgs): LazyMessageInstance {
-    const instancePromise = loadMessagePlugin().then((plugin) => {
-      const loading = plugin.loading as (...handlerArgs: MessageArgs) => unknown;
-      return loading(...args) as MessageInstanceLike;
+    const [content] = args;
+    const handle: Md3MessageHandle = hasMd3MessageListeners()
+      ? showMd3Message({
+          severity: 'loading',
+          content: content as ReactNode,
+          duration: LOADING_DURATION,
+        })
+      : { close: () => undefined };
+
+    const instancePromise = Promise.resolve<MessageInstanceLike>({
+      close: () => handle.close(),
     });
 
     return Object.assign(instancePromise, {
@@ -91,9 +112,7 @@ export const MessagePlugin = {
         .then((resolvedInstance) => {
           resolvedInstance?.close?.();
         })
-        .catch((error) => {
-          console.warn('[MessagePlugin] failed to close lazy message:', error);
-        });
+        .catch(() => undefined);
       return;
     }
 
@@ -102,16 +121,13 @@ export const MessagePlugin = {
       return;
     }
 
-    if (!isPromiseLikeMessageInstance(instance)) {
+    if (isPromiseLikeMessageInstance(instance)) {
+      void instance
+        .then((resolvedInstance) => {
+          resolvedInstance?.close?.();
+        })
+        .catch(() => undefined);
       return;
     }
-
-    void loadMessagePlugin()
-      .then((plugin) => {
-        plugin.close(instance as never);
-      })
-      .catch((error) => {
-        console.warn('[MessagePlugin] failed to load tdesign-react:', error);
-      });
   },
 };

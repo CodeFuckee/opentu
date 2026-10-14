@@ -10,6 +10,7 @@
 import React, { useMemo } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import GlobalStyles from '@mui/material/GlobalStyles';
+import { Md3MessageHost } from './md3-message';
 import CssBaseline from '@mui/material/CssBaseline';
 import {
   getMd3Theme,
@@ -45,6 +46,7 @@ export function Md3ThemeProvider({
     <ThemeProvider theme={theme}>
       {globalStyles}
       <CssBaseline enableColorScheme />
+      <Md3MessageHost />
       {children}
     </ThemeProvider>
   );
