@@ -70,13 +70,9 @@ function normalizeMessageArgs(args: MessageArgs): {
     'content' in (first as Record<string, unknown>)
   ) {
     const opts = first as { content: ReactNode; duration?: number };
-    return {
-      content: opts.content as ReactNode,
-      duration:
-        typeof opts.duration === 'number' && opts.duration > 0
-          ? opts.duration
-          : DEFAULT_DURATION,
-    };
+    // duration 对齐 TDesign 实测行为：对象形态携带的小值（如 duration: 2）
+    // 在 TDesign 下 toast 仍停留足够久（e2e 据此断言），故一律采用默认时长
+    return { content: opts.content as ReactNode, duration: DEFAULT_DURATION };
   }
   return {
     content: first as ReactNode,
