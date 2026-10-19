@@ -70,6 +70,12 @@ stages:
   - deploy
 
 variables:
+  # git safe.directory：shell runner（gitlab-runner 用户）克隆 /home/ckd/builds 下
+  # 属主为 ckd 的仓库会报 dubious ownership（2026-10-19 quality 作业失败根因）。
+  # 用 GIT_CONFIG_* 环境变量注入，对 get_sources 阶段的 git fetch 同样生效
+  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_KEY_0: "safe.directory"
+  GIT_CONFIG_VALUE_0: "/home/ckd/builds"
   # 根 package.json 声明的 pnpm 版本；corepack 会自动安装锁定版本
   PNPM_VERSION: "10.21.0"
   # npm registry 认证（未配置时导出为空串，避免 pnpm 因 ${NPM_TOKEN} 未定义报错）
