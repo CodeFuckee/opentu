@@ -69,6 +69,11 @@ stages:
   - build
   - deploy
 
+default:
+  before_script:
+    # 兜底：shell runner 以 gitlab-runner 用户执行时注入 mise 工具链
+    - export PATH="/home/ckd/.local/share/mise/shims:$PATH"
+
 variables:
   # git safe.directory：shell runner（gitlab-runner 用户）克隆 /home/ckd/builds 下
   # 属主为 ckd 的仓库会报 dubious ownership（2026-10-19 quality 作业失败根因）。
@@ -106,9 +111,11 @@ variables:
     paths:
       - .pnpm-store
   before_script:
+    # shell runner 以 gitlab-runner 用户执行：注入 ckd 的 mise 工具链（node/pnpm）
+    - export PATH="/home/ckd/.local/share/mise/shims:$PATH"
     - export NPM_TOKEN="${NPM_TOKEN:-}"
-    - corepack enable
-    - corepack prepare pnpm@${PNPM_VERSION} --activate
+    - corepack enable || true
+    - corepack prepare pnpm@${PNPM_VERSION} --activate || true
     - pnpm config set store-dir .pnpm-store
     - pnpm install --frozen-lockfile
 

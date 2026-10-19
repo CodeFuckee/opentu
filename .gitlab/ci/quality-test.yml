@@ -59,6 +59,7 @@ test:backend:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
   before_script:
+    - export PATH="/home/ckd/.local/share/mise/shims:$PATH"
     - export NPM_TOKEN="${NPM_TOKEN:-}"
   script:
     - node --test --experimental-test-coverage supabase/functions/*/core.test.ts
@@ -77,6 +78,7 @@ test:segment-server:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
   before_script:
+    - export PATH="/home/ckd/.local/share/mise/shims:$PATH"
     - python3 -m venv services/segment-server/.venv
     - services/segment-server/.venv/bin/pip install --quiet --disable-pip-version-check
       --index-url https://pypi.tuna.tsinghua.edu.cn/simple
@@ -141,6 +143,7 @@ test:e2e:
     - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
   timeout: 2 hours
   before_script:
+    - export PATH="/home/ckd/.local/share/mise/shims:$PATH"
     - export NPM_TOKEN="${NPM_TOKEN:-}"
     - |
       # 释放可能残留的 dev server：被取消/超时的旧 e2e job 可能遗留
