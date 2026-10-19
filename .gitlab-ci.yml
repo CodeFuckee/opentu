@@ -72,6 +72,8 @@ stages:
 default:
   before_script:
     # 兜底：shell runner 以 gitlab-runner 用户执行时注入 mise 工具链
+    - export MISE_CONFIG_DIR="/home/ckd/.config/mise"
+    - export MISE_DATA_DIR="/home/ckd/.local/share/mise"
     - export PATH="/home/ckd/.local/share/mise/shims:$PATH"
 
 variables:
@@ -112,6 +114,8 @@ variables:
       - .pnpm-store
   before_script:
     # shell runner 以 gitlab-runner 用户执行：注入 ckd 的 mise 工具链（node/pnpm）
+    - export MISE_CONFIG_DIR="/home/ckd/.config/mise"
+    - export MISE_DATA_DIR="/home/ckd/.local/share/mise"
     - export PATH="/home/ckd/.local/share/mise/shims:$PATH"
     - export NPM_TOKEN="${NPM_TOKEN:-}"
     - corepack enable || true

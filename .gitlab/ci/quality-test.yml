@@ -59,6 +59,8 @@ test:backend:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
   before_script:
+    - export MISE_CONFIG_DIR="/home/ckd/.config/mise"
+    - export MISE_DATA_DIR="/home/ckd/.local/share/mise"
     - export PATH="/home/ckd/.local/share/mise/shims:$PATH"
     - export NPM_TOKEN="${NPM_TOKEN:-}"
   script:
@@ -78,6 +80,8 @@ test:segment-server:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
   before_script:
+    - export MISE_CONFIG_DIR="/home/ckd/.config/mise"
+    - export MISE_DATA_DIR="/home/ckd/.local/share/mise"
     - export PATH="/home/ckd/.local/share/mise/shims:$PATH"
     - python3 -m venv services/segment-server/.venv
     - services/segment-server/.venv/bin/pip install --quiet --disable-pip-version-check
@@ -143,6 +147,8 @@ test:e2e:
     - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
   timeout: 2 hours
   before_script:
+    - export MISE_CONFIG_DIR="/home/ckd/.config/mise"
+    - export MISE_DATA_DIR="/home/ckd/.local/share/mise"
     - export PATH="/home/ckd/.local/share/mise/shims:$PATH"
     - export NPM_TOKEN="${NPM_TOKEN:-}"
     - |
