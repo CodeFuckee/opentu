@@ -237,10 +237,12 @@ export async function decrypt(
 
     const key = await deriveKey(password, new Uint8Array(salt), options);
 
+    // jsdom 环境（vitest）下这些 ArrayBuffer 属另一 realm，webcrypto 品牌检查
+    // 会拒绝：统一拷贝为当前 realm 的 Uint8Array
     const decrypted = await crypto.subtle.decrypt(
-      { name: ALGORITHM, iv: iv as BufferSource },
+      { name: ALGORITHM, iv: new Uint8Array(iv) },
       key,
-      data
+      new Uint8Array(data)
     );
 
     const decoder = new TextDecoder();

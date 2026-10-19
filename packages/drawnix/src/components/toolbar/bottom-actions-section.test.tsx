@@ -69,7 +69,7 @@ describe('BottomActionsSection Feedbackland 按钮', () => {
     render(<BottomActionsSection {...defaultProps} />);
     const button = screen.getByTestId('toolbar-feedbackland');
     expect(button).toBeTruthy();
-    expect(button.getAttribute('aria-label')).toBe('Feedbackland 反馈');
+    expect(button.getAttribute('aria-label')).toBe('反馈');
   });
 
   it('已登录（SSO 已配置）时点击打开同源中转页，不再直接跳 FEEDBACKLAND_URL', () => {
