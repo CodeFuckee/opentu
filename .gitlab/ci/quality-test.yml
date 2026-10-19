@@ -64,7 +64,9 @@ test:backend:
     - export PATH="/home/ckd/.local/share/mise/shims:$PATH"
     - export NPM_TOKEN="${NPM_TOKEN:-}"
   script:
-    - node --test --experimental-test-coverage supabase/functions/*/core.test.ts
+    # --experimental-strip-types：shell runner 抢到本作业时只有 mise node 22.12
+    # （image: node:24 被忽略），22.12 需显式开启 TS 类型剥离（node 24 默认已开）
+    - node --test --experimental-strip-types --experimental-test-coverage supabase/functions/*/core.test.ts
   coverage: '/^#\s+all files\s*\|\s*([\d\.]+)/'
 
 # segment-server（智能抠图 Python 推理服务）单元测试：
