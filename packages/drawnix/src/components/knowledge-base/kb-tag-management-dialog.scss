@@ -18,15 +18,15 @@
   display: flex;
   align-items: center;
   padding: 8px 12px;
-  border-radius: 6px;
+  border-radius: var(--md3-radius-md, 12px);
   cursor: pointer;
   transition: all 0.2s;
-  background-color: var(--td-bg-color-container);
-  border: 1px solid transparent;
+  background-color: var(--md3-surface-container-low, var(--td-bg-color-container));
+  border: none; // MD3：卡片去描边
 
   &:hover {
-    background-color: var(--td-bg-color-secondary-container);
-    
+    background-color: var(--md3-surface-container-high, var(--td-bg-color-secondary-container));
+
     .kb-tag-item__actions {
       opacity: 1;
     }
@@ -34,13 +34,13 @@
 
   &--create-btn {
     justify-content: center;
-    border: 1px dashed var(--td-component-border);
-    color: var(--td-text-color-secondary);
-    
+    border: 1px dashed var(--md3-outline-variant, var(--td-component-border));
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary));
+
     &:hover {
-      border-color: var(--td-brand-color);
-      color: var(--td-brand-color);
-      background-color: var(--td-brand-color-light);
+      border-color: var(--md3-accent, var(--td-brand-color));
+      color: var(--md3-on-primary-container, var(--td-brand-color));
+      background-color: var(--md3-primary-container, var(--td-brand-color-light));
     }
 
     svg {
@@ -52,7 +52,7 @@
     padding: 0;
     border: none;
     background: transparent;
-    
+
     &:hover {
       background: transparent;
     }
@@ -68,7 +68,7 @@
 
   &__name {
     font-size: 14px;
-    color: var(--td-text-color-primary);
+    color: var(--md3-on-surface, var(--td-text-color-primary));
     flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -78,7 +78,7 @@
 
   &__count {
     font-size: 12px;
-    color: var(--td-text-color-placeholder);
+    color: var(--md3-outline, var(--td-text-color-placeholder));
     margin-right: 8px;
   }
 
@@ -97,18 +97,18 @@
     justify-content: center;
     border: none;
     background: transparent;
-    border-radius: 4px;
-    color: var(--td-text-color-secondary);
+    border-radius: var(--md3-radius-full, 999px);
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary));
     cursor: pointer;
 
     &:hover {
-      background-color: var(--td-bg-color-component-hover);
-      color: var(--td-text-color-primary);
+      background-color: var(--md3-surface-container-highest, var(--td-bg-color-component-hover));
+      color: var(--md3-on-surface, var(--td-text-color-primary));
     }
 
     &--delete:hover {
-      background-color: var(--td-error-color-1);
-      color: var(--td-error-color);
+      background-color: var(--md3-error-container, var(--td-error-color-1));
+      color: var(--md3-error, var(--td-error-color));
     }
   }
 

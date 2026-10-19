@@ -1,7 +1,8 @@
 .winbox-prompt-optimize {
   .wb-body {
     overflow: hidden;
-    background: #ffffff;
+    // MD3：弹窗内容面板最高层 tonal
+    background: var(--md3-surface-container-high, #ffffff);
   }
 
   .winbox-content-wrapper {
@@ -9,7 +10,7 @@
     height: 100% !important;
     padding: 0 !important;
     overflow: hidden !important;
-    background: #ffffff !important;
+    background: var(--md3-surface-container-high, #ffffff) !important;
   }
 }
 
@@ -19,7 +20,7 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: #ffffff;
+  background: var(--md3-surface-container-high, #ffffff);
   overflow: hidden;
 }
 
@@ -93,7 +94,7 @@
 .prompt-optimize-dialog__label {
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-text-primary, #111827);
+  color: var(--md3-on-surface, var(--color-text-primary, #111827));
 }
 
 .prompt-optimize-dialog__label-row {
@@ -110,9 +111,9 @@
   height: 28px;
   padding: 0;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--md3-radius-full, 999px);
   background: transparent;
-  color: var(--color-text-secondary, #6b7280);
+  color: var(--md3-on-surface-variant, var(--color-text-secondary, #6b7280));
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -121,8 +122,8 @@
 }
 
 .prompt-optimize-dialog__history-btn:hover {
-  background: rgba(15, 23, 42, 0.06);
-  color: var(--color-text-primary, #111827);
+  background: var(--md3-surface-container-highest, rgba(15, 23, 42, 0.06));
+  color: var(--md3-on-surface, var(--color-text-primary, #111827));
 }
 
 .prompt-optimize-dialog__history-panel {
@@ -140,11 +141,11 @@
 .prompt-optimize-dialog__history-empty {
   width: 220px;
   padding: 14px 16px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 10px;
-  background: #fff;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
-  color: var(--color-text-secondary, #6b7280);
+  border-color: transparent;
+  border-radius: var(--md3-radius-md, 12px);
+  background: var(--md3-surface-container-high, #fff);
+  box-shadow: var(--md3-elevation-3, 0 12px 28px rgba(15, 23, 42, 0.14));
+  color: var(--md3-on-surface-variant, var(--color-text-secondary, #6b7280));
   font-size: 13px;
   text-align: center;
 }
@@ -162,33 +163,34 @@
   gap: 6px;
   height: 34px;
   padding: 0 14px;
-  border: 1px solid rgba(15, 23, 42, 0.1);
-  border-radius: 10px;
-  background: #fff;
-  color: var(--color-text-secondary, #6b7280);
+  border: 1px solid var(--md3-outline-variant, rgba(15, 23, 42, 0.1));
+  border-radius: var(--md3-radius-full, 999px);
+  background: var(--md3-surface-container-lowest, #fff);
+  color: var(--md3-on-surface-variant, var(--color-text-secondary, #6b7280));
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .prompt-optimize-dialog__mode-btn:hover:not(:disabled) {
-  border-color: rgba(245, 158, 11, 0.35);
-  color: var(--color-text-primary, #111827);
+  border-color: var(--md3-outline, rgba(0, 0, 0, 0.35));
+  color: var(--md3-on-surface, var(--color-text-primary, #111827));
 }
 
 .prompt-optimize-dialog__mode-btn--active {
-  border-color: rgba(245, 158, 11, 0.4);
-  background: rgba(245, 158, 11, 0.1);
-  color: #b45309;
+  // MD3 选中态：primary-container tonal
+  border-color: var(--md3-accent, rgba(0, 0, 0, 0.4));
+  background: var(--md3-primary-container, rgba(0, 0, 0, 0.1));
+  color: var(--md3-on-primary-container, #b45309);
 }
 
 .prompt-optimize-dialog__source {
   max-height: 132px;
   overflow: auto;
   padding: 12px 13px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 10px;
-  background: #f8fafc;
-  color: var(--color-text-primary, #111827);
+  border: 1px solid var(--md3-outline-variant, rgba(15, 23, 42, 0.08));
+  border-radius: var(--md3-radius-sm, 8px);
+  background: var(--md3-surface-container-highest, #f8fafc);
+  color: var(--md3-on-surface, var(--color-text-primary, #111827));
   font-size: 13px;
   line-height: 1.6;
   white-space: pre-wrap;
@@ -199,13 +201,13 @@
   width: 100%;
   min-height: 104px;
   padding: 12px 13px;
-  border: 1px solid var(--color-border, #d9d9d9);
-  border-radius: 10px;
+  border: 1px solid var(--md3-outline-variant, var(--color-border, #d9d9d9));
+  border-radius: var(--md3-radius-sm, 8px);
   resize: vertical;
   font: inherit;
   line-height: 1.6;
-  color: var(--color-text-primary, #111827);
-  background: #fff;
+  color: var(--md3-on-surface, var(--color-text-primary, #111827));
+  background: var(--md3-surface-container-lowest, #fff);
 }
 
 .prompt-optimize-dialog__textarea--current {
@@ -219,8 +221,8 @@
 
 .prompt-optimize-dialog__textarea--draft {
   min-height: 132px;
-  background: #fffaf0;
-  border-color: rgba(245, 158, 11, 0.24);
+  background: var(--md3-primary-container, #fffaf0);
+  border-color: var(--md3-accent, rgba(0, 0, 0, 0.24));
 }
 
 .prompt-optimize-dialog--split .prompt-optimize-dialog__textarea--current {
@@ -243,8 +245,8 @@
 
 .prompt-optimize-dialog__textarea:focus {
   outline: none;
-  border-color: var(--color-primary, #0052d9);
-  box-shadow: 0 0 0 2px rgba(0, 82, 217, 0.1);
+  border-color: var(--md3-accent, var(--color-primary, #0052d9));
+  box-shadow: var(--md3-focus-ring, 0 0 0 2px rgba(0, 82, 217, 0.1));
 }
 
 .prompt-optimize-dialog__section--result {
@@ -265,10 +267,10 @@
   flex-shrink: 0;
   height: 28px;
   padding: 0 10px;
-  border: 1px solid rgba(245, 158, 11, 0.28);
-  border-radius: 8px;
-  background: #fff;
-  color: #b45309;
+  border: 1px solid var(--md3-outline-variant, rgba(0, 0, 0, 0.28));
+  border-radius: var(--md3-radius-full, 999px);
+  background: var(--md3-surface-container-lowest, #fff);
+  color: var(--md3-primary, #b45309);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -276,8 +278,8 @@
 }
 
 .prompt-optimize-dialog__inline-btn:hover:not(:disabled) {
-  background: rgba(245, 158, 11, 0.1);
-  border-color: rgba(245, 158, 11, 0.44);
+  background: var(--md3-primary-container, rgba(0, 0, 0, 0.1));
+  border-color: var(--md3-accent, rgba(0, 0, 0, 0.44));
 }
 
 .prompt-optimize-dialog__model {
@@ -291,8 +293,8 @@
   justify-content: flex-end;
   gap: 10px;
   padding: 12px 20px;
-  border-top: 1px solid rgba(15, 23, 42, 0.08);
-  background: #fafafa;
+  border-top: 1px solid var(--md3-outline-variant, rgba(15, 23, 42, 0.08));
+  background: var(--md3-surface-container, #fafafa);
 }
 
 .prompt-optimize-dialog__footer--split {
@@ -332,7 +334,7 @@
 .prompt-optimize-dialog__footer-controls .prompt-optimize-dialog__mode-btn {
   height: 30px;
   padding: 0 10px;
-  border-radius: 8px;
+  border-radius: var(--md3-radius-full, 999px);
   font-size: 13px;
 }
 
@@ -345,7 +347,7 @@
 .prompt-optimize-dialog__footer-controls .model-dropdown__trigger--minimal {
   height: 30px;
   padding: 0 8px;
-  border-radius: 8px;
+  border-radius: var(--md3-radius-full, 999px);
   font-size: 14px;
 }
 
@@ -364,7 +366,7 @@
   min-width: 92px;
   height: 36px;
   padding: 0 16px;
-  border-radius: 10px;
+  border-radius: var(--md3-radius-full, 999px);
   border: 1px solid transparent;
   font-size: 14px;
   font-weight: 600;
@@ -373,33 +375,34 @@
 }
 
 .prompt-optimize-dialog__footer-btn--secondary {
-  border-color: rgba(15, 23, 42, 0.1);
-  background: #fff;
-  color: var(--color-text-primary, #111827);
+  border-color: var(--md3-outline-variant, rgba(15, 23, 42, 0.1));
+  background: var(--md3-surface-container-lowest, #fff);
+  color: var(--md3-on-surface, var(--color-text-primary, #111827));
 }
 
 .prompt-optimize-dialog__footer-btn--secondary:hover:not(:disabled) {
-  background: #f8fafc;
+  background: var(--md3-surface-container-high, #f8fafc);
 }
 
 .prompt-optimize-dialog__footer-btn--primary {
-  background: #f59e0b;
-  color: #fff;
-  box-shadow: 0 8px 18px rgba(245, 158, 11, 0.24);
+  background: var(--md3-primary, #f59e0b);
+  color: var(--md3-on-primary, #fff);
+  box-shadow: var(--md3-elevation-2, 0 8px 18px rgba(0, 0, 0, 0.24));
 }
 
 .prompt-optimize-dialog__footer-btn--primary:hover:not(:disabled) {
-  background: #d97706;
+  background: var(--md3-primary, #d97706);
 }
 
 .prompt-optimize-dialog__footer-btn--apply {
-  background: #111827;
-  color: #fff;
-  box-shadow: 0 8px 18px rgba(17, 24, 39, 0.16);
+  // MD3：深色实心按钮 → inverse-surface 语义
+  background: var(--md3-inverse-surface, #111827);
+  color: var(--md3-inverse-on-surface, #fff);
+  box-shadow: var(--md3-elevation-2, 0 8px 18px rgba(17, 24, 39, 0.16));
 }
 
 .prompt-optimize-dialog__footer-btn--apply:hover:not(:disabled) {
-  background: #020617;
+  background: var(--md3-inverse-surface, #020617);
 }
 
 .prompt-optimize-dialog__footer-btn:disabled,

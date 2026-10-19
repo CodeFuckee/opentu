@@ -6,25 +6,20 @@
     width: 32px;
     height: 32px;
     border: none;
-    background: var(--color-bg-container, #fff);
-    color: var(--color-text-secondary, #666);
-    border-radius: 50%;
+    background: var(--md3-surface-container-low, var(--color-bg-container, #fff));
+    color: var(--md3-on-surface-variant, var(--color-text-secondary, #666));
+    border-radius: var(--md3-radius-full, 999px);
     cursor: pointer;
     font-size: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    
+    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: var(--md3-elevation-1, 0 2px 8px rgba(0, 0, 0, 0.1));
+
     &:hover {
-      background: var(--color-primary-light, #e6f7ff);
-      color: var(--color-primary, #0052d9);
-      transform: scale(1.1);
-    }
-    
-    &:active {
-      transform: scale(0.95);
+      background: var(--md3-surface-container-high, var(--color-primary-light, #e6f7ff));
+      color: var(--md3-primary, var(--color-primary, #0052d9));
     }
   }
   
@@ -35,10 +30,11 @@
     margin-bottom: 8px;
     width: 320px;
     max-height: 400px;
-    background: var(--color-bg-container, #fff);
-    border: 1px solid var(--color-border, #d9d9d9);
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    background: var(--md3-surface-container, var(--color-bg-container, #fff));
+    // 去描边：tonal + elevation 分层
+    border-color: transparent;
+    border-radius: var(--md3-radius-lg, 16px);
+    box-shadow: var(--md3-elevation-2, 0 4px 12px rgba(0, 0, 0, 0.15));
     overflow: hidden;
     z-index: 1000;
     
@@ -47,19 +43,19 @@
       justify-content: space-between;
       align-items: center;
       padding: 12px 16px;
-      border-bottom: 1px solid var(--color-border, #d9d9d9);
-      background: var(--color-bg-secondary, #f5f5f5);
+      border-bottom: 1px solid var(--md3-outline-variant, var(--color-border, #d9d9d9));
+      background: var(--md3-surface-container-high, var(--color-bg-secondary, #f5f5f5));
       
       .history-title {
         font-weight: 600;
-        color: var(--color-text-primary, #333);
+        color: var(--md3-on-surface, var(--color-text-primary, #333));
       }
       
       .history-close-button {
         background: none;
         border: none;
         font-size: 18px;
-        color: var(--color-text-secondary, #666);
+        color: var(--md3-on-surface-variant, var(--color-text-secondary, #666));
         cursor: pointer;
         padding: 0;
         width: 20px;
@@ -67,12 +63,12 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 50%;
+        border-radius: var(--md3-radius-full, 999px);
         transition: all 0.2s ease;
         
         &:hover {
-          background: var(--color-error-light, #fff2f0);
-          color: var(--color-error, #ff4d4f);
+          background: var(--md3-error-container, var(--color-error-light, #fff2f0));
+          color: var(--md3-error, var(--color-error, #ff4d4f));
         }
       }
     }
@@ -87,10 +83,10 @@
         padding: 12px 16px;
         cursor: pointer;
         transition: background-color 0.2s ease;
-        border-bottom: 1px solid var(--color-border-light, #f0f0f0);
+        border-bottom: 1px solid var(--md3-outline-variant, var(--color-border-light, #f0f0f0));
         
         &:hover {
-          background: var(--color-bg-secondary, #f5f5f5);
+          background: var(--md3-surface-container-high, var(--color-bg-secondary, #f5f5f5));
         }
         
         &:last-child {
@@ -101,9 +97,9 @@
           flex-shrink: 0;
           width: 60px;
           height: 60px;
-          border-radius: 6px;
+          border-radius: var(--md3-radius-sm, 8px);
           overflow: hidden;
-          background: var(--color-bg-layout, #f5f5f5);
+          background: var(--md3-surface-container-highest, var(--color-bg-layout, #f5f5f5));
           position: relative;
           
           .history-item-image {
@@ -143,8 +139,8 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: var(--color-bg-tertiary, #e8e8e8);
-            color: var(--color-text-secondary, #666);
+            background: var(--md3-surface-container-highest, var(--color-bg-tertiary, #e8e8e8));
+            color: var(--md3-on-surface-variant, var(--color-text-secondary, #666));
             
             .placeholder-icon {
               font-size: 24px;
@@ -161,7 +157,7 @@
           gap: 4px;
           
           .history-item-prompt {
-            color: var(--color-text-primary, #333);
+            color: var(--md3-on-surface, var(--color-text-primary, #333));
             font-size: 14px;
             line-height: 1.4;
             word-break: break-word;
@@ -173,7 +169,7 @@
           }
           
           .history-item-time {
-            color: var(--color-text-secondary, #666);
+            color: var(--md3-on-surface-variant, var(--color-text-secondary, #666));
             font-size: 12px;
           }
         }
@@ -183,10 +179,10 @@
     .history-more-info {
       padding: 8px 16px;
       text-align: center;
-      color: var(--color-text-secondary, #666);
+      color: var(--md3-on-surface-variant, var(--color-text-secondary, #666));
       font-size: 12px;
-      background: var(--color-bg-secondary, #f5f5f5);
-      border-top: 1px solid var(--color-border-light, #f0f0f0);
+      background: var(--md3-surface-container-high, var(--color-bg-secondary, #f5f5f5));
+      border-top: 1px solid var(--md3-outline-variant, var(--color-border-light, #f0f0f0));
     }
   }
 }
@@ -198,15 +194,15 @@
   }
   
   &::-webkit-scrollbar-track {
-    background: var(--color-bg-secondary, #f5f5f5);
+    background: var(--md3-surface-container-high, var(--color-bg-secondary, #f5f5f5));
   }
   
   &::-webkit-scrollbar-thumb {
-    background: var(--color-border, #d9d9d9);
-    border-radius: 2px;
+    background: var(--md3-outline-variant, var(--color-border, #d9d9d9));
+    border-radius: var(--md3-radius-full, 2px);
     
     &:hover {
-      background: var(--color-primary, #0052d9);
+      background: var(--md3-outline, var(--color-primary, #0052d9));
     }
   }
 }

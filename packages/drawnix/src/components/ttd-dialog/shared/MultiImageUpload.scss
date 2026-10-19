@@ -44,9 +44,9 @@
     position: relative;
     width: 100px;
     height: 100px;
-    border-radius: 8px;
+    border-radius: var(--md3-radius-md, 12px);
     overflow: hidden;
-    border: 1px solid var(--td-component-border, #e7e7e7);
+    border: 1px solid var(--md3-outline-variant, var(--td-component-border, #e7e7e7));
 
     &:hover .multi-image-upload__overlay {
       opacity: 1;
@@ -67,16 +67,16 @@
     max-width: 300px;
     max-height: 300px;
     padding: 4px;
-    background: #fff;
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-    border: 1px solid #e7e7e7;
+    background: var(--md3-surface-container, #fff);
+    border-radius: var(--md3-radius-md, 12px);
+    box-shadow: var(--md3-elevation-3, 0 8px 24px rgba(0, 0, 0, 0.2));
+    border: none;
 
     img {
       display: block;
       max-width: 100%;
       max-height: 292px;
-      border-radius: 4px;
+      border-radius: var(--md3-radius-sm, 8px);
       object-fit: contain;
     }
   }
@@ -95,8 +95,8 @@
   &__placeholder {
     width: 100px;
     height: 100px;
-    border: 2px dashed var(--td-component-border, #dcdcdc);
-    border-radius: 8px;
+    border: 2px dashed var(--md3-outline-variant, var(--td-component-border, #dcdcdc));
+    border-radius: var(--md3-radius-md, 12px);
     display: flex;
     flex-direction: column;
     align-items: center;

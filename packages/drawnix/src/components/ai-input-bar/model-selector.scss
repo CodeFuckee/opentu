@@ -9,10 +9,10 @@
   left: 0;
   right: 0;
   margin-bottom: 8px;
-  background: var(--island-bg-color, #ffffff);
-  border: 1px solid var(--color-border, #e5e5e5);
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  background: var(--md3-surface-container-high, var(--island-bg-color, #ffffff));
+  border: none;
+  border-radius: var(--md3-radius-lg, 16px);
+  box-shadow: var(--md3-elevation-3, 0 4px 20px rgba(0, 0, 0, 0.15));
   z-index: 1000;
   overflow: hidden;
   animation: modelSelectorFadeIn 0.15s ease-out;
@@ -33,13 +33,13 @@
     align-items: center;
     gap: 8px;
     padding: 12px 16px;
-    border-bottom: 1px solid var(--color-border, #e5e5e5);
-    color: var(--color-text-secondary, #666666);
+    border-bottom: 1px solid var(--md3-outline-variant, #e5e5e5);
+    color: var(--md3-on-surface-variant, #666666);
     font-size: 13px;
     font-weight: 500;
 
     svg {
-      color: #f59e0b;
+      color: var(--md3-primary, #f59e0b);
     }
   }
 
@@ -47,7 +47,7 @@
     margin-left: auto;
     font-size: 11px;
     font-weight: 400;
-    color: var(--color-text-tertiary, #999999);
+    color: var(--md3-outline, #999999);
   }
 
   &__list {
@@ -61,16 +61,16 @@
     align-items: center;
     justify-content: space-between;
     padding: 10px 12px;
-    border-radius: 8px;
+    border-radius: var(--md3-radius-md, 12px);
     cursor: pointer;
     transition: background-color 0.15s ease;
 
     &:hover {
-      background-color: var(--color-hover, #f5f5f5);
+      background-color: var(--md3-surface-container-high, #f5f5f5);
     }
 
     &--highlighted {
-      background-color: rgba(245, 158, 11, 0.1);
+      background-color: var(--md3-surface-container-highest, rgba(0, 0, 0, 0.1));
     }
 
     &--selected {
@@ -96,7 +96,7 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      color: var(--color-text-secondary, #666666);
+      color: var(--md3-on-surface-variant, #666666);
       flex-shrink: 0;
     }
 
@@ -105,7 +105,7 @@
       font-size: 13px;
       font-weight: 600;
       // 默认颜色，具体颜色通过 &--image 和 &--video 修饰符设置
-      color: var(--color-text, #333333);
+      color: var(--md3-on-surface, #333333);
 
       &--image {
         color: #e53935;
@@ -119,7 +119,7 @@
     &-label {
       font-size: 13px;
       font-weight: 500;
-      color: var(--color-text, #333333);
+      color: var(--md3-on-surface, #333333);
       flex: 1;
       min-width: 0;
       overflow: hidden;
@@ -132,7 +132,7 @@
       align-items: center;
       gap: 3px;
       padding: 2px 6px;
-      border-radius: 4px;
+      border-radius: var(--md3-radius-full, 999px);
       font-size: 11px;
       font-weight: 500;
 
@@ -149,7 +149,7 @@
 
     &-desc {
       font-size: 12px;
-      color: var(--color-text-secondary, #888888);
+      color: var(--md3-on-surface-variant, #888888);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -157,7 +157,7 @@
 
     &-check {
       flex-shrink: 0;
-      color: #f59e0b;
+      color: var(--md3-primary, #f59e0b);
       margin-left: 8px;
     }
   }
@@ -179,17 +179,17 @@
     align-items: center;
     gap: 8px;
     padding: 8px 12px;
-    background: var(--color-surface, #f9f9f9);
-    border-radius: 8px;
+    background: var(--md3-surface-container-high, #f9f9f9);
+    border-radius: var(--md3-radius-md, 12px);
     font-size: 13px;
 
     svg:first-child {
-      color: var(--color-text-secondary, #666666);
+      color: var(--md3-on-surface-variant, #666666);
     }
   }
 
   &__selected-label {
-    color: var(--color-text-secondary, #666666);
+    color: var(--md3-on-surface-variant, #666666);
     font-weight: 500;
   }
 
@@ -199,24 +199,24 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: var(--color-text-secondary, #666666);
+    color: var(--md3-on-surface-variant, #666666);
     flex-shrink: 0;
   }
 
   &__selected-name {
-    color: var(--color-text, #333333);
+    color: var(--md3-on-surface, #333333);
     font-weight: 600;
     flex: 1;
   }
 
   &__selected-check {
-    color: #22c55e;
+    color: var(--md3-tertiary, #22c55e);
   }
 
   &__hint-text {
     margin: 0;
     font-size: 12px;
-    color: var(--color-text-tertiary, #999999);
+    color: var(--md3-outline, #999999);
     text-align: center;
   }
 }
@@ -224,25 +224,24 @@
 // 暗色主题支持
 :root[data-theme='dark'] {
   .ai-input-bar .ai-model-selector {
-    background: var(--color-surface-high, #2a2a2a);
-    border-color: var(--color-border, #444444);
+    background: var(--md3-surface-container-high, #2a2a2a);
 
     &__header {
-      border-color: var(--color-border, #444444);
-      color: var(--color-gray-50, #999999);
+      border-color: var(--md3-outline-variant, #444444);
+      color: var(--md3-outline, #999999);
     }
 
     &__hint {
-      color: var(--color-gray-60, #666666);
+      color: var(--md3-on-surface-variant, #666666);
     }
 
     &__item {
       &:hover {
-        background-color: var(--color-surface-mid, #333333);
+        background-color: var(--md3-surface-container-high, #333333);
       }
 
       &--highlighted {
-        background-color: rgba(245, 158, 11, 0.15);
+        background-color: var(--md3-surface-container-highest, rgba(0, 0, 0, 0.15));
       }
 
       &--selected {
@@ -250,15 +249,15 @@
       }
 
       &-label {
-        color: var(--color-gray-20, #cccccc);
+        color: var(--md3-on-surface, #cccccc);
       }
 
       &-source-icon {
-        color: var(--color-gray-50, #999999);
+        color: var(--md3-outline, #999999);
       }
 
       &-desc {
-        color: var(--color-gray-50, #888888);
+        color: var(--md3-outline, #888888);
       }
 
       &-type {
@@ -273,19 +272,19 @@
     }
 
     &__selected-item {
-      background: var(--color-surface-mid, #333333);
+      background: var(--md3-surface-container-high, #333333);
     }
 
     &__selected-name {
-      color: var(--color-gray-20, #cccccc);
+      color: var(--md3-on-surface, #cccccc);
     }
 
     &__selected-source-icon {
-      color: var(--color-gray-50, #999999);
+      color: var(--md3-outline, #999999);
     }
 
     &__hint-text {
-      color: var(--color-gray-60, #666666);
+      color: var(--md3-on-surface-variant, #666666);
     }
   }
 }

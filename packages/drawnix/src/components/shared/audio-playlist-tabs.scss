@@ -16,10 +16,10 @@
 .audio-playlist-tabs__create {
   height: 32px;
   flex-shrink: 0;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 999px;
-  background: #fff;
-  color: #334155;
+  border: 1px solid var(--md3-outline-variant, rgba(15, 23, 42, 0.08));
+  border-radius: var(--md3-radius-full, 999px);
+  background: var(--md3-surface-container-lowest, #fff);
+  color: var(--md3-on-surface, #334155);
   padding: 0 12px;
   display: inline-flex;
   align-items: center;
@@ -29,22 +29,22 @@
   transition: all 0.15s ease;
 
   &:hover {
-    background: #f8fafc;
-    border-color: rgba(15, 23, 42, 0.16);
+    background: var(--md3-surface-container-high, #f8fafc);
+    border-color: var(--md3-outline, rgba(15, 23, 42, 0.16));
   }
 }
 
 .audio-playlist-tabs__chip--active {
-  background: rgba(245, 158, 11, 0.1);
-  border-color: rgba(245, 158, 11, 0.28);
-  color: #d97706;
+  background: var(--md3-primary-container, rgba(0, 0, 0, 0.1));
+  border-color: var(--md3-accent, rgba(0, 0, 0, 0.28));
+  color: var(--md3-on-primary-container, #d97706);
 }
 
 .audio-playlist-tabs__count {
   min-width: 18px;
   height: 18px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.08);
+  border-radius: var(--md3-radius-full, 999px);
+  background: var(--md3-surface-container-highest, rgba(15, 23, 42, 0.08));
   display: inline-flex;
   align-items: center;
   justify-content: center;

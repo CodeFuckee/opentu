@@ -2,13 +2,13 @@
 .pen-settings-toolbar {
   display: flex;
   align-items: center;
-  
+
   .island {
     display: flex;
     align-items: center;
     padding: 4px 8px !important;
   }
-  
+
   .pen-color-button {
     height: 32px;
     width: 32px;
@@ -18,12 +18,12 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    
+
     .pen-color-preview {
       width: 20px;
       height: 20px;
       border-radius: 50%;
-      border: 2px solid var(--color-on-surface);
+      border: 2px solid var(--md3-on-surface, var(--color-on-surface));
       box-sizing: border-box;
     }
   }
@@ -37,11 +37,11 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    
+
     .pen-width-icon {
       width: 16px;
       height: 16px;
-      color: var(--color-on-surface);
+      color: var(--md3-on-surface, var(--color-on-surface));
     }
   }
 
@@ -58,7 +58,7 @@
     .size-picker-icon {
       width: 16px;
       height: 16px;
-      color: var(--color-on-surface);
+      color: var(--md3-on-surface, var(--color-on-surface));
     }
   }
 
@@ -69,8 +69,8 @@
     gap: 2px;
     margin-left: 4px;
     padding: 2px;
-    background: rgba(0, 0, 0, 0.04);
-    border-radius: 6px;
+    background: var(--md3-surface-container-highest, rgba(0, 0, 0, 0.04));
+    border-radius: var(--md3-radius-full, 999px);
 
     .pen-stroke-style-button {
       height: 28px;
@@ -80,16 +80,17 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 4px;
+      border-radius: var(--md3-radius-full, 999px);
       transition: all 0.15s ease;
 
       &.active {
-        background: #ffffff;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        background: var(--md3-primary-container, #ffffff);
+        color: var(--md3-on-primary-container, inherit);
+        box-shadow: var(--md3-elevation-1, 0 1px 3px rgba(0, 0, 0, 0.1));
       }
 
       &:hover:not(.active) {
-        background: rgba(0, 0, 0, 0.04);
+        background: var(--aitu-ui-hover-bg, rgba(0, 0, 0, 0.04));
       }
     }
   }
@@ -102,16 +103,16 @@
     padding: 0 12px;
     width: 72px;
     height: 32px;
-    background: #f5f5f5;
-    border-radius: 16px;
-    border: 1px solid #e0e0e0;
+    background: var(--md3-surface-container-highest, #f5f5f5);
+    border-radius: var(--md3-radius-full, 999px);
+    border: 1px solid var(--md3-outline-variant, #e0e0e0);
     flex-shrink: 0;
     box-sizing: border-box;
-    
+
     &:focus-within {
-      border-color: #1890ff;
+      border-color: var(--md3-accent, #1890ff);
     }
-    
+
     .pen-width-input {
       flex: 1;
       width: 100%;
@@ -121,16 +122,16 @@
       font-size: 14px;
       font-weight: 500;
       text-align: left;
-      color: #333;
-      
+      color: var(--md3-on-surface, #333);
+
       &:focus {
         outline: none;
       }
     }
-    
+
     .pen-width-input-unit {
       font-size: 12px;
-      color: #bbb;
+      color: var(--md3-outline, #bbb);
       flex-shrink: 0;
       margin-left: 4px;
     }
@@ -143,14 +144,14 @@
     padding: 0 12px;
     width: 72px;
     height: 32px;
-    background: #f5f5f5;
-    border-radius: 16px;
-    border: 1px solid #e0e0e0;
+    background: var(--md3-surface-container-highest, #f5f5f5);
+    border-radius: var(--md3-radius-full, 999px);
+    border: 1px solid var(--md3-outline-variant, #e0e0e0);
     flex-shrink: 0;
     box-sizing: border-box;
 
     &:focus-within {
-      border-color: #1890ff;
+      border-color: var(--md3-accent, #1890ff);
     }
 
     .size-picker-input {
@@ -162,7 +163,7 @@
       font-size: 14px;
       font-weight: 500;
       text-align: left;
-      color: #333;
+      color: var(--md3-on-surface, #333);
 
       &:focus {
         outline: none;
@@ -171,7 +172,7 @@
 
     .size-picker-input-unit {
       font-size: 12px;
-      color: #bbb;
+      color: var(--md3-outline, #bbb);
       flex-shrink: 0;
       margin-left: 4px;
     }
@@ -181,7 +182,7 @@
   .pen-settings-divider {
     width: 1px;
     height: 24px;
-    background: rgba(0, 0, 0, 0.1);
+    background: var(--md3-outline-variant, rgba(0, 0, 0, 0.1));
     margin: 0 8px;
     flex-shrink: 0;
   }
@@ -192,8 +193,8 @@
     align-items: center;
     gap: 2px;
     padding: 2px;
-    background: rgba(0, 0, 0, 0.04);
-    border-radius: 6px;
+    background: var(--md3-surface-container-highest, rgba(0, 0, 0, 0.04));
+    border-radius: var(--md3-radius-full, 999px);
 
     .pen-anchor-type-button {
       height: 28px;
@@ -203,16 +204,17 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 4px;
+      border-radius: var(--md3-radius-full, 999px);
       transition: all 0.15s ease;
 
       &.active {
-        background: #ffffff;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        background: var(--md3-primary-container, #ffffff);
+        color: var(--md3-on-primary-container, inherit);
+        box-shadow: var(--md3-elevation-1, 0 1px 3px rgba(0, 0, 0, 0.1));
       }
 
       &:hover:not(.active) {
-        background: rgba(0, 0, 0, 0.04);
+        background: var(--aitu-ui-hover-bg, rgba(0, 0, 0, 0.04));
       }
     }
   }
@@ -227,7 +229,7 @@
   .pen-settings-toolbar {
     // 限制最大宽度，给右侧缩放控制留出更多空间
     max-width: calc(100vw - 250px);
-    
+
     .island {
       // 支持水平滚动
       overflow-x: auto;
@@ -237,12 +239,12 @@
       flex-wrap: nowrap;
       padding: 3px 4px !important;
       gap: 2px;
-      
+
       &::-webkit-scrollbar {
         display: none;
       }
     }
-    
+
     // 按钮不收缩，尺寸更紧凑
     .pen-color-button,
     .pen-width-button,
@@ -252,14 +254,14 @@
       width: 26px;
       min-width: 26px;
     }
-    
+
     // 选择器不收缩
     .pen-stroke-style-picker,
     .pen-anchor-type-picker {
       flex-shrink: 0;
       padding: 1px;
       gap: 1px;
-      
+
       .pen-stroke-style-button,
       .pen-anchor-type-button {
         height: 24px;
@@ -267,13 +269,13 @@
         min-width: 24px;
       }
     }
-    
+
     // 隐藏输入框，使用按钮弹出选择
     .pen-width-input-wrapper,
     .size-picker-input-wrapper {
       display: none;
     }
-    
+
     // 紧凑的分隔线
     .pen-settings-divider {
       flex-shrink: 0;
@@ -295,7 +297,7 @@
 @media (max-width: 480px) {
   .pen-settings-toolbar {
     max-width: calc(100vw - 180px);
-    
+
     // 进一步紧凑化
     .island {
       padding: 2px 3px !important;

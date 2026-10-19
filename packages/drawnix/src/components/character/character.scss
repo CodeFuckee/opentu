@@ -18,8 +18,8 @@
   }
 
   &__source-info {
-    background: var(--td-bg-color-secondarycontainer, #f5f5f5);
-    border-radius: 8px;
+    background: var(--md3-surface-container-low, var(--td-bg-color-secondarycontainer, #f5f5f5));
+    border-radius: var(--md3-radius-md, 12px);
     padding: 12px 16px;
     margin-bottom: 20px;
 
@@ -104,13 +104,13 @@
     justify-content: flex-end;
     gap: 12px;
     padding-top: 16px;
-    border-top: 1px solid var(--td-component-border, #e7e7e7);
+    border-top: 1px solid var(--md3-outline-variant, var(--td-component-border, #e7e7e7));
   }
 
   &__warning {
     padding: 8px 12px;
-    background: var(--td-warning-color-1, #fff8e6);
-    border-radius: 4px;
+    background: var(--md3-primary-container, var(--td-warning-color-1, #fff8e6));
+    border-radius: var(--md3-radius-sm, 8px);
     margin-bottom: 16px;
     font-size: 13px;
     color: var(--td-warning-color-7, #8a5a00);
@@ -123,13 +123,14 @@
   align-items: flex-start;
   gap: 12px;
   padding: 12px;
-  background: var(--td-bg-color-container, #fff);
-  border: 1px solid var(--td-component-border, #e7e7e7);
-  border-radius: 8px;
+  background: var(--md3-surface-container-lowest, var(--td-bg-color-container, #fff));
+  border: none;
+  border-radius: var(--md3-radius-lg, 16px);
+  box-shadow: var(--md3-elevation-1, 0 1px 2px rgba(0, 0, 0, 0.06));
   transition: box-shadow 0.2s ease;
 
   &:hover {
-    box-shadow: var(--td-shadow-1, 0 1px 4px rgba(0, 0, 0, 0.08));
+    box-shadow: var(--md3-elevation-2, var(--td-shadow-1, 0 1px 4px rgba(0, 0, 0, 0.08)));
   }
 
   &--loading {
@@ -137,8 +138,7 @@
   }
 
   &--failed {
-    border-color: var(--td-error-color-3, #f5b7b7);
-    background: var(--td-error-color-1, #fff0f0);
+    background: var(--md3-error-container, var(--td-error-color-1, #fff0f0));
   }
 
   &__avatar {
@@ -282,10 +282,10 @@
   overflow-y: auto;
   min-width: 160px;
   max-width: 220px;
-  background: var(--td-bg-color-container, #fff);
-  border: 1px solid var(--td-component-border, #e7e7e7);
-  border-radius: 8px;
-  box-shadow: var(--td-shadow-2, 0 2px 8px rgba(0, 0, 0, 0.12));
+  background: var(--md3-surface-container, var(--td-bg-color-container, #fff));
+  border: none;
+  border-radius: var(--md3-radius-md, 12px);
+  box-shadow: var(--md3-elevation-2, var(--td-shadow-2, 0 2px 8px rgba(0, 0, 0, 0.12)));
 
   // Custom scrollbar for better UX
   &::-webkit-scrollbar {
@@ -311,7 +311,7 @@
 
     &:hover,
     &--selected {
-      background: var(--td-bg-color-secondarycontainer-hover, #f0f0f0);
+      background: var(--md3-surface-container-high, var(--td-bg-color-secondarycontainer-hover, #f0f0f0));
     }
 
     &-avatar {
@@ -337,7 +337,7 @@
 
   &__divider {
     height: 1px;
-    background: var(--td-component-border, #e7e7e7);
+    background: var(--md3-outline-variant, var(--td-component-border, #e7e7e7));
     margin: 4px 0;
   }
 
@@ -348,11 +348,11 @@
     padding: 8px 12px;
     cursor: pointer;
     transition: background 0.2s ease;
-    color: var(--td-brand-color, #0052d9);
+    color: var(--md3-primary, var(--td-brand-color, #0052d9));
     font-size: 13px;
 
     &:hover {
-      background: var(--td-bg-color-secondarycontainer-hover, #f0f0f0);
+      background: var(--md3-surface-container-high, var(--td-bg-color-secondarycontainer-hover, #f0f0f0));
     }
 
     svg {
@@ -400,22 +400,22 @@
     align-items: center;
     gap: 6px;
     padding: 4px 10px;
-    background: var(--td-bg-color-secondarycontainer, #f5f5f5);
-    border: 1px solid var(--td-component-border, #e7e7e7);
-    border-radius: 16px;
+    background: var(--md3-surface-container-high, var(--td-bg-color-secondarycontainer, #f5f5f5));
+    border: 1px solid transparent;
+    border-radius: var(--md3-radius-full, 999px);
     cursor: pointer;
     transition: all 0.2s ease;
     font-size: 13px;
 
     &:hover {
-      border-color: var(--td-brand-color, #0052d9);
-      background: var(--td-brand-color-light, #e8f3ff);
+      border-color: var(--md3-accent, var(--td-brand-color, #0052d9));
+      background: var(--md3-surface-container-highest, var(--td-brand-color-light, #e8f3ff));
     }
 
     &--selected {
-      border-color: var(--td-brand-color, #0052d9);
-      background: var(--td-brand-color-light, #e8f3ff);
-      color: var(--td-brand-color, #0052d9);
+      border-color: var(--md3-accent, var(--td-brand-color, #0052d9));
+      background: var(--md3-primary-container, var(--td-brand-color-light, #e8f3ff));
+      color: var(--md3-on-primary-container, var(--td-brand-color, #0052d9));
     }
 
     &-avatar {

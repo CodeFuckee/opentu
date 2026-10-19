@@ -11,7 +11,7 @@
   min-height: 0; // 重要：允许 flex 子元素收缩
   overflow: hidden;
   position: relative;
-  background: var(--aitu-ui-surface, #ffffff);
+  background: var(--md3-surface-container-lowest, #ffffff);
 
   &--dragging {
     .media-library-grid__container {
@@ -23,9 +23,10 @@
   &__drop-overlay {
     position: absolute;
     inset: 16px;
-    background: var(--aitu-ui-brand-softer, rgba(243, 156, 18, 0.06));
-    border: 4px dashed var(--aitu-ui-brand, #f39c12);
-    border-radius: 20px;
+    background: var(--md3-surface-container-high, rgba(0, 0, 0, 0.06));
+    border: 4px dashed var(--md3-primary, #f39c12);
+    // MD3 大容器：28dp 圆角
+    border-radius: var(--md3-radius-xl, 28px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -36,9 +37,9 @@
 
   &__drop-message {
     padding: 48px 72px;
-    background: var(--aitu-ui-surface, #ffffff);
-    border-radius: 20px;
-    box-shadow: var(--aitu-ui-shadow-popover, 0 16px 40px rgba(15, 23, 42, 0.14));
+    background: var(--md3-surface-container-high, #ffffff);
+    border-radius: var(--md3-radius-xl, 28px);
+    box-shadow: var(--md3-elevation-3, 0 16px 40px rgba(15, 23, 42, 0.14));
     border: none;
     display: flex;
     flex-direction: column;
@@ -48,25 +49,25 @@
     &-icon {
       width: 72px;
       height: 72px;
-      background: var(--aitu-ui-brand-softer, rgba(243, 156, 18, 0.06));
+      background: var(--md3-primary-container, rgba(0, 0, 0, 0.06));
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: var(--aitu-ui-brand, #f39c12);
-      box-shadow: var(--aitu-ui-shadow-selected, 0 10px 24px rgba(243, 156, 18, 0.14));
+      color: var(--md3-on-primary-container, #f39c12);
+      box-shadow: var(--md3-elevation-1, 0 10px 24px rgba(0, 0, 0, 0.14));
     }
 
     &-title {
       font-size: 22px;
       font-weight: 700;
-      color: var(--aitu-ui-text-primary, #1e293b);
+      color: var(--md3-on-surface, #1e293b);
       margin: 0;
     }
 
     &-description {
       font-size: 14px;
-      color: var(--aitu-ui-text-secondary, #64748b);
+      color: var(--md3-on-surface-variant, #64748b);
       margin: 0;
     }
   }
@@ -76,14 +77,14 @@
     align-items: center;
     justify-content: center;
     height: 100%;
-    background: var(--aitu-ui-surface-subtle, #f8fafc);
+    background: var(--md3-surface-container-low, #f8fafc);
   }
 
   // ========== 骨架屏遮盖层 ==========
   &__skeleton-overlay {
     position: absolute;
     inset: 0;
-    background: var(--aitu-ui-surface-subtle, #f8fafc);
+    background: var(--md3-surface-container-low, #f8fafc);
     z-index: 10;
     display: flex;
     flex-wrap: wrap;
@@ -105,8 +106,8 @@
   // ========== 头部工具栏 ==========
   &__header {
     padding: 16px 20px 12px;
-    border-bottom: 1px solid var(--aitu-ui-border-subtle, rgba(15, 23, 42, 0.06));
-    background: var(--aitu-ui-surface, #ffffff);
+    border-bottom: 1px solid var(--md3-outline-variant, rgba(15, 23, 42, 0.06));
+    background: var(--md3-surface-container, #ffffff);
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -126,7 +127,7 @@
     align-items: center;
     gap: 16px;
     padding: 4px 8px 8px; // 这里的 8px + header 的 20px = 28px
-    border-bottom: 1px solid var(--aitu-ui-border-subtle, rgba(15, 23, 42, 0.06));
+    border-bottom: 1px solid var(--md3-outline-variant, rgba(15, 23, 42, 0.06));
   }
 
   &__selection-info {
@@ -134,8 +135,8 @@
     align-items: center;
     gap: 8px;
     padding: 3px 10px 3px 4px;
-    background: var(--aitu-ui-surface-muted, #f1f5f9);
-    border-radius: 8px;
+    background: var(--md3-surface-container-highest, #f1f5f9);
+    border-radius: var(--md3-radius-full, 999px);
     height: 32px;
     box-sizing: border-box;
     transition: all 0.2s ease;
@@ -144,11 +145,11 @@
     user-select: none;
 
     &:hover {
-      background: var(--aitu-ui-brand-softer, rgba(243, 156, 18, 0.06));
+      background: var(--md3-surface-container-high, rgba(0, 0, 0, 0.06));
     }
 
     &:active {
-      background: var(--aitu-ui-brand-soft, rgba(243, 156, 18, 0.12));
+      background: var(--md3-primary-container, rgba(0, 0, 0, 0.12));
     }
 
     .t-checkbox {
@@ -162,7 +163,7 @@
   &__selection-count {
     font-size: 11.5px;
     font-weight: 700;
-    color: var(--aitu-ui-brand, #f39c12);
+    color: var(--md3-primary, #f39c12);
     white-space: nowrap;
     min-width: 24px;
     text-align: center;
@@ -175,30 +176,30 @@
     align-items: center;
     gap: 12px;
     padding: 8px 16px;
-    background: linear-gradient(135deg, var(--aitu-ui-brand-softer, rgba(243, 156, 18, 0.06)) 0%, var(--aitu-ui-brand-soft, rgba(243, 156, 18, 0.12)) 100%);
-    border-radius: 8px;
+    background: linear-gradient(135deg, var(--md3-surface-container-high, rgba(0, 0, 0, 0.06)) 0%, var(--md3-primary-container, rgba(0, 0, 0, 0.12)) 100%);
+    border-radius: var(--md3-radius-md, 12px);
     margin-top: 8px;
   }
 
   &__progress-bar {
     flex: 1;
     height: 6px;
-    background: var(--aitu-ui-border, rgba(15, 23, 42, 0.1));
-    border-radius: 3px;
+    background: var(--md3-surface-container-highest, rgba(15, 23, 42, 0.1));
+    border-radius: var(--md3-radius-full, 3px);
     overflow: hidden;
   }
 
   &__progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--aitu-ui-brand, #f39c12) 0%, var(--td-brand-color-3, #fbbf24) 100%);
-    border-radius: 3px;
+    background: var(--md3-primary, #f39c12);
+    border-radius: var(--md3-radius-full, 3px);
     transition: width 0.2s ease-out;
   }
 
   &__progress-text {
     font-size: 12px;
     font-weight: 500;
-    color: var(--aitu-ui-brand-text, #b45309);
+    color: var(--md3-on-primary-container, #b45309);
     white-space: nowrap;
     min-width: 80px;
     font-variant-numeric: tabular-nums;
@@ -213,7 +214,7 @@
   }
 
   &__playlist-chip-count {
-    background: var(--aitu-ui-border, rgba(15, 23, 42, 0.1));
+    background: var(--md3-surface-container-highest, rgba(15, 23, 42, 0.1));
   }
 
   &__header-spacer {
@@ -236,7 +237,7 @@
   &__filter-separator {
     width: 1px;
     height: 16px;
-    background: var(--aitu-ui-border-subtle, rgba(15, 23, 42, 0.06));
+    background: var(--md3-outline-variant, rgba(15, 23, 42, 0.06));
     margin: 0 4px;
   }
 
@@ -245,9 +246,10 @@
     align-items: center;
     gap: 2px;
     padding: 3px;
-    background: var(--aitu-ui-surface-muted, #f1f5f9);
-    border: 1px solid var(--aitu-ui-border-subtle, rgba(15, 23, 42, 0.06));
-    border-radius: 8px;
+    background: var(--md3-surface-container-highest, #f1f5f9);
+    // MD3 分段控件：pill 轨道，去描边
+    border-color: transparent;
+    border-radius: var(--md3-radius-full, 999px);
   }
 
   &__type-tab {
@@ -261,9 +263,9 @@
     align-items: center;
     justify-content: center;
     gap: 5px;
-    color: var(--aitu-ui-text-secondary, #64748b);
+    color: var(--md3-on-surface-variant, #64748b);
     cursor: pointer;
-    border-radius: 6px;
+    border-radius: var(--md3-radius-full, 999px);
     transition: all 0.15s ease;
     user-select: none;
     font: inherit;
@@ -276,14 +278,14 @@
       opacity: 0.82;
 
       &.icon-all {
-        color: var(--aitu-ui-brand, #f39c12);
+        color: var(--md3-primary, #f39c12);
         opacity: 1;
       }
     }
 
     &:hover:not(&--active) {
-      color: var(--aitu-ui-text-primary, #1e293b);
-      background: var(--aitu-ui-hover-bg, #fffaf0);
+      color: var(--md3-on-surface, #1e293b);
+      background: var(--md3-surface-container-high, #fffaf0);
 
       svg {
         opacity: 1;
@@ -291,10 +293,10 @@
     }
 
     &--active {
-      background: var(--aitu-ui-surface, #ffffff);
-      color: var(--aitu-ui-text-primary, #1e293b);
+      background: var(--md3-secondary-container, #ffffff);
+      color: var(--md3-on-surface, #1e293b);
       font-weight: 700;
-      box-shadow: var(--aitu-ui-shadow-card, 0 1px 3px rgba(15, 23, 42, 0.06));
+      box-shadow: var(--md3-elevation-1, 0 1px 3px rgba(15, 23, 42, 0.06));
 
       svg {
         opacity: 1;
@@ -311,11 +313,11 @@
     font-size: 11px;
     font-weight: 700;
     line-height: 1;
-    color: var(--aitu-ui-text-tertiary, #94a3b8);
+    color: var(--md3-outline, #94a3b8);
   }
 
   &__type-tab--active &__type-tab-count {
-    color: var(--aitu-ui-brand, #f39c12);
+    color: var(--md3-primary, #f39c12);
   }
 
   &__filter-tags {
@@ -323,9 +325,10 @@
     align-items: center;
     gap: 5px;
     padding: 3px;
-    background: var(--aitu-ui-surface, #ffffff);
-    border: 1px solid var(--aitu-ui-border-subtle, rgba(15, 23, 42, 0.06));
-    border-radius: 8px;
+    background: var(--md3-surface-container, #ffffff);
+    // 去描边：tonal 面板 + pill
+    border-color: transparent;
+    border-radius: var(--md3-radius-full, 999px);
   }
 
   &__filter-tags-label {
@@ -333,30 +336,30 @@
     font-size: 11px;
     font-weight: 700;
     line-height: 1;
-    color: var(--aitu-ui-text-secondary, #64748b);
+    color: var(--md3-on-surface-variant, #64748b);
     white-space: nowrap;
   }
 
   &__filter-tags-divider {
     width: 1px;
     height: 16px;
-    background: var(--aitu-ui-border-subtle, rgba(15, 23, 42, 0.06));
+    background: var(--md3-outline-variant, rgba(15, 23, 42, 0.06));
     margin: 0 1px;
   }
 
   &__filter-chip {
     appearance: none;
-    border: 1px solid var(--aitu-ui-border-subtle, rgba(15, 23, 42, 0.06));
-    background: var(--aitu-ui-surface-subtle, #f8fafc);
+    border: 1px solid var(--md3-outline-variant, rgba(15, 23, 42, 0.06));
+    background: var(--md3-surface-container-highest, #f8fafc);
     height: 28px;
     padding: 0 8px;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 5px;
-    color: var(--aitu-ui-text-secondary, #64748b);
+    color: var(--md3-on-surface-variant, #64748b);
     cursor: pointer;
-    border-radius: 6px;
+    border-radius: var(--md3-radius-full, 999px);
     transition: all 0.15s ease;
     user-select: none;
     font: inherit;
@@ -370,9 +373,9 @@
     }
 
     &:hover:not(&--active) {
-      color: var(--aitu-ui-text-primary, #1e293b);
-      border-color: var(--aitu-ui-brand-border-soft, rgba(243, 156, 18, 0.28));
-      background: var(--aitu-ui-hover-bg, #fffaf0);
+      color: var(--md3-on-surface, #1e293b);
+      border-color: var(--md3-outline-variant, rgba(0, 0, 0, 0.28));
+      background: var(--md3-surface-container-high, #fffaf0);
 
       svg {
         opacity: 1;
@@ -380,9 +383,9 @@
     }
 
     &--active {
-      color: var(--aitu-ui-brand-text, #b45309);
-      border-color: var(--aitu-ui-brand-border, rgba(243, 156, 18, 0.52));
-      background: var(--aitu-ui-brand-soft, rgba(243, 156, 18, 0.12));
+      color: var(--md3-on-primary-container, #b45309);
+      border-color: var(--md3-accent, rgba(0, 0, 0, 0.52));
+      background: var(--md3-primary-container, rgba(0, 0, 0, 0.12));
       font-weight: 700;
 
       svg {
@@ -390,8 +393,8 @@
       }
 
       .media-library-grid__filter-chip-count {
-        color: var(--aitu-ui-text-inverse, #ffffff);
-        background: var(--aitu-ui-brand, #f39c12);
+        color: var(--md3-on-primary, #ffffff);
+        background: var(--md3-primary, #f39c12);
       }
     }
   }
@@ -408,9 +411,9 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 5px;
-    background: var(--aitu-ui-border-subtle, rgba(15, 23, 42, 0.06));
-    color: var(--aitu-ui-text-secondary, #64748b);
+    border-radius: var(--md3-radius-full, 999px);
+    background: var(--md3-surface-container-highest, rgba(15, 23, 42, 0.06));
+    color: var(--md3-on-surface-variant, #64748b);
     font-size: 10.5px;
     font-weight: 700;
     line-height: 1;
@@ -422,9 +425,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--aitu-ui-text-secondary, #64748b);
+    color: var(--md3-on-surface-variant, #64748b);
     cursor: pointer;
-    border-radius: 6px;
+    border-radius: var(--md3-radius-full, 999px);
     transition: all 0.15s ease;
     user-select: none;
     position: relative;
@@ -437,14 +440,14 @@
       opacity: 0.8;
 
       &.icon-all {
-        color: var(--aitu-ui-brand, #f39c12);
+        color: var(--md3-primary, #f39c12);
         opacity: 1;
       }
     }
 
     &:hover:not(&--active) {
-      color: var(--aitu-ui-text-primary, #1e293b);
-      background: var(--aitu-ui-brand-softer, rgba(243, 156, 18, 0.06));
+      color: var(--md3-on-surface, #1e293b);
+      background: var(--md3-surface-container-high, rgba(0, 0, 0, 0.06));
       
       svg {
         opacity: 1;
@@ -452,17 +455,17 @@
     }
 
     &--active {
-      background: var(--aitu-ui-surface, #ffffff);
-      color: var(--aitu-ui-text-primary, #1e293b);
+      background: var(--md3-surface-container-lowest, #ffffff);
+      color: var(--md3-on-surface, #1e293b);
       font-weight: 600;
-      box-shadow: var(--aitu-ui-shadow-card, 0 1px 3px rgba(15, 23, 42, 0.06));
+      box-shadow: var(--md3-elevation-1, 0 1px 3px rgba(15, 23, 42, 0.06));
       
       svg {
         opacity: 1;
       }
 
       .media-library-grid__filter-count {
-        color: var(--aitu-ui-brand, #f39c12);
+        color: var(--md3-primary, #f39c12);
         font-weight: 700;
       }
     }
@@ -471,7 +474,7 @@
   &__filter-count {
     font-size: 11px;
     font-weight: 600;
-    color: var(--aitu-ui-text-tertiary, #94a3b8);
+    color: var(--md3-outline, #94a3b8);
     line-height: 1;
     letter-spacing: -0.02em;
     margin-bottom: -1px; // 对齐图标
@@ -480,9 +483,9 @@
   &__sort-options {
     display: flex;
     align-items: center;
-    background: var(--aitu-ui-surface-muted, #f1f5f9);
+    background: var(--md3-surface-container-highest, #f1f5f9);
     padding: 3px;
-    border-radius: 8px;
+    border-radius: var(--md3-radius-full, 999px);
     gap: 4px;
 
     .media-library-grid__filter-option {
@@ -504,23 +507,23 @@
     min-width: 0; // 防止 flex 子元素溢出
 
     .t-input {
-      border-radius: 8px !important;
-      border: 1px solid var(--aitu-ui-border, rgba(15, 23, 42, 0.1)) !important;
-      background: var(--aitu-ui-surface-subtle, #f8fafc) !important;
+      border-radius: var(--md3-radius-sm, 8px) !important;
+      border: 1px solid var(--md3-outline-variant, rgba(15, 23, 42, 0.1)) !important;
+      background: var(--md3-surface-container-highest, #f8fafc) !important;
       transition: all 0.15s ease;
       height: 36px !important;
       min-height: 36px !important;
 
       &:hover {
-        border-color: var(--aitu-ui-brand-border-soft, rgba(243, 156, 18, 0.28)) !important;
-        background: var(--aitu-ui-surface, #ffffff) !important;
+        border-color: var(--md3-outline, rgba(0, 0, 0, 0.28)) !important;
+        background: var(--md3-surface-container-lowest, #ffffff) !important;
       }
 
       &:focus,
       &.t-is-focused {
-        border-color: var(--aitu-ui-brand, #f39c12) !important;
-        background: var(--aitu-ui-surface, #ffffff) !important;
-        box-shadow: var(--aitu-ui-focus-ring, 0 0 0 3px rgba(243, 156, 18, 0.18)) !important;
+        border-color: var(--md3-accent, #f39c12) !important;
+        background: var(--md3-surface-container-lowest, #ffffff) !important;
+        box-shadow: var(--md3-focus-ring, 0 0 0 3px rgba(0, 0, 0, 0.18)) !important;
       }
 
       .t-input__inner {
@@ -545,49 +548,49 @@
     min-height: 32px !important;
     padding: 0 12px !important;
     font-size: 13px !important;
-    border-radius: 6px !important;
+    border-radius: var(--md3-radius-full, 999px) !important;
   }
 
   .t-button--theme-primary {
-    background: var(--aitu-ui-brand, #f39c12) !important;
-    border: 1px solid var(--aitu-ui-brand, #f39c12) !important;
-    border-radius: 6px !important;
+    background: var(--md3-primary, #f39c12) !important;
+    border: 1px solid var(--md3-accent, #f39c12) !important;
+    border-radius: var(--md3-radius-full, 999px) !important;
     font-weight: 500;
     box-shadow: none;
     transition: all 0.15s ease;
 
     &:hover {
-      background: var(--aitu-ui-brand-hover, #e67e22) !important;
-      border-color: var(--aitu-ui-brand-hover, #e67e22) !important;
+      background: var(--md3-primary, #e67e22) !important;
+      border-color: var(--md3-accent, #e67e22) !important;
     }
   }
 
   .t-button--variant-outline {
-    border-radius: 6px !important;
+    border-radius: var(--md3-radius-full, 999px) !important;
     font-weight: 500;
-    border-color: var(--aitu-ui-border, rgba(15, 23, 42, 0.1));
-    color: var(--aitu-ui-text-primary, #1e293b);
+    border-color: var(--md3-outline-variant, rgba(15, 23, 42, 0.1));
+    color: var(--md3-on-surface, #1e293b);
     transition: all 0.15s ease;
 
     &:hover {
-      border-color: var(--aitu-ui-brand-border-soft, rgba(243, 156, 18, 0.28));
-      color: var(--aitu-ui-brand-text, #b45309);
-      background: var(--aitu-ui-brand-softer, rgba(243, 156, 18, 0.06));
+      border-color: var(--md3-outline-variant, rgba(0, 0, 0, 0.28));
+      color: var(--md3-primary, #b45309);
+      background: var(--md3-surface-container-high, rgba(0, 0, 0, 0.06));
     }
   }
 
   .t-button--theme-danger {
-    border-radius: 6px !important;
+    border-radius: var(--md3-radius-full, 999px) !important;
 
     &.t-button--variant-base {
       background: var(--aitu-ui-danger-soft, rgba(233, 30, 99, 0.08)) !important;
       border: 1px solid var(--aitu-ui-danger-border, rgba(233, 30, 99, 0.24)) !important;
       color: var(--aitu-ui-danger, #e91e63) !important;
       box-shadow: none;
-      
+
       &:hover {
         background: var(--aitu-ui-danger, #e91e63) !important;
-        color: var(--aitu-ui-text-inverse, #ffffff) !important;
+        color: var(--md3-on-primary, #ffffff) !important;
         border-color: var(--aitu-ui-danger, #e91e63) !important;
       }
     }
@@ -598,7 +601,7 @@
     flex: 1;
     min-height: 0; // 重要：允许 flex 子元素收缩
     overflow: auto; // 改为 auto 允许滚动
-    background: var(--aitu-ui-surface-subtle, #f8fafc);
+    background: var(--md3-surface-container-low, #f8fafc);
     position: relative;
     display: flex;
     flex-direction: column;
@@ -620,14 +623,14 @@
   // ========== 底部状态栏 ==========
   &__footer {
     height: 36px;
-    border-top: 1px solid var(--aitu-ui-border-subtle, rgba(15, 23, 42, 0.06));
-    background: var(--aitu-ui-surface, #ffffff);
+    border-top: 1px solid var(--md3-outline-variant, rgba(15, 23, 42, 0.06));
+    background: var(--md3-surface-container, #ffffff);
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 0 16px;
     font-size: 12px;
-    color: var(--aitu-ui-text-tertiary, #94a3b8);
+    color: var(--md3-outline, #94a3b8);
     flex-shrink: 0;
 
     &-left {
@@ -645,19 +648,19 @@
       display: flex;
       align-items: center;
       gap: 6px;
-      color: var(--aitu-ui-text-primary, #1e293b);
-      background: var(--aitu-ui-surface-muted, #f1f5f9);
+      color: var(--md3-on-surface, #1e293b);
+      background: var(--md3-surface-container-highest, #f1f5f9);
       padding: 3px 10px;
-      border-radius: 6px;
+      border-radius: var(--md3-radius-full, 999px);
       font-weight: 600;
       font-size: 11px;
-      border: 1px solid var(--aitu-ui-border-subtle, rgba(15, 23, 42, 0.06));
+      border-color: transparent;
       margin-right: 4px;
       
       svg {
         width: 14px;
         height: 14px;
-        color: var(--aitu-ui-text-secondary, #64748b);
+        color: var(--md3-on-surface-variant, #64748b);
       }
     }
 
@@ -670,7 +673,7 @@
       &::after {
         content: '';
         margin: 0 12px;
-        border-right: 1px solid var(--aitu-ui-border-subtle, rgba(15, 23, 42, 0.06));
+        border-right: 1px solid var(--md3-outline-variant, rgba(15, 23, 42, 0.06));
         height: 12px;
         display: inline-block;
         vertical-align: middle;
@@ -678,7 +681,7 @@
     }
 
     &-hint {
-      color: var(--aitu-ui-text-secondary, #64748b);
+      color: var(--md3-on-surface-variant, #64748b);
       display: flex;
       align-items: center;
       gap: 4px;
@@ -696,13 +699,13 @@
     align-items: center;
     gap: 10px;
     padding: 0 8px;
-    color: var(--aitu-ui-text-tertiary, #94a3b8);
+    color: var(--md3-outline, #94a3b8);
 
     svg {
       cursor: pointer;
       transition: color 0.2s ease;
       &:hover {
-        color: var(--aitu-ui-text-secondary, #64748b);
+        color: var(--md3-on-surface-variant, #64748b);
       }
     }
   }
@@ -711,8 +714,8 @@
     width: 100px;
     height: 4px;
     -webkit-appearance: none;
-    background: var(--aitu-ui-border-subtle, rgba(15, 23, 42, 0.06));
-    border-radius: 2px;
+    background: var(--md3-outline-variant, rgba(15, 23, 42, 0.06));
+    border-radius: var(--md3-radius-full, 2px);
     outline: none;
     cursor: pointer;
 
@@ -720,16 +723,15 @@
       -webkit-appearance: none;
       width: 12px;
       height: 12px;
-      background: var(--aitu-ui-text-tertiary, #94a3b8);
+      background: var(--md3-outline, #94a3b8);
       border-radius: 50%;
       transition: all 0.2s ease;
-      border: 2px solid var(--aitu-ui-surface, #ffffff);
-      box-shadow: var(--aitu-ui-shadow-soft, 0 2px 10px rgba(15, 23, 42, 0.06));
+      border: 2px solid var(--md3-surface-container-lowest, #ffffff);
+      box-shadow: var(--md3-elevation-1, 0 2px 10px rgba(15, 23, 42, 0.06));
     }
 
     &:hover::-webkit-slider-thumb {
-      background: var(--aitu-ui-brand, #f39c12);
-      transform: scale(1.1);
+      background: var(--md3-primary, #f39c12);
     }
   }
 
@@ -747,8 +749,8 @@
       justify-content: space-between;
       gap: 12px;
       padding: 10px 12px;
-      background: var(--aitu-ui-surface, #ffffff);
-      border-top: 1px solid var(--aitu-ui-border-subtle, rgba(15, 23, 42, 0.06));
+      background: var(--md3-surface-container-high, #ffffff);
+      border-top: 1px solid var(--md3-outline-variant, rgba(15, 23, 42, 0.06));
       flex-shrink: 0;
 
       &-info {
@@ -764,7 +766,7 @@
         align-items: center;
         gap: 4px;
         font-size: 11px;
-        color: var(--aitu-ui-text-secondary, #64748b);
+        color: var(--md3-on-surface-variant, #64748b);
 
         svg {
           width: 14px;
@@ -773,19 +775,19 @@
       }
 
       &-ai {
-        background: var(--aitu-ui-brand-soft, rgba(243, 156, 18, 0.12));
-        color: var(--aitu-ui-brand-text, #b45309);
+        background: var(--md3-primary-container, rgba(0, 0, 0, 0.12));
+        color: var(--md3-on-primary-container, #b45309);
         font-size: 9px;
         font-weight: 600;
         padding: 2px 5px;
-        border-radius: 3px;
+        border-radius: var(--md3-radius-full, 999px);
         margin-left: 4px;
       }
 
       &-name {
         font-size: 13px;
         font-weight: 500;
-        color: var(--aitu-ui-text-primary, #1e293b);
+        color: var(--md3-on-surface, #1e293b);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -802,27 +804,27 @@
         width: 36px;
         height: 36px;
         border: none;
-        border-radius: 8px;
-        background: var(--aitu-ui-surface-muted, #f1f5f9);
+        border-radius: var(--md3-radius-full, 999px);
+        background: var(--md3-surface-container-highest, #f1f5f9);
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
         transition: all 0.15s ease;
-        color: var(--aitu-ui-text-secondary, #64748b);
+        color: var(--md3-on-surface-variant, #64748b);
 
         &:hover, &:active {
-          background: var(--aitu-ui-brand-softer, rgba(243, 156, 18, 0.06));
-          color: var(--aitu-ui-brand-text, #b45309);
+          background: var(--md3-surface-container-high, rgba(0, 0, 0, 0.06));
+          color: var(--md3-on-primary-container, #b45309);
         }
 
         &--primary {
-          background: var(--aitu-ui-brand, #f39c12);
-          color: var(--aitu-ui-text-inverse, #ffffff);
+          background: var(--md3-primary, #f39c12);
+          color: var(--md3-on-primary, #ffffff);
 
           &:hover, &:active {
-            background: var(--aitu-ui-brand-hover, #e67e22);
-            color: var(--aitu-ui-text-inverse, #ffffff);
+            background: var(--md3-primary, #e67e22);
+            color: var(--md3-on-primary, #ffffff);
           }
         }
       }
@@ -872,9 +874,9 @@
       .t-input {
         min-height: 36px !important;
         height: 36px !important;
-        border-radius: 8px !important;
-        border: 1px solid var(--aitu-ui-border, rgba(15, 23, 42, 0.1)) !important;
-        background: var(--aitu-ui-surface-subtle, #f8fafc) !important;
+        border-radius: var(--md3-radius-sm, 8px) !important;
+        border: 1px solid var(--md3-outline-variant, rgba(15, 23, 42, 0.1)) !important;
+        background: var(--md3-surface-container-highest, #f8fafc) !important;
 
         .t-input__inner {
           font-size: 16px; // 防止 iOS 自动缩放
@@ -1028,7 +1030,7 @@
 
     &__drop-message {
       padding: 32px 40px;
-      border-radius: 12px;
+      border-radius: var(--md3-radius-md, 12px);
 
       &-icon {
         width: 56px;
@@ -1055,12 +1057,12 @@
   height: 100%;
   padding: 48px 24px;
   text-align: center;
-  background: var(--aitu-ui-surface, #ffffff);
+  background: var(--md3-surface-container-low, #ffffff);
 
   &__icon-container {
     width: 96px; // Slightly smaller
     height: 96px;
-    background: var(--aitu-ui-surface-muted, #f1f5f9);
+    background: var(--md3-surface-container, #f1f5f9);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -1069,20 +1071,20 @@
   }
 
   &__icon {
-    color: var(--aitu-ui-text-tertiary, #94a3b8);
+    color: var(--md3-outline, #94a3b8);
     stroke-width: 1.5;
   }
 
   &__title {
     font-size: 20px;
     font-weight: 700;
-    color: var(--aitu-ui-text-primary, #1e293b);
+    color: var(--md3-on-surface, #1e293b);
     margin-bottom: 10px;
   }
 
   &__description {
     font-size: 14px;
-    color: var(--aitu-ui-text-secondary, #64748b);
+    color: var(--md3-on-surface-variant, #64748b);
     max-width: 400px;
     line-height: 1.6;
   }

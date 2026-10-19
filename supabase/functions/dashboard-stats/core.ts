@@ -2247,7 +2247,7 @@ export function buildDashboardHtml(anonKey: string): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>数据看板 · AI 平台</title>
 <style>
-  :root { --bg:#070b16; --card:rgba(255,255,255,.035); --card2:rgba(148,163,184,.09); --line:rgba(148,163,184,.14); --text:#e8eefc; --muted:#8b98b3; --accent:#5b8cff; --accent2:#22d3ee; --ok:#34d399; --fail:#f87171; --warn:#fbbf24; --radius:14px; }
+  :root { --bg:#18120D; --card:rgba(255,255,255,.04); --card2:rgba(237,224,212,.08); --line:rgba(237,224,212,.15); --text:#EDE0D4; --muted:#9B8E80; --accent:#E6E8EB; --accent2:#AEB2B8; --ok:#7FD985; --fail:#FFB4AB; --warn:#FFC98F; --radius:16px; }
   * { box-sizing:border-box; margin:0; padding:0; }
   body { background:var(--bg); color:var(--text); font-family:-apple-system,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif; -webkit-font-smoothing:antialiased; padding:0 0 36px; }
   body::before { content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
@@ -2255,7 +2255,7 @@ export function buildDashboardHtml(anonKey: string): string {
                 radial-gradient(720px 340px at 88% -8%, rgba(34,211,238,.11), transparent 62%); }
   header { position:sticky; top:0; z-index:10; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
     padding:14px 26px; background:rgba(7,11,22,.74); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border-bottom:1px solid var(--line); }
-  h1 { font-size:18px; font-weight:700; letter-spacing:.5px; background:linear-gradient(90deg,#a5c4ff,#22d3ee); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  h1 { font-size:18px; font-weight:700; letter-spacing:.5px; background:linear-gradient(90deg,#F0F1F3,#AEB2B8); -webkit-background-clip:text; background-clip:text; color:transparent; }
   .wrap { position:relative; z-index:1; max-width:1280px; margin:0 auto; padding:6px 26px 0; }
   .controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   button, select, input[type="date"] { background:rgba(148,163,184,.1); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:7px 12px; font-size:13px; cursor:pointer; transition:.15s; color-scheme:dark; }
@@ -2480,7 +2480,7 @@ function trendLine(svg, data){
   var points = data||[];
   var W=680, H=210, pad=34;
   if(!points.length){
-    svg.innerHTML='<text x="340" y="100" text-anchor="middle" fill="#8b98b3" font-size="13">暂无数据</text>';
+    svg.innerHTML='<text x="340" y="100" text-anchor="middle" fill="#9B8E80" font-size="13">暂无数据</text>';
     return;
   }
   var max = Math.max.apply(null, points.map(function(p){return p.count;})) || 1;
@@ -2503,17 +2503,17 @@ function trendLine(svg, data){
   }
   var last = coords[n-1];
   svg.innerHTML =
-    '<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5b8cff" stop-opacity="0.32"/><stop offset="1" stop-color="#5b8cff" stop-opacity="0"/></linearGradient></defs>'+
+    '<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E6E8EB" stop-opacity="0.28"/><stop offset="1" stop-color="#E6E8EB" stop-opacity="0"/></linearGradient></defs>'+
     grid+
     '<path d="'+area+'" fill="url(#g)"/>'+
-    '<path d="'+d+'" fill="none" stroke="#5b8cff" stroke-width="2.5" stroke-linecap="round" style="filter:drop-shadow(0 0 6px rgba(91,140,255,.5))"/>'+
-    '<circle cx="'+last[0].toFixed(1)+'" cy="'+last[1].toFixed(1)+'" r="4" fill="#22d3ee"><animate attributeName="r" values="4;6.5;4" dur="2s" repeatCount="indefinite"/></circle>'+
-    '<text x="'+pad+'" y="'+(H-pad+26)+'" fill="#8b98b3" font-size="10">'+esc(points[0].date)+'</text>'+
-    '<text x="'+(W-pad)+'" y="'+(H-pad+26)+'" fill="#8b98b3" font-size="10" text-anchor="end">'+esc(points[n-1].date)+'</text>'+
-    '<text x="'+pad+'" y="15" fill="#8b98b3" font-size="11">峰值 '+max+'</text>';
+    '<path d="'+d+'" fill="none" stroke="#E6E8EB" stroke-width="2.5" stroke-linecap="round" style="filter:drop-shadow(0 0 6px rgba(230,232,235,.5))"/>'+
+    '<circle cx="'+last[0].toFixed(1)+'" cy="'+last[1].toFixed(1)+'" r="4" fill="#AEB2B8"><animate attributeName="r" values="4;6.5;4" dur="2s" repeatCount="indefinite"/></circle>'+
+    '<text x="'+pad+'" y="'+(H-pad+26)+'" fill="#9B8E80" font-size="10">'+esc(points[0].date)+'</text>'+
+    '<text x="'+(W-pad)+'" y="'+(H-pad+26)+'" fill="#9B8E80" font-size="10" text-anchor="end">'+esc(points[n-1].date)+'</text>'+
+    '<text x="'+pad+'" y="15" fill="#9B8E80" font-size="11">峰值 '+max+'</text>';
 }
 
-var CHART_COLORS = ['#4f8cff','#34d399','#fbbf24','#f472b6','#c084fc','#f97316','#22d3ee','#a3e635','#fb7185','#60a5fa'];
+var CHART_COLORS = ['#E6E8EB','#AEB2B8','#7FD985','#6B7076','#F2B8B5','#64C7B8','#FFD166','#8FC6E8','#F49FBC','#C6CC9D'];
 var USD_CNY = 0.1; // 兜底汇率；实际以 overview 返回的 usdCnyRate（configs 表 USD_CNY_RATE）为准
 var LAST_OVERVIEW = null;
 
@@ -2526,7 +2526,7 @@ function sparkline(trend){
   var area=poly+' '+W+','+H+' 0,'+H;
   return '<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="width:100%;height:30px;margin-top:10px;display:block">'+
     '<polygon points="'+area+'" fill="rgba(34,211,238,.12)"/>'+
-    '<polyline points="'+poly+'" fill="none" stroke="#22d3ee" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+    '<polyline points="'+poly+'" fill="none" stroke="#E6E8EB" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/></svg>';
 }
 
 function kpiCards(o){
@@ -2598,7 +2598,7 @@ function donut(el, data){
 
 function rankChips(el, list){
   el.style.display='flex'; el.style.gap='8px'; el.style.flexWrap='wrap';
-  var medals=['#fbbf24','#cbd5e1','#f59e0b'];
+  var medals=['#FFC98F','#F2DFD1','#E6A85C'];
   el.innerHTML = (list||[]).map(function(r,i){
     var name = r.displayName || '-';
     var ring = i<3 ? medals[i] : 'transparent';
@@ -2623,25 +2623,25 @@ function calendarHeat(el, trend){
   for(var i=0;i<firstDow;i++) html+='<span style="width:26px"></span>';
   for(var d=1;d<=dim;d++){
     var ds=y+'-'+pad(mo+1)+'-'+pad(d); var c=m[ds]||0;
-    var bg=c>0?'rgba(79,140,255,'+(0.18+0.82*(c/max)).toFixed(3)+')':'var(--card2)';
-    html+='<div title="'+ds+'：'+c+' 次" style="width:26px;height:30px;border-radius:6px;background:'+bg+';display:flex;align-items:center;justify-content:center;font-size:10px;color:'+(c>0?'#e6ecf7':'#5b6884')+'">'+d+'</div>';
+    var bg=c>0?'rgba(230,232,235,'+(0.18+0.82*(c/max)).toFixed(3)+')':'var(--card2)';
+    html+='<div title="'+ds+'：'+c+' 次" style="width:26px;height:30px;border-radius:6px;background:'+bg+';display:flex;align-items:center;justify-content:center;font-size:10px;color:'+(c>0?'#EDE0D4':'#9B8E80')+'">'+d+'</div>';
   }
   html+='</div>';
   html+='<div class="muted" style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:11px">少 '+
-    [0.15,0.4,0.7,1].map(function(a){return '<span style="width:14px;height:12px;border-radius:3px;background:rgba(79,140,255,'+a+')"></span>';}).join('')+' 多</div>';
+    [0.15,0.4,0.7,1].map(function(a){return '<span style="width:14px;height:12px;border-radius:3px;background:rgba(230,232,235,'+a+')"></span>';}).join('')+' 多</div>';
   el.innerHTML=html;
 }
 
 function hourlyBars(el, hourly){
   var a = hourly||[]; var max = Math.max.apply(null, a.length?a:[0]) || 1;
   var W=680,H=190,pad=24, bw=(W-pad*2)/24;
-  var svg='<defs><linearGradient id="hb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5b8cff"/><stop offset="1" stop-color="#3b5fd9" stop-opacity=".5"/></linearGradient></defs>';
+  var svg='<defs><linearGradient id="hb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E6E8EB"/><stop offset="1" stop-color="#6B7076" stop-opacity=".5"/></linearGradient></defs>';
   svg+='<line x1="'+pad+'" y1="'+(H-pad)+'" x2="'+(W-pad)+'" y2="'+(H-pad)+'" stroke="rgba(148,163,184,.18)"/>';
   for(var h=0;h<24;h++){
     var c=a[h]||0; var hgt=c/max*(H-pad*2-8); var x=pad+h*bw;
     svg+='<rect x="'+x.toFixed(1)+'" y="'+(H-pad-Math.max(0,hgt)).toFixed(1)+'" width="'+(bw-3).toFixed(1)+'" height="'+Math.max(0,hgt).toFixed(1)+'" rx="3" fill="url(#hb)"><title>'+h+':00　'+c+' 次</title></rect>';
-    if(c>0) svg+='<text x="'+(x+bw/2-1.5).toFixed(1)+'" y="'+(H-pad-hgt-5).toFixed(1)+'" fill="#8b98b3" font-size="9" text-anchor="middle">'+c+'</text>';
-    if(h%2===0) svg+='<text x="'+(x+bw/2-1.5).toFixed(1)+'" y="'+(H-6)+'" fill="#8b98b3" font-size="9" text-anchor="middle">'+h+'h</text>';
+    if(c>0) svg+='<text x="'+(x+bw/2-1.5).toFixed(1)+'" y="'+(H-pad-hgt-5).toFixed(1)+'" fill="#9B8E80" font-size="9" text-anchor="middle">'+c+'</text>';
+    if(h%2===0) svg+='<text x="'+(x+bw/2-1.5).toFixed(1)+'" y="'+(H-6)+'" fill="#9B8E80" font-size="9" text-anchor="middle">'+h+'h</text>';
   }
   el.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block">'+svg+'</svg>';
 }
@@ -2708,7 +2708,7 @@ function render(o){
     userRankEl.innerHTML = userUsage.length ? userUsage.map(function(u,i){
       var w = Math.max(2, Math.round(u.count/uMax*100));
       var label = (i+1)+'. '+(u.displayName||u.userId||'未知用户')+(u.department?'（'+u.department+'）':'');
-      return '<div class="bar-row"><span class="name" title="'+esc(label)+'">'+esc(label)+'</span><div class="track"><div class="fill" style="width:'+w+'%;background:#38bdf8"></div></div><span class="num">'+u.count+'</span></div>';
+      return '<div class="bar-row"><span class="name" title="'+esc(label)+'">'+esc(label)+'</span><div class="track"><div class="fill" style="width:'+w+'%;background:#E6E8EB"></div></div><span class="num">'+u.count+'</span></div>';
     }).join('') : '<div class="muted">暂无数据</div>';
   }
   var userRankCount = document.getElementById('userRankCount');

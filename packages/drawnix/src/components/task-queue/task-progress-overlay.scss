@@ -15,7 +15,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  --task-progress-accent: #f39c12;
+  --task-progress-accent: var(--md3-primary, #f39c12);
   background:
     radial-gradient(circle at 18% 18%, rgba(245, 184, 73, 0.16), transparent 24%),
     radial-gradient(circle at 76% 78%, rgba(179, 144, 122, 0.14), transparent 32%),
@@ -42,7 +42,7 @@
 
   &__pulse {
     background:
-      radial-gradient(circle at 16% 18%, rgba(243, 156, 18, 0.14), transparent 22%),
+      radial-gradient(circle at 16% 18%, rgba(0, 0, 0, 0.14), transparent 22%),
       radial-gradient(circle at 72% 70%, rgba(168, 133, 112, 0.12), transparent 34%);
     mix-blend-mode: multiply;
     animation: task-progress-overlay-pulse 3.6s ease-in-out infinite;
@@ -66,9 +66,9 @@
 
   &__progress {
     --image-generation-progress-accent: var(--task-progress-accent);
-    --image-generation-progress-accent-soft: rgba(243, 156, 18, 0.14);
+    --image-generation-progress-accent-soft: rgba(0, 0, 0, 0.14);
     --image-generation-progress-ring-bg: rgba(148, 163, 184, 0.24);
-    --image-generation-progress-text: rgba(55, 65, 81, 0.9);
+    --image-generation-progress-text: var(--md3-on-surface, rgba(55, 65, 81, 0.9));
   }
 
   // 底部进度条
@@ -84,15 +84,15 @@
 
   &__bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, #F39C12, #E67E22);
+    background: var(--md3-primary, #f39c12);
     transition: width 0.3s ease;
-    box-shadow: 0 0 8px rgba(243, 156, 18, 0.5);
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
   }
 }
 
 // 视频任务的特殊样式
 .task-progress-overlay--video {
-  --task-progress-accent: #5a4fcf;
+  --task-progress-accent: var(--md3-tertiary, #5a4fcf);
   background:
     radial-gradient(circle at 18% 18%, rgba(105, 91, 224, 0.18), transparent 24%),
     radial-gradient(circle at 72% 74%, rgba(90, 79, 207, 0.1), transparent 32%),
@@ -105,7 +105,7 @@
   }
 
   .task-progress-overlay__bar-fill {
-    background: linear-gradient(90deg, #5A4FCF, #7B68EE);
+    background: var(--md3-tertiary, #5a4fcf);
     box-shadow: 0 0 8px rgba(90, 79, 207, 0.5);
   }
 }

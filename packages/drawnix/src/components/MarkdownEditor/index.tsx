@@ -107,7 +107,7 @@ function CrepeEditorCore({ markdown, onChange, placeholder, readOnly, editorRef,
       },
       featureConfigs: {
         [CrepeFeature.Placeholder]: { text: placeholder || '开始编辑...' },
-        [CrepeFeature.Cursor]: { color: '#3b82f6', width: 4 },
+        [CrepeFeature.Cursor]: { color: 'var(--md3-primary, #3b82f6)', width: 4 },
         [CrepeFeature.ImageBlock]: {
           onUpload: handleImageUpload,
           inlineOnUpload: handleImageUpload,

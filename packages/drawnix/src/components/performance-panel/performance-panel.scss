@@ -15,39 +15,54 @@
   align-items: center;
   gap: 2px;
   padding: 6px;
-  background: rgba(255, 255, 255, 0.96);
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.96); // 旧浏览器回退
+  background: color-mix(
+    in srgb,
+    var(--md3-surface-container-low, #fff) 96%,
+    transparent
+  );
+  border-radius: var(--md3-radius-md, 12px);
+  border: none;
+  box-shadow: var(--md3-elevation-2, 0 2px 12px rgba(0, 0, 0, 0.08)),
+    0 0 1px rgba(0, 0, 0, 0.1);
   backdrop-filter: blur(8px);
   user-select: none;
   transition: box-shadow 0.2s ease, transform 0.15s ease;
   width: 36px;
 
   &:hover {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 0 1px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--md3-elevation-3, 0 4px 16px rgba(0, 0, 0, 0.12)),
+      0 0 1px rgba(0, 0, 0, 0.1);
   }
 
   &--dragging {
     cursor: grabbing;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--md3-elevation-3, 0 6px 20px rgba(0, 0, 0, 0.15));
     transform: scale(1.02);
   }
 
   // 警告级别 - 微妙的边框提示
   &--warning {
-    border: 1px solid rgba(245, 158, 11, 0.25);
+    border: 1px solid rgba(0, 0, 0, 0.25); // 旧浏览器回退
+    border-color: color-mix(in srgb, var(--md3-primary, #f59e0b) 25%, transparent);
   }
 
   &--critical {
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    background: rgba(254, 242, 242, 0.96);
+    border: 1px solid rgba(239, 68, 68, 0.3); // 旧浏览器回退
+    border-color: color-mix(in srgb, var(--md3-error, #ef4444) 30%, transparent);
+    background: rgba(254, 242, 242, 0.96); // 旧浏览器回退
+    background: color-mix(
+      in srgb,
+      var(--md3-error-container, #fef2f2) 96%,
+      transparent
+    );
   }
 
   // 分隔线
   &__divider {
     width: 20px;
     height: 1px;
-    background: rgba(0, 0, 0, 0.06);
+    background: var(--md3-outline-variant, rgba(0, 0, 0, 0.06));
     margin: 2px 0;
   }
 
@@ -58,13 +73,13 @@
     justify-content: center;
     width: 24px;
     height: 12px;
-    color: #d1d5db;
+    color: var(--md3-outline-variant, #d1d5db);
     cursor: grab;
-    border-radius: 4px;
+    border-radius: var(--md3-radius-sm, 8px);
     transition: color 0.15s ease;
 
     &:hover {
-      color: #9ca3af;
+      color: var(--md3-outline, #9ca3af);
     }
 
     &:active {
@@ -95,15 +110,15 @@
   &__value {
     font-size: 10px;
     font-weight: 600;
-    color: #6b7280;
+    color: var(--md3-on-surface-variant, #6b7280);
     line-height: 1;
-    
+
     .performance-panel--warning & {
-      color: #d97706;
+      color: var(--md3-primary, #d97706);
     }
-    
+
     .performance-panel--critical & {
-      color: #dc2626;
+      color: var(--md3-error, #dc2626);
     }
   }
 
@@ -115,15 +130,15 @@
     width: 26px;
     height: 26px;
     padding: 0;
-    color: #9ca3af;
+    color: var(--md3-outline, #9ca3af);
     background: transparent;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--md3-radius-full, 999px);
     cursor: pointer;
     transition: all 0.15s ease;
 
     &:hover {
-      color: #6b7280;
+      color: var(--md3-on-surface-variant, #6b7280);
       background: rgba(0, 0, 0, 0.04);
     }
 
@@ -137,21 +152,21 @@
     }
 
     &--active {
-      color: #6b7280;
-      background: rgba(0, 0, 0, 0.06);
+      color: var(--md3-on-primary-container, #6b7280);
+      background: var(--md3-primary-container, rgba(0, 0, 0, 0.06));
 
       &:hover {
-        color: #4b5563;
-        background: rgba(0, 0, 0, 0.08);
+        color: var(--md3-on-primary-container, #4b5563);
+        background: var(--md3-surface-container-highest, rgba(0, 0, 0, 0.08));
       }
     }
 
     &--primary {
-      color: #6b7280;
+      color: var(--md3-on-surface-variant, #6b7280);
       background: rgba(0, 0, 0, 0.04);
-      
+
       &:hover {
-        color: #4b5563;
+        color: var(--md3-on-surface, #4b5563);
         background: rgba(0, 0, 0, 0.08);
       }
     }
@@ -171,13 +186,13 @@
   &__tooltip-title {
     font-size: 12px;
     font-weight: 600;
-    color: #374151;
+    color: var(--md3-on-surface, #374151);
     margin-bottom: 6px;
   }
 
   &__tooltip-content {
     font-size: 11px;
-    color: #6b7280;
+    color: var(--md3-on-surface-variant, #6b7280);
     line-height: 1.5;
     margin-bottom: 6px;
 
@@ -190,10 +205,10 @@
 
   &__tooltip-tip {
     font-size: 10px;
-    color: #9ca3af;
+    color: var(--md3-outline, #9ca3af);
     line-height: 1.4;
     padding-top: 6px;
-    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    border-top: 1px solid var(--md3-outline-variant, rgba(0, 0, 0, 0.06));
     white-space: pre-line;
   }
 }

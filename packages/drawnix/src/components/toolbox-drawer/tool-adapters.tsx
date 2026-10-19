@@ -23,7 +23,7 @@ const LoadingFallback: React.FC<{ message?: string }> = ({ message = '加载中.
     justifyContent: 'center',
     height: '100%',
     minHeight: 200,
-    color: '#999',
+    color: 'var(--md3-outline, #999)',
     fontSize: 14,
   }}>
     {message}

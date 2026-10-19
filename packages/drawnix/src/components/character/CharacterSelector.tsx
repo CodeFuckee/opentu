@@ -158,7 +158,7 @@ export const CharacterSelector: React.FC<CharacterSelectorProps> = ({
       </div>
 
       {selectedIds.length > 0 && (
-        <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+        <div style={{ fontSize: '12px', color: 'var(--md3-on-surface-variant, #666)', marginTop: '4px' }}>
           已选择: {getSelectedUsernames()}
         </div>
       )}

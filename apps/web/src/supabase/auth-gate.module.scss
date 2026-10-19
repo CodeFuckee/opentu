@@ -12,7 +12,7 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #f39c12;
+  background: #0B57D0;
   animation: auth-gate-pulse 0.9s ease-in-out infinite;
 }
 
@@ -36,10 +36,10 @@
   padding: 24px;
   background: radial-gradient(
       circle at top,
-      rgba(90, 79, 207, 0.12),
+      rgba(0, 0, 0, 0.05),
       transparent 40%
     ),
-    linear-gradient(180deg, #fff8ef 0%, #ffffff 58%, #f8f9ff 100%);
+    linear-gradient(180deg, #F8FAFD 0%, #ffffff 58%, #F1F4F9 100%);
 }
 
 .gateCard {
@@ -62,13 +62,13 @@
   padding: 0 16px;
   margin-bottom: 22px;
   border-radius: 16px;
-  color: #f39c12;
+  color: #0B57D0;
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.02em;
   background: linear-gradient(
     135deg,
-    rgba(243, 156, 18, 0.18),
-    rgba(90, 79, 207, 0.12)
+    rgba(0, 0, 0, 0.08),
+    rgba(0, 0, 0, 0.05)
   );
 }

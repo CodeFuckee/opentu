@@ -5,10 +5,11 @@
 /* 工作流容器 */
 .workflow-display {
   margin: 12px 0;
-  border-radius: 12px;
-  background: var(--bg-secondary, #f8fafc);
-  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: var(--md3-radius-md, 12px);
+  background: var(--md3-surface-container, var(--bg-secondary, #f8fafc));
+  border: none; // MD3：卡片去描边
   overflow: hidden;
+  box-shadow: var(--md3-elevation-1, none);
 }
 
 /* 头部 */
@@ -17,8 +18,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  background: var(--bg-tertiary, #f1f5f9);
-  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  background: var(--md3-surface-container-high, var(--bg-tertiary, #f1f5f9));
+  border-bottom: 1px solid var(--md3-outline-variant, var(--border-color, #e2e8f0));
 }
 
 .workflow-display-header-left {
@@ -34,7 +35,7 @@
 .workflow-display-title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-primary, #1e293b);
+  color: var(--md3-on-surface, var(--text-primary, #1e293b));
 }
 
 .workflow-display-header-right {
@@ -47,17 +48,17 @@
   font-size: 12px;
   font-weight: 500;
   padding: 4px 10px;
-  border-radius: 12px;
+  border-radius: var(--md3-radius-full, 999px);
 }
 
 .workflow-display-status.workflow-status-pending {
-  background: #f1f5f9;
-  color: #64748b;
+  background: var(--md3-surface-container-high, #f1f5f9);
+  color: var(--md3-on-surface-variant, #64748b);
 }
 
 .workflow-display-status.workflow-status-running {
-  background: #dbeafe;
-  color: #2563eb;
+  background: var(--md3-secondary-container, #dbeafe);
+  color: var(--md3-on-secondary-container, #2563eb);
 }
 
 .workflow-display-status.workflow-status-completed {
@@ -72,7 +73,7 @@
 
 .workflow-display-progress-text {
   font-size: 12px;
-  color: var(--text-secondary, #64748b);
+  color: var(--md3-on-surface-variant, var(--text-secondary, #64748b));
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   min-width: 2.5em;
@@ -106,9 +107,9 @@
 .workflow-display-original {
   padding: 10px 16px;
   font-size: 12px;
-  color: var(--text-secondary, #64748b);
-  background: var(--bg-primary, white);
-  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  color: var(--md3-on-surface-variant, var(--text-secondary, #64748b));
+  background: var(--md3-surface-container-lowest, var(--bg-primary, white));
+  border-bottom: 1px solid var(--md3-outline-variant, var(--border-color, #e2e8f0));
 }
 
 .workflow-display-label {
@@ -117,7 +118,7 @@
 }
 
 .workflow-display-original-text {
-  color: var(--text-primary, #1e293b);
+  color: var(--md3-on-surface, var(--text-primary, #1e293b));
 }
 
 /* 步骤列表 */
@@ -128,24 +129,23 @@
 /* 单个步骤项 */
 .workflow-display-item {
   margin: 6px 0;
-  border-radius: 8px;
-  background: var(--bg-primary, white);
-  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: var(--md3-radius-md, 12px);
+  background: var(--md3-surface-container-lowest, var(--bg-primary, white));
+  border: none; // MD3：卡片去描边
   overflow: hidden;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: box-shadow 0.2s;
 }
 
 .workflow-display-item.workflow-current {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 0 0 2px var(--md3-primary, rgba(59, 130, 246, 0.2));
 }
 
 .workflow-display-item.workflow-status-completed {
-  border-color: #86efac;
+  box-shadow: 0 0 0 2px #86efac;
 }
 
 .workflow-display-item.workflow-status-failed {
-  border-color: #fca5a5;
+  box-shadow: 0 0 0 2px #fca5a5;
 }
 
 .workflow-display-item-main {
@@ -158,7 +158,7 @@
 }
 
 .workflow-display-item-main:hover {
-  background: var(--bg-hover, #f8fafc);
+  background: var(--md3-surface-container-high, var(--bg-hover, #f8fafc));
 }
 
 .workflow-display-item-index {
@@ -168,10 +168,10 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: var(--bg-tertiary, #f1f5f9);
+  background: var(--md3-surface-container-high, var(--bg-tertiary, #f1f5f9));
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-secondary, #64748b);
+  color: var(--md3-on-surface-variant, var(--text-secondary, #64748b));
 }
 
 .workflow-display-item.workflow-status-completed .workflow-display-item-index {
@@ -180,8 +180,8 @@
 }
 
 .workflow-display-item.workflow-status-running .workflow-display-item-index {
-  background: #dbeafe;
-  color: #2563eb;
+  background: var(--md3-secondary-container, #dbeafe);
+  color: var(--md3-on-secondary-container, #2563eb);
 }
 
 .workflow-display-item.workflow-status-failed .workflow-display-item-index {
@@ -196,11 +196,11 @@
 }
 
 .workflow-display-item-status.workflow-status-pending {
-  color: #94a3b8;
+  color: var(--md3-outline, #94a3b8);
 }
 
 .workflow-display-item-status.workflow-status-running {
-  color: #3b82f6;
+  color: var(--md3-primary, #3b82f6);
 }
 
 .workflow-display-item-status.workflow-status-completed {
@@ -212,14 +212,14 @@
 }
 
 .workflow-display-item-status.workflow-status-skipped {
-  color: #94a3b8;
+  color: var(--md3-outline, #94a3b8);
 }
 
 .workflow-display-spinner {
   display: inline-block;
   width: 14px;
   height: 14px;
-  border: 2px solid #3b82f6;
+  border: 2px solid var(--md3-primary, #3b82f6);
   border-right-color: transparent;
   border-radius: 50%;
   animation: workflow-spin 0.8s linear infinite;
@@ -239,7 +239,7 @@
 .workflow-display-item-title {
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-primary, #1e293b);
+  color: var(--md3-on-surface, var(--text-primary, #1e293b));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -247,13 +247,13 @@
 
 .workflow-display-item-status-text {
   font-size: 11px;
-  color: var(--text-tertiary, #94a3b8);
+  color: var(--md3-outline, var(--text-tertiary, #94a3b8));
   margin-top: 2px;
 }
 
 .workflow-display-item-expand {
   font-size: 10px;
-  color: var(--text-tertiary, #94a3b8);
+  color: var(--md3-outline, var(--text-tertiary, #94a3b8));
   transition: transform 0.2s;
 }
 
@@ -264,8 +264,8 @@
 /* 步骤详情 */
 .workflow-display-item-details {
   padding: 12px;
-  border-top: 1px solid var(--border-color, #e2e8f0);
-  background: var(--bg-secondary, #f8fafc);
+  border-top: 1px solid var(--md3-outline-variant, var(--border-color, #e2e8f0));
+  background: var(--md3-surface-container, var(--bg-secondary, #f8fafc));
   font-size: 12px;
 }
 
@@ -285,18 +285,18 @@
 .workflow-display-tool-name {
   font-family: 'Monaco', 'Menlo', monospace;
   font-size: 11px;
-  background: var(--bg-tertiary, #f1f5f9);
+  background: var(--md3-surface-container-high, var(--bg-tertiary, #f1f5f9));
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: var(--md3-radius-xs, 4px);
 }
 
 .workflow-display-result-content {
   margin-top: 4px;
   padding: 8px 10px;
-  background: var(--bg-primary, white);
-  border-radius: 6px;
-  border: 1px solid var(--border-color, #e2e8f0);
-  color: var(--text-primary, #1e293b);
+  background: var(--md3-surface-container-lowest, var(--bg-primary, white));
+  border-radius: var(--md3-radius-sm, 8px);
+  border: none; // MD3：去描边
+  color: var(--md3-on-surface, var(--text-primary, #1e293b));
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
@@ -307,18 +307,18 @@
 .workflow-display-error-content {
   margin-top: 4px;
   padding: 8px 10px;
-  background: #fef2f2;
-  border-radius: 6px;
-  border: 1px solid #fecaca;
+  background: var(--md3-error-container, #fef2f2);
+  border-radius: var(--md3-radius-sm, 8px);
+  border: none;
   color: #dc2626;
 }
 
 .workflow-display-args-content {
   margin: 4px 0 0;
   padding: 8px 10px;
-  background: var(--bg-primary, white);
-  border-radius: 6px;
-  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--md3-surface-container-lowest, var(--bg-primary, white));
+  border-radius: var(--md3-radius-sm, 8px);
+  border: none; // MD3：去描边
   font-family: 'Monaco', 'Menlo', monospace;
   font-size: 11px;
   white-space: pre-wrap;
@@ -332,13 +332,13 @@
   display: flex;
   gap: 8px;
   padding: 12px 16px;
-  border-top: 1px solid var(--border-color, #e2e8f0);
-  background: var(--bg-tertiary, #f1f5f9);
+  border-top: 1px solid var(--md3-outline-variant, var(--border-color, #e2e8f0));
+  background: var(--md3-surface-container-high, var(--bg-tertiary, #f1f5f9));
 }
 
 .workflow-display-btn {
   padding: 6px 12px;
-  border-radius: 6px;
+  border-radius: var(--md3-radius-full, 999px);
   font-size: 12px;
   font-weight: 500;
   border: none;
@@ -346,16 +346,8 @@
   transition: all 0.2s;
 }
 
-.workflow-display-btn:hover {
-  transform: translateY(-1px);
-}
-
-.workflow-display-btn:active {
-  transform: translateY(0);
-}
-
 .workflow-display-btn-cancel {
-  background: #fee2e2;
+  background: var(--md3-error-container, #fee2e2);
   color: #dc2626;
 }
 
@@ -364,8 +356,8 @@
 }
 
 .workflow-display-btn-retry {
-  background: #dbeafe;
-  color: #2563eb;
+  background: var(--md3-secondary-container, #dbeafe);
+  color: var(--md3-on-secondary-container, #2563eb);
 }
 
 .workflow-display-btn-retry:hover {
@@ -374,7 +366,7 @@
 
 /* 完成摘要 */
 .workflow-display-summary {
-  border-top: 1px solid var(--border-color, #e2e8f0);
+  border-top: 1px solid var(--md3-outline-variant, var(--border-color, #e2e8f0));
   background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
 }
 
@@ -399,7 +391,7 @@
   padding: 0 16px 16px;
   font-size: 13px;
   line-height: 1.6;
-  color: var(--text-primary, #1e293b);
+  color: var(--md3-on-surface, var(--text-primary, #1e293b));
 }
 
 /* 暗色模式 */

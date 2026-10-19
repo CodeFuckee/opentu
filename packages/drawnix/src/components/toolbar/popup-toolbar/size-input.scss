@@ -8,20 +8,20 @@
   display: flex;
   align-items: center;
   gap: 1px;
-  background: var(--color-surface, #fafafa);
-  border: 1px solid var(--color-border, #e0e0e0);
-  border-radius: 4px;
+  background: var(--md3-surface-container-highest, #fafafa);
+  border: 1px solid var(--md3-outline-variant, #e0e0e0);
+  border-radius: var(--md3-radius-sm, 8px);
   padding: 1px 4px;
-  
+
   &:focus-within {
-    border-color: var(--color-primary, #1890ff);
+    border-color: var(--md3-accent, #1890ff);
   }
 }
 
 .size-input-label {
   font-size: 10px;
   font-weight: 500;
-  color: var(--color-on-surface-variant, #888);
+  color: var(--md3-on-surface-variant, #888);
   user-select: none;
   line-height: 1;
 }
@@ -34,13 +34,13 @@
   background: transparent;
   font-size: 11px;
   text-align: right;
-  color: var(--color-on-surface, #333);
+  color: var(--md3-on-surface, #333);
   line-height: 18px;
-  
+
   &:focus {
     outline: none;
   }
-  
+
   // 隐藏数字输入框的上下箭头
   &::-webkit-outer-spin-button,
   &::-webkit-inner-spin-button {
@@ -61,20 +61,20 @@
   padding: 0;
   border: none;
   background: transparent;
-  color: var(--color-on-surface-variant, #999);
+  color: var(--md3-outline, #999);
   cursor: pointer;
-  border-radius: 3px;
+  border-radius: var(--md3-radius-full, 999px);
   transition: background-color 0.15s ease, color 0.15s ease;
-  
+
   &:hover {
-    background: var(--color-surface-hover, rgba(0, 0, 0, 0.05));
-    color: var(--color-on-surface, #333);
+    background: var(--aitu-ui-hover-bg, rgba(0, 0, 0, 0.05));
+    color: var(--md3-on-surface, #333);
   }
-  
+
   &.locked {
-    color: var(--color-primary, #1890ff);
+    color: var(--md3-primary, #1890ff);
   }
-  
+
   svg {
     width: 12px;
     height: 12px;
@@ -94,20 +94,20 @@
   padding: 0;
   border: none;
   background: transparent;
-  color: var(--color-on-surface-variant, #999);
+  color: var(--md3-outline, #999);
   cursor: pointer;
-  border-radius: 3px;
+  border-radius: var(--md3-radius-full, 999px);
   transition: background-color 0.15s ease, color 0.15s ease;
   flex-shrink: 0;
 
   &:hover {
-    background: var(--color-surface-hover, rgba(0, 0, 0, 0.05));
-    color: var(--color-on-surface, #333);
+    background: var(--aitu-ui-hover-bg, rgba(0, 0, 0, 0.05));
+    color: var(--md3-on-surface, #333);
   }
 
   &.active {
-    color: var(--color-primary, #1890ff);
-    background: rgba(24, 144, 255, 0.08);
+    color: var(--md3-primary, #1890ff);
+    background: var(--md3-primary-container, rgba(24, 144, 255, 0.08));
   }
 }
 
@@ -120,14 +120,14 @@
   max-height: 360px;
   overflow-y: auto;
   padding: 4px 0;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  background: var(--md3-surface-container, #fff);
+  border-radius: var(--md3-radius-lg, 16px);
+  box-shadow: var(--md3-elevation-2, 0 4px 16px rgba(0, 0, 0, 0.12));
 }
 
 .size-preset-category {
   &:not(:first-child) {
-    border-top: 1px solid #f0f0f0;
+    border-top: 1px solid var(--md3-outline-variant, #f0f0f0);
     margin-top: 2px;
     padding-top: 2px;
   }
@@ -137,7 +137,7 @@
   padding: 6px 12px 2px;
   font-size: 10px;
   font-weight: 600;
-  color: #999;
+  color: var(--md3-outline, #999);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   user-select: none;
@@ -156,18 +156,18 @@
   transition: background-color 0.15s ease;
 
   &:hover {
-    background: #f5f5f5;
+    background: var(--md3-surface-container-high, #f5f5f5);
   }
 }
 
 .size-preset-item-label {
   font-size: 12px;
-  color: #333;
+  color: var(--md3-on-surface, #333);
 }
 
 .size-preset-item-size {
   font-size: 11px;
-  color: #999;
+  color: var(--md3-outline, #999);
   font-variant-numeric: tabular-nums;
 }
 

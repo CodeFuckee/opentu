@@ -3,28 +3,28 @@
 /* 覆盖 TDesign 的 CSS 变量以匹配品牌色彩 */
 :root {
   /* 主品牌色 - 橙金色系 */
-  --td-brand-color: #F39C12;
-  --td-brand-color-1: #FEF5E7;
-  --td-brand-color-2: #FDE68A;
-  --td-brand-color-3: #FBBF24;
-  --td-brand-color-4: #F59E0B;
-  --td-brand-color-5: #F39C12;
-  --td-brand-color-6: #E67E22;
-  --td-brand-color-7: #D35400;
-  --td-brand-color-8: #B45309;
-  --td-brand-color-9: #92400E;
-  --td-brand-color-10: #78350F;
+  --td-brand-color: #0B57D0;
+  --td-brand-color-1: #D3E3FD;
+  --td-brand-color-2: #A8C7FA;
+  --td-brand-color-3: #7BAAF7;
+  --td-brand-color-4: #4C8DF6;
+  --td-brand-color-5: #1A73E8;
+  --td-brand-color-6: #0B57D0;
+  --td-brand-color-7: #0A4CB3;
+  --td-brand-color-8: #093E99;
+  --td-brand-color-9: #083180;
+  --td-brand-color-10: #062E6F;
 
   /* 主要按钮和交互元素 */
-  --td-brand-color-hover: #E67E22;
-  --td-brand-color-focus: #F39C12;
-  --td-brand-color-active: #D35400;
-  --td-brand-color-disabled: #FDE68A;
+  --td-brand-color-hover: #1A73E8;
+  --td-brand-color-focus: #0B57D0;
+  --td-brand-color-active: #0A4CB3;
+  --td-brand-color-disabled: #A8C7FA;
 
   /* 品牌色浅色版本 - 用于选中/高亮背景 */
-  --td-brand-color-light: rgba(243, 156, 18, 0.12);
-  --td-brand-color-light-hover: rgba(243, 156, 18, 0.18);
-  --td-brand-color-light-active: rgba(243, 156, 18, 0.24);
+  --td-brand-color-light: rgba(11, 87, 208, 0.08);
+  --td-brand-color-light-hover: rgba(11, 87, 208, 0.12);
+  --td-brand-color-light-active: rgba(11, 87, 208, 0.16);
 
   /* 成功色 - 保持TDesign默认或使用品牌绿色 */
   --td-success-color: #00B894;
@@ -67,12 +67,12 @@
   --aitu-ui-brand-hover: var(--td-brand-color-hover);
   --aitu-ui-brand-active: var(--td-brand-color-active);
   --aitu-ui-brand-text: #b45309;
-  --aitu-ui-brand-soft: rgba(243, 156, 18, 0.12);
-  --aitu-ui-brand-softer: rgba(243, 156, 18, 0.06);
-  --aitu-ui-brand-border: rgba(243, 156, 18, 0.52);
-  --aitu-ui-brand-border-soft: rgba(243, 156, 18, 0.28);
-  --aitu-ui-focus-ring: 0 0 0 3px rgba(243, 156, 18, 0.18);
-  --aitu-ui-selected-bg: rgba(243, 156, 18, 0.08);
+  --aitu-ui-brand-soft: rgba(0, 0, 0, 0.12);
+  --aitu-ui-brand-softer: rgba(0, 0, 0, 0.06);
+  --aitu-ui-brand-border: rgba(0, 0, 0, 0.52);
+  --aitu-ui-brand-border-soft: rgba(0, 0, 0, 0.28);
+  --aitu-ui-focus-ring: 0 0 0 3px rgba(0, 0, 0, 0.18);
+  --aitu-ui-selected-bg: rgba(0, 0, 0, 0.08);
   --aitu-ui-hover-bg: #fffaf0;
 
   --aitu-ui-surface: #ffffff;
@@ -91,15 +91,15 @@
   --aitu-ui-success-soft: rgba(34, 197, 94, 0.12);
   --aitu-ui-success-border: rgba(34, 197, 94, 0.28);
   --aitu-ui-warning: #b45309;
-  --aitu-ui-warning-soft: rgba(245, 158, 11, 0.14);
-  --aitu-ui-warning-border: rgba(245, 158, 11, 0.32);
+  --aitu-ui-warning-soft: rgba(0, 0, 0, 0.14);
+  --aitu-ui-warning-border: rgba(0, 0, 0, 0.32);
   --aitu-ui-danger: var(--td-error-color);
   --aitu-ui-danger-soft: rgba(233, 30, 99, 0.08);
   --aitu-ui-danger-border: rgba(233, 30, 99, 0.24);
 
   --aitu-ui-shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(15, 23, 42, 0.04);
-  --aitu-ui-shadow-hover: 0 8px 20px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(243, 156, 18, 0.18);
-  --aitu-ui-shadow-selected: 0 10px 24px rgba(243, 156, 18, 0.14), 0 0 0 1px rgba(243, 156, 18, 0.36);
+  --aitu-ui-shadow-hover: 0 8px 20px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.18);
+  --aitu-ui-shadow-selected: 0 10px 24px rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(0, 0, 0, 0.36);
   --aitu-ui-shadow-popover: 0 16px 40px rgba(15, 23, 42, 0.14), 0 0 0 1px rgba(15, 23, 42, 0.06);
   --aitu-ui-shadow-soft: 0 2px 10px rgba(15, 23, 42, 0.06);
 
@@ -150,7 +150,7 @@
   /* Input 组件 */
   .t-input:focus {
     border-color: var(--td-brand-color);
-    box-shadow: 0 0 0 2px rgba(243, 156, 18, 0.2);
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.2);
   }
 
   /* Tabs 组件 */
@@ -178,7 +178,7 @@
 
   /* Select 组件 */
   .t-select__option.t-is-selected {
-    background-color: rgba(243, 156, 18, 0.1);
+    background-color: rgba(0, 0, 0, 0.1);
     color: var(--td-brand-color);
   }
 
@@ -194,7 +194,7 @@
 
   /* Tag 组件 */
   .t-tag--theme-primary {
-    background-color: rgba(243, 156, 18, 0.1);
+    background-color: rgba(0, 0, 0, 0.1);
     color: var(--td-brand-color);
     border-color: var(--td-brand-color-2);
   }

@@ -23,8 +23,8 @@
   }
 
   &--focused {
-    border: 1px solid rgba(15, 23, 42, 0.12);
-    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.08);
+    border-color: var(--md3-outline-variant, rgba(15, 23, 42, 0.12));
+    box-shadow: 0 0 0 3px var(--md3-primary-container, rgba(0, 0, 0, 0.08));
   }
 
   &--empty {
@@ -38,7 +38,7 @@
 
     // 空槽位选中态
     &.media-viewport--focused {
-      border: 1px solid rgba(15, 23, 42, 0.12);
+      border-color: var(--md3-outline-variant, rgba(15, 23, 42, 0.12));
       background: rgba(15, 23, 42, 0.04);
     }
   }
@@ -70,7 +70,7 @@
     transition: opacity 0.2s ease, background 0.2s ease;
 
     &:hover {
-      background: rgba(231, 76, 60, 0.8);
+      background: var(--md3-error, rgba(231, 76, 60, 0.8));
     }
   }
 
@@ -114,7 +114,7 @@
     align-items: center;
     justify-content: center;
     border: 1px dashed rgba(255, 255, 255, 0.2);
-    border-radius: 16px;
+    border-radius: var(--md3-radius-lg, 16px);
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
     color: rgba(255, 255, 255, 0.72);
     font-size: 14px;
@@ -146,26 +146,26 @@
     flex-direction: column;
     gap: 16px;
     border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 20px;
+    border-radius: var(--md3-radius-xl, 20px);
     background:
-      radial-gradient(circle at top right, rgba(243, 156, 18, 0.18), transparent 36%),
+      radial-gradient(circle at top right, var(--md3-primary-container, rgba(0, 0, 0, 0.18)), transparent 36%),
       linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
     backdrop-filter: blur(12px);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+    box-shadow: var(--md3-elevation-3, 0 12px 40px rgba(0, 0, 0, 0.25));
   }
 
   &__audio-poster {
     width: 100%;
     aspect-ratio: 1 / 1;
     object-fit: cover;
-    border-radius: 16px;
+    border-radius: var(--md3-radius-lg, 16px);
     user-select: none;
 
     &--fallback {
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, rgba(243, 156, 18, 0.3), rgba(255, 255, 255, 0.08));
+      background: linear-gradient(135deg, var(--md3-primary-container, rgba(0, 0, 0, 0.3)), rgba(255, 255, 255, 0.08));
       color: rgba(255, 255, 255, 0.88);
     }
   }
@@ -215,7 +215,7 @@
     gap: 4px;
     padding: 6px 12px;
     background: rgba(0, 0, 0, 0.75);
-    border-radius: 24px;
+    border-radius: var(--md3-radius-full, 24px);
     z-index: 100;
     backdrop-filter: blur(8px);
     pointer-events: auto;
@@ -244,8 +244,8 @@
       }
 
       &.active {
-        background: rgba(243, 156, 18, 0.3);
-        color: #f39c12;
+        background: var(--md3-primary-container, rgba(0, 0, 0, 0.3));
+        color: var(--md3-primary, #f39c12);
       }
     }
 
@@ -311,7 +311,7 @@
     height: 24px;
     color: rgba(255, 255, 255, 0.5);
     cursor: grab;
-    border-radius: 4px;
+    border-radius: var(--md3-radius-xs, 4px);
     transition: color 0.2s ease, background 0.2s ease;
     touch-action: none; // 防止触摸手势被浏览器拦截
     user-select: none;
@@ -323,7 +323,7 @@
 
     &:active {
       cursor: grabbing;
-      color: #f39c12;
+      color: var(--md3-primary, #f39c12);
     }
   }
 
@@ -378,7 +378,7 @@
     padding: 8px 12px;
     background: rgba(0, 0, 0, 0.72);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
+    border-radius: var(--md3-radius-md, 12px);
     font-size: 13px;
     color: #fff;
     text-align: center;
@@ -406,7 +406,7 @@
       white-space: pre-wrap;
       text-overflow: clip;
       text-align: left;
-      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+      box-shadow: var(--md3-elevation-3, 0 12px 28px rgba(0, 0, 0, 0.28));
     }
   }
 }
@@ -497,10 +497,10 @@
   z-index: 10010;
   max-width: min(360px, calc(100vw - 24px));
   padding: 8px 10px;
-  border-radius: 10px;
+  border-radius: var(--md3-radius-md, 12px);
   background: rgba(22, 22, 22, 0.94);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--md3-elevation-3, 0 12px 32px rgba(0, 0, 0, 0.28));
   color: rgba(255, 255, 255, 0.92);
   font-size: 12px;
   line-height: 1.5;

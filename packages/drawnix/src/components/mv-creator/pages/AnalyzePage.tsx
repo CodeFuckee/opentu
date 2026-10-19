@@ -416,7 +416,7 @@ export const AnalyzePage: React.FC<AnalyzePageProps> = ({
                 <button
                   onClick={handleOpenMusicTool}
                   style={{
-                    background: 'none', border: 'none', color: '#E67E22',
+                    background: 'none', border: 'none', color: 'var(--md3-primary, #E67E22)',
                     cursor: 'pointer', textDecoration: 'underline',
                     padding: 0, font: 'inherit',
                   }}

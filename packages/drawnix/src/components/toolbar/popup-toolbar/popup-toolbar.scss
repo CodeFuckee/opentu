@@ -16,12 +16,12 @@
             border-radius: 50%;
             box-sizing: border-box;
             &.color-white {
-                border: 1px solid #c0c0c0;
+                border: 1px solid var(--md3-outline-variant, #c0c0c0);
             }
             &.color-mixed {
                 // 使用环形渐变效果，与线条杂色表示方式一致
                 border: var(--border-radius-sm) solid transparent;
-                background: 
+                background:
                     linear-gradient(var(--color-surface, #fff), var(--color-surface, #fff)) padding-box,
                     conic-gradient(
                         from 0deg,
@@ -68,7 +68,7 @@
     }
     .stroke-width-section {
         padding: 0 8px;
-        
+
         // 调整 TDesign Slider 样式
         .t-slider {
             height: 24px;
@@ -91,7 +91,7 @@
             width: 12px;
             height: 12px;
         }
-        
+
         // 输入框样式
         .stroke-width-input-wrapper {
             display: flex;
@@ -103,21 +103,21 @@
             width: 32px;
             height: 22px;
             padding: 0 4px;
-            border: 1px solid var(--color-border, #e0e0e0);
-            border-radius: 4px;
+            border: 1px solid var(--md3-outline-variant, #e0e0e0);
+            border-radius: var(--md3-radius-sm, 8px);
             font-size: 12px;
             text-align: center;
-            color: var(--color-on-surface, #333);
-            background: var(--color-surface, #fafafa);
-            
+            color: var(--md3-on-surface, #333);
+            background: var(--md3-surface-container-highest, #fafafa);
+
             &:focus {
                 outline: none;
-                border-color: var(--color-primary, #1890ff);
+                border-color: var(--md3-accent, #1890ff);
             }
         }
         .stroke-width-input-unit {
             font-size: 12px;
-            color: var(--color-on-surface, #666);
+            color: var(--md3-on-surface-variant, #666);
         }
     }
     .stroke-style-section {
@@ -129,7 +129,7 @@
     }
     .stroke-style-label {
         font-size: 12px;
-        color: #666;
+        color: var(--md3-on-surface-variant, #666);
         white-space: nowrap;
     }
     .stroke-style-picker {
@@ -152,30 +152,30 @@
 // 紧凑型圆角设置面板
 .corner-radius-setting-compact {
     padding: 4px 8px !important;
-    border-radius: 6px;
-    background: var(--color-surface-high, #fff);
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
-    
+    border-radius: var(--md3-radius-lg, 16px);
+    background: var(--md3-surface-container-high, #fff);
+    box-shadow: var(--md3-elevation-2, 0 2px 12px rgba(0, 0, 0, 0.12));
+
     .corner-radius-row {
         display: flex;
         align-items: center;
         gap: 8px;
         height: 24px;
     }
-    
+
     .corner-radius-label {
         font-size: 12px;
-        color: var(--color-on-surface, #666);
+        color: var(--md3-on-surface-variant, #666);
         white-space: nowrap;
         flex-shrink: 0;
     }
-    
+
     .corner-radius-slider {
         flex: 1;
         min-width: 90px;
         display: flex;
         align-items: center;
-        
+
         // 调整 TDesign Slider 样式使其垂直居中
         .t-slider {
             height: 24px;
@@ -199,28 +199,28 @@
             height: 12px;
         }
     }
-    
+
     .corner-radius-input {
         width: 36px;
         height: 22px;
         padding: 0 4px;
-        border: 1px solid var(--color-border, #e0e0e0);
-        border-radius: 4px;
+        border: 1px solid var(--md3-outline-variant, #e0e0e0);
+        border-radius: var(--md3-radius-sm, 8px);
         font-size: 12px;
         text-align: center;
-        color: var(--color-on-surface, #333);
-        background: var(--color-surface, #fafafa);
+        color: var(--md3-on-surface, #333);
+        background: var(--md3-surface-container-highest, #fafafa);
         flex-shrink: 0;
-        
+
         &:focus {
             outline: none;
-            border-color: var(--color-primary, #1890ff);
+            border-color: var(--md3-accent, #1890ff);
         }
     }
-    
+
     .corner-radius-unit {
         font-size: 12px;
-        color: var(--color-on-surface, #666);
+        color: var(--md3-on-surface-variant, #666);
         flex-shrink: 0;
         margin-left: -2px;
     }
@@ -235,7 +235,7 @@
     .popup-toolbar {
         // 限制最大宽度，防止超出屏幕
         max-width: calc(100vw - 32px);
-        
+
         // 内部 stack 支持水平滚动
         .stack_horizontal {
             // 将 grid 改为 flex 以支持更好的滚动
@@ -246,12 +246,12 @@
             -webkit-overflow-scrolling: touch;
             scrollbar-width: none; // Firefox
             gap: 4px; // 保持按钮间距
-            
+
             &::-webkit-scrollbar {
                 display: none; // Chrome, Safari, Edge
             }
         }
-        
+
         // 确保弹出工具栏在移动端有足够的触控区域
         .property-button {
             min-width: 40px;
@@ -266,7 +266,7 @@
                 height: 20px;
             }
         }
-        
+
         // 所有工具按钮不收缩
         .tool-button {
             flex-shrink: 0;
@@ -319,7 +319,7 @@
     .popup-toolbar {
         // 进一步限制最大宽度
         max-width: calc(100vw - 24px);
-        
+
         // 更大的触控目标
         .property-button {
             min-width: 44px;
@@ -331,7 +331,7 @@
             width: 20px !important;
             height: 20px !important;
         }
-        
+
         // 减小按钮间距以容纳更多按钮
         .stack_horizontal {
             gap: 2px;

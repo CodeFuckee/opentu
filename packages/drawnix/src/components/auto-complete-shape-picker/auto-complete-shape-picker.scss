@@ -9,12 +9,8 @@
     transition: all 0.15s ease;
 
     &.is-current {
-      background: var(--color-primary-light, #e3f2fd);
-      border-color: var(--color-primary, #5A4FCF);
-    }
-
-    &:hover {
-      transform: scale(1.05);
+      background: var(--md3-primary-container, #e3f2fd);
+      border-color: var(--md3-accent, #5a4fcf);
     }
   }
 }

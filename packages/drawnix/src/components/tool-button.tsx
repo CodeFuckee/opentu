@@ -178,7 +178,9 @@ export const ToolButton = React.forwardRef((props: ToolButtonProps, ref) => {
           </div>
         )}
         {props.showAriaLabel && (
-          <div className="tool-icon__label">{props['aria-label']}</div>
+          <div className="tool-icon__label">
+            {String(props['aria-label'] ?? '').split(' — ')[0]}
+          </div>
         )}
         {props.children && (
           <div className="tool-icon__icon">{props.children}</div>
@@ -239,6 +241,11 @@ export const ToolButton = React.forwardRef((props: ToolButtonProps, ref) => {
           <span className="tool-icon__keybinding">{props.keyBindingLabel}</span>
         )}
       </div>
+      {props.showAriaLabel && props['aria-label'] && (
+        <div className="tool-icon__label">
+          {String(props['aria-label']).split(' — ')[0]}
+        </div>
+      )}
     </label>
   );
 

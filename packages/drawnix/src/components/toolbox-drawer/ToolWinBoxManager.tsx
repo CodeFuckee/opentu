@@ -406,7 +406,7 @@ export const ToolWinBoxManager: React.FC = () => {
                         alignItems: 'center',
                         justifyContent: 'center',
                         height: '100%',
-                        color: '#666',
+                        color: 'var(--md3-on-surface-variant, #666)',
                       }}
                     >
                       {language === 'zh' ? '加载中...' : 'Loading...'}
@@ -427,7 +427,7 @@ export const ToolWinBoxManager: React.FC = () => {
                 />
               ) : (
                 <div
-                  style={{ padding: 20, textAlign: 'center', color: '#999' }}
+                  style={{ padding: 20, textAlign: 'center', color: 'var(--md3-outline, #999)' }}
                 >
                   {language === 'zh'
                     ? '未定义的工具内容'

@@ -1019,7 +1019,7 @@ const KnowledgeBaseContent: React.FC<KnowledgeBaseContentProps> = ({ initialNote
                       justifyContent: 'center',
                       padding: '4px',
                       color: 'var(--td-text-color-secondary)',
-                      borderRadius: '4px',
+                      borderRadius: 'var(--md3-radius-full, 999px)',
                     }}
                     onMouseEnter={(e) =>
                       (e.currentTarget.style.backgroundColor =

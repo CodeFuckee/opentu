@@ -106,7 +106,7 @@ export function Md3MessageHost(): React.ReactElement {
         alignItems: 'center',
         gap: 8,
         pointerEvents: 'none',
-        width: 'min(92vw, 560px)',
+        width: 'min(92vw, 420px)',
       }}
     >
       {list.map((entry) => (
@@ -121,10 +121,13 @@ export function Md3MessageHost(): React.ReactElement {
           }
           sx={{
             pointerEvents: 'auto',
-            borderRadius: '8px',
-            boxShadow: 'var(--md3-elevation-2)',
+            borderRadius: '12px',
+            boxShadow: 'var(--md3-elevation-3)',
+            border: '1px solid var(--md3-hairline, rgba(0, 0, 0, 0.1))',
             alignItems: 'center',
             width: '100%',
+            py: 0.75,
+            fontSize: '0.8125rem',
           }}
         >
           {entry.content as React.ReactNode}

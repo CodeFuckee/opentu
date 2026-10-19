@@ -727,6 +727,7 @@ export const CreationToolbar: React.FC<ToolbarSectionProps> = ({
               icon={displayIcon}
               tooltip={displayTitle}
               aria-label={displayTitle}
+              showAriaLabel={embedded}
               data-track={`toolbar_click_${popupKey}`}
               onPointerDown={() => {
                 showPopover(popupKey);
@@ -772,6 +773,7 @@ export const CreationToolbar: React.FC<ToolbarSectionProps> = ({
         aria-label={
           button.titleKey ? t(button.titleKey as keyof Translations) : ''
         }
+        showAriaLabel={embedded}
         data-track={`toolbar_click_${button.pointer || button.key}`}
         onPointerDown={() => {
           if (button.pointer && !isBasicPointer(button.pointer)) {

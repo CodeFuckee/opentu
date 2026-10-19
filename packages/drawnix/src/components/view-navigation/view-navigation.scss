@@ -21,10 +21,10 @@
     display: flex;
     align-items: center;
     gap: 0;
-    background: #fff;
-    border-radius: 20px;
+    background: var(--md3-surface-container, #fff);
+    border-radius: var(--md3-radius-full, 999px);
     padding: 4px 8px;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--md3-elevation-2, 0 1px 4px rgba(0, 0, 0, 0.08));
   }
 
   // 缩放按钮（减号/加号）
@@ -39,12 +39,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #666;
+    color: var(--aitu-ui-text-secondary, #666);
     transition: all 0.15s ease;
 
     &:hover {
-      color: #5a4fcf;
-      background: rgba(90, 79, 207, 0.08);
+      color: var(--md3-primary, #5a4fcf);
+      background: var(--aitu-ui-hover-bg, rgba(0, 0, 0, 0.05));
     }
 
     &:active {
@@ -64,19 +64,19 @@
     padding: 0 4px;
     border: none;
     background: transparent;
-    border-radius: 4px;
+    border-radius: var(--md3-radius-full, 999px);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 13px;
     font-weight: 500;
-    color: #333;
+    color: var(--aitu-ui-text-primary, #333);
     transition: all 0.15s ease;
 
     &:hover {
-      color: #5a4fcf;
-      background: rgba(90, 79, 207, 0.08);
+      color: var(--md3-primary, #5a4fcf);
+      background: var(--aitu-ui-hover-bg, rgba(0, 0, 0, 0.05));
     }
   }
 
@@ -92,13 +92,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #999;
+    color: var(--aitu-ui-text-tertiary, #999);
     transition: all 0.2s ease;
     margin-left: 2px;
 
     &:hover {
-      color: #5a4fcf;
-      background: rgba(90, 79, 207, 0.08);
+      color: var(--md3-primary, #5a4fcf);
+      background: var(--aitu-ui-hover-bg, rgba(0, 0, 0, 0.05));
     }
 
     &:active {
@@ -133,48 +133,52 @@
       left: auto !important;
     }
 
-    // 强制使用白色主题
+    // MD3：tonal 表面 + elevation，无描边
     .minimap__content {
-      background: #fff !important;
-      border: 1px solid rgba(0, 0, 0, 0.08) !important;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+      background: var(--md3-surface-container-lowest, #fff) !important;
+      border: none !important;
+      border-radius: var(--md3-radius-md, 12px) !important;
+      overflow: hidden;
+      box-shadow: var(--md3-elevation-2, 0 2px 8px rgba(0, 0, 0, 0.08)) !important;
       position: relative;
     }
 
     // 预览框样式
     .minimap__preview {
-      background: #fff;
-      border: 1px solid rgba(0, 0, 0, 0.1);
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+      background: var(--md3-surface-container-lowest, #fff);
+      border: none;
+      border-radius: var(--md3-radius-md, 12px);
+      box-shadow: var(--md3-elevation-3, 0 4px 16px rgba(0, 0, 0, 0.15));
     }
   }
 }
 
 // 缩放菜单样式（Portal 渲染到 body，需要全局样式）
 .view-navigation-zoom-menu {
-  background: #fff;
-  border-radius: 8px;
-  padding: 4px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  background: var(--md3-surface-container, #fff);
+  border: none;
+  border-radius: var(--md3-radius-lg, 16px);
+  padding: 6px;
+  box-shadow: var(--md3-elevation-2, 0 4px 16px rgba(0, 0, 0, 0.12));
   min-width: 140px;
 
   .zoom-menu-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 12px;
+    padding: 8px 14px;
     border: none;
     background: transparent;
-    border-radius: 6px;
+    border-radius: var(--md3-radius-full, 999px);
     cursor: pointer;
     width: 100%;
     font-size: 14px;
-    color: #333;
+    color: var(--aitu-ui-text-primary, #333);
     transition: all 0.15s ease;
 
     &:hover {
-      background: rgba(90, 79, 207, 0.08);
-      color: #5a4fcf;
+      background: var(--aitu-ui-hover-bg, rgba(0, 0, 0, 0.05));
+      color: var(--md3-primary, #5a4fcf);
     }
 
     .zoom-menu-item__label {
@@ -184,7 +188,7 @@
 
     .zoom-menu-item__shortcut {
       font-size: 12px;
-      color: #999;
+      color: var(--aitu-ui-text-tertiary, #999);
       margin-left: 16px;
     }
   }

@@ -13,8 +13,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 8px;
+  background: var(--md3-surface-container-high, rgba(255, 255, 255, 0.95));
+  border-radius: var(--md3-radius-md, 12px);
   backdrop-filter: blur(4px);
   z-index: 100;
 
@@ -36,13 +36,13 @@
   &__title {
     font-size: 18px;
     font-weight: 600;
-    color: #262626;
+    color: var(--md3-on-surface, #262626);
     margin: 0 0 8px 0;
   }
 
   &__description {
     font-size: 14px;
-    color: #595959;
+    color: var(--md3-on-surface-variant, #595959);
     margin: 0 0 16px 0;
     line-height: 1.5;
   }
@@ -59,12 +59,12 @@
   &__tool-name {
     font-size: 14px;
     font-weight: 500;
-    color: #262626;
+    color: var(--md3-on-surface, #262626);
   }
 
   &__url {
     font-size: 12px;
-    color: #8c8c8c;
+    color: var(--md3-outline, #8c8c8c);
     font-family: 'Consolas', 'Monaco', monospace;
     max-width: 100%;
     overflow: hidden;
@@ -78,25 +78,9 @@
   }
 }
 
-// 深色模式
+// 深色模式（md3 令牌随主题自动切换，此处仅保留蒙层底色的暗色适配）
 [data-theme='dark'] {
   .tool-error-overlay {
-    background: rgba(31, 31, 31, 0.95);
-
-    &__title {
-      color: #e5e5e5;
-    }
-
-    &__description {
-      color: #a6a6a6;
-    }
-
-    &__tool-name {
-      color: #e5e5e5;
-    }
-
-    &__url {
-      color: #8c8c8c;
-    }
+    background: var(--md3-surface-container-high, rgba(31, 31, 31, 0.95));
   }
 }

@@ -5,11 +5,11 @@
   flex-shrink: 0;
 
   &__star {
-    color: #F39C12;
-    fill: #F39C12;
+    color: var(--md3-primary, #F39C12);
+    fill: var(--md3-primary, #F39C12);
   }
 
   &__reject {
-    color: #E53935;
+    color: var(--md3-error, #E53935);
   }
 }

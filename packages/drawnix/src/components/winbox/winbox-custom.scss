@@ -11,15 +11,15 @@
 }
 
 .winbox-react {
-  // 自定义圆角
-  border-radius: 16px !important;
+  // 自定义圆角（MD3: 窗体 16dp）
+  border-radius: var(--md3-radius-lg, 16px) !important;
   overflow: hidden;
 
-  // 标题栏样式 - 高级感设计
+  // 标题栏样式 - MD3 filled 表面
   .wb-header {
-    // 品牌渐变背景
-    background: linear-gradient(135deg, #F39C12 0%, #E67E22 50%, #D35400 100%);
-    border-radius: 16px 16px 0 0;
+    // 品牌主色背景
+    background: var(--md3-primary, #f39c12);
+    border-radius: var(--md3-radius-lg, 16px) var(--md3-radius-lg, 16px) 0 0;
     height: 48px;
     display: flex;
     flex-direction: row-reverse; // 反转顺序:标题在左,按钮在右
@@ -29,13 +29,13 @@
     display: flex !important;
     visibility: visible !important;
     // 微妙的内阴影增加层次感
-    box-shadow: 
+    box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.2),
       inset 0 -1px 0 rgba(0, 0, 0, 0.1);
     // 底部细线分隔
     border-bottom: 1px solid rgba(0, 0, 0, 0.1);
     position: relative;
-    
+
     // 添加光泽效果
     &::before {
       content: '';
@@ -50,7 +50,7 @@
         rgba(255, 255, 255, 0) 100%
       );
       pointer-events: none;
-      border-radius: 16px 16px 0 0;
+      border-radius: var(--md3-radius-lg, 16px) var(--md3-radius-lg, 16px) 0 0;
     }
   }
 
@@ -99,8 +99,8 @@
       justify-content: center;
       font-size: 18px;
       line-height: 1;
-      color: #ffffff;
-      
+      color: var(--md3-on-primary, #ffffff);
+
       // 支持 React 组件图标（默认白色，适配渐变背景）
       svg {
         width: 18px;
@@ -113,11 +113,8 @@
 
   // 标题文字
   .wb-title {
-    font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
-    font-size: 15px;
-    font-weight: 600;
-    color: #ffffff;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+    font: var(--md3-text-title, 600 15px/1.45 -apple-system, sans-serif);
+    color: var(--md3-on-primary, #ffffff);
     padding: 0 14px;
     padding-left: 6px; // 有图标时减少左边距
     white-space: nowrap;
@@ -166,7 +163,7 @@
   .wb-close {
     width: 32px;
     height: 32px;
-    border-radius: 10px;
+    border-radius: var(--md3-radius-full, 999px);
     background-size: 14px;
     background-repeat: no-repeat;
     background-position: center;
@@ -179,11 +176,10 @@
     &:hover {
       opacity: 1;
       background-color: rgba(255, 255, 255, 0.25);
-      transform: scale(1.05);
     }
-    
+
     &:active {
-      transform: scale(0.95);
+      opacity: 0.9;
     }
   }
 
@@ -209,14 +205,14 @@
       color: white;
       font-size: 12px;
       font-weight: 500;
-      border-radius: 6px;
+      border-radius: var(--md3-radius-sm, 8px);
       white-space: nowrap;
       opacity: 0;
       visibility: hidden;
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       pointer-events: none;
       z-index: 1000;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      box-shadow: var(--md3-elevation-2, 0 4px 12px rgba(0, 0, 0, 0.15));
       // 抵消父元素的 invert 效果
       filter: invert(1) brightness(2.5);
     }
@@ -229,25 +225,23 @@
 
   // 关闭按钮特殊样式
   .wb-close:hover {
-    background-color: rgba(255, 59, 48, 0.9);
+    background-color: var(--md3-error, rgba(255, 59, 48, 0.9));
   }
 
   // 窗口主体
   .wb-body {
-    background: #ffffff;
-    border-radius: 0 0 16px 16px;
+    background: var(--md3-surface-container-lowest, #ffffff);
+    border-radius: 0 0 var(--md3-radius-lg, 16px) var(--md3-radius-lg, 16px);
     overflow: auto;
     padding: 0;
     top: 48px;
   }
 
-  // 阴影效果 - 高级感阴影
+  // 阴影效果 - MD3 elevation
   &.focus {
-    box-shadow: 
-      0 32px 64px -12px rgba(0, 0, 0, 0.28),
-      0 16px 32px -8px rgba(0, 0, 0, 0.12),
-      0 0 0 1px rgba(243, 156, 18, 0.15);
-    
+    box-shadow: var(--md3-elevation-3, 0 32px 64px -12px rgba(0, 0, 0, 0.28)),
+      0 0 0 1px rgba(0, 0, 0, 0.15);
+
     .wb-header {
       // 聚焦时标题栏更亮
       filter: brightness(1.02);
@@ -255,11 +249,9 @@
   }
 
   &:not(.focus) {
-    box-shadow: 
-      0 12px 28px -6px rgba(0, 0, 0, 0.12),
-      0 4px 12px -2px rgba(0, 0, 0, 0.08),
+    box-shadow: var(--md3-elevation-1, 0 12px 28px -6px rgba(0, 0, 0, 0.12)),
       0 0 0 1px rgba(0, 0, 0, 0.06);
-    
+
     .wb-header {
       // 非聚焦时标题栏稍暗
       filter: brightness(0.95) saturate(0.9);
@@ -318,7 +310,7 @@
   width: 100%;
   height: 100%;
   overflow: auto;
-  background: #ffffff;
+  background: var(--md3-surface-container-lowest, #ffffff);
   padding: 20px; // 添加内边距
   box-sizing: border-box;
 }
@@ -332,7 +324,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: var(--md3-scrim, rgba(0, 0, 0, 0.5));
     z-index: -1;
   }
 }
@@ -343,19 +335,19 @@
 
   // 白底灰黑色 header 样式
   .wb-header {
-    background: #ffffff !important;
-    border-bottom: 1px solid #e5e5e5;
+    background: var(--md3-surface-container, #ffffff) !important;
+    border-bottom: 1px solid var(--md3-outline-variant, #e5e5e5);
   }
 
   // 标题文字样式
   .wb-title {
-    color: #333333;
+    color: var(--md3-on-surface, #333333);
     font-weight: 600;
   }
 
   // 图标样式（白底深色图标）
   .wb-icon-container .wb-icon-content {
-    color: #333333;
+    color: var(--md3-on-surface, #333333);
   }
 
   // 控制按钮改为灰黑色图标
@@ -408,34 +400,34 @@
   // 白底 header 中的 Select 组件样式调整
   .wb-header-custom {
     .t-select {
-      background: #f5f5f5;
-      border: 1px solid #d9d9d9;
+      background: var(--md3-surface-container-highest, #f5f5f5);
+      border: 1px solid var(--md3-outline-variant, #d9d9d9);
 
       .t-input {
-        color: #333333;
+        color: var(--md3-on-surface, #333333);
 
         &::placeholder {
-          color: #999999;
+          color: var(--md3-outline, #999999);
         }
       }
 
       .t-input__inner {
-        color: #333333;
+        color: var(--md3-on-surface, #333333);
       }
 
       .t-fake-arrow {
-        color: #666666;
+        color: var(--md3-on-surface-variant, #666666);
       }
 
       &:hover {
-        background: #eeeeee;
-        border-color: #bfbfbf;
+        background: var(--md3-surface-container-high, #eeeeee);
+        border-color: var(--md3-outline, #bfbfbf);
       }
 
       &.t-is-focused {
-        background: #ffffff;
-        border-color: #5A4FCF;
-        box-shadow: 0 0 0 2px rgba(90, 79, 207, 0.15);
+        background: var(--md3-surface-container-lowest, #ffffff);
+        border-color: var(--md3-accent, #5a4fcf);
+        box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.15);
       }
     }
   }
@@ -444,10 +436,10 @@
   .image-generation-mode-tabs {
     display: flex;
     align-items: center;
-    background: #f0f0f0;
+    background: var(--md3-surface-container-high, #f0f0f0);
     padding: 3px;
     gap: 4px;
-    border-radius: 8px;
+    border-radius: var(--md3-radius-full, 999px);
     margin-left: 8px;
     position: relative;
     z-index: 100; // 确保在拖拽区域之上
@@ -457,10 +449,10 @@
       padding: 6px 16px;
       font-size: 13px;
       font-weight: 500;
-      color: #666666;
+      color: var(--md3-on-surface-variant, #666666);
       background: transparent;
       border: none;
-      border-radius: 6px;
+      border-radius: var(--md3-radius-full, 999px);
       cursor: pointer;
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       white-space: nowrap;
@@ -472,19 +464,19 @@
       touch-action: manipulation; // 优化移动端触摸
 
       &:hover:not(.active) {
-        color: #333333;
+        color: var(--md3-on-surface, #333333);
         background: rgba(255, 255, 255, 0.5);
       }
 
       &:active {
-        transform: scale(0.98);
+        opacity: 0.85;
       }
 
       &.active {
-        color: #F39C12;
+        color: var(--md3-on-primary-container, #f39c12);
         font-weight: 600;
-        background: #ffffff;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        background: var(--md3-primary-container, #ffffff);
+        box-shadow: var(--md3-elevation-1, 0 2px 6px rgba(0, 0, 0, 0.08));
       }
     }
   }
@@ -534,7 +526,7 @@
     .t-select {
       background: rgba(255, 255, 255, 0.15);
       border: 1px solid rgba(255, 255, 255, 0.3);
-      border-radius: 6px;
+      border-radius: var(--md3-radius-sm, 8px);
 
       
       // 下拉箭头颜色
@@ -585,14 +577,14 @@
 // 响应式调整
 @media (max-width: 768px) {
   .winbox-react {
-    border-radius: 12px !important;
-    
+    border-radius: var(--md3-radius-lg, 16px) !important;
+
     .wb-header {
       height: 44px;
-      border-radius: 12px 12px 0 0;
-      
+      border-radius: var(--md3-radius-lg, 16px) var(--md3-radius-lg, 16px) 0 0;
+
       &::before {
-        border-radius: 12px 12px 0 0;
+        border-radius: var(--md3-radius-lg, 16px) var(--md3-radius-lg, 16px) 0 0;
       }
     }
 
@@ -609,16 +601,16 @@
       width: 30px;
       height: 30px;
       background-size: 12px;
-      border-radius: 6px;
+      border-radius: var(--md3-radius-full, 999px);
     }
-    
+
     // 移动端隐藏分屏按钮
     .wb-split {
       display: none !important;
     }
-    
+
     .wb-body {
-      border-radius: 0 0 12px 12px;
+      border-radius: 0 0 var(--md3-radius-lg, 16px) var(--md3-radius-lg, 16px);
     }
 
     // 移动端 Select 组件特殊处理

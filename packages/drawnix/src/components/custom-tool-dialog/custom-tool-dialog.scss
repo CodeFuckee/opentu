@@ -29,9 +29,9 @@
     width: 48px;
     height: 48px;
     font-size: 32px;
-    background-color: var(--td-bg-color-container);
-    border: 1px solid var(--td-component-border);
-    border-radius: var(--td-radius-default);
+    background-color: var(--md3-surface-container-low, var(--td-bg-color-container));
+    border: 1px solid transparent;
+    border-radius: var(--md3-radius-md, 12px);
     flex-shrink: 0;
   }
 
@@ -49,27 +49,24 @@
     width: 36px;
     height: 36px;
     font-size: 20px;
-    background-color: var(--td-bg-color-container);
-    border: 1px solid var(--td-component-border);
-    border-radius: var(--td-radius-default);
+    background-color: var(--md3-surface-container-low, var(--td-bg-color-container));
+    border: 1px solid transparent;
+    border-radius: var(--md3-radius-full, 999px);
     cursor: pointer;
     transition: all 0.2s ease;
 
     &:hover {
-      background-color: var(--td-bg-color-container-hover);
-      border-color: var(--td-brand-color);
-      transform: scale(1.1);
+      background-color: var(--md3-surface-container-high, var(--td-bg-color-container-hover));
     }
 
     &.active {
-      background-color: var(--td-brand-color-light);
-      border-color: var(--td-brand-color);
-      box-shadow: 0 0 0 2px rgba(243, 156, 18, 0.2);
+      background-color: var(--md3-primary-container, var(--td-brand-color-light));
+      box-shadow: var(--md3-elevation-1, 0 0 0 2px rgba(0, 0, 0, 0.2));
     }
 
     &:focus {
       outline: none;
-      border-color: var(--td-brand-color);
+      border-color: var(--md3-accent, var(--td-brand-color));
     }
   }
 
@@ -97,24 +94,21 @@
   }
 }
 
-// 深色模式支持
+// 深色模式支持（颜色随 md3 令牌自动切换，此处保留 tonal 层级兜底）
 [data-theme='dark'] {
   .custom-tool-dialog {
     &__icon-preview,
     &__icon-option {
-      background-color: var(--td-bg-color-container);
-      border-color: var(--td-border-level-2-color);
+      background-color: var(--md3-surface-container-low, var(--td-bg-color-container));
     }
 
     &__icon-option {
       &:hover {
-        background-color: var(--td-bg-color-container-hover);
-        border-color: var(--td-brand-color);
+        background-color: var(--md3-surface-container-high, var(--td-bg-color-container-hover));
       }
 
       &.active {
-        background-color: rgba(243, 156, 18, 0.15);
-        border-color: var(--td-brand-color);
+        background-color: var(--md3-primary-container, rgba(0, 0, 0, 0.15));
       }
     }
   }

@@ -2,7 +2,7 @@
 
 .drawnix {
   .tool-icon {
-    border-radius: var(--border-radius-md);
+    border-radius: var(--md3-radius-full, 999px);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -10,15 +10,14 @@
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
+    // MD3 状态层：hover/active 只做 tonal 叠加，不做位移弹跳
     &:hover {
       background-color: var(--color-surface-hover, rgba(0, 0, 0, 0.04));
-      transform: translateY(-1px);
     }
 
     &:active {
-      transform: translateY(0);
       background-color: var(--color-surface-active, rgba(0, 0, 0, 0.08));
     }
 
@@ -54,7 +53,8 @@
     justify-content: center;
     align-items: center;
 
-    border-radius: var(--border-radius-md);
+    // MD3：图标按钮 pill 形（激活指示器基础形状）
+    border-radius: var(--md3-radius-full, 999px);
 
     & + .tool-icon__label {
       margin-inline-start: 0;
@@ -80,11 +80,13 @@
       outline: none;
     }
 
+    // MD3 激活态：primary-container tonal pill + on-primary-container 图标，
+    // 不用 inset 阴影（M3 无内凹语义）
     &.tool-icon--selected {
       background: var(--color-surface-primary-container);
-      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+      box-shadow: none;
       svg {
-        color: var(--color-primary);
+        color: var(--color-on-primary-container, var(--color-primary));
         stroke-width: 2px !important;
       }
     }

@@ -166,7 +166,7 @@ export const WinBoxWindow: React.FC<WinBoxWindowProps> = ({
   resizable = true,
   movable = true,
   modal = false,
-  background = 'linear-gradient(135deg, #5A4FCF 0%, #7B68EE 50%, #E91E63 100%)',
+  background = 'var(--md3-primary, #F39C12)',
   border = 0,
   className,
   id,

@@ -12,10 +12,11 @@
     flex-direction: column;
     gap: 0;
     overflow: hidden;
-    border-radius: 14px 14px 6px 14px;
-    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
-    background: #ffffff;
-    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: var(--md3-radius-lg, 16px) var(--md3-radius-lg, 16px)
+      var(--md3-radius-xs, 4px) var(--md3-radius-lg, 16px);
+    box-shadow: var(--md3-elevation-1, 0 2px 10px rgba(15, 23, 42, 0.05));
+    background: var(--md3-surface-container-low, #ffffff);
+    border: none; // MD3：气泡去描边
   }
 
   // 纯文字消息的简化样式
@@ -27,8 +28,9 @@
     }
 
     .user-bubble__text {
-      border-radius: 16px 16px 6px 16px;
-      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+      border-radius: var(--md3-radius-lg, 16px) var(--md3-radius-lg, 16px)
+        var(--md3-radius-xs, 4px) var(--md3-radius-lg, 16px);
+      box-shadow: var(--md3-elevation-1, 0 2px 10px rgba(15, 23, 42, 0.06));
     }
   }
 
@@ -71,18 +73,14 @@
     height: 100%;
     object-fit: contain;
     transition: transform 0.2s ease;
-    background: #f8fafc;
+    background: var(--md3-surface-container-highest, #f8fafc);
     user-select: none;
     pointer-events: none;
-
-    &:hover {
-      transform: scale(1.05);
-    }
   }
 
   &__text {
     padding: $spacing-md $spacing-lg;
-    background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(249, 115, 22, 0.06) 100%);
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.08) 0%, rgba(249, 115, 22, 0.06) 100%);
     color: var(--td-text-color-primary);
     word-break: break-word;
     white-space: pre-wrap;
@@ -97,7 +95,7 @@
 
       // 选中时的高亮样式
       &::selection {
-        background-color: rgba(245, 158, 11, 0.18);
+        background-color: rgba(0, 0, 0, 0.18);
         color: var(--td-text-color-primary);
       }
     }
@@ -110,8 +108,8 @@
     align-items: center;
     gap: $spacing-sm;
     padding: $spacing-xs $spacing-lg;
-    background: #fafafa;
-    border-top: 1px solid #f0f0f0;
+    background: var(--md3-surface-container-high, #fafafa);
+    border-top: 1px solid var(--md3-outline-variant, #f0f0f0);
     min-height: 32px;
   }
 
@@ -129,7 +127,7 @@
       content: '';
       width: 1px;
       height: 10px;
-      background: #e0e0e0;
+      background: var(--md3-outline-variant, #e0e0e0);
       margin-left: $spacing-sm;
     }
 

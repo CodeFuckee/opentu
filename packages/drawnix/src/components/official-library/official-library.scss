@@ -19,10 +19,10 @@
     align-items: center;
     gap: 6px;
     padding: 6px 14px;
-    border: 1px solid var(--aitu-ui-border, #e2e8f0);
-    border-radius: 999px;
+    border: 1px solid var(--md3-outline-variant, #e2e8f0);
+    border-radius: var(--md3-radius-full, 999px);
     background: transparent;
-    color: var(--aitu-ui-text-secondary, #64748b);
+    color: var(--md3-on-surface-variant, #64748b);
     font-size: 13px;
     line-height: 1.4;
     cursor: pointer;
@@ -32,18 +32,18 @@
       border-color 0.15s ease;
 
     &:hover {
-      color: var(--aitu-ui-text, #1e293b);
-      border-color: var(--aitu-ui-border-strong, #cbd5e1);
+      color: var(--md3-on-surface, #1e293b);
+      border-color: var(--md3-outline, #cbd5e1);
     }
 
     &--active {
-      background: var(--aitu-ui-brand-softer, rgba(243, 156, 18, 0.1));
-      border-color: var(--aitu-ui-brand, #f39c12);
-      color: var(--aitu-ui-brand, #f39c12);
+      background: var(--md3-primary-container, rgba(0, 0, 0, 0.1));
+      border-color: var(--md3-accent, #f39c12);
+      color: var(--md3-primary, #f39c12);
 
       &:hover {
-        color: var(--aitu-ui-brand, #f39c12);
-        border-color: var(--aitu-ui-brand, #f39c12);
+        color: var(--md3-primary, #f39c12);
+        border-color: var(--md3-accent, #f39c12);
       }
     }
   }
@@ -51,9 +51,9 @@
   &__badge {
     font-size: 11px;
     padding: 0 6px;
-    border-radius: 999px;
-    background: var(--aitu-ui-brand, #f39c12);
-    color: #fff;
+    border-radius: var(--md3-radius-full, 999px);
+    background: var(--md3-primary, #f39c12);
+    color: var(--md3-on-primary, #fff);
     line-height: 16px;
   }
 }
@@ -79,7 +79,7 @@
 
   &__status-text {
     margin: 0;
-    color: var(--aitu-ui-text-secondary, #64748b);
+    color: var(--md3-on-surface-variant, #64748b);
     font-size: 14px;
   }
 
@@ -88,16 +88,16 @@
     align-items: center;
     gap: 6px;
     padding: 6px 16px;
-    border: 1px solid var(--aitu-ui-border, #e2e8f0);
-    border-radius: 8px;
+    border: 1px solid var(--md3-outline-variant, #e2e8f0);
+    border-radius: var(--md3-radius-md, 12px);
     background: transparent;
-    color: var(--aitu-ui-text, #1e293b);
+    color: var(--md3-on-surface, #1e293b);
     font-size: 13px;
     cursor: pointer;
 
     &:hover {
-      border-color: var(--aitu-ui-brand, #f39c12);
-      color: var(--aitu-ui-brand, #f39c12);
+      border-color: var(--md3-accent, #f39c12);
+      color: var(--md3-primary, #f39c12);
     }
   }
 
@@ -124,9 +124,9 @@
     flex-wrap: wrap;
     gap: 4px 16px;
     padding: 8px 16px;
-    border-top: 1px solid var(--aitu-ui-border, #e2e8f0);
+    border-top: 1px solid var(--md3-outline-variant, #e2e8f0);
     font-size: 12px;
-    color: var(--aitu-ui-text-secondary, #64748b);
+    color: var(--md3-on-surface-variant, #64748b);
 
     &-item {
       white-space: nowrap;
@@ -134,7 +134,7 @@
 
     &-glb {
       margin-left: auto;
-      color: var(--aitu-ui-brand, #f39c12);
+      color: var(--md3-primary, #f39c12);
       text-decoration: none;
       white-space: nowrap;
 
@@ -152,12 +152,12 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    color: var(--aitu-ui-text-secondary, #64748b);
+    color: var(--md3-on-surface-variant, #64748b);
 
     h3 {
       margin: 8px 0 0;
       font-size: 16px;
-      color: var(--aitu-ui-text, #1e293b);
+      color: var(--md3-on-surface, #1e293b);
     }
 
     p {
@@ -176,10 +176,10 @@
     gap: 5px;
     padding: 0 12px;
     height: 32px;
-    border-radius: 6px;
-    border: 1px solid var(--aitu-ui-border, rgba(100, 116, 139, 0.32));
-    background: var(--aitu-ui-surface, #fff);
-    color: var(--aitu-ui-text, #1e293b);
+    border-radius: var(--md3-radius-full, 999px);
+    border: 1px solid var(--md3-outline-variant, rgba(100, 116, 139, 0.32));
+    background: var(--md3-surface-container-lowest, #fff);
+    color: var(--md3-on-surface, #1e293b);
     font-size: 12px;
     font-weight: 600;
     white-space: nowrap;
@@ -187,8 +187,8 @@
     transition: all 0.15s ease;
 
     &:hover {
-      border-color: #0052d9;
-      color: #0052d9;
+      border-color: var(--md3-accent, #0052d9);
+      color: var(--md3-primary, #0052d9);
     }
   }
 
@@ -198,14 +198,14 @@
     align-items: center;
     gap: 10px;
     padding: 4px 10px 4px 4px;
-    border-radius: 8px;
-    border: 1px solid var(--aitu-ui-border, rgba(100, 116, 139, 0.32));
-    background: var(--aitu-ui-surface, #fff);
+    border-radius: var(--md3-radius-md, 12px);
+    border: 1px solid var(--md3-outline-variant, rgba(100, 116, 139, 0.32));
+    background: var(--md3-surface-container-lowest, #fff);
 
     img {
       width: 32px;
       height: 32px;
-      border-radius: 6px;
+      border-radius: var(--md3-radius-sm, 8px);
       object-fit: cover;
       flex-shrink: 0;
     }
@@ -217,7 +217,7 @@
       text-overflow: ellipsis;
       white-space: nowrap;
       font-size: 12px;
-      color: var(--aitu-ui-text, #1e293b);
+      color: var(--md3-on-surface, #1e293b);
     }
 
     &-close {
@@ -228,14 +228,14 @@
       width: 22px;
       height: 22px;
       border: none;
-      border-radius: 4px;
+      border-radius: var(--md3-radius-xs, 4px);
       background: transparent;
-      color: var(--aitu-ui-text-secondary, #64748b);
+      color: var(--md3-on-surface-variant, #64748b);
       cursor: pointer;
 
       &:hover {
-        background: rgba(100, 116, 139, 0.12);
-        color: var(--aitu-ui-text, #1e293b);
+        background: var(--md3-surface-container-high, rgba(100, 116, 139, 0.12));
+        color: var(--md3-on-surface, #1e293b);
       }
     }
   }

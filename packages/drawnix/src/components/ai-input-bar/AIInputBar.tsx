@@ -5094,31 +5094,34 @@ export const AIInputBar: React.FC<AIInputBarProps> = React.memo(
                     />
                   )}
 
-                {/* Parameters dropdown selector - Hidden for Agent mode */}
-                {generationType !== 'agent' && compatibleParams.length > 0 && (
-                  <ParametersDropdown
-                    key={selectedModel} // 强制在模型切换时重新挂载以刷新可配置参数
-                    selectedParams={selectedParams}
-                    onParamChange={handleParamSelect}
-                    compatibleParams={compatibleParams}
-                    modelId={selectedModel}
-                    language={language}
-                    isOpen={paramsDropdownOpen}
-                    onOpenChange={handleParamsDropdownChange}
-                  />
-                )}
+                {/* 参数组：参数 + 生成数量收进同一个 pill 触发区（视觉合一，逻辑不变） */}
+                {generationType !== 'agent' && (
+                  <div className="ai-input-bar__param-group">
+                    {compatibleParams.length > 0 && (
+                      <ParametersDropdown
+                        key={selectedModel} // 强制在模型切换时重新挂载以刷新可配置参数
+                        selectedParams={selectedParams}
+                        onParamChange={handleParamSelect}
+                        compatibleParams={compatibleParams}
+                        modelId={selectedModel}
+                        language={language}
+                        isOpen={paramsDropdownOpen}
+                        onOpenChange={handleParamsDropdownChange}
+                      />
+                    )}
 
-                {generationType !== 'agent' &&
-                  generationType !== 'text' &&
-                  generationType !== 'audio' && (
-                    <CountDropdown
-                      value={selectedCount}
-                      onSelect={handleCountSelect}
-                      disabled={isSubmitting}
-                      isOpen={countDropdownOpen}
-                      onOpenChange={handleCountDropdownChange}
-                    />
-                  )}
+                    {generationType !== 'text' &&
+                      generationType !== 'audio' && (
+                        <CountDropdown
+                          value={selectedCount}
+                          onSelect={handleCountSelect}
+                          disabled={isSubmitting}
+                          isOpen={countDropdownOpen}
+                          onOpenChange={handleCountDropdownChange}
+                        />
+                      )}
+                  </div>
+                )}
               </>
             }
             sendButton={

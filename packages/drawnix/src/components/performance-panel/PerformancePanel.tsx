@@ -321,12 +321,12 @@ export const PerformancePanel: React.FC<PerformancePanelProps> = ({
             style={{
               marginTop: '4px',
               paddingTop: '4px',
-              borderTop: '1px solid rgba(255,255,255,0.1)',
+              borderTop: '1px solid var(--md3-outline-variant, rgba(255,255,255,0.1))',
             }}
           >
             {language === 'zh' ? '图片数量' : 'Image Count'}: {imageCount}
             {imageCount >= IMAGE_COUNT_THRESHOLD && (
-              <span style={{ color: '#E67E22', marginLeft: '4px' }}>
+              <span style={{ color: 'var(--md3-primary, #E67E22)', marginLeft: '4px' }}>
                 ({language === 'zh' ? '建议清理' : 'Recommend cleaning'})
               </span>
             )}

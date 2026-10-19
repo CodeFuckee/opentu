@@ -3,12 +3,12 @@
  * 公共样式，供 ImageEditor 和 UnifiedMediaViewer 中的编辑器复用
  */
 
-// 统一配色
-$accent-color: #ffb366;
-// 裁剪框颜色
-$crop-border-color: #4f46e5; // 深靛蓝色，用于边框线
-$crop-handle-color: #818cf8; // 浅靛蓝色，用于控制点
-$accent-hover: #ffc989;
+// 统一配色 — MD3 令牌优先，旧值保留 fallback
+$accent-color: var(--md3-primary, #ffb366);
+// 裁剪框颜色（MD3：蓝紫残留 → primary）
+$crop-border-color: var(--md3-accent, #4f46e5); // 深靛蓝色，用于边框线
+$crop-handle-color: var(--md3-primary, #818cf8); // 浅靛蓝色，用于控制点
+$accent-hover: var(--md3-primary, #ffc989);
 $text-primary: #fff;
 $text-secondary: rgba(255, 255, 255, 0.7);
 $text-muted: rgba(255, 255, 255, 0.5);
@@ -37,10 +37,10 @@ $header-bg: rgba(30, 30, 30, 0.8);
     transform: translateX(-50%);
     z-index: 100;
     background: $header-bg;
-    border-radius: 12px;
+    border-radius: var(--md3-radius-md, 12px);
     backdrop-filter: blur(20px);
     border: 1px solid $panel-border;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    box-shadow: var(--md3-elevation-3, 0 4px 20px rgba(0, 0, 0, 0.4));
     gap: 16px;
   }
 
@@ -65,19 +65,15 @@ $header-bg: rgba(30, 30, 30, 0.8);
     width: 36px;
     height: 36px;
     border: none;
-    border-radius: 8px;
+    border-radius: var(--md3-radius-full, 999px);
     background: transparent;
     color: $text-secondary;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease;
 
     &:hover:not(:disabled) {
       background: rgba(255, 255, 255, 0.1);
       color: $text-primary;
-    }
-
-    &:active:not(:disabled) {
-      transform: scale(0.95);
     }
 
     &.active {
@@ -130,8 +126,8 @@ $header-bg: rgba(30, 30, 30, 0.8);
     left: 20px;
     top: 80px;
     bottom: 20px;
-    border-radius: 16px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    border-radius: var(--md3-radius-lg, 16px);
+    box-shadow: var(--md3-elevation-3, 0 10px 40px rgba(0, 0, 0, 0.5));
   }
 
   &__mode-tabs {
@@ -149,13 +145,13 @@ $header-bg: rgba(30, 30, 30, 0.8);
     gap: 8px;
     height: 36px;
     border: 1px solid transparent;
-    border-radius: 8px;
+    border-radius: var(--md3-radius-full, 999px);
     background: rgba(255, 255, 255, 0.03);
     color: $text-muted;
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 
     &:hover {
       background: rgba(255, 255, 255, 0.08);
@@ -164,8 +160,8 @@ $header-bg: rgba(30, 30, 30, 0.8);
 
     &.active {
       color: $accent-color;
-      background: rgba($accent-color, 0.12);
-      border-color: rgba($accent-color, 0.3);
+      background: var(--md3-primary-container, rgba(255, 179, 102, 0.12));
+      border-color: var(--md3-accent, rgba(255, 179, 102, 0.3));
     }
   }
 
@@ -232,9 +228,9 @@ $header-bg: rgba(30, 30, 30, 0.8);
     padding: 8px 16px;
     background: $header-bg;
     backdrop-filter: blur(20px);
-    border-radius: 10px;
+    border-radius: var(--md3-radius-full, 999px);
     border: 1px solid $panel-border;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--md3-elevation-3, 0 4px 16px rgba(0, 0, 0, 0.3));
     margin-left: 140px;
   }
 
@@ -245,11 +241,11 @@ $header-bg: rgba(30, 30, 30, 0.8);
     width: 32px;
     height: 32px;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--md3-radius-full, 999px);
     background: transparent;
     color: $text-secondary;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease;
 
     &:hover:not(:disabled) {
       background: rgba(255, 255, 255, 0.1);
@@ -291,10 +287,11 @@ $header-bg: rgba(30, 30, 30, 0.8);
     position: relative;
     width: 360px;
     padding: 24px;
-    background: #1a1a1a;
-    border-radius: 16px;
-    border: 1px solid $panel-border;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    background: var(--md3-surface-container-high, #1a1a1a);
+    border-radius: var(--md3-radius-xl, 28px);
+    // 去描边：tonal + elevation 分层
+    border-color: transparent;
+    box-shadow: var(--md3-elevation-3, 0 20px 60px rgba(0, 0, 0, 0.5));
   }
 
   &__save-dialog-title {
@@ -318,15 +315,15 @@ $header-bg: rgba(30, 30, 30, 0.8);
     gap: 16px;
     padding: 16px;
     border: 1px solid $panel-border;
-    border-radius: 12px;
+    border-radius: var(--md3-radius-md, 12px);
     background: rgba(255, 255, 255, 0.02);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
     text-align: left;
 
     &:hover {
-      background: rgba($accent-color, 0.1);
-      border-color: $accent-color;
+      background: var(--md3-primary-container, rgba(255, 179, 102, 0.1));
+      border-color: var(--md3-accent, #ffb366);
     }
 
     svg {
@@ -356,12 +353,12 @@ $header-bg: rgba(30, 30, 30, 0.8);
     width: 100%;
     padding: 12px;
     border: 1px solid $panel-border;
-    border-radius: 8px;
+    border-radius: var(--md3-radius-full, 999px);
     background: transparent;
     color: $text-secondary;
     font-size: 14px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease;
 
     &:hover {
       background: rgba(255, 255, 255, 0.05);
@@ -400,18 +397,18 @@ $header-bg: rgba(30, 30, 30, 0.8);
     justify-content: center;
     height: 36px;
     border: 1px solid $panel-border;
-    border-radius: 8px;
+    border-radius: var(--md3-radius-full, 999px);
     background: rgba(255, 255, 255, 0.03);
     color: $text-muted;
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 
     &:hover {
       background: rgba(255, 255, 255, 0.08);
-      border-color: rgba($accent-color, 0.5);
-      color: $accent-color;
+      border-color: var(--md3-accent, rgba(255, 179, 102, 0.5));
+      color: var(--md3-primary, #ffb366);
     }
 
     &.active {
@@ -434,11 +431,11 @@ $header-bg: rgba(30, 30, 30, 0.8);
     justify-content: center;
     height: 40px;
     border: 1px solid $panel-border;
-    border-radius: 8px;
+    border-radius: var(--md3-radius-full, 999px);
     background: rgba(255, 255, 255, 0.03);
     color: $text-secondary;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 
     &:hover {
       background: rgba(255, 255, 255, 0.08);
@@ -468,18 +465,18 @@ $header-bg: rgba(30, 30, 30, 0.8);
     width: 100%;
     height: 40px;
     border: 1px solid $panel-border;
-    border-radius: 8px;
+    border-radius: var(--md3-radius-full, 999px);
     background: rgba(255, 255, 255, 0.03);
     color: $text-secondary;
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 
     &:hover:not(:disabled) {
-      background: rgba($accent-color, 0.1);
-      border-color: rgba($accent-color, 0.5);
-      color: $accent-color;
+      background: var(--md3-primary-container, rgba(255, 179, 102, 0.1));
+      border-color: var(--md3-accent, rgba(255, 179, 102, 0.5));
+      color: var(--md3-primary, #ffb366);
     }
 
     &:disabled,
@@ -510,7 +507,7 @@ $header-bg: rgba(30, 30, 30, 0.8);
     width: 100%;
     height: 44px;
     border: none;
-    border-radius: 10px;
+    border-radius: var(--md3-radius-full, 999px);
     background: $text-primary;
     color: #1a1a1a;
     font-size: 14px;
@@ -540,7 +537,7 @@ $header-bg: rgba(30, 30, 30, 0.8);
     border: 1px solid $panel-border;
     color: $text-muted;
     padding: 12px;
-    border-radius: 10px;
+    border-radius: var(--md3-radius-md, 12px);
     font-size: 12px;
     line-height: 1.6;
   }
@@ -577,25 +574,25 @@ $header-bg: rgba(30, 30, 30, 0.8);
     gap: 6px;
     padding: 8px;
     border: 1px solid $panel-border;
-    border-radius: 10px;
+    border-radius: var(--md3-radius-md, 12px);
     background: rgba(255, 255, 255, 0.02);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
 
     &:hover {
-      border-color: rgba($accent-color, 0.4);
+      border-color: var(--md3-accent, rgba(255, 179, 102, 0.4));
     }
 
     &.active {
       border-color: $accent-color;
-      background: rgba($accent-color, 0.1);
+      background: var(--md3-primary-container, rgba(255, 179, 102, 0.1));
     }
   }
 
   &__preset-preview {
     width: 48px;
     height: 48px;
-    border-radius: 6px;
+    border-radius: var(--md3-radius-sm, 8px);
     overflow: hidden;
     background-color: #333;
     background-size: contain;
@@ -674,7 +671,7 @@ $header-bg: rgba(30, 30, 30, 0.8);
     height: 14px;
     border: 2px solid $accent-color;
     background: #fff;
-    box-shadow: 0 0 10px rgba($accent-color, 0.4);
+    box-shadow: 0 0 10px var(--md3-primary-container, rgba(255, 179, 102, 0.4));
   }
 }
 
@@ -885,7 +882,7 @@ $header-bg: rgba(30, 30, 30, 0.8);
     align-items: center;
     gap: 6px;
     padding: 8px 14px;
-    border-radius: 6px;
+    border-radius: var(--md3-radius-sm, 8px);
     background: rgba(0, 0, 0, 0.65);
     color: #fff;
     font-size: 13px;
@@ -909,7 +906,7 @@ $header-bg: rgba(30, 30, 30, 0.8);
     align-items: center;
     gap: 5px;
     padding: 5px 12px;
-    border-radius: 12px;
+    border-radius: var(--md3-radius-full, 12px);
     background: rgba(0, 0, 0, 0.55);
     color: #fff;
     font-size: 12px;
@@ -938,14 +935,14 @@ $header-bg: rgba(30, 30, 30, 0.8);
 
   &__desc {
     margin: 6px 0 0;
-    color: #888;
+    color: var(--md3-on-surface-variant, #888);
     font-size: 12px;
     line-height: 1.6;
   }
 
   &__label {
     margin-bottom: 6px;
-    color: #666;
+    color: var(--md3-on-surface-variant, #666);
     font-size: 12px;
   }
 
@@ -960,16 +957,16 @@ $header-bg: rgba(30, 30, 30, 0.8);
     align-items: center;
     gap: 4px;
     padding: 5px 10px;
-    border: 1px solid #e0e0e0;
-    border-radius: 6px;
-    background: #fff;
-    color: #444;
+    border: 1px solid var(--md3-outline-variant, #e0e0e0);
+    border-radius: var(--md3-radius-full, 999px);
+    background: var(--md3-surface-container-lowest, #fff);
+    color: var(--md3-on-surface, #444);
     font-size: 12px;
     cursor: pointer;
 
     &.active {
-      border-color: #1890ff;
-      color: #1890ff;
+      border-color: var(--md3-accent, #1890ff);
+      color: var(--md3-primary, #1890ff);
     }
     &:disabled {
       opacity: 0.45;
@@ -989,9 +986,9 @@ $header-bg: rgba(30, 30, 30, 0.8);
     width: 100%;
     padding: 8px 0;
     border: none;
-    border-radius: 6px;
-    background: #1890ff;
-    color: #fff;
+    border-radius: var(--md3-radius-full, 999px);
+    background: var(--md3-primary, #1890ff);
+    color: var(--md3-on-primary, #fff);
     font-size: 13px;
     cursor: pointer;
 
@@ -1003,14 +1000,14 @@ $header-bg: rgba(30, 30, 30, 0.8);
 
   &__meta {
     margin-top: 6px;
-    color: #999;
+    color: var(--md3-outline, #999);
     font-size: 11px;
     text-align: center;
   }
 
   &__error {
     margin-top: 6px;
-    color: #e34d3c;
+    color: var(--md3-error, #e34d3c);
     font-size: 12px;
     text-align: center;
   }

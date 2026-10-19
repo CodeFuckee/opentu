@@ -6,10 +6,9 @@
   left: calc(var(--aitu-toolbar-right-edge, #{$toolbar-width}) + 10px);
   right: auto;
   z-index: 1000;
-  background-color: var(--td-bg-color-container);
-  border: 1px solid var(--td-border-level-2-color);
-  border-radius: var(--td-radius-medium);
-  box-shadow: var(--td-shadow-2);
+  background-color: var(--md3-surface-container, var(--td-bg-color-container));
+  border-radius: var(--md3-radius-lg, var(--td-radius-medium));
+  box-shadow: var(--md3-elevation-2, var(--td-shadow-2));
   padding: 8px 12px;
   animation: slideIn 0.3s ease-out;
 
@@ -21,7 +20,7 @@
 
   &__text {
     font-size: 14px;
-    color: var(--td-text-color-primary);
+    color: var(--md3-on-surface, var(--td-text-color-primary));
   }
 
   @keyframes slideIn {

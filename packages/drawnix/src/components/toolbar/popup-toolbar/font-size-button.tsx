@@ -105,7 +105,7 @@ export const PopupFontSizeButton: React.FC<PopupFontSizeButtonProps> = ({
           className={classNames(`${ATTACHED_ELEMENT_CLASS_NAME}`)}
         >
           <Stack.Col gap={0} style={{ minWidth: '200px' }}>
-            <div style={{ fontSize: '12px', color: '#666', marginBottom: '2px', padding: '4px 10px 0' }}>
+            <div style={{ fontSize: '12px', color: 'var(--md3-on-surface-variant, #666)', marginBottom: '2px', padding: '4px 10px 0' }}>
               {language === 'zh' ? '字体样式' : 'Font Style'}
             </div>
 
@@ -115,15 +115,15 @@ export const PopupFontSizeButton: React.FC<PopupFontSizeButtonProps> = ({
                 return (
                   <React.Fragment key={preset.key}>
                     {preset.divider && (
-                      <div style={{ height: '1px', backgroundColor: '#e8e8e8', margin: '4px 10px' }} />
+                      <div style={{ height: '1px', backgroundColor: 'var(--md3-outline-variant, #e8e8e8)', margin: '4px 10px' }} />
                     )}
                     <div
                       onClick={() => handleStyleClick(preset)}
                       style={{
                         padding: '6px 10px',
                         cursor: 'pointer',
-                        backgroundColor: isActive ? '#f0f7ff' : 'transparent',
-                        borderLeft: isActive ? '3px solid #0052d9' : '3px solid transparent',
+                        backgroundColor: isActive ? 'var(--md3-primary-container, #f0f7ff)' : 'transparent',
+                        borderLeft: isActive ? '3px solid var(--md3-primary, #0052d9)' : '3px solid transparent',
                         borderRadius: '2px',
                         transition: 'background-color 0.15s',
                         display: 'flex',
@@ -133,7 +133,7 @@ export const PopupFontSizeButton: React.FC<PopupFontSizeButtonProps> = ({
                       }}
                       onMouseEnter={(e) => {
                         if (!isActive) {
-                          (e.currentTarget as HTMLElement).style.backgroundColor = '#f5f5f5';
+                          (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--aitu-ui-hover-bg, #f5f5f5)';
                         }
                       }}
                       onMouseLeave={(e) => {
@@ -152,7 +152,7 @@ export const PopupFontSizeButton: React.FC<PopupFontSizeButtonProps> = ({
                       >
                         {language === 'zh' ? preset.labelZh : preset.labelEn}
                       </span>
-                      <span style={{ fontSize: '11px', color: '#bbb', flexShrink: 0 }}>
+                      <span style={{ fontSize: '11px', color: 'var(--md3-outline, #bbb)', flexShrink: 0 }}>
                         {preset.fontSize}px
                       </span>
                     </div>

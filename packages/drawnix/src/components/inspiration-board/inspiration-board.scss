@@ -23,7 +23,7 @@ $animation-duration: 0.3s;
   padding-bottom: $spacing-md; // 底部内边距
   background: var(--island-bg-color, #fff);
   border: none;
-  border-radius: 24px 24px 0 0; // 上圆角，下直角与输入框连接
+  border-radius: var(--md3-radius-xl, 28px) var(--md3-radius-xl, 28px) 0 0; // 上圆角，下直角与输入框连接
   backdrop-filter: blur(10px);
   box-shadow: none; // 移除阴影，由父容器统一处理
   animation: slideUp $animation-duration ease-out;
@@ -72,7 +72,7 @@ $animation-duration: 0.3s;
     gap: 4px;
     padding: 4px 8px;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--md3-radius-full, 999px);
     cursor: pointer;
     font-size: 12px;
     font-weight: 500;
@@ -84,10 +84,6 @@ $animation-duration: 0.3s;
     &:hover {
       color: var(--td-text-color-primary);
       background: var(--td-bg-color-container-active);
-    }
-
-    &:active {
-      transform: scale(0.97);
     }
 
     svg {
@@ -103,7 +99,7 @@ $animation-duration: 0.3s;
     padding: 4px 10px;
 
     border: none;
-    border-radius: 6px;
+    border-radius: var(--md3-radius-full, 999px);
     cursor: pointer;
 
     font-size: 12px;
@@ -116,10 +112,6 @@ $animation-duration: 0.3s;
     &:hover {
       background: var(--td-bg-color-container-hover);
       color: var(--td-text-color-secondary);
-    }
-
-    &:active {
-      transform: scale(0.97);
     }
 
     svg {
@@ -135,17 +127,13 @@ $animation-duration: 0.3s;
     padding: 4px 10px;
 
     border: none;
-    border-radius: 6px;
+    border-radius: var(--md3-radius-full, 999px);
     cursor: pointer;
 
     font-size: 12px;
     font-weight: 500;
     transition: all 0.2s ease;
     margin-right: 8px;
-
-    &:active {
-      transform: scale(0.97);
-    }
 
     svg {
       flex-shrink: 0;
@@ -176,9 +164,9 @@ $animation-duration: 0.3s;
     width: 24px;
     height: 24px;
     padding: 0;
-    background: #fff;
-    border: 1px solid var(--td-component-border);
-    border-radius: 6px;
+    background: var(--md3-surface-container-lowest, #fff);
+    border: 1px solid var(--md3-outline-variant, var(--td-component-border));
+    border-radius: var(--md3-radius-full, 999px);
     cursor: pointer;
     color: var(--td-text-color-secondary);
     transition: all 0.2s ease;
@@ -186,11 +174,7 @@ $animation-duration: 0.3s;
     &:hover {
       background: var(--td-bg-color-container-hover);
       color: var(--td-text-color-primary);
-      border-color: var(--td-brand-color-light);
-    }
-
-    &:active {
-      transform: scale(0.95);
+      border-color: var(--md3-accent, var(--td-brand-color-light));
     }
   }
 
@@ -231,8 +215,8 @@ $animation-duration: 0.3s;
     width: 84px;
     height: 84px;
     object-fit: cover;
-    border-radius: 10px;
-    border: 1px solid var(--td-component-border);
+    border-radius: var(--md3-radius-md, 12px);
+    border: 1px solid var(--md3-outline-variant, var(--td-component-border));
     background: var(--td-bg-color-container);
     flex-shrink: 0;
   }
@@ -250,7 +234,7 @@ $animation-duration: 0.3s;
     padding: 2px 8px;
     font-size: 10px;
     font-weight: 600;
-    border-radius: 4px;
+    border-radius: var(--md3-radius-full, 999px);
   }
 
   &__guide-name {
@@ -278,13 +262,13 @@ $animation-duration: 0.3s;
     position: relative;
     min-height: 92px;
     overflow: hidden;
-    border-radius: 12px;
+    border-radius: var(--md3-radius-md, 12px);
     background:
-      linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(255, 255, 255, 0)),
+      linear-gradient(135deg, var(--md3-primary-container, rgba(0, 0, 0, 0.1)), rgba(255, 255, 255, 0)),
       repeating-linear-gradient(
         135deg,
-        rgba(245, 158, 11, 0.08) 0,
-        rgba(245, 158, 11, 0.08) 1px,
+        var(--md3-primary-container, rgba(0, 0, 0, 0.08)) 0,
+        var(--md3-primary-container, rgba(0, 0, 0, 0.08)) 1px,
         transparent 1px,
         transparent 12px
       );
@@ -295,9 +279,9 @@ $animation-duration: 0.3s;
     left: 28px;
     top: 18px;
     z-index: 3;
-    color: #b45309;
+    color: var(--md3-primary, #b45309);
     pointer-events: none;
-    filter: drop-shadow(0 4px 8px rgba(245, 158, 11, 0.18));
+    filter: drop-shadow(0 4px 8px var(--md3-primary-container, rgba(0, 0, 0, 0.18)));
     transform-origin: 70% 70%;
     animation: pointerTap 1.8s ease-in-out infinite;
   }
@@ -314,16 +298,16 @@ $animation-duration: 0.3s;
     padding: 0;
     border: 0;
     border-radius: 50%;
-    background: rgba(245, 158, 11, 0.88);
-    color: #fff;
+    background: var(--md3-primary, rgba(0, 0, 0, 0.88));
+    color: var(--md3-on-primary, #fff);
     cursor: pointer;
     z-index: 2;
     box-shadow:
       inset 0 0 0 2px rgba(255, 255, 255, 0.58),
-      0 8px 18px rgba(245, 158, 11, 0.2);
+      0 8px 18px rgba(0, 0, 0, 0.2);
 
     &:hover {
-      background: rgba(245, 158, 11, 0.95);
+      background: var(--md3-primary, rgba(0, 0, 0, 0.95));
     }
   }
 
@@ -334,9 +318,9 @@ $animation-duration: 0.3s;
     width: 100%;
     box-sizing: border-box;
     padding: 8px 10px;
-    border-radius: 10px;
-    background: rgba(245, 158, 11, 0.1);
-    color: #b45309;
+    border-radius: var(--md3-radius-md, 12px);
+    background: var(--md3-primary-container, rgba(0, 0, 0, 0.1));
+    color: var(--md3-on-primary-container, #b45309);
     font-size: 12px;
     line-height: 1.45;
     font-weight: 500;
@@ -355,21 +339,16 @@ $animation-duration: 0.3s;
   position: relative;
   display: flex;
   flex-direction: column;
-  background: #fff;
-  border: 1px solid var(--td-component-border);
-  border-radius: $card-border-radius;
+  background: var(--md3-surface-container-lowest, #fff);
+  border: none;
+  border-radius: var(--md3-radius-lg, 16px);
   overflow: hidden;
   cursor: pointer;
   transition: all 0.2s ease;
+  box-shadow: var(--md3-elevation-1, 0 1px 2px rgba(0, 0, 0, 0.06));
 
   &:hover {
-    border-color: var(--td-brand-color-light);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    transform: translateY(-2px);
-
-    .inspiration-card__image {
-      transform: scale(1.05);
-    }
+    box-shadow: var(--md3-elevation-2, 0 4px 12px rgba(0, 0, 0, 0.08));
 
     .inspiration-card__hover-overlay {
       opacity: 1;
@@ -380,7 +359,7 @@ $animation-duration: 0.3s;
     }
 
     .inspiration-card__title {
-      color: var(--td-brand-color);
+      color: var(--md3-primary, var(--td-brand-color));
     }
   }
 
@@ -393,7 +372,13 @@ $animation-duration: 0.3s;
     position: relative;
     aspect-ratio: 1 / 1;
     overflow: hidden;
-    background: var(--td-bg-color-container);
+    background: var(--md3-surface-container-low, var(--td-bg-color-container));
+
+    // 内容资产降噪：糖果色插画在纸墨界面上降饱和（约 45%），消除贴纸感
+    img,
+    svg {
+      filter: saturate(0.55) contrast(0.96) sepia(0.04);
+    }
   }
 
   &__image {
@@ -411,7 +396,7 @@ $animation-duration: 0.3s;
     padding: 2px 8px;
     font-size: 10px;
     font-weight: 600;
-    border-radius: 4px;
+    border-radius: var(--md3-radius-full, 999px);
     backdrop-filter: blur(4px);
     background-color: rgba(255, 255, 255, 0.95);
   }
@@ -436,7 +421,7 @@ $animation-duration: 0.3s;
     height: 28px;
     background: rgba(255, 255, 255, 0.95);
     border-radius: 50%;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--md3-elevation-1, 0 2px 8px rgba(0, 0, 0, 0.15));
     color: var(--td-text-color-primary);
     transform: translateY(8px);
     transition: transform 0.2s ease;

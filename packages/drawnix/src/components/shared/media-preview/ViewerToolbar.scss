@@ -51,7 +51,7 @@ $brand-orange: #f39c12;
     padding: 0 8px;
     background: transparent;
     border: none;
-    border-radius: 8px;
+    border-radius: var(--md3-radius-full, 999px);
     color: rgba(255, 255, 255, 0.6);
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -62,12 +62,12 @@ $brand-orange: #f39c12;
     }
 
     &--active {
-      background: rgba($brand-orange, 0.15);
-      color: $brand-orange;
+      background: var(--md3-primary-container, rgba(0, 0, 0, 0.15));
+      color: var(--md3-primary, #f39c12);
 
       &:hover {
-        background: rgba($brand-orange, 0.25);
-        color: $brand-orange;
+        background: var(--md3-primary-container, rgba(0, 0, 0, 0.25));
+        color: var(--md3-primary, #f39c12);
       }
     }
 
@@ -82,25 +82,19 @@ $brand-orange: #f39c12;
       margin-left: 8px;
 
       &:hover {
-        background: rgba(231, 76, 60, 0.2);
-        color: #ff4d4f;
+        background: var(--md3-error-container, rgba(231, 76, 60, 0.2));
+        color: var(--md3-error, #ff4d4f);
       }
     }
 
     &--primary {
-      background: $brand-orange;
-      color: #000;
+      background: var(--md3-primary, #f39c12);
+      color: var(--md3-on-primary, #000);
       font-weight: 600;
 
       &:hover {
-        background: lighten($brand-orange, 5%);
-        color: #000;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba($brand-orange, 0.3);
-      }
-
-      &:active {
-        transform: translateY(0);
+        background: var(--md3-primary, #f7ab2f);
+        box-shadow: var(--md3-elevation-2, 0 4px 12px rgba(0, 0, 0, 0.3));
       }
     }
 
@@ -161,7 +155,7 @@ $brand-orange: #f39c12;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(10px);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--md3-radius-full, 999px);
   color: rgba(255, 255, 255, 0.9);
   font-size: 14px;
   cursor: pointer;

@@ -14,10 +14,9 @@
   overflow-y: auto;
   overflow-x: hidden;
   box-sizing: border-box;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.97);
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.14);
+  border-radius: var(--md3-radius-lg, 16px);
+  background: var(--md3-surface-container-high, rgba(255, 255, 255, 0.97));
+  box-shadow: var(--md3-elevation-3, 0 18px 48px rgba(15, 23, 42, 0.14));
   backdrop-filter: blur(18px);
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -59,6 +58,6 @@
   justify-content: center;
   gap: 6px;
   min-height: 80px;
-  color: #64748b;
+  color: var(--md3-on-surface-variant, #64748b);
   font-size: 12px;
 }

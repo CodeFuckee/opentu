@@ -8,8 +8,8 @@
   flex-direction: column;
   gap: 14px;
   padding: 12px;
-  background: var(--aitu-ui-surface, #f8fafc);
-  color: var(--aitu-ui-text-primary, #1e293b);
+  background: var(--md3-surface-container-low, var(--aitu-ui-surface, #f8fafc));
+  color: var(--md3-on-surface, var(--aitu-ui-text-primary, #1e293b));
   font-size: 13px;
 
   &__section-title {
@@ -19,7 +19,7 @@
 
   &__section {
     padding-bottom: 10px;
-    border-bottom: 1px solid var(--aitu-ui-border, #f1f5f9);
+    border-bottom: 1px solid var(--md3-outline-variant, var(--aitu-ui-border, #f1f5f9));
 
     &:last-child {
       border-bottom: none;
@@ -34,16 +34,16 @@
 
   &__add {
     padding: 8px 10px;
-    border: 1px solid var(--aitu-ui-border, #e2e8f0);
-    border-radius: 8px;
-    background: var(--aitu-ui-surface-elevated, #ffffff);
+    border: 1px solid var(--md3-outline-variant, var(--aitu-ui-border, #e2e8f0));
+    border-radius: var(--md3-radius-full, 999px);
+    background: var(--md3-surface-container-highest, var(--aitu-ui-surface-elevated, #ffffff));
     color: inherit;
     cursor: pointer;
     transition: border-color 0.15s ease, color 0.15s ease;
 
     &:hover {
-      border-color: var(--aitu-ui-brand-text, #b45309);
-      color: var(--aitu-ui-brand-text, #b45309);
+      border-color: var(--md3-accent, var(--aitu-ui-brand-text, #b45309));
+      color: var(--md3-primary, var(--aitu-ui-brand-text, #b45309));
     }
   }
 
@@ -54,37 +54,37 @@
 
   &__btn {
     padding: 6px 14px;
-    border: 1px solid var(--aitu-ui-border, #e2e8f0);
-    border-radius: 8px;
-    background: var(--aitu-ui-surface-elevated, #ffffff);
+    border: 1px solid var(--md3-outline-variant, var(--aitu-ui-border, #e2e8f0));
+    border-radius: var(--md3-radius-full, 999px);
+    background: var(--md3-surface-container-highest, var(--aitu-ui-surface-elevated, #ffffff));
     color: inherit;
     cursor: pointer;
 
     &:hover {
-      border-color: var(--aitu-ui-brand-text, #b45309);
+      border-color: var(--md3-accent, var(--aitu-ui-brand-text, #b45309));
     }
 
     &--run {
-      background: var(--aitu-ui-brand-text, #b45309);
-      border-color: var(--aitu-ui-brand-text, #b45309);
-      color: #ffffff;
+      background: var(--md3-primary, var(--aitu-ui-brand-text, #b45309));
+      border-color: var(--md3-accent, var(--aitu-ui-brand-text, #b45309));
+      color: var(--md3-on-primary, #ffffff);
 
       &:hover {
-        background: #92400e;
-        color: #ffffff;
+        background: var(--color-primary-hover, #92400e);
+        color: var(--md3-on-primary, #ffffff);
       }
     }
 
     &--stop {
-      background: #dc2626;
-      border-color: #dc2626;
-      color: #ffffff;
+      background: var(--md3-error, #dc2626);
+      border-color: var(--md3-error, #dc2626);
+      color: var(--md3-on-error, #ffffff);
     }
   }
 
   &__hint {
     margin-top: 6px;
-    color: var(--aitu-ui-text-secondary, #64748b);
+    color: var(--md3-on-surface-variant, var(--aitu-ui-text-secondary, #64748b));
     font-size: 12px;
   }
 
@@ -109,14 +109,14 @@
     cursor: pointer;
 
     &:hover {
-      color: var(--aitu-ui-brand-text, #b45309);
+      color: var(--md3-primary, var(--aitu-ui-brand-text, #b45309));
     }
   }
 
   &__import-del {
     border: none;
     background: transparent;
-    color: #dc2626;
+    color: var(--md3-error, #dc2626);
     cursor: pointer;
     font-size: 12px;
   }
@@ -130,7 +130,7 @@
   height: 100%;
   padding: 8px 10px;
   border: 1px solid var(--md3-outline-variant, var(--aitu-ui-border, #cbd5e1));
-  border-radius: 12px;
+  border-radius: var(--md3-radius-md, 12px);
   background: var(--md3-surface-container-low, var(--aitu-ui-surface-elevated, #ffffff));
   box-shadow: var(--md3-elevation-1, 0 2px 8px rgba(15, 23, 42, 0.08));
   color: var(--md3-on-surface, var(--aitu-ui-text-primary, #1e293b));
@@ -139,8 +139,8 @@
   user-select: none;
 
   &--running {
-    border-color: #f59e0b;
-    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35);
+    border-color: var(--md3-accent, #f59e0b);
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);
   }
 
   &--completed {
@@ -148,7 +148,7 @@
   }
 
   &--failed {
-    border-color: #dc2626;
+    border-color: var(--md3-error, #dc2626);
     box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25);
   }
 
@@ -178,10 +178,10 @@
     width: 22px;
     height: 22px;
     padding: 0;
-    border: 1px solid var(--aitu-ui-border, #e2e8f0);
-    border-radius: 6px;
-    background: var(--aitu-ui-surface, #ffffff);
-    color: var(--aitu-ui-brand-text, #b45309);
+    border: 1px solid var(--md3-outline-variant, var(--aitu-ui-border, #e2e8f0));
+    border-radius: var(--md3-radius-full, 999px);
+    background: var(--md3-surface-container-highest, var(--aitu-ui-surface, #ffffff));
+    color: var(--md3-primary, var(--aitu-ui-brand-text, #b45309));
     cursor: pointer;
     font-size: 10px;
     line-height: 1;
@@ -190,7 +190,7 @@
   }
 
   &__header .wf-node-run-btn:hover {
-    border-color: var(--aitu-ui-brand-text, #b45309);
+    border-color: var(--md3-accent, var(--aitu-ui-brand-text, #b45309));
   }
 
   &:hover .wf-node-run-btn {
@@ -209,16 +209,16 @@
   }
 
   &__hint {
-    color: var(--aitu-ui-text-secondary, #94a3b8);
+    color: var(--md3-outline, var(--aitu-ui-text-secondary, #94a3b8));
     font-size: 11px;
   }
 
   &__error {
     margin-top: 6px;
     padding: 4px 6px;
-    border-radius: 6px;
-    background: rgba(220, 38, 38, 0.08);
-    color: #b91c1c;
+    border-radius: var(--md3-radius-sm, 8px);
+    background: var(--md3-error-container, rgba(220, 38, 38, 0.08));
+    color: var(--md3-error, #b91c1c);
     font-size: 11px;
     word-break: break-all;
   }
@@ -227,12 +227,12 @@
 .wf-node-status {
   font-size: 11px;
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: var(--md3-radius-full, 999px);
   background: rgba(148, 163, 184, 0.18);
 
   &--running {
-    background: rgba(245, 158, 11, 0.18);
-    color: #b45309;
+    background: rgba(0, 0, 0, 0.18);
+    color: var(--md3-primary, #b45309);
   }
 
   &--completed {
@@ -242,23 +242,23 @@
 
   &--failed {
     background: rgba(220, 38, 38, 0.12);
-    color: #b91c1c;
+    color: var(--md3-error, #b91c1c);
   }
 }
 
 .wf-node-input {
   width: 100%;
   padding: 4px 6px;
-  border: 1px solid var(--aitu-ui-border, #e2e8f0);
-  border-radius: 6px;
-  background: var(--aitu-ui-surface, #ffffff);
+  border: 1px solid var(--md3-outline-variant, var(--aitu-ui-border, #e2e8f0));
+  border-radius: var(--md3-radius-sm, 8px);
+  background: var(--md3-surface-container-highest, var(--aitu-ui-surface, #ffffff));
   color: inherit;
   font-size: 12px;
   resize: none;
   outline: none;
 
   &:focus {
-    border-color: var(--aitu-ui-brand-text, #b45309);
+    border-color: var(--md3-accent, var(--aitu-ui-brand-text, #b45309));
   }
 
   &--narrow {
@@ -266,7 +266,7 @@
   }
 }
 
-// 端口(节点右缘,拖出连线)
+// 端口(节点右缘,拖出连线)——端口几何与连线样式保持原样，不参与 MD3 形态改造
 .wf-node-port {
   &--out {
     position: absolute;
@@ -293,10 +293,9 @@
   min-width: 220px;
   max-width: 320px;
   padding: 10px;
-  border: 1px solid var(--aitu-ui-border, #e2e8f0);
-  border-radius: 10px;
-  background: var(--aitu-ui-surface-elevated, #ffffff);
-  box-shadow: var(--aitu-ui-shadow-hover, 0 8px 20px rgba(15, 23, 42, 0.15));
+  border-radius: var(--md3-radius-lg, 16px);
+  background: var(--md3-surface-container-high, var(--aitu-ui-surface-elevated, #ffffff));
+  box-shadow: var(--md3-elevation-3, var(--aitu-ui-shadow-hover, 0 8px 20px rgba(15, 23, 42, 0.15)));
 
   &__title {
     font-weight: 600;
@@ -311,35 +310,35 @@
 
     label {
       font-size: 11px;
-      color: var(--aitu-ui-text-secondary, #64748b);
+      color: var(--md3-on-surface-variant, var(--aitu-ui-text-secondary, #64748b));
     }
 
     input {
       padding: 4px 6px;
-      border: 1px solid var(--aitu-ui-border, #e2e8f0);
-      border-radius: 6px;
-      background: var(--aitu-ui-surface, #ffffff);
+      border: 1px solid var(--md3-outline-variant, var(--aitu-ui-border, #e2e8f0));
+      border-radius: var(--md3-radius-sm, 8px);
+      background: var(--md3-surface-container-highest, var(--aitu-ui-surface, #ffffff));
       color: inherit;
       outline: none;
 
       &:focus {
-        border-color: var(--aitu-ui-brand-text, #b45309);
+        border-color: var(--md3-accent, var(--aitu-ui-brand-text, #b45309));
       }
     }
   }
 
   &__empty {
-    color: var(--aitu-ui-text-secondary, #94a3b8);
+    color: var(--md3-outline, var(--aitu-ui-text-secondary, #94a3b8));
     font-size: 12px;
   }
 
   &__done {
     width: 100%;
     padding: 5px 0;
-    border: 1px solid var(--aitu-ui-brand-text, #b45309);
-    border-radius: 6px;
-    background: var(--aitu-ui-brand-text, #b45309);
-    color: #ffffff;
+    border: 1px solid var(--md3-accent, var(--aitu-ui-brand-text, #b45309));
+    border-radius: var(--md3-radius-full, 999px);
+    background: var(--md3-primary, var(--aitu-ui-brand-text, #b45309));
+    color: var(--md3-on-primary, #ffffff);
     cursor: pointer;
   }
 }

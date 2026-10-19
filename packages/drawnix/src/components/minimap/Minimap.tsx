@@ -506,11 +506,11 @@ export const Minimap: React.FC<MinimapProps> = ({
       const indicatorY = hoverPos.y - vh / 2;
       
       // 橙色填充
-      ctx.fillStyle = 'rgba(243, 156, 18, 0.15)';
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
       ctx.fillRect(indicatorX, indicatorY, vw, vh);
       
       // 橙色边框
-      ctx.strokeStyle = 'rgba(243, 156, 18, 0.8)';
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
       ctx.lineWidth = 2;
       ctx.strokeRect(indicatorX, indicatorY, vw, vh);
     }

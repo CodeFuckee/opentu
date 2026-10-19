@@ -107,7 +107,7 @@ export const DropDownMenuItemBadge = ({
         padding: '2px 4px',
         background: 'var(--color-promo)',
         color: 'var(--color-surface-lowest)',
-        borderRadius: 6,
+        borderRadius: 'var(--md3-radius-full, 999px)',
         fontSize: 9,
         fontFamily: 'Cascadia, monospace',
       }}

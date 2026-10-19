@@ -10,7 +10,7 @@
   gap: 16px;
   padding: 12px 14px;
   box-sizing: border-box;
-  border-radius: 26px;
+  border-radius: var(--md3-radius-xl, 28px);
   overflow: hidden;
   position: relative;
   background: radial-gradient(
@@ -36,7 +36,6 @@
   &:hover {
     box-shadow: 0 18px 40px rgba(43, 52, 55, 0.055),
       inset 0 1px 0 rgba(255, 255, 255, 0.62);
-    transform: translateY(-1px);
   }
 
   &::after {
@@ -54,9 +53,9 @@
   }
 
   &--selected {
-    border-color: rgba(191, 219, 254, 0.74);
+    border-color: var(--md3-primary-container, rgba(191, 219, 254, 0.74));
     box-shadow: 0 18px 42px rgba(96, 165, 250, 0.09),
-      0 0 0 1px rgba(191, 219, 254, 0.2),
+      0 0 0 1px var(--md3-primary-container, rgba(191, 219, 254, 0.2)),
       inset 0 1px 0 rgba(255, 255, 255, 0.72);
   }
 
@@ -109,7 +108,7 @@
   height: var(--audio-node-content-band-height);
   flex-shrink: 0;
   aspect-ratio: 1;
-  border-radius: 18px;
+  border-radius: var(--md3-radius-lg, 16px);
   overflow: hidden;
   background: linear-gradient(
     160deg,
@@ -274,7 +273,7 @@
   min-width: 0;
   font-size: 14.5px;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--md3-on-surface, #0f172a);
   line-height: 1.14;
   white-space: nowrap;
   overflow: hidden;
@@ -286,7 +285,7 @@
   min-width: 0;
   font-size: 10.5px;
   line-height: 1.28;
-  color: rgba(100, 116, 139, 0.8);
+  color: var(--md3-on-surface-variant, rgba(100, 116, 139, 0.8));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -304,15 +303,15 @@
     0 4px 14px rgba(148, 163, 184, 0.06);
   font-size: 9.5px;
   font-weight: 700;
-  color: rgba(71, 85, 105, 0.66);
+  color: var(--md3-on-surface-variant, rgba(71, 85, 105, 0.66));
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .audio-node__badge--playing {
-  color: rgba(37, 99, 235, 0.92);
-  background: rgba(239, 246, 255, 0.46);
-  border-color: rgba(191, 219, 254, 0.68);
+  color: var(--md3-primary, rgba(37, 99, 235, 0.92));
+  background: var(--md3-primary-container, rgba(239, 246, 255, 0.46));
+  border-color: var(--md3-primary-container, rgba(191, 219, 254, 0.68));
 }
 
 .audio-node__waveform {
@@ -320,7 +319,7 @@
   position: relative;
   height: 100%;
   min-height: 0;
-  border-radius: 18px;
+  border-radius: var(--md3-radius-lg, 16px);
   padding: 5px 9px;
   background: radial-gradient(
       circle at 18% 52%,
@@ -480,22 +479,22 @@
   font-size: 10px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: rgba(100, 116, 139, 0.74);
+  color: var(--md3-on-surface-variant, rgba(100, 116, 139, 0.74));
   letter-spacing: 0.01em;
 }
 
 .audio-node__time--primary {
-  color: rgba(51, 65, 85, 0.9);
+  color: var(--md3-on-surface, rgba(51, 65, 85, 0.9));
 }
 
 .audio-node__time--active {
-  color: rgba(37, 99, 235, 0.86);
+  color: var(--md3-primary, rgba(37, 99, 235, 0.86));
 }
 
 .audio-node__time-divider {
   font-size: 9px;
   font-weight: 700;
-  color: rgba(148, 163, 184, 0.64);
+  color: var(--md3-outline, rgba(148, 163, 184, 0.64));
 }
 
 .audio-node__wave-line {

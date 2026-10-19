@@ -6,8 +6,9 @@
 .view-mode-toggle {
   display: flex;
   align-items: center;
-  background: var(--aitu-ui-surface-muted, #f1f5f9);
-  border-radius: 6px;
+  background: var(--md3-surface-container-highest, #f1f5f9);
+  // MD3 分段控件：pill 轨道
+  border-radius: var(--md3-radius-full, 999px);
   padding: 2px;
   gap: 1px;
 
@@ -19,10 +20,10 @@
     height: 28px;
     border: none;
     background: transparent;
-    border-radius: 4px;
+    border-radius: var(--md3-radius-full, 999px);
     cursor: pointer;
-    color: var(--aitu-ui-text-tertiary, #94a3b8);
-    transition: all 0.15s ease;
+    color: var(--md3-outline, #94a3b8);
+    transition: background-color 0.15s ease, color 0.15s ease;
 
     svg {
       width: 15px;
@@ -30,14 +31,14 @@
     }
 
     &:hover:not(&--active) {
-      background: var(--aitu-ui-brand-softer, rgba(243, 156, 18, 0.06));
-      color: var(--aitu-ui-text-secondary, #64748b);
+      background: var(--md3-surface-container-high, rgba(0, 0, 0, 0.06));
+      color: var(--md3-on-surface-variant, #64748b);
     }
 
     &--active {
-      background: var(--aitu-ui-surface, #ffffff);
-      color: var(--aitu-ui-text-primary, #1e293b);
-      box-shadow: var(--aitu-ui-shadow-card, 0 1px 3px rgba(15, 23, 42, 0.06));
+      background: var(--md3-secondary-container, #ffffff);
+      color: var(--md3-on-surface, #1e293b);
+      box-shadow: var(--md3-elevation-1, 0 1px 3px rgba(15, 23, 42, 0.06));
     }
   }
 }

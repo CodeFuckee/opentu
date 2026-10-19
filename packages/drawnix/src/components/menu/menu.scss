@@ -47,7 +47,7 @@
       height: 2rem;
       margin-top: 4px;
       cursor: pointer;
-      border-radius: var(--border-radius-md);
+      border-radius: var(--md3-radius-full, 999px);
       outline: none;
 
       @media screen and (min-width: 1921px) {
@@ -136,7 +136,7 @@
     @at-root .drawnix.theme--dark#{&} {
       --background: var(--color-surface-high);
       &:hover {
-        --background: #363541;
+        --background: var(--md3-surface-container-high, #363541);
       }
     }
 

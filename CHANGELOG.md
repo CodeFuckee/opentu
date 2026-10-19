@@ -1,5 +1,30 @@
 ## Unreleased
 
+### feat: 前端全面迁移 Material Design 3——主题/图标/布局语言/微动效（openspec adopt-material-design-3 深化批次）
+
+用户逐轮过目确立的方向：M3 官方蓝配色（Google Workspace 同款 #0B57D0/#A8C7FA）+
+Lucide 圆线条图标体系 + MD3 布局语言。主要变更：
+
+- **主题基座**（theme/md3-theme.ts）：明暗双 scheme 全量 M3 色值；排版字阶令牌
+  （--md3-text-*）、动效令牌（--md3-ease/dur-*）、hairline/surface-panel/
+  accent/scrim/focus-ring 令牌；`--td-*` 全族桥 + 存量 `--color-*`/`--border-radius-*`
+  回写，146 个存量 SCSS 随主题明暗翻转
+- **图标统一**：components/icons.tsx 全量重写为 lucide-react（95 导出，组件名与
+  size 接口不变）；移除 AI 图标硬编码粉/橙描边；选择器色板与品牌 logo 按语义保留
+- **布局语言**：弹窗 28dp/面板 16dp/按钮与菜单项 pill/输入 8dp；悬浮面
+  （island/工具栏/输入栏/弹窗/菜单）统一去 1px 描边改 hairline + MD3 elevation；
+  工具栏分区去硬分割线；激活态 primary-container tonal pill
+- **画布**：亮色画布 #F8FAFD + 蓝调点阵、暗色 #131314（react-board mixins，
+  派生 themeColors 同步 boardBackground 与分支色蓝阶）
+- **AI 输入栏**：参数+生成数量合并为单一分段 pill；发送/生成按钮走 primary
+- **微动效**：交互过渡统一 120-200ms emphasized ease；面板 fade-up/弹窗
+  fade+scale/toast slide-down 入场；图标钮按压轻缩放；prefers-reduced-motion 全降级
+- **排版字阶落地**：抽屉/WinBox/确认弹窗标题、命令面板 kbd 等宽字体 + tabular-nums
+- **周边收敛**：视图导航紫/白硬编码、AI 输入栏琥珀 rgba×65、启动屏/登录壳/
+  ErrorBoundary/静态兜底全部随主题；dashboard-stats 看板配色对齐
+- **验证**：drawnix/web 构建与单测全绿；typecheck 显式通过（此前 web 构建
+  typecheck 静默失败导致 dist 不更新，已根治）
+
 ### feat: 数据看板长周期显示「区间总用量」（openspec add-dashboard-window-usage-total）
 
 KPI 用量只有「本月用量」（最新周期），选长区间（如 2026-08-07 ~ 2026-09-30 或近

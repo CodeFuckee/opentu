@@ -1,6 +1,7 @@
 .backup-restore-dialog {
-  background: white;
-  border-radius: 12px;
+  background: var(--md3-surface-container-high, #fff);
+  border-radius: var(--md3-radius-xl, 28px);
+  box-shadow: var(--md3-elevation-3, none);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -15,7 +16,7 @@
     font-weight: 600;
     flex: 0 0 auto;
     margin: 0 0 14px;
-    color: #1a1a1a;
+    color: var(--md3-on-surface, #1a1a1a);
   }
 
   &__tabs {
@@ -24,8 +25,8 @@
     flex: 0 0 auto;
     margin-bottom: 14px;
     padding: 4px;
-    background: #f5f5f5;
-    border-radius: 8px;
+    background: var(--md3-surface-container-highest, #f5f5f5);
+    border-radius: var(--md3-radius-full, 8px);
   }
 
   &__tab {
@@ -36,22 +37,22 @@
     gap: 6px;
     padding: 10px 16px;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--md3-radius-full, 999px);
     background: transparent;
     font-size: 14px;
     font-weight: 500;
-    color: #666;
+    color: var(--md3-on-surface-variant, #666);
     cursor: pointer;
     transition: all 0.2s;
 
     &:hover:not(:disabled) {
-      background: rgba(0, 0, 0, 0.04);
+      background: var(--md3-surface-container-high, rgba(0, 0, 0, 0.04));
     }
 
     &--active {
-      background: white;
-      color: var(--td-brand-color);
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      background: var(--md3-primary-container, #fff);
+      color: var(--md3-on-primary-container, var(--td-brand-color));
+      box-shadow: var(--md3-elevation-1, 0 1px 3px rgba(0, 0, 0, 0.1));
     }
 
     &:disabled {
@@ -81,7 +82,7 @@
 
   &__description {
     font-size: 14px;
-    color: #666;
+    color: var(--md3-on-surface-variant, #666);
     margin: 0 0 12px;
     line-height: 1.5;
   }
@@ -95,10 +96,10 @@
 
   &__mode {
     align-items: flex-start;
-    border: 1px solid #dcdcdc;
-    border-radius: 6px;
-    background: #fff;
-    color: #555;
+    border: 1px solid transparent;
+    border-radius: var(--md3-radius-md, 12px);
+    background: var(--md3-surface-container-low, #fff);
+    color: var(--md3-on-surface-variant, #555);
     display: flex;
     flex-direction: column;
     font-size: 13px;
@@ -111,17 +112,16 @@
     transition: all 0.2s;
 
     &:hover:not(:disabled) {
-      border-color: var(--td-brand-color);
-      color: var(--td-brand-color);
+      background: var(--md3-surface-container-high, #fff);
+      color: var(--md3-primary, var(--td-brand-color));
     }
 
     &--active {
-      border-color: var(--td-brand-color);
-      background: var(--td-brand-color-light);
-      color: var(--td-brand-color);
+      background: var(--md3-primary-container, var(--td-brand-color-light));
+      color: var(--md3-on-primary-container, var(--td-brand-color));
 
       .backup-restore-dialog__mode-desc {
-        color: var(--td-brand-color);
+        color: var(--md3-on-primary-container, var(--td-brand-color));
       }
     }
 
@@ -138,7 +138,7 @@
   }
 
   &__mode-desc {
-    color: #888;
+    color: var(--md3-on-surface-variant, #888);
     font-size: 12px;
     font-weight: 400;
     line-height: 1.35;
@@ -153,15 +153,15 @@
 
     .t-checkbox {
       align-items: flex-start;
-      border: 1px solid #e8e8e8;
-      border-radius: 6px;
+      border: 1px solid var(--md3-outline-variant, #e8e8e8);
+      border-radius: var(--md3-radius-md, 12px);
       min-width: 0;
       padding: 9px 10px;
       transition: all 0.2s;
 
       &:hover {
-        border-color: var(--td-brand-color);
-        background: var(--td-brand-color-light);
+        border-color: var(--md3-accent, var(--td-brand-color));
+        background: var(--md3-surface-container-high, var(--td-brand-color-light));
       }
     }
 
@@ -180,21 +180,21 @@
   &__option-title {
     font-size: 13px;
     font-weight: 500;
-    color: #1a1a1a;
+    color: var(--md3-on-surface, #1a1a1a);
   }
 
   &__option-desc {
     font-size: 12px;
     line-height: 1.35;
-    color: #999;
+    color: var(--md3-outline, #999);
   }
 
   &__time-range {
     margin-bottom: 12px;
     padding: 10px;
-    border: 1px solid #e8e8e8;
-    border-radius: 6px;
-    background: #fafafa;
+    border: 1px solid transparent;
+    border-radius: var(--md3-radius-md, 12px);
+    background: var(--md3-surface-container-low, #fafafa);
   }
 
   &__password-field {
@@ -203,24 +203,24 @@
     gap: 6px;
     margin-bottom: 12px;
     font-size: 12px;
-    color: #666;
+    color: var(--md3-on-surface-variant, #666);
 
     input {
       width: 100%;
-      border: 1px solid #dcdcdc;
-      border-radius: 6px;
+      border: 1px solid var(--md3-outline-variant, #dcdcdc);
+      border-radius: var(--md3-radius-sm, 8px);
       box-sizing: border-box;
       padding: 8px 10px;
       font-size: 13px;
-      color: #333;
-      background: #fff;
+      color: var(--md3-on-surface, #333);
+      background: var(--md3-surface-container-highest, #fff);
     }
   }
 
   &__time-range-title {
     font-size: 13px;
     font-weight: 500;
-    color: #333;
+    color: var(--md3-on-surface, #333);
     margin-bottom: 8px;
   }
 
@@ -237,18 +237,18 @@
 
     span {
       font-size: 12px;
-      color: #666;
+      color: var(--md3-on-surface-variant, #666);
     }
 
     input {
       width: 100%;
-      border: 1px solid #dcdcdc;
-      border-radius: 6px;
+      border: 1px solid var(--md3-outline-variant, #dcdcdc);
+      border-radius: var(--md3-radius-sm, 8px);
       box-sizing: border-box;
       padding: 6px 8px;
       font-size: 12px;
-      color: #333;
-      background: #fff;
+      color: var(--md3-on-surface, #333);
+      background: var(--md3-surface-container-highest, #fff);
     }
   }
 
@@ -259,27 +259,27 @@
     justify-content: center;
     gap: 10px;
     padding: 28px 16px;
-    border: 2px dashed #d9d9d9;
-    border-radius: 8px;
-    background: #fafafa;
+    border: 2px dashed var(--md3-outline-variant, #d9d9d9);
+    border-radius: var(--md3-radius-sm, 8px);
+    background: var(--md3-surface-container-low, #fafafa);
     cursor: pointer;
     transition: all 0.2s;
     margin-bottom: 12px;
 
     &:hover {
-      border-color: var(--td-brand-color);
-      background: var(--td-brand-color-light);
+      border-color: var(--md3-accent, var(--td-brand-color));
+      background: var(--md3-surface-container-high, var(--td-brand-color-light));
     }
   }
 
   &__dropzone-icon {
     font-size: 28px;
-    color: #999;
+    color: var(--md3-outline, #999);
   }
 
   &__dropzone-text {
     font-size: 14px;
-    color: #666;
+    color: var(--md3-on-surface-variant, #666);
   }
 
   &__progress {
@@ -287,18 +287,22 @@
 
     // 覆盖 TDesign Progress 默认样式，增强对比度
     .t-progress__bar {
-      background-color: #e8e8e8;
+      background-color: var(--md3-surface-container-highest, #e8e8e8);
     }
 
     .t-progress__inner {
-      background: linear-gradient(135deg, var(--td-brand-color) 0%, var(--td-brand-color-6) 100%);
+      background: linear-gradient(
+        135deg,
+        var(--md3-primary, var(--td-brand-color)) 0%,
+        var(--md3-brand, var(--td-brand-color-6)) 100%
+      );
     }
   }
 
   &__progress-text {
     display: block;
     font-size: 12px;
-    color: #666;
+    color: var(--md3-on-surface-variant, #666);
     margin-top: 8px;
     text-align: center;
     font-variant-numeric: tabular-nums;
@@ -307,8 +311,8 @@
   &__result {
     padding: 12px;
     background: #f6ffed;
-    border: 1px solid #b7eb8f;
-    border-radius: 6px;
+    border: 1px solid transparent;
+    border-radius: var(--md3-radius-md, 12px);
     margin-bottom: 12px;
   }
 
@@ -323,16 +327,16 @@
     margin: 0;
     padding-left: 18px;
     font-size: 13px;
-    color: #333;
+    color: var(--md3-on-surface, #333);
     line-height: 1.6;
   }
 
   &__result-errors {
     margin-top: 12px;
     padding-top: 12px;
-    border-top: 1px solid #b7eb8f;
+    border-top: 1px solid var(--md3-outline-variant, #b7eb8f);
     font-size: 12px;
-    color: #ff4d4f;
+    color: var(--md3-error, #ff4d4f);
 
     ul {
       margin: 4px 0 0;
@@ -343,9 +347,9 @@
   &__result-warnings {
     margin-top: 12px;
     padding-top: 12px;
-    border-top: 1px solid #b7eb8f;
+    border-top: 1px solid var(--md3-outline-variant, #b7eb8f);
     font-size: 12px;
-    color: #ad6800;
+    color: var(--md3-primary, #ad6800);
 
     ul {
       margin: 4px 0 0;
@@ -360,14 +364,14 @@
     gap: 8px;
     margin-top: 12px;
     padding-top: 12px;
-    border-top: 1px solid #eee;
-    background: white;
+    border-top: 1px solid var(--md3-outline-variant, #eee);
+    background: var(--md3-surface-container-high, #fff);
   }
 
   &__button {
     min-width: 88px;
     padding: 8px 16px;
-    border-radius: 6px;
+    border-radius: var(--md3-radius-full, 999px);
     font-size: 14px;
     font-weight: 500;
     cursor: pointer;
@@ -380,20 +384,28 @@
     }
 
     &--cancel {
-      background: #f5f5f5;
-      color: #333;
+      background: var(--md3-surface-container-highest, #f5f5f5);
+      color: var(--md3-on-surface, #333);
 
       &:hover:not(:disabled) {
-        background: #e8e8e8;
+        background: var(--md3-surface-container-high, #e8e8e8);
       }
     }
 
     &--primary {
-      background: linear-gradient(135deg, var(--td-brand-color) 0%, var(--td-brand-color-6) 100%);
-      color: white;
+      background: linear-gradient(
+        135deg,
+        var(--md3-primary, var(--td-brand-color)) 0%,
+        var(--md3-brand, var(--td-brand-color-6)) 100%
+      );
+      color: var(--md3-on-primary, white);
 
       &:hover:not(:disabled) {
-        background: linear-gradient(135deg, var(--td-brand-color-4) 0%, var(--td-brand-color) 100%);
+        background: linear-gradient(
+          135deg,
+          var(--md3-brand, var(--td-brand-color-4)) 0%,
+          var(--md3-primary, var(--td-brand-color)) 100%
+        );
       }
     }
   }

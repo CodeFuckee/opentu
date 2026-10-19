@@ -1,7 +1,7 @@
 /**
  * 公共渐变编辑器样式
  * Common Gradient Editor Styles
- * 
+ *
  * 参考设计：线性/径向切换 + 可拖拽色标条 + 原点预设 + 预设快捷选择
  */
 
@@ -41,29 +41,29 @@
   display: flex;
   gap: 4px;
   padding: 2px;
-  background: var(--color-bg-secondary, #f5f5f5);
-  border-radius: 6px;
+  background: var(--md3-surface-container-highest, #f5f5f5);
+  border-radius: var(--md3-radius-full, 999px);
 }
 
 .ge-type-btn {
   padding: 4px 12px;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--md3-radius-full, 999px);
   background: transparent;
-  color: var(--color-text-secondary, #666);
+  color: var(--md3-on-surface-variant, #666);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
 
   &:hover {
-    color: var(--color-text, #333);
+    color: var(--md3-on-surface, #333);
   }
 
   &.active {
-    background: #ffffff;
-    color: var(--color-text, #333);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    background: var(--md3-primary-container, #ffffff);
+    color: var(--md3-on-primary-container, #333);
+    box-shadow: var(--md3-elevation-1, 0 1px 3px rgba(0, 0, 0, 0.1));
   }
 }
 
@@ -83,7 +83,7 @@
 
 .ge-section-title {
   font-size: 12px;
-  color: var(--color-text-secondary, #666);
+  color: var(--md3-on-surface-variant, #666);
   font-weight: 500;
 }
 
@@ -100,19 +100,18 @@
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: 1px solid var(--color-border, #e0e0e0);
-  border-radius: 4px;
-  background: #ffffff;
-  color: var(--color-text-secondary, #666);
+  border: none;
+  border-radius: var(--md3-radius-full, 999px);
+  background: var(--md3-surface-container-highest, #ffffff);
+  color: var(--md3-on-surface-variant, #666);
   font-size: 14px;
   font-weight: 400;
   cursor: pointer;
   transition: all 0.15s ease;
 
   &:hover:not(:disabled) {
-    background: var(--color-bg-hover, #f5f5f5);
-    color: var(--color-text, #333);
-    border-color: var(--color-border-hover, #ccc);
+    background: var(--aitu-ui-hover-bg, #f5f5f5);
+    color: var(--md3-on-surface, #333);
   }
 
   &:disabled {
@@ -132,7 +131,7 @@
 .ge-gradient-bar {
   flex: 1;
   height: 24px;
-  border-radius: 12px;
+  border-radius: var(--md3-radius-full, 999px);
   position: relative;
   cursor: crosshair;
 }
@@ -145,23 +144,19 @@
   margin-left: -10px;
   margin-top: -10px;
   padding: 0;
-  border: 2px solid #ffffff;
+  border: 2px solid var(--md3-surface-container-lowest, #ffffff);
   border-radius: 50%;
   cursor: grab;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  box-shadow: var(--md3-elevation-2, 0 1px 3px rgba(0, 0, 0, 0.25));
+  transition: box-shadow 0.1s ease;
   z-index: 3;
-
-  &:hover {
-    transform: scale(1.1);
-  }
 
   &:active {
     cursor: grabbing;
   }
 
   &.selected {
-    box-shadow: 0 0 0 2px #0066ff, 0 1px 3px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 0 0 2px var(--md3-primary, #0066ff), 0 1px 3px rgba(0, 0, 0, 0.25);
     z-index: 4;
   }
 }
@@ -183,23 +178,21 @@
 
 .ge-origin-btn {
   padding: 6px 12px;
-  border: 1px solid var(--color-border, #e0e0e0);
-  border-radius: 6px;
-  background: #ffffff;
-  color: var(--color-text-secondary, #666);
+  border: none;
+  border-radius: var(--md3-radius-full, 999px);
+  background: var(--md3-surface-container-highest, #ffffff);
+  color: var(--md3-on-surface-variant, #666);
   font-size: 12px;
   cursor: pointer;
   transition: all 0.15s ease;
 
   &:hover {
-    background: var(--color-bg-hover, #f5f5f5);
-    border-color: var(--color-border-hover, #ccc);
+    background: var(--aitu-ui-hover-bg, #f5f5f5);
   }
 
   &.active {
-    background: var(--color-bg-secondary, #f0f0f0);
-    border-color: var(--color-text-secondary, #999);
-    color: var(--color-text, #333);
+    background: var(--md3-primary-container, #f0f0f0);
+    color: var(--md3-on-primary-container, #333);
   }
 }
 
@@ -213,7 +206,7 @@
 
 .ge-angle-value {
   font-size: 12px;
-  color: var(--color-text-secondary, #666);
+  color: var(--md3-on-surface-variant, #666);
   font-family: 'SF Mono', Monaco, monospace;
 }
 
@@ -221,7 +214,7 @@
   width: 100%;
   height: 4px;
   appearance: none;
-  background: var(--color-bg-secondary, #e5e5e5);
+  background: var(--md3-outline-variant, #e5e5e5);
   border-radius: 2px;
   outline: none;
   cursor: pointer;
@@ -230,20 +223,20 @@
     appearance: none;
     width: 14px;
     height: 14px;
-    background: #0066ff;
+    background: var(--md3-primary, #0066ff);
     border-radius: 50%;
     cursor: pointer;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--md3-elevation-1, 0 1px 3px rgba(0, 0, 0, 0.2));
   }
 
   &::-moz-range-thumb {
     width: 14px;
     height: 14px;
-    background: #0066ff;
+    background: var(--md3-primary, #0066ff);
     border: none;
     border-radius: 50%;
     cursor: pointer;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--md3-elevation-1, 0 1px 3px rgba(0, 0, 0, 0.2));
   }
 }
 
@@ -258,22 +251,17 @@
 .ge-save-btn {
   padding: 4px 12px;
   border: none;
-  border-radius: 4px;
-  background: linear-gradient(135deg, #F39C12 0%, #E67E22 100%);
-  color: #ffffff;
+  border-radius: var(--md3-radius-full, 999px);
+  background: var(--md3-primary, #f39c12);
+  color: var(--md3-on-primary, #ffffff);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
 
   &:hover {
-    background: linear-gradient(135deg, #E67E22 0%, #D35400 100%);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 6px rgba(243, 156, 18, 0.3);
-  }
-
-  &:active {
-    transform: translateY(0);
+    background: var(--color-primary-hover, #e67e22);
+    box-shadow: var(--md3-elevation-1, 0 2px 6px rgba(0, 0, 0, 0.3));
   }
 }
 
@@ -284,7 +272,7 @@
   flex-direction: column;
   gap: 8px;
   padding-top: 8px;
-  border-top: 1px solid var(--color-border-light, #eee);
+  border-top: 1px solid var(--md3-outline-variant, #eee);
 }
 
 .ge-quick-presets-header {
@@ -295,7 +283,7 @@
 
 .ge-quick-presets-title {
   font-size: 12px;
-  color: var(--color-text-secondary, #666);
+  color: var(--md3-on-surface-variant, #666);
   font-weight: 500;
 }
 
@@ -303,13 +291,13 @@
   padding: 0;
   border: none;
   background: transparent;
-  color: var(--color-text-tertiary, #999);
+  color: var(--md3-outline, #999);
   font-size: 12px;
   cursor: pointer;
   transition: color 0.15s ease;
 
   &:hover {
-    color: var(--color-primary, #0066ff);
+    color: var(--md3-primary, #0066ff);
   }
 }
 
@@ -327,19 +315,18 @@
   border-radius: 50%;
   cursor: pointer;
   overflow: visible;
-  transition: all 0.15s ease;
+  transition: border-color 0.15s ease;
 
   &:hover {
-    transform: scale(1.1);
-    border-color: var(--color-border-hover, #ccc);
+    border-color: var(--md3-outline-variant, #ccc);
   }
 
   &--selected {
-    border-color: var(--color-primary, #0066ff);
-    box-shadow: 0 0 0 1px var(--color-primary, #0066ff);
+    border-color: var(--md3-accent, #0066ff);
+    box-shadow: 0 0 0 1px var(--md3-primary, #0066ff);
 
     &:hover {
-      border-color: var(--color-primary, #0066ff);
+      border-color: var(--md3-accent, #0066ff);
     }
   }
 
@@ -365,8 +352,8 @@
   padding: 0;
   border: none;
   border-radius: 50%;
-  background: #ff4d4f;
-  color: #ffffff;
+  background: var(--md3-error, #ff4d4f);
+  color: var(--md3-on-error, #ffffff);
   font-size: 10px;
   line-height: 1;
   cursor: pointer;
@@ -377,16 +364,17 @@
   justify-content: center;
 
   &:hover {
-    background: #ff1f1f;
+    background: var(--md3-error, #ff1f1f);
+    filter: brightness(0.9);
   }
 }
 
 // ============ 颜色选择器弹窗 ============
 
 .ge-color-picker-popover {
-  background: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  background: var(--md3-surface-container-high, #ffffff);
+  border-radius: var(--md3-radius-lg, 16px);
+  box-shadow: var(--md3-elevation-3, 0 4px 20px rgba(0, 0, 0, 0.15));
 }
 
 // ============ 旧样式兼容（逐步移除） ============
@@ -397,29 +385,29 @@
   gap: 4px;
   margin-bottom: 10px;
   padding: 2px;
-  background: var(--color-bg-secondary, #f3f4f6);
-  border-radius: 6px;
+  background: var(--md3-surface-container-highest, #f3f4f6);
+  border-radius: var(--md3-radius-full, 999px);
 }
 
 .ge-tab {
   flex: 1;
   padding: 6px 8px;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--md3-radius-full, 999px);
   background: transparent;
-  color: var(--color-text-secondary, #6b7280);
+  color: var(--md3-on-surface-variant, #6b7280);
   font-size: 11px;
   cursor: pointer;
   transition: all 0.15s ease;
 
   &:hover {
-    color: var(--color-text, #111827);
+    color: var(--md3-on-surface, #111827);
   }
 
   &.active {
-    background: #ffffff;
-    color: var(--color-text, #111827);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    background: var(--md3-primary-container, #ffffff);
+    color: var(--md3-on-primary-container, #111827);
+    box-shadow: var(--md3-elevation-1, 0 1px 2px rgba(0, 0, 0, 0.05));
   }
 }
 
@@ -445,7 +433,7 @@
 
 .ge-category-title {
   font-size: 10px;
-  color: var(--color-text-tertiary, #9ca3af);
+  color: var(--md3-outline, #9ca3af);
   font-weight: 500;
 }
 
@@ -459,20 +447,19 @@
   aspect-ratio: 1;
   padding: 0;
   border: 2px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--md3-radius-sm, 8px);
   cursor: pointer;
   overflow: hidden;
-  transition: all 0.15s ease;
+  transition: border-color 0.15s ease;
 
   &:hover {
-    border-color: var(--color-primary, #3b82f6);
-    transform: scale(1.05);
+    border-color: var(--md3-accent, #3b82f6);
   }
 
   .ge-preset-preview {
     width: 100%;
     height: 100%;
-    border-radius: 4px;
+    border-radius: var(--md3-radius-xs, 4px);
   }
 }
 
@@ -486,7 +473,7 @@
   align-items: center;
   justify-content: center;
   height: 60px;
-  color: var(--color-text-tertiary, #9ca3af);
+  color: var(--md3-outline, #9ca3af);
   font-size: 11px;
 }
 
@@ -500,20 +487,19 @@
   aspect-ratio: 1;
   padding: 0;
   border: 2px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--md3-radius-sm, 8px);
   cursor: pointer;
   overflow: hidden;
-  transition: all 0.15s ease;
+  transition: border-color 0.15s ease;
 
   &:hover {
-    border-color: var(--color-primary, #3b82f6);
-    transform: scale(1.05);
+    border-color: var(--md3-accent, #3b82f6);
   }
 
   .ge-history-preview {
     width: 100%;
     height: 100%;
-    border-radius: 4px;
+    border-radius: var(--md3-radius-xs, 4px);
   }
 }
 
@@ -535,8 +521,8 @@
   width: 28px;
   height: 28px;
   padding: 0;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 4px;
+  border: 1px solid var(--md3-outline-variant, #e5e7eb);
+  border-radius: var(--md3-radius-sm, 8px);
   cursor: pointer;
 
   &::-webkit-color-swatch-wrapper {
@@ -551,7 +537,7 @@
 
 .ge-color-value {
   font-size: 10px;
-  color: var(--color-text-secondary, #6b7280);
+  color: var(--md3-on-surface-variant, #6b7280);
   font-family: 'SF Mono', Monaco, monospace;
 }
 
@@ -563,7 +549,7 @@
   width: 100%;
   height: 3px;
   appearance: none;
-  background: var(--color-border, #e5e7eb);
+  background: var(--md3-outline-variant, #e5e7eb);
   border-radius: 2px;
   outline: none;
   cursor: pointer;
@@ -572,10 +558,10 @@
     appearance: none;
     width: 12px;
     height: 12px;
-    background: #F39C12;
+    background: var(--md3-primary, #f39c12);
     border-radius: 50%;
     cursor: pointer;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--md3-elevation-1, 0 1px 2px rgba(0, 0, 0, 0.15));
   }
 }
 
@@ -594,7 +580,7 @@
   label {
     width: 12px;
     font-size: 10px;
-    color: var(--color-text-tertiary, #9ca3af);
+    color: var(--md3-outline, #9ca3af);
   }
 }
 
@@ -602,7 +588,7 @@
   flex: 1;
   height: 3px;
   appearance: none;
-  background: var(--color-border, #e5e7eb);
+  background: var(--md3-outline-variant, #e5e7eb);
   border-radius: 2px;
   outline: none;
   cursor: pointer;
@@ -611,17 +597,17 @@
     appearance: none;
     width: 12px;
     height: 12px;
-    background: #F39C12;
+    background: var(--md3-primary, #f39c12);
     border-radius: 50%;
     cursor: pointer;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--md3-elevation-1, 0 1px 2px rgba(0, 0, 0, 0.15));
   }
 }
 
 .ge-center-value {
   width: 32px;
   font-size: 10px;
-  color: var(--color-text-secondary, #6b7280);
+  color: var(--md3-on-surface-variant, #6b7280);
   font-family: 'SF Mono', Monaco, monospace;
   text-align: right;
 }

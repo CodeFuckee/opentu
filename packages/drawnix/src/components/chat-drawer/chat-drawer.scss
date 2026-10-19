@@ -30,9 +30,9 @@ $drawer-input-max-height: 280px;
     --aitu-toolbar-side-panel-max-width,
     calc(100vw - #{$toolbar-width})
   );
-  background: #ffffff;
-  border-left: 1px solid var(--td-component-border);
-  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.08);
+  background: var(--md3-surface-container-low, #ffffff);
+  border-left: none; // MD3：去描边，elevation 分层
+  box-shadow: var(--md3-elevation-2, -4px 0 16px rgba(0, 0, 0, 0.08));
   transform: translateX(100%);
   opacity: 0;
   visibility: hidden;
@@ -98,7 +98,7 @@ $drawer-input-max-height: 280px;
     display: flex;
     flex-direction: column;
     padding: $spacing-md $spacing-lg;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--md3-outline-variant, #f0f0f0);
     background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(12px);
     gap: $spacing-md;
@@ -121,8 +121,8 @@ $drawer-input-max-height: 280px;
     justify-content: flex-start;
     gap: $spacing-md;
     padding: 6px 12px;
-    background: rgba(0, 0, 0, 0.03);
-    border-radius: 12px;
+    background: var(--md3-surface-container-high, rgba(0, 0, 0, 0.03));
+    border-radius: var(--md3-radius-md, 12px);
     min-width: 0;
   }
 
@@ -149,14 +149,14 @@ $drawer-input-max-height: 280px;
 
     &--editable {
       cursor: pointer;
-      border-radius: 6px;
+      border-radius: var(--md3-radius-sm, 8px);
       padding: 4px 8px;
       margin: -4px -8px;
       transition: all 0.2s ease;
 
       &:hover {
-        background: rgba(243, 156, 18, 0.05);
-        color: var(--td-brand-color);
+        background: rgba(0, 0, 0, 0.05);
+        color: var(--md3-primary, var(--td-brand-color));
       }
     }
   }
@@ -168,13 +168,13 @@ $drawer-input-max-height: 280px;
     font-size: 16px;
     font-weight: 700;
     color: var(--td-text-color-primary);
-    background: #ffffff;
-    border: 2px solid var(--td-brand-color);
-    border-radius: 8px;
+    background: var(--md3-surface-container-lowest, #ffffff);
+    border: 2px solid var(--md3-primary, var(--td-brand-color));
+    border-radius: var(--md3-radius-sm, 8px);
     padding: 4px 8px;
     outline: none;
     box-sizing: border-box;
-    box-shadow: 0 4px 12px rgba(243, 156, 18, 0.1);
+    box-shadow: var(--md3-elevation-2, 0 4px 12px rgba(0, 0, 0, 0.1));
   }
 
   &__actions {
@@ -206,15 +206,14 @@ $drawer-input-max-height: 280px;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
     &:hover {
-      background: rgba(243, 156, 18, 0.08);
-      color: var(--td-brand-color);
-      transform: rotate(90deg);
+      background: rgba(0, 0, 0, 0.08);
+      color: var(--md3-primary, var(--td-brand-color));
     }
 
     &--active {
-      background: rgba(243, 156, 18, 0.1);
-      color: var(--td-brand-color);
-      border: 1px solid rgba(243, 156, 18, 0.2);
+      background: var(--md3-primary-container, rgba(0, 0, 0, 0.1));
+      color: var(--md3-on-primary-container, var(--td-brand-color));
+      border: none;
     }
   }
 }
@@ -223,7 +222,9 @@ $drawer-input-max-height: 280px;
   right: var(--aitu-toolbar-right-dock-width, 0px);
 
   &.chat-drawer--open {
-    box-shadow: 100vw 0 0 100vw #ffffff, -4px 0 16px rgba(0, 0, 0, 0.08);
+    box-shadow:
+      100vw 0 0 100vw var(--md3-surface-container-low, #ffffff),
+      var(--md3-elevation-2, -4px 0 16px rgba(0, 0, 0, 0.08));
   }
 }
 
@@ -241,17 +242,16 @@ $drawer-input-max-height: 280px;
   justify-content: center;
   width: 18px;
   height: 48px;
-  background: #ffffff;
-  border: 1px solid var(--td-component-border);
-  border-right: none;
-  border-radius: 8px 0 0 8px;
+  background: var(--md3-surface-container-low, #ffffff);
+  border: none; // MD3：去描边
+  border-radius: var(--md3-radius-sm, 8px) 0 0 var(--md3-radius-sm, 8px);
   cursor: pointer;
   transform: translateY(-50%);
   transition: all 0.3s ease;
-  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--md3-elevation-1, -2px 0 8px rgba(0, 0, 0, 0.06));
 
   &:hover {
-    background: var(--td-bg-color-container-hover);
+    background: var(--md3-surface-container-high, var(--td-bg-color-container-hover));
   }
 
   &__icon {
@@ -310,20 +310,22 @@ $drawer-input-max-height: 280px;
     flex-direction: row-reverse;
 
     .message-item__bubble {
-      background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
-      color: white;
-      border-radius: $border-radius $border-radius 4px $border-radius;
-      box-shadow: 0 4px 12px rgba(243, 156, 18, 0.2);
+      background: var(--md3-primary, #f39c12);
+      color: var(--md3-on-primary, #fff);
+      border-radius: var(--md3-radius-lg, 16px) var(--md3-radius-lg, 16px)
+        var(--md3-radius-xs, 4px) var(--md3-radius-lg, 16px);
+      box-shadow: var(--md3-elevation-1, 0 4px 12px rgba(0, 0, 0, 0.2));
     }
   }
 
   &--assistant {
     .message-item__bubble {
-      background: #ffffff;
-      color: var(--td-text-color-primary);
-      border-radius: $border-radius $border-radius $border-radius 4px;
-      border: 1px solid var(--td-component-border);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      background: var(--md3-surface-container-low, #ffffff);
+      color: var(--md3-on-surface, var(--td-text-color-primary));
+      border-radius: var(--md3-radius-lg, 16px) var(--md3-radius-lg, 16px)
+        var(--md3-radius-lg, 16px) var(--md3-radius-xs, 4px);
+      border: none; // MD3：气泡去描边
+      box-shadow: var(--md3-elevation-1, 0 2px 8px rgba(0, 0, 0, 0.04));
     }
   }
 
@@ -335,8 +337,8 @@ $drawer-input-max-height: 280px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--td-bg-color-secondarycontainer);
-    color: var(--td-text-color-secondary);
+    background: var(--md3-surface-container-high, var(--td-bg-color-secondarycontainer));
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary));
     font-size: 14px;
   }
 
@@ -371,24 +373,24 @@ $drawer-input-max-height: 280px;
     padding: 4px 8px;
     font-size: 12px;
     background: transparent;
-    border: 1px solid var(--td-component-border);
-    border-radius: 4px;
+    border: none; // MD3：去描边
+    border-radius: var(--md3-radius-full, 999px);
     cursor: pointer;
-    color: var(--td-text-color-secondary);
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary));
     transition: all 0.2s ease;
 
     &:hover {
-      background: var(--td-bg-color-container-hover);
-      color: var(--td-text-color-primary);
+      background: var(--md3-surface-container-high, var(--td-bg-color-container-hover));
+      color: var(--md3-on-surface, var(--td-text-color-primary));
     }
   }
 
   &__error {
-    color: var(--td-error-color);
+    color: var(--md3-error, var(--td-error-color));
     font-size: 12px;
     padding: $spacing-sm;
-    background: var(--td-error-color-1);
-    border-radius: 4px;
+    background: var(--md3-error-container, var(--td-error-color-1));
+    border-radius: var(--md3-radius-sm, 8px);
   }
 
   &__time {
@@ -403,7 +405,7 @@ $drawer-input-max-height: 280px;
 
 .message-input {
   padding: $spacing-lg;
-  border-top: 1px solid var(--td-component-border);
+  border-top: 1px solid var(--md3-outline-variant, var(--td-component-border));
   background: var(--td-bg-color-container);
 
   &__container {
@@ -411,9 +413,9 @@ $drawer-input-max-height: 280px;
     align-items: flex-end;
     gap: $spacing-md;
     padding: $spacing-md;
-    background: var(--td-bg-color-secondarycontainer);
-    border-radius: $border-radius;
-    border: 1px solid var(--td-component-border);
+    background: var(--md3-surface-container-highest, var(--td-bg-color-secondarycontainer));
+    border-radius: var(--md3-radius-sm, 8px);
+    border: 1px solid var(--md3-outline-variant, var(--td-component-border));
     transition: border-color 0.2s ease;
   }
 
@@ -456,8 +458,8 @@ $drawer-input-max-height: 280px;
     transition: all 0.2s ease;
 
     &:hover:not(:disabled) {
-      background: rgba(243, 156, 18, 0.1);
-      color: var(--td-brand-color);
+      background: rgba(0, 0, 0, 0.1);
+      color: var(--md3-primary, var(--td-brand-color));
     }
 
     &:disabled {
@@ -466,23 +468,22 @@ $drawer-input-max-height: 280px;
     }
 
     &--send {
-      background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
-      color: white;
+      background: var(--md3-primary, #f39c12);
+      color: var(--md3-on-primary, #fff);
 
       &:hover:not(:disabled) {
-        transform: scale(1.05);
-        box-shadow: 0 4px 12px rgba(243, 156, 18, 0.3);
-        color: white;
+        box-shadow: var(--md3-elevation-2, 0 4px 12px rgba(0, 0, 0, 0.3));
+        color: var(--md3-on-primary, #fff);
       }
     }
 
     &--stop {
-      background: var(--td-error-color);
-      color: white;
+      background: var(--md3-error, var(--td-error-color));
+      color: var(--md3-on-error, #fff);
 
       &:hover:not(:disabled) {
         background: var(--td-error-color-hover);
-        color: white;
+        color: var(--md3-on-error, #fff);
       }
     }
   }
@@ -504,11 +505,11 @@ $drawer-input-max-height: 280px;
     align-items: center;
     gap: $spacing-sm;
     padding: $spacing-sm $spacing-md;
-    background: var(--td-bg-color-container);
-    border: 1px solid var(--td-component-border);
-    border-radius: 6px;
+    background: var(--md3-surface-container, var(--td-bg-color-container));
+    border: none; // MD3：chip 去描边
+    border-radius: var(--md3-radius-full, 999px);
     font-size: 12px;
-    color: var(--td-text-color-secondary);
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary));
   }
 
   &__icon {
@@ -529,11 +530,11 @@ $drawer-input-max-height: 280px;
     width: 16px;
     height: 16px;
     padding: 0;
-    background: var(--td-error-color);
+    background: var(--md3-error, var(--td-error-color));
     border: none;
     border-radius: 50%;
     cursor: pointer;
-    color: white;
+    color: var(--md3-on-error, #fff);
     font-size: 10px;
     display: flex;
     align-items: center;
@@ -544,7 +545,7 @@ $drawer-input-max-height: 280px;
     width: 48px;
     height: 48px;
     object-fit: cover;
-    border-radius: 4px;
+    border-radius: var(--md3-radius-xs, 4px);
   }
 }
 
@@ -558,19 +559,19 @@ $drawer-input-max-height: 280px;
   left: 0;
   right: 0;
   z-index: 100;
-  background: #ffffff;
-  border-bottom: 1px solid var(--td-component-border);
+  background: var(--md3-surface-container, #ffffff);
+  border-bottom: 1px solid var(--md3-outline-variant, var(--td-component-border));
   max-height: 400px;
   overflow-y: auto;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--md3-elevation-2, 0 4px 12px rgba(0, 0, 0, 0.1));
 
   &__header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: $spacing-sm $spacing-lg;
-    background: #fafafa;
-    border-bottom: 1px solid #f0f0f0;
+    background: var(--md3-surface-container-high, #fafafa);
+    border-bottom: 1px solid var(--md3-outline-variant, #f0f0f0);
   }
 
   &__title {
@@ -582,17 +583,17 @@ $drawer-input-max-height: 280px;
   &__new-btn {
     padding: 4px 12px;
     font-size: 12px;
-    background: #ffffff;
-    border: 1px solid #d9d9d9;
-    border-radius: 6px;
+    background: var(--md3-surface-container-high, #ffffff);
+    border: none; // MD3：去描边
+    border-radius: var(--md3-radius-full, 999px);
     cursor: pointer;
-    color: var(--td-text-color-secondary);
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary));
     transition: all 0.2s ease;
 
     &:hover {
-      background: rgba(243, 156, 18, 0.05);
-      border-color: var(--td-brand-color);
-      color: var(--td-brand-color);
+      background: var(--md3-primary-container, rgba(0, 0, 0, 0.05));
+      border-color: transparent;
+      color: var(--md3-on-primary-container, var(--td-brand-color));
     }
   }
 
@@ -617,25 +618,25 @@ $drawer-input-max-height: 280px;
   align-items: center;
   gap: $spacing-md;
   padding: $spacing-sm $spacing-md;
-  border-radius: 6px;
+  border-radius: var(--md3-radius-full, 999px);
   cursor: pointer;
   transition: background 0.2s ease;
 
   &:hover {
-    background: var(--td-bg-color-container-hover);
+    background: var(--md3-surface-container-high, var(--td-bg-color-container-hover));
   }
 
   &--active {
     .session-item__title {
-      color: var(--td-brand-color);
+      color: var(--md3-on-primary-container, var(--td-brand-color));
       font-weight: 600;
     }
     .session-item__time {
-      color: var(--td-brand-color);
+      color: var(--md3-on-primary-container, var(--td-brand-color));
       opacity: 0.7;
     }
-    background: rgba(243, 156, 18, 0.1);
-    border: 1px solid rgba(243, 156, 18, 0.2);
+    background: var(--md3-primary-container, rgba(0, 0, 0, 0.1));
+    border: none;
   }
 
   &--editing {
@@ -660,15 +661,15 @@ $drawer-input-max-height: 280px;
     font-size: 13px;
     color: var(--td-text-color-primary);
     background: var(--td-bg-color-container);
-    border: 1px solid var(--td-brand-color);
-    border-radius: 4px;
+    border: 1px solid var(--md3-accent, var(--td-brand-color));
+    border-radius: var(--md3-radius-sm, 8px);
     padding: 2px 6px;
     outline: none;
     box-sizing: border-box;
 
     &:focus {
-      border-color: var(--td-brand-color);
-      box-shadow: 0 0 0 2px rgba(0, 82, 217, 0.1);
+      border-color: var(--md3-accent, var(--td-brand-color));
+      box-shadow: 0 0 0 2px var(--md3-primary-container, rgba(0, 82, 217, 0.1));
     }
   }
 
@@ -690,20 +691,20 @@ $drawer-input-max-height: 280px;
     padding: 4px;
     background: transparent;
     border: none;
-    border-radius: 4px;
+    border-radius: var(--md3-radius-full, 999px);
     cursor: pointer;
-    color: var(--td-text-color-secondary);
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary));
     transition: all 0.2s ease;
   }
 
   &__edit:hover {
-    background: rgba(243, 156, 18, 0.1);
-    color: var(--td-brand-color);
+    background: var(--md3-primary-container, rgba(0, 0, 0, 0.1));
+    color: var(--md3-primary, var(--td-brand-color));
   }
 
   &__delete:hover {
-    background: var(--td-error-color-1);
-    color: var(--td-error-color);
+    background: var(--md3-error-container, var(--td-error-color-1));
+    color: var(--md3-error, var(--td-error-color));
   }
 
   &:hover &__actions {
@@ -803,7 +804,7 @@ $drawer-input-max-height: 280px;
 
     .ai-input-composer-shell--drawer {
       padding: 8px 10px;
-      border-radius: 16px;
+      border-radius: var(--md3-radius-lg, 16px);
     }
 
     &__textarea {
@@ -892,7 +893,7 @@ $drawer-input-max-height: 280px;
 
     .ai-input-composer-shell--drawer {
       padding: 6px;
-      border-radius: 14px;
+      border-radius: var(--md3-radius-lg, 14px);
     }
 
     &__textarea {
@@ -1028,16 +1029,17 @@ $drawer-input-max-height: 280px;
     align-self: flex-end;
 
     .chat-message-content {
-      background: #ffffff;
-      color: var(--td-text-color-primary);
-      border-radius: $border-radius $border-radius 4px $border-radius;
-      border: 1px solid rgba(15, 23, 42, 0.08);
-      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
+      background: var(--md3-surface-container-low, #ffffff);
+      color: var(--md3-on-surface, var(--td-text-color-primary));
+      border-radius: var(--md3-radius-lg, 16px) var(--md3-radius-lg, 16px)
+        var(--md3-radius-xs, 4px) var(--md3-radius-lg, 16px);
+      border: none; // MD3：气泡去描边
+      box-shadow: var(--md3-elevation-1, 0 2px 10px rgba(15, 23, 42, 0.05));
     }
 
     .chat-message-avatar {
-      background: rgba(15, 23, 42, 0.04);
-      color: var(--td-text-color-secondary);
+      background: var(--md3-surface-container-high, rgba(15, 23, 42, 0.04));
+      color: var(--md3-on-surface-variant, var(--td-text-color-secondary));
     }
   }
 
@@ -1045,24 +1047,25 @@ $drawer-input-max-height: 280px;
     align-self: flex-start;
 
     .chat-message-content {
-      background: #ffffff;
-      border-radius: $border-radius $border-radius $border-radius 4px;
-      border: 1px solid var(--td-component-border);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      background: var(--md3-surface-container-low, #ffffff);
+      border-radius: var(--md3-radius-lg, 16px) var(--md3-radius-lg, 16px)
+        var(--md3-radius-lg, 16px) var(--md3-radius-xs, 4px);
+      border: none; // MD3：气泡去描边
+      box-shadow: var(--md3-elevation-1, 0 2px 8px rgba(0, 0, 0, 0.04));
     }
   }
 
   // Error message styling
   &--error {
     .chat-message-content {
-      background: var(--td-error-color-1);
-      border: 1px solid var(--td-error-color-3);
+      background: var(--md3-error-container, var(--td-error-color-1));
+      border: none;
       color: var(--td-error-color-7);
     }
 
     .chat-message-avatar {
-      background: var(--td-error-color-1);
-      color: var(--td-error-color);
+      background: var(--md3-error-container, var(--td-error-color-1));
+      color: var(--md3-error, var(--td-error-color));
     }
   }
 }
@@ -1071,7 +1074,7 @@ $drawer-input-max-height: 280px;
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--td-bg-color-secondarycontainer);
+  background: var(--md3-surface-container-high, var(--td-bg-color-secondarycontainer));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1080,7 +1083,7 @@ $drawer-input-max-height: 280px;
   svg {
     width: 18px;
     height: 18px;
-    color: var(--td-text-color-secondary);
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary));
   }
 }
 
@@ -1110,8 +1113,8 @@ $drawer-input-max-height: 280px;
   pre {
     margin: $spacing-md 0;
     padding: $spacing-md;
-    background: var(--td-bg-color-page);
-    border-radius: 8px;
+    background: var(--md3-surface-container-highest, var(--td-bg-color-page));
+    border-radius: var(--md3-radius-sm, 8px);
     overflow-x: auto;
     font-size: 13px;
 
@@ -1122,9 +1125,9 @@ $drawer-input-max-height: 280px;
   }
 
   code {
-    background: var(--td-bg-color-page);
+    background: var(--md3-surface-container-highest, var(--td-bg-color-page));
     padding: 2px 6px;
-    border-radius: 4px;
+    border-radius: var(--md3-radius-xs, 4px);
     font-size: 13px;
     font-family: 'SF Mono', Monaco, monospace;
   }
@@ -1138,8 +1141,8 @@ $drawer-input-max-height: 280px;
   blockquote {
     margin: $spacing-md 0;
     padding-left: $spacing-md;
-    border-left: 3px solid var(--td-brand-color);
-    color: var(--td-text-color-secondary);
+    border-left: 3px solid var(--md3-primary, var(--td-brand-color));
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary));
   }
 }
 
@@ -1170,18 +1173,18 @@ $drawer-input-max-height: 280px;
 
   button {
     padding: 6px 12px;
-    background: var(--td-bg-color-container);
-    border: 1px solid var(--td-component-border);
-    border-radius: 6px;
+    background: var(--md3-surface-container-high, var(--td-bg-color-container));
+    border: none; // MD3：去描边
+    border-radius: var(--md3-radius-full, 999px);
     cursor: pointer;
-    color: var(--td-text-color-secondary);
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary));
     font-size: 12px;
     transition: all 0.2s ease;
 
     &:hover {
-      background: var(--td-bg-color-container-hover);
-      color: var(--td-text-color-primary);
-      border-color: var(--td-brand-color);
+      background: var(--md3-surface-container-highest, var(--td-bg-color-container-hover));
+      color: var(--md3-on-surface, var(--td-text-color-primary));
+      border-color: transparent;
     }
   }
 }
@@ -1250,14 +1253,14 @@ $drawer-input-max-height: 280px;
   display: flex;
   align-items: flex-end;
   gap: $spacing-md;
-  background: var(--td-bg-color-container);
-  border-radius: 16px;
+  background: var(--md3-surface-container-low, var(--td-bg-color-container));
+  border-radius: var(--md3-radius-lg, 16px);
   padding: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--md3-elevation-1, 0 2px 12px rgba(0, 0, 0, 0.06));
   transition: all 0.3s ease;
 
   &:focus-within {
-    box-shadow: 0 4px 20px rgba(90, 79, 207, 0.15);
+    box-shadow: var(--md3-elevation-2, 0 4px 20px rgba(90, 79, 207, 0.15));
   }
 
   &textarea:focus {
@@ -1273,7 +1276,7 @@ $drawer-input-max-height: 280px;
   padding: 8px;
   background: transparent;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--md3-radius-md, 12px);
   resize: none;
   font-size: 15px;
   line-height: 1.6;
@@ -1292,21 +1295,16 @@ $drawer-input-max-height: 280px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #5a4fcf 0%, #7b68ee 100%);
+  background: var(--md3-primary, #5a4fcf);
   border: none;
-  border-radius: 12px;
+  border-radius: var(--md3-radius-full, 999px);
   cursor: pointer;
-  color: white;
+  color: var(--md3-on-primary, #fff);
   transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(90, 79, 207, 0.25);
+  box-shadow: var(--md3-elevation-1, 0 2px 8px rgba(90, 79, 207, 0.25));
 
   &:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(90, 79, 207, 0.35);
-  }
-
-  &:active:not(:disabled) {
-    transform: translateY(0);
+    box-shadow: var(--md3-elevation-2, 0 4px 16px rgba(90, 79, 207, 0.35));
   }
 
   &:disabled {
@@ -1332,8 +1330,8 @@ $drawer-input-max-height: 280px;
   max-height: $drawer-input-max-height;
   max-height: min(36vh, #{$drawer-input-max-height});
   padding: $spacing-md $spacing-lg;
-  border-top: 1px solid var(--td-component-border);
-  background: #ffffff;
+  border-top: 1px solid var(--md3-outline-variant, var(--td-component-border));
+  background: var(--md3-surface-container-low, #ffffff);
   overflow-y: auto;
   overscroll-behavior: contain;
 
@@ -1352,16 +1350,15 @@ $drawer-input-max-height: 280px;
   }
 
   .ai-input-composer-shell--drawer {
-    border: 1px solid rgba(17, 24, 39, 0.08);
-    border-radius: 18px;
+    border: none; // MD3：去描边，tonal 表面 + elevation
+    border-radius: var(--md3-radius-lg, 16px);
     padding: 10px 12px 10px;
-    background: #ffffff;
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    background: var(--md3-surface-container-lowest, #ffffff);
+    box-shadow: var(--md3-elevation-1, 0 8px 24px rgba(15, 23, 42, 0.06));
+    transition: box-shadow 0.18s ease;
 
     &:focus-within {
-      border-color: rgba(245, 158, 11, 0.42);
-      box-shadow: 0 10px 28px rgba(245, 158, 11, 0.12);
+      box-shadow: var(--md3-elevation-2, 0 10px 28px rgba(0, 0, 0, 0.12));
     }
 
     .ai-input-composer-shell__input-area {
@@ -1406,8 +1403,8 @@ $drawer-input-max-height: 280px;
     margin: 0 2px 2px;
     padding: 8px 10px;
     background: rgba(var(--td-brand-color-rgb), 0.04);
-    border: 1px solid rgba(var(--td-brand-color-rgb), 0.12);
-    border-radius: 10px;
+    border: none; // MD3：内嵌面板去描边
+    border-radius: var(--md3-radius-md, 10px);
   }
 
   &__implicit-reference-header {
@@ -1487,15 +1484,14 @@ $drawer-input-max-height: 280px;
   position: relative;
   margin: $spacing-md 0;
   padding: $spacing-lg;
-  background: var(--td-bg-color-container);
-  border: 1px solid var(--td-component-border);
-  border-radius: $border-radius;
+  background: var(--md3-surface-container-low, var(--td-bg-color-container));
+  border: none; // MD3：卡片去描边
+  border-radius: var(--md3-radius-md, 12px);
   overflow-x: auto;
   transition: all 0.2s ease;
 
   &:hover {
-    border-color: var(--td-brand-color);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    box-shadow: var(--md3-elevation-2, 0 2px 8px rgba(0, 0, 0, 0.08));
   }
 
   &__loading {
@@ -1512,11 +1508,6 @@ $drawer-input-max-height: 280px;
     justify-content: center;
     align-items: center;
     cursor: pointer;
-    transition: transform 0.2s ease;
-
-    &:hover {
-      transform: scale(1.02);
-    }
 
     svg {
       max-width: 100%;
@@ -1547,8 +1538,7 @@ $drawer-input-max-height: 280px;
   }
 
   &--error {
-    background: var(--td-error-color-1);
-    border-color: var(--td-error-color-3);
+    background: var(--md3-error-container, var(--td-error-color-1));
   }
 
   &__error {
@@ -1563,8 +1553,8 @@ $drawer-input-max-height: 280px;
     pre {
       margin: $spacing-sm 0;
       padding: $spacing-sm;
-      background: var(--td-bg-color-container);
-      border-radius: 4px;
+      background: var(--md3-surface-container-lowest, var(--td-bg-color-container));
+      border-radius: var(--md3-radius-xs, 4px);
       font-size: 12px;
       overflow-x: auto;
     }
@@ -1623,12 +1613,12 @@ $drawer-input-max-height: 280px;
     justify-content: space-between;
     gap: 6px;
     padding: 4px 10px;
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 14px;
+    background: var(--md3-surface-container-high, #ffffff);
+    border: none; // MD3：chip 去描边
+    border-radius: var(--md3-radius-full, 999px);
     font-size: 12px;
     font-weight: 500;
-    color: var(--td-text-color-secondary);
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary));
     cursor: pointer;
     transition: all 0.2s ease;
     outline: none;
@@ -1637,9 +1627,9 @@ $drawer-input-max-height: 280px;
     white-space: nowrap;
 
     &:hover {
-      background: #f9fafb;
-      border-color: var(--td-brand-color);
-      color: var(--td-text-color-primary);
+      background: var(--md3-surface-container-highest, #f9fafb);
+      border-color: transparent;
+      color: var(--md3-on-surface, var(--td-text-color-primary));
     }
 
     &--active {
@@ -1658,21 +1648,21 @@ $drawer-input-max-height: 280px;
       width: 100%;
       max-width: 100%;
       padding: 8px 12px;
-      border-radius: 6px;
-      background: #fff;
-      border: 1px solid #e5e7eb;
+      border-radius: var(--md3-radius-sm, 8px);
+      background: var(--md3-surface-container-lowest, #fff);
+      border: 1px solid var(--md3-outline-variant, #e5e7eb);
       min-height: 36px;
       box-sizing: border-box;
       justify-content: flex-start;
       gap: 8px;
 
       &:hover {
-        border-color: var(--td-brand-color);
+        border-color: var(--md3-accent, var(--td-brand-color));
       }
 
       &--active {
-        border-color: var(--td-brand-color);
-        box-shadow: 0 0 0 2px rgba(243, 156, 18, 0.1);
+        border-color: var(--md3-accent, var(--td-brand-color));
+        box-shadow: 0 0 0 2px var(--md3-primary-container, rgba(0, 0, 0, 0.1));
       }
     }
 
@@ -1699,7 +1689,7 @@ $drawer-input-max-height: 280px;
 
     .model-selector__trigger-icon {
       flex-shrink: 0;
-      color: #9ca3af;
+      color: var(--md3-outline, #9ca3af);
     }
   }
 
@@ -1710,19 +1700,19 @@ $drawer-input-max-height: 280px;
     .model-selector__trigger {
       width: auto;
       max-width: none;
-      background: rgba(0, 0, 0, 0.04);
+      background: var(--md3-surface-container-high, rgba(0, 0, 0, 0.04));
       border: none;
       padding: 4px 12px;
-      border-radius: 10px;
-      color: var(--td-text-color-primary);
+      border-radius: var(--md3-radius-full, 999px);
+      color: var(--md3-on-surface, var(--td-text-color-primary));
 
       &:hover {
-        background: rgba(0, 0, 0, 0.08);
+        background: var(--md3-surface-container-highest, rgba(0, 0, 0, 0.08));
       }
 
       &--active {
-        background: rgba(243, 156, 18, 0.1);
-        color: var(--td-brand-color);
+        background: var(--md3-primary-container, rgba(0, 0, 0, 0.1));
+        color: var(--md3-on-primary-container, var(--td-brand-color));
         box-shadow: none;
       }
     }
@@ -1780,10 +1770,10 @@ $drawer-input-max-height: 280px;
     z-index: 1000;
     min-width: 360px;
     max-width: 440px;
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1), 0 3px 6px rgba(0, 0, 0, 0.06);
+    background: var(--md3-surface-container, #ffffff);
+    border: none; // MD3：浮层去描边
+    border-radius: var(--md3-radius-md, 12px);
+    box-shadow: var(--md3-elevation-2, 0 8px 16px rgba(0, 0, 0, 0.1), 0 3px 6px rgba(0, 0, 0, 0.06));
     overflow: hidden;
     animation: slideDown 0.15s cubic-bezier(0.16, 1, 0.3, 1);
   }
@@ -1791,11 +1781,11 @@ $drawer-input-max-height: 280px;
   // Search section
   &__search {
     padding: 12px 12px 8px;
-    background: #ffffff;
+    background: transparent;
 
     .t-input {
       font-size: 13px;
-      border-radius: 8px;
+      border-radius: var(--md3-radius-sm, 8px);
 
       .t-input__inner {
         padding: 8px 12px;
@@ -1805,7 +1795,7 @@ $drawer-input-max-height: 280px;
       // 使用主题色
       &:focus,
       &.t-is-focused {
-        border-color: var(--td-brand-color);
+        border-color: var(--md3-accent, var(--td-brand-color));
         box-shadow: 0 0 0 2px rgba(var(--td-brand-color-rgb), 0.1);
       }
     }
@@ -1827,11 +1817,11 @@ $drawer-input-max-height: 280px;
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #d1d5db;
+      background: var(--md3-outline-variant, #d1d5db);
       border-radius: 20px;
 
       &:hover {
-        background: #9ca3af;
+        background: var(--md3-outline, #9ca3af);
       }
     }
   }
@@ -1841,7 +1831,7 @@ $drawer-input-max-height: 280px;
     padding: 32px 16px;
     text-align: center;
     font-size: 13px;
-    color: #9ca3af;
+    color: var(--md3-outline, #9ca3af);
   }
 
   // Model group
@@ -1854,7 +1844,7 @@ $drawer-input-max-height: 280px;
 
     &:not(:first-child) {
       padding-top: 12px;
-      border-top: 1px solid #f3f4f6;
+      border-top: 1px solid var(--md3-outline-variant, #f3f4f6);
     }
   }
 
@@ -1862,7 +1852,7 @@ $drawer-input-max-height: 280px;
     padding: 8px 10px 6px;
     font-size: 11px;
     font-weight: 700;
-    color: #9ca3af;
+    color: var(--md3-outline, #9ca3af);
     text-transform: uppercase;
     letter-spacing: 0.8px;
   }
@@ -1875,8 +1865,8 @@ $drawer-input-max-height: 280px;
     width: 100%;
     padding: 10px 12px;
     background: transparent;
-    border: 1px solid transparent;
-    border-radius: 8px;
+    border: none; // MD3：菜单项去描边
+    border-radius: var(--md3-radius-full, 999px);
     text-align: left;
     cursor: pointer;
     transition: all 0.15s ease;
@@ -1884,34 +1874,29 @@ $drawer-input-max-height: 280px;
     position: relative;
 
     &:hover {
-      background: #f9fafb;
+      background: var(--md3-surface-container-high, #f9fafb);
     }
 
     &--active {
-      background: rgba(
-        243,
-        156,
-        18,
-        0.1
-      ); // 明确使用品牌橙色的透明版本，禁止任何紫色
-      border-color: rgba(243, 156, 18, 0.2);
+      background: var(--md3-primary-container, rgba(0, 0, 0, 0.1));
+      border-color: transparent;
 
       .model-selector__item-name {
-        color: #d97706; // 深橙色，确保对比度
+        color: var(--md3-on-primary-container, #d97706); // 深橙色，确保对比度
         font-weight: 600;
       }
 
       .model-selector__item-desc {
-        color: #d97706;
+        color: var(--md3-on-primary-container, #d97706);
         opacity: 0.7;
       }
 
       .model-selector__check {
-        color: #f39c12; // 品牌橙
+        color: var(--md3-primary, #f39c12); // 品牌橙
       }
 
       .model-selector__item-icon {
-        border: 1px solid rgba(243, 156, 18, 0.3);
+        border: none;
       }
     }
   }
@@ -1926,8 +1911,8 @@ $drawer-input-max-height: 280px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      background: #f3f4f6;
-      color: #4b5563;
+      background: var(--md3-surface-container-high, #f3f4f6);
+      color: var(--md3-on-surface-variant, #4b5563);
       font-size: 11px;
       font-weight: 700;
       line-height: 1;
@@ -1958,10 +1943,10 @@ $drawer-input-max-height: 280px;
     align-items: center;
     max-width: 160px;
     padding: 0 6px;
-    border-radius: 999px;
-    border: 1px solid rgba(37, 99, 235, 0.18);
-    background: rgba(37, 99, 235, 0.08);
-    color: #1d4ed8;
+    border-radius: var(--md3-radius-full, 999px);
+    border: none; // MD3：chip 去描边
+    background: var(--md3-secondary-container, rgba(37, 99, 235, 0.08));
+    color: var(--md3-on-secondary-container, #1d4ed8);
     font-size: 11px;
     font-weight: 600;
     line-height: 20px;
@@ -2000,40 +1985,36 @@ $drawer-input-max-height: 280px;
     padding: 3px 7px;
     font-size: 10px;
     font-weight: 600;
-    border-radius: 5px;
+    border-radius: var(--md3-radius-full, 999px);
+    border: none; // MD3：chip 去描边
     white-space: nowrap;
     letter-spacing: 0.2px;
 
     &.badge-new,
     &.badge-pro {
-      background: rgba(243, 156, 18, 0.1);
-      color: #d97706;
-      border: 1px solid rgba(243, 156, 18, 0.2);
+      background: var(--md3-primary-container, rgba(0, 0, 0, 0.1));
+      color: var(--md3-on-primary-container, #d97706);
       text-transform: uppercase;
     }
 
     &.badge-fast {
       background: #ecfdf5;
       color: #059669;
-      border: 1px solid #a7f3d0;
     }
 
     &.badge-multimodal {
-      background: #eff6ff;
-      color: #2563eb;
-      border: 1px solid #bfdbfe;
+      background: var(--md3-secondary-container, #eff6ff);
+      color: var(--md3-on-secondary-container, #2563eb);
     }
 
     &.badge-reasoning {
-      background: #fff7ed;
-      color: #ea580c;
-      border: 1px solid #ffedd5;
+      background: var(--md3-primary-container, #fff7ed);
+      color: var(--md3-on-primary-container, #ea580c);
     }
 
     &.badge-economic {
       background: #f0fdf4;
       color: #16a34a;
-      border: 1px solid #bbf7d0;
     }
   }
 

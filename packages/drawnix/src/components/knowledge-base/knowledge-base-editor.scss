@@ -17,8 +17,8 @@
   &--empty {
     align-items: center;
     justify-content: center;
-    background-color: var(--td-bg-color-secondarycontainer, #f5f5f5);
-    color: var(--td-text-color-placeholder, #999);
+    background-color: var(--md3-surface-container-low, var(--td-bg-color-secondarycontainer, #f5f5f5));
+    color: var(--md3-outline, var(--td-text-color-placeholder, #999));
   }
 
   &__placeholder {
@@ -88,31 +88,31 @@
     justify-content: center;
     width: 28px;
     height: 28px;
-    border: 1px solid var(--td-border-level-2-color, #dcdcdc);
-    border-radius: 6px;
-    background: transparent;
+    border: none; // MD3：去描边，tonal 表面
+    border-radius: var(--md3-radius-full, 999px);
+    background: var(--md3-surface-container-high, transparent);
     cursor: pointer;
-    color: var(--td-text-color-secondary, #666);
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary, #666));
     font-size: 12px;
     transition: all 0.15s;
 
     &:hover {
-      border-color: var(--td-brand-color, #0052d9);
-      color: var(--td-brand-color, #0052d9);
-      background-color: var(--td-brand-color-light, #ecf2fe);
+      border-color: transparent;
+      color: var(--md3-primary, var(--td-brand-color, #0052d9));
+      background-color: var(--md3-primary-container, var(--td-brand-color-light, #ecf2fe));
     }
 
     &--active {
-      border-color: var(--td-brand-color, #0052d9);
-      background-color: var(--td-brand-color-light, #ecf2fe);
-      color: var(--td-brand-color, #0052d9);
+      border-color: transparent;
+      background-color: var(--md3-primary-container, var(--td-brand-color-light, #ecf2fe));
+      color: var(--md3-on-primary-container, var(--td-brand-color, #0052d9));
     }
 
     &--danger {
       &:hover {
-        border-color: var(--td-error-color, #e34d59);
-        color: var(--td-error-color, #e34d59);
-        background-color: var(--td-error-color-1, #fff0ed);
+        border-color: transparent;
+        color: var(--md3-error, var(--td-error-color, #e34d59));
+        background-color: var(--md3-error-container, var(--td-error-color-1, #fff0ed));
       }
     }
   }
@@ -137,12 +137,13 @@
   // Source info / metadata section
   &__metadata-section {
     margin-bottom: 12px;
-    border: 1px solid var(--td-border-level-1-color, #e7e7e7);
-    border-radius: 8px;
+    border: none; // MD3：面板去描边
+    background-color: var(--md3-surface-container-low, transparent);
+    border-radius: var(--md3-radius-md, 12px);
     overflow: hidden;
 
     &--collapsed {
-      border-color: transparent;
+      background-color: transparent;
     }
   }
 
@@ -156,11 +157,11 @@
     border: none;
     background: transparent;
     cursor: pointer;
-    color: var(--td-text-color-secondary, #666);
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary, #666));
     transition: background-color 0.15s;
 
     &:hover {
-      background-color: var(--td-bg-color-container-hover, #f3f3f3);
+      background-color: var(--md3-surface-container-high, var(--td-bg-color-container-hover, #f3f3f3));
     }
   }
 
@@ -248,8 +249,9 @@
   &__content {
     flex: 1;
     overflow: hidden;
-    border: 1px solid var(--td-border-level-1-color, #e7e7e7);
-    border-radius: 8px;
+    border: none; // MD3：面板去描边
+    background-color: var(--md3-surface-container-lowest, transparent);
+    border-radius: var(--md3-radius-md, 12px);
 
     .markdown-editor {
       height: 100%;
@@ -309,11 +311,11 @@
 
   // 只读模式（系统内置 Skill 笔记）
   &--readonly {
-    background-color: var(--td-bg-color-secondarycontainer, #f5f5f5);
+    background-color: var(--md3-surface-container-low, var(--td-bg-color-secondarycontainer, #f5f5f5));
 
     .kb-note-editor__title {
       cursor: default;
-      color: var(--td-text-color-secondary, #666);
+      color: var(--md3-on-surface-variant, var(--td-text-color-secondary, #666));
     }
   }
 
@@ -324,11 +326,11 @@
     gap: 6px;
     padding: 6px 12px;
     margin-bottom: 8px;
-    background-color: var(--td-warning-color-1, #fff3e8);
-    border: 1px solid var(--td-warning-color-3, #fac18a);
-    border-radius: 6px;
+    background-color: var(--md3-primary-container, var(--td-warning-color-1, #fff3e8));
+    border: none; // MD3：提示条去描边
+    border-radius: var(--md3-radius-sm, 8px);
     font-size: 12px;
-    color: var(--td-warning-color, #ed7b2f);
+    color: var(--md3-on-primary-container, var(--td-warning-color, #ed7b2f));
     flex-shrink: 0;
   }
 
@@ -339,7 +341,7 @@
     gap: 6px;
     padding: 6px 12px;
     margin-top: 8px;
-    border-radius: 6px;
+    border-radius: var(--md3-radius-sm, 8px);
     font-size: 12px;
     flex-shrink: 0;
     transition: all 0.2s;
@@ -347,15 +349,15 @@
     // 符合 DSL 规范：绿色
     &--valid {
       background-color: #f0fdf4;
-      border: 1px solid #86efac;
+      border: none;
       color: #16a34a;
     }
 
     // 不符合 DSL 规范：蓝色（AI 解析）
     &--fallback {
-      background-color: var(--td-brand-color-light, #ecf2fe);
-      border: 1px solid var(--td-brand-color-3, #9ec2fb);
-      color: var(--td-brand-color, #0052d9);
+      background-color: var(--md3-primary-container, var(--td-brand-color-light, #ecf2fe));
+      border: none;
+      color: var(--md3-on-primary-container, var(--td-brand-color, #0052d9));
     }
   }
 }
@@ -383,10 +385,10 @@
     z-index: 100;
     min-width: 180px;
     max-width: 260px;
-    background: var(--td-bg-color-container, #fff);
-    border: 1px solid var(--td-border-level-2-color, #dcdcdc);
-    border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    background: var(--md3-surface-container, var(--td-bg-color-container, #fff));
+    border: none; // MD3：浮层去描边
+    border-radius: var(--md3-radius-md, 12px);
+    box-shadow: var(--md3-elevation-2, 0 4px 16px rgba(0, 0, 0, 0.12));
     padding: 8px;
     display: flex;
     flex-direction: column;
@@ -411,16 +413,17 @@
     gap: 4px;
     padding: 2px 8px;
     font-size: 12px;
-    border: 1px solid var(--td-border-level-2-color, #dcdcdc);
-    border-radius: 12px;
-    background: transparent;
+    border: none; // MD3：chip 去描边
+    border-radius: var(--md3-radius-full, 999px);
+    background: var(--md3-surface-container-high, transparent);
     cursor: pointer;
-    color: var(--td-text-color-secondary, #666);
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary, #666));
     transition: all 0.15s;
     white-space: nowrap;
 
     &:hover {
-      border-color: var(--tag-color);
+      border-color: transparent;
+      background: var(--md3-surface-container-highest, var(--tag-color));
     }
 
     &--selected {
@@ -467,21 +470,21 @@
   &__input {
     padding: 2px 8px;
     font-size: 12px;
-    border: 1px solid var(--td-brand-color, #0052d9);
-    border-radius: 4px;
+    border: 1px solid var(--md3-accent, var(--td-brand-color, #0052d9));
+    border-radius: var(--md3-radius-sm, 8px);
     outline: none;
     width: 80px;
-    background: var(--td-bg-color-container, #fff);
-    color: var(--td-text-color-primary, #333);
+    background: var(--md3-surface-container-lowest, var(--td-bg-color-container, #fff));
+    color: var(--md3-on-surface, var(--td-text-color-primary, #333));
   }
 
   &__create-btn {
     padding: 2px 8px;
     font-size: 12px;
     border: none;
-    border-radius: 4px;
-    background-color: var(--td-brand-color, #0052d9);
-    color: #fff;
+    border-radius: var(--md3-radius-full, 999px);
+    background-color: var(--md3-primary, var(--td-brand-color, #0052d9));
+    color: var(--md3-on-primary, #fff);
     cursor: pointer;
 
     &:hover {
@@ -496,17 +499,17 @@
     gap: 3px;
     padding: 3px 8px;
     font-size: 12px;
-    border: 1px dashed var(--td-border-level-2-color, #dcdcdc);
-    border-radius: 4px;
+    border: 1px dashed var(--md3-outline-variant, var(--td-border-level-2-color, #dcdcdc));
+    border-radius: var(--md3-radius-sm, 8px);
     background: transparent;
     cursor: pointer;
-    color: var(--td-text-color-placeholder, #999);
+    color: var(--md3-outline, var(--td-text-color-placeholder, #999));
     transition: all 0.15s;
     width: 100%;
 
     &:hover {
-      border-color: var(--td-brand-color, #0052d9);
-      color: var(--td-brand-color, #0052d9);
+      border-color: var(--md3-accent, var(--td-brand-color, #0052d9));
+      color: var(--md3-primary, var(--td-brand-color, #0052d9));
     }
   }
 
@@ -516,16 +519,16 @@
     gap: 2px;
     padding: 2px 8px;
     font-size: 12px;
-    border: 1px dashed var(--td-border-level-2-color, #dcdcdc);
-    border-radius: 12px;
+    border: 1px dashed var(--md3-outline-variant, var(--td-border-level-2-color, #dcdcdc));
+    border-radius: var(--md3-radius-full, 999px);
     background: transparent;
     cursor: pointer;
-    color: var(--td-text-color-placeholder, #999);
+    color: var(--md3-outline, var(--td-text-color-placeholder, #999));
     transition: all 0.15s;
 
     &:hover {
-      border-color: var(--td-brand-color, #0052d9);
-      color: var(--td-brand-color, #0052d9);
+      border-color: var(--md3-accent, var(--td-brand-color, #0052d9));
+      color: var(--md3-primary, var(--td-brand-color, #0052d9));
     }
   }
 }
@@ -562,12 +565,12 @@
     border: none;
     background: transparent;
     cursor: pointer;
-    color: var(--td-text-color-secondary, #666);
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary, #666));
     transition: background-color 0.15s;
 
     &:hover {
-      background-color: var(--td-bg-color-container-hover, #f3f3f3);
-      border-radius: 4px;
+      background-color: var(--md3-surface-container-high, var(--td-bg-color-container-hover, #f3f3f3));
+      border-radius: var(--md3-radius-sm, 8px);
     }
   }
 
@@ -575,10 +578,10 @@
     margin-left: auto;
     font-size: 11px;
     font-weight: 400;
-    color: var(--td-text-color-placeholder, #999);
-    background-color: var(--td-bg-color-component, #eee);
+    color: var(--md3-on-surface-variant, var(--td-text-color-placeholder, #999));
+    background-color: var(--md3-surface-container-high, var(--td-bg-color-component, #eee));
     padding: 0 6px;
-    border-radius: 10px;
+    border-radius: var(--md3-radius-full, 999px);
     line-height: 18px;
   }
 
@@ -594,12 +597,12 @@
     align-items: center;
     gap: 6px;
     padding: 5px 8px;
-    border-radius: 4px;
+    border-radius: var(--md3-radius-sm, 8px);
     cursor: pointer;
     transition: background-color 0.15s;
 
     &:hover {
-      background-color: var(--td-bg-color-container-hover, #f3f3f3);
+      background-color: var(--md3-surface-container-high, var(--td-bg-color-container-hover, #f3f3f3));
     }
 
     &:hover .kb-related-notes__goto-btn {
@@ -609,13 +612,13 @@
 
   &__icon {
     flex-shrink: 0;
-    color: var(--td-text-color-placeholder, #999);
+    color: var(--md3-outline, var(--td-text-color-placeholder, #999));
   }
 
   &__name {
     flex: 1;
     font-size: 12px;
-    color: var(--td-text-color-primary, #333);
+    color: var(--md3-on-surface, var(--td-text-color-primary, #333));
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -625,10 +628,10 @@
     flex-shrink: 0;
     font-size: 11px;
     font-weight: 500;
-    color: var(--td-brand-color, #0052d9);
-    background-color: var(--td-brand-color-light, #ecf2fe);
+    color: var(--md3-on-primary-container, var(--td-brand-color, #0052d9));
+    background-color: var(--md3-primary-container, var(--td-brand-color-light, #ecf2fe));
     padding: 0 6px;
-    border-radius: 10px;
+    border-radius: var(--md3-radius-full, 999px);
     line-height: 18px;
   }
 
@@ -639,17 +642,17 @@
     width: 20px;
     height: 20px;
     border: none;
-    border-radius: 4px;
+    border-radius: var(--md3-radius-full, 999px);
     background: transparent;
     cursor: pointer;
-    color: var(--td-text-color-placeholder, #999);
+    color: var(--md3-outline, var(--td-text-color-placeholder, #999));
     opacity: 0;
     transition: opacity 0.15s;
     flex-shrink: 0;
 
     &:hover {
-      color: var(--td-brand-color, #0052d9);
-      background-color: var(--td-brand-color-light, #ecf2fe);
+      color: var(--md3-primary, var(--td-brand-color, #0052d9));
+      background-color: var(--md3-primary-container, var(--td-brand-color-light, #ecf2fe));
     }
   }
 }
@@ -689,21 +692,22 @@
     align-items: center;
     padding: 1px 8px;
     font-size: 11px;
-    border: 1px solid var(--td-border-level-2-color, #dcdcdc);
-    border-radius: 10px;
-    background: transparent;
+    border: none; // MD3：chip 去描边
+    border-radius: var(--md3-radius-full, 999px);
+    background: var(--md3-surface-container-high, transparent);
     cursor: pointer;
-    color: var(--td-text-color-secondary, #666);
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary, #666));
     transition: all 0.15s;
 
     &:hover {
-      border-color: var(--td-brand-color, #0052d9);
+      border-color: transparent;
+      background: var(--md3-surface-container-highest, var(--td-bg-color-component-hover, #eee));
     }
 
     &--active {
-      border-color: var(--td-brand-color, #0052d9);
-      background-color: var(--td-brand-color-light, #ecf2fe);
-      color: var(--td-brand-color, #0052d9);
+      border-color: transparent;
+      background-color: var(--md3-primary-container, var(--td-brand-color-light, #ecf2fe));
+      color: var(--md3-on-primary-container, var(--td-brand-color, #0052d9));
       font-weight: 500;
     }
   }

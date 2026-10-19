@@ -13,8 +13,8 @@
   flex: 1;
   height: 72vh;
   min-height: 480px;
-  border-radius: 8px;
-  background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+  border-radius: var(--md3-radius-sm, 8px);
+  background: linear-gradient(180deg, var(--md3-surface-container-low, #f8fafc) 0%, var(--md3-surface-container, #eef2f7) 100%);
   overflow: hidden;
 
   // 不依赖元素 class(React 18 对自定义元素的 className 挂载不可靠),用后代选择器;
@@ -41,7 +41,7 @@
 
   .glb-viewer-dialog__btn {
     padding: 8px 22px;
-    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.18);
+    box-shadow: var(--md3-elevation-2, 0 4px 14px rgba(15, 23, 42, 0.18));
 
     &:disabled {
       opacity: 0.6;
@@ -60,7 +60,7 @@
   align-items: center;
   gap: 10px;
   padding: 6px 14px;
-  border-radius: 999px;
+  border-radius: var(--md3-radius-full, 999px);
   background: rgba(15, 23, 42, 0.72);
   color: #fff;
   font-size: 12px;
@@ -69,15 +69,15 @@
 .glb-viewer-dialog__progress-bar {
   width: 180px;
   height: 6px;
-  border-radius: 3px;
+  border-radius: var(--md3-radius-full, 3px);
   background: rgba(255, 255, 255, 0.24);
   overflow: hidden;
 }
 
 .glb-viewer-dialog__progress-fill {
   height: 100%;
-  border-radius: 3px;
-  background: #38bdf8;
+  border-radius: var(--md3-radius-full, 3px);
+  background: var(--md3-primary, #38bdf8);
   transition: width 0.25s ease;
 }
 
@@ -96,7 +96,7 @@
 .glb-viewer-dialog__confirm-text,
 .glb-viewer-dialog__fallback-text {
   margin: 0;
-  color: #334155;
+  color: var(--md3-on-surface, #334155);
   font-size: 14px;
 }
 
@@ -110,29 +110,29 @@
   align-items: center;
   gap: 6px;
   padding: 7px 18px;
-  border-radius: 6px;
-  border: 1px solid #cbd5e1;
-  background: #fff;
-  color: #334155;
+  border-radius: var(--md3-radius-full, 999px);
+  border: 1px solid var(--md3-outline-variant, #cbd5e1);
+  background: var(--md3-surface-container-lowest, #fff);
+  color: var(--md3-on-surface, #334155);
   font-size: 13px;
   cursor: pointer;
   text-decoration: none;
   transition: all 0.15s ease;
 
   &:hover {
-    border-color: #94a3b8;
-    color: #0f172a;
+    border-color: var(--md3-outline, #94a3b8);
+    color: var(--md3-on-surface, #0f172a);
   }
 
   &--primary {
-    background: #0052d9;
-    border-color: #0052d9;
-    color: #fff;
+    background: var(--md3-primary, #0052d9);
+    border-color: var(--md3-accent, #0052d9);
+    color: var(--md3-on-primary, #fff);
 
     &:hover {
-      background: #266fe8;
-      border-color: #266fe8;
-      color: #fff;
+      background: var(--md3-primary, #266fe8);
+      border-color: var(--md3-accent, #266fe8);
+      color: var(--md3-on-primary, #fff);
     }
   }
 }
@@ -148,7 +148,7 @@
     width: 160px;
     height: 120px;
     object-fit: cover;
-    border-radius: 8px;
-    background: #f1f5f9;
+    border-radius: var(--md3-radius-sm, 8px);
+    background: var(--md3-surface-container-highest, #f1f5f9);
   }
 }

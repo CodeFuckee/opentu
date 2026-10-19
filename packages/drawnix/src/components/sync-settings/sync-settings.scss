@@ -13,7 +13,7 @@
 
   &__header {
     padding: 12px 0;
-    border-bottom: 1px solid var(--td-component-border);
+    border-bottom: 1px solid var(--md3-outline-variant, var(--td-component-border));
   }
 
   &__user-card {
@@ -21,8 +21,8 @@
     align-items: center;
     justify-content: space-between;
     padding: 8px 12px;
-    background: var(--td-bg-color-secondarycontainer);
-    border-radius: 8px;
+    background: var(--md3-surface-container-low, var(--td-bg-color-secondarycontainer));
+    border-radius: var(--md3-radius-md, 12px);
   }
 
   &__user-info {
@@ -36,7 +36,7 @@
   &__username {
     font-size: 13px;
     font-weight: 500;
-    color: var(--td-text-color-primary);
+    color: var(--md3-on-surface, var(--td-text-color-primary));
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -51,7 +51,7 @@
     color: var(--td-success-color);
     background: var(--td-success-color-1);
     padding: 2px 8px;
-    border-radius: 12px;
+    border-radius: var(--md3-radius-full, 12px);
     margin-left: 4px;
 
     svg {
@@ -60,11 +60,11 @@
   }
 
   &__disconnect-btn {
-    color: var(--td-text-color-placeholder) !important;
+    color: var(--md3-outline, var(--td-text-color-placeholder)) !important;
     font-size: 12px !important;
-    
+
     &:hover {
-      color: var(--td-error-color) !important;
+      color: var(--md3-error, var(--td-error-color)) !important;
       background: transparent !important;
     }
   }
@@ -77,17 +77,17 @@
     padding: 8px 0;
     font-size: 14px;
     font-weight: 500;
-    color: var(--td-text-color-primary);
+    color: var(--md3-on-surface, var(--td-text-color-primary));
   }
 
   &__cloud-icon {
     font-size: 20px;
-    color: var(--td-brand-color);
+    color: var(--md3-primary, var(--td-brand-color));
   }
 
   &__token-section {
     padding: 16px 0;
-    border-bottom: 1px solid var(--td-component-border);
+    border-bottom: 1px solid var(--md3-outline-variant, var(--td-component-border));
   }
 
   &__token-label {
@@ -97,7 +97,7 @@
     margin-bottom: 8px;
     font-size: 13px;
     font-weight: 500;
-    color: var(--td-text-color-primary);
+    color: var(--md3-on-surface, var(--td-text-color-primary));
   }
 
   &__token-input-row {
@@ -109,20 +109,20 @@
     flex: 1;
     height: 32px;
     padding: 0 10px;
-    border: 1px solid var(--td-component-border);
-    border-radius: 6px;
+    border: 1px solid var(--md3-outline-variant, var(--td-component-border));
+    border-radius: var(--md3-radius-sm, 8px);
     font-size: 13px;
-    background: var(--td-bg-color-container);
-    color: var(--td-text-color-primary);
+    background: var(--md3-surface-container-highest, var(--td-bg-color-container));
+    color: var(--md3-on-surface, var(--td-text-color-primary));
     outline: none;
     transition: border-color 0.2s;
 
     &:focus {
-      border-color: var(--td-brand-color);
+      border-color: var(--md3-accent, var(--td-brand-color));
     }
 
     &::placeholder {
-      color: var(--td-text-color-placeholder);
+      color: var(--md3-outline, var(--td-text-color-placeholder));
     }
   }
 
@@ -132,7 +132,7 @@
     gap: 4px;
     margin-top: 10px;
     font-size: 12px;
-    color: var(--td-brand-color);
+    color: var(--md3-primary, var(--td-brand-color));
     text-decoration: none;
 
     &:hover {
@@ -146,10 +146,10 @@
     gap: 6px;
     margin-top: 10px;
     padding: 6px 10px;
-    background: var(--td-error-color-1);
-    border-radius: 6px;
+    background: var(--md3-error-container, var(--td-error-color-1));
+    border-radius: var(--md3-radius-sm, 8px);
     font-size: 12px;
-    color: var(--td-error-color);
+    color: var(--md3-error, var(--td-error-color));
   }
 
   &__info {
@@ -158,15 +158,15 @@
     gap: 6px;
     margin-top: 10px;
     padding: 6px 10px;
-    background: var(--td-brand-color-1);
-    border-radius: 6px;
+    background: var(--md3-primary-container, var(--td-brand-color-1));
+    border-radius: var(--md3-radius-sm, 8px);
     font-size: 12px;
-    color: var(--td-brand-color);
+    color: var(--md3-on-primary-container, var(--td-brand-color));
   }
 
   &__sync-section {
     padding: 16px 0;
-    border-bottom: 1px solid var(--td-component-border);
+    border-bottom: 1px solid var(--md3-outline-variant, var(--td-component-border));
   }
 
   &__sync-stats {
@@ -188,22 +188,22 @@
   }
 
   &__stat-divider {
-    color: var(--td-text-color-disabled);
+    color: var(--md3-outline, var(--td-text-color-disabled));
     font-weight: bold;
   }
 
   &__stat-time {
-    color: var(--td-text-color-secondary);
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary));
     font-size: 13px;
   }
 
   &__stat-gist {
     font-family: monospace;
-    background: var(--td-bg-color-secondarycontainer);
+    background: var(--md3-surface-container-high, var(--td-bg-color-secondarycontainer));
     padding: 2px 6px;
-    border-radius: 4px;
+    border-radius: var(--md3-radius-full, 4px);
     font-size: 12px;
-    color: var(--td-text-color-secondary);
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary));
     cursor: default;
   }
 
@@ -215,14 +215,14 @@
 
   &__stat-label {
     font-size: 11px;
-    color: var(--td-text-color-placeholder);
+    color: var(--md3-outline, var(--td-text-color-placeholder));
     text-transform: uppercase;
   }
 
   &__stat-value {
     font-size: 13px;
     font-weight: 500;
-    color: var(--td-text-color-primary);
+    color: var(--md3-on-surface, var(--td-text-color-primary));
   }
 
   &__sync-actions {
@@ -242,7 +242,7 @@
 
   &__options-section {
     padding: 12px 0;
-    border-bottom: 1px solid var(--td-component-border);
+    border-bottom: 1px solid var(--md3-outline-variant, var(--td-component-border));
   }
 
   &__option {
@@ -260,18 +260,18 @@
   &__option-label {
     font-size: 13px;
     font-weight: 500;
-    color: var(--td-text-color-primary);
+    color: var(--md3-on-surface, var(--td-text-color-primary));
   }
 
   &__option-desc {
     font-size: 11px;
-    color: var(--td-text-color-placeholder);
+    color: var(--md3-outline, var(--td-text-color-placeholder));
   }
 
   // Gist 管理器
   &__gist-manager {
     padding: 12px 0;
-    border-bottom: 1px solid var(--td-component-border);
+    border-bottom: 1px solid var(--md3-outline-variant, var(--td-component-border));
   }
 
   &__gist-manager-header {
@@ -281,11 +281,11 @@
     cursor: pointer;
     font-size: 13px;
     font-weight: 500;
-    color: var(--td-text-color-primary);
+    color: var(--md3-on-surface, var(--td-text-color-primary));
     user-select: none;
 
     &:hover {
-      color: var(--td-brand-color);
+      color: var(--md3-primary, var(--td-brand-color));
     }
 
     svg {
@@ -296,11 +296,11 @@
   &__gist-mini-id {
     margin-left: auto;
     font-size: 11px;
-    color: var(--td-text-color-placeholder);
+    color: var(--md3-outline, var(--td-text-color-placeholder));
     font-family: monospace;
-    background: var(--td-bg-color-secondarycontainer);
+    background: var(--md3-surface-container-high, var(--td-bg-color-secondarycontainer));
     padding: 1px 6px;
-    border-radius: 4px;
+    border-radius: var(--md3-radius-full, 4px);
   }
 
   &__gist-list {
@@ -315,7 +315,7 @@
     justify-content: center;
     gap: 8px;
     padding: 12px;
-    color: var(--td-text-color-placeholder);
+    color: var(--md3-outline, var(--td-text-color-placeholder));
     font-size: 12px;
   }
 
@@ -325,14 +325,14 @@
     justify-content: space-between;
     padding: 8px 10px;
     margin-bottom: 6px;
-    background: var(--td-bg-color-secondarycontainer);
-    border-radius: 6px;
+    background: var(--md3-surface-container-low, var(--td-bg-color-secondarycontainer));
+    border-radius: var(--md3-radius-md, 12px);
     border: 1px solid transparent;
     transition: all 0.2s;
 
     &--current {
-      border-color: var(--td-brand-color-light);
-      background: var(--td-bg-color-container);
+      border-color: var(--md3-primary-container, var(--td-brand-color-light));
+      background: var(--md3-primary-container, var(--td-bg-color-container));
     }
   }
 
@@ -355,25 +355,25 @@
     color: white;
     font-size: 9px;
     font-weight: 600;
-    border-radius: 4px;
+    border-radius: var(--md3-radius-full, 4px);
     text-transform: uppercase;
   }
 
   &__gist-master-badge {
     display: inline-flex;
     padding: 1px 6px;
-    background: #F39C12;
+    background: var(--md3-primary, #F39C12);
     color: white;
     font-size: 9px;
     font-weight: 600;
-    border-radius: 4px;
+    border-radius: var(--md3-radius-full, 4px);
     text-transform: uppercase;
   }
 
   &__gist-id {
     font-size: 12px;
     font-weight: 500;
-    color: var(--td-text-color-primary);
+    color: var(--md3-on-surface, var(--td-text-color-primary));
     font-family: monospace;
   }
 
@@ -381,7 +381,7 @@
     display: flex;
     gap: 10px;
     font-size: 10px;
-    color: var(--td-text-color-placeholder);
+    color: var(--md3-outline, var(--td-text-color-placeholder));
   }
 
   &__gist-item-actions {
@@ -390,17 +390,17 @@
     margin-left: 8px;
 
     .t-button {
-      color: var(--td-text-color-placeholder);
-      
+      color: var(--md3-outline, var(--td-text-color-placeholder));
+
       &:hover {
-        color: var(--td-brand-color);
+        color: var(--md3-primary, var(--td-brand-color));
       }
     }
   }
 
   &__delete-btn {
     &:hover {
-      color: var(--td-error-color) !important;
+      color: var(--md3-error, var(--td-error-color)) !important;
     }
   }
 
@@ -413,7 +413,7 @@
   // 加密密码设置
   &__password-section {
     padding: 16px 0;
-    border-bottom: 1px solid var(--td-component-border);
+    border-bottom: 1px solid var(--md3-outline-variant, var(--td-component-border));
   }
 
   &__password-header {
@@ -422,12 +422,12 @@
     gap: 6px;
     font-size: 13px;
     font-weight: 500;
-    color: var(--td-text-color-primary);
+    color: var(--md3-on-surface, var(--td-text-color-primary));
     margin-bottom: 8px;
 
     svg {
       font-size: 16px;
-      color: var(--td-brand-color);
+      color: var(--md3-primary, var(--td-brand-color));
     }
   }
 
@@ -437,13 +437,13 @@
     padding: 2px 6px;
     background: var(--td-success-color-1);
     color: var(--td-success-color);
-    border-radius: 4px;
+    border-radius: var(--md3-radius-full, 4px);
     margin-left: auto;
   }
 
   &__password-desc {
     font-size: 12px;
-    color: var(--td-text-color-secondary);
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary));
     margin-bottom: 10px;
     line-height: 1.4;
   }
@@ -458,20 +458,20 @@
   &__password-input {
     flex: 1;
     padding: 8px 12px;
-    border: 1px solid var(--td-component-border);
-    border-radius: 6px;
+    border: 1px solid var(--md3-outline-variant, var(--td-component-border));
+    border-radius: var(--md3-radius-sm, 8px);
     font-size: 13px;
     outline: none;
-    background: var(--td-bg-color-container);
-    color: var(--td-text-color-primary);
+    background: var(--md3-surface-container-highest, var(--td-bg-color-container));
+    color: var(--md3-on-surface, var(--td-text-color-primary));
     transition: border-color 0.2s;
 
     &::placeholder {
-      color: var(--td-text-color-placeholder);
+      color: var(--md3-outline, var(--td-text-color-placeholder));
     }
 
     &:focus {
-      border-color: var(--td-brand-color);
+      border-color: var(--md3-accent, var(--td-brand-color));
     }
   }
 
@@ -481,10 +481,10 @@
 
   &__info-block {
     padding: 12px;
-    background: var(--td-bg-color-secondarycontainer);
-    border-radius: 8px;
+    background: var(--md3-surface-container-low, var(--td-bg-color-secondarycontainer));
+    border-radius: var(--md3-radius-md, 12px);
     font-size: 12px;
-    color: var(--td-text-color-secondary);
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary));
     line-height: 1.5;
 
     p {
@@ -497,12 +497,12 @@
     align-items: center;
     gap: 6px;
     font-weight: 600;
-    color: var(--td-text-color-primary);
+    color: var(--md3-on-surface, var(--td-text-color-primary));
     margin-bottom: 6px;
 
     svg {
       font-size: 14px;
-      color: var(--td-brand-color);
+      color: var(--md3-primary, var(--td-brand-color));
     }
   }
 
@@ -515,7 +515,7 @@
   // 回收站
   &__recycle-bin {
     padding: 12px 0;
-    border-bottom: 1px solid var(--td-component-border);
+    border-bottom: 1px solid var(--md3-outline-variant, var(--td-component-border));
   }
 
   &__recycle-bin-header {
@@ -525,11 +525,11 @@
     cursor: pointer;
     font-size: 13px;
     font-weight: 500;
-    color: var(--td-text-color-primary);
+    color: var(--md3-on-surface, var(--td-text-color-primary));
     user-select: none;
 
     &:hover {
-      color: var(--td-brand-color);
+      color: var(--md3-primary, var(--td-brand-color));
     }
 
     svg {
@@ -540,10 +540,10 @@
   &__recycle-bin-count {
     margin-left: auto;
     font-size: 11px;
-    color: var(--td-text-color-placeholder);
-    background: var(--td-bg-color-secondarycontainer);
+    color: var(--md3-outline, var(--td-text-color-placeholder));
+    background: var(--md3-surface-container-high, var(--td-bg-color-secondarycontainer));
     padding: 1px 6px;
-    border-radius: 4px;
+    border-radius: var(--md3-radius-full, 4px);
   }
 
   &__recycle-bin-content {
@@ -558,7 +558,7 @@
     justify-content: center;
     gap: 8px;
     padding: 12px;
-    color: var(--td-text-color-placeholder);
+    color: var(--md3-outline, var(--td-text-color-placeholder));
     font-size: 12px;
   }
 
@@ -569,7 +569,7 @@
   &__recycle-group-header {
     font-size: 11px;
     font-weight: 600;
-    color: var(--td-text-color-secondary);
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary));
     text-transform: uppercase;
     margin-bottom: 6px;
     padding-left: 4px;
@@ -581,12 +581,12 @@
     justify-content: space-between;
     padding: 8px 10px;
     margin-bottom: 4px;
-    background: var(--td-bg-color-secondarycontainer);
-    border-radius: 6px;
+    background: var(--md3-surface-container-low, var(--td-bg-color-secondarycontainer));
+    border-radius: var(--md3-radius-md, 12px);
     transition: all 0.2s;
 
     &:hover {
-      background: var(--td-bg-color-container);
+      background: var(--md3-surface-container-high, var(--td-bg-color-container));
     }
   }
 
@@ -601,7 +601,7 @@
   &__recycle-item-name {
     font-size: 12px;
     font-weight: 500;
-    color: var(--td-text-color-primary);
+    color: var(--md3-on-surface, var(--td-text-color-primary));
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -610,7 +610,7 @@
 
   &__recycle-item-time {
     font-size: 10px;
-    color: var(--td-text-color-placeholder);
+    color: var(--md3-outline, var(--td-text-color-placeholder));
   }
 
   &__recycle-item-actions {
@@ -620,10 +620,10 @@
 
     .t-button {
       font-size: 11px !important;
-      color: var(--td-text-color-placeholder);
-      
+      color: var(--md3-outline, var(--td-text-color-placeholder));
+
       &:hover {
-        color: var(--td-brand-color);
+        color: var(--md3-primary, var(--td-brand-color));
       }
     }
   }
@@ -633,6 +633,6 @@
     gap: 8px;
     margin-top: 10px;
     padding-top: 10px;
-    border-top: 1px solid var(--td-component-border);
+    border-top: 1px solid var(--md3-outline-variant, var(--td-component-border));
   }
 }

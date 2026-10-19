@@ -29,22 +29,22 @@
     .t-button {
       flex-shrink: 0;
       white-space: nowrap;
-      border-radius: 6px;
+      border-radius: var(--md3-radius-full, 999px);
       font-weight: 500;
-      
+
       &.t-button--variant-base {
-        background: var(--brand-primary, #f39c12);
-        color: #fff;
+        background: var(--md3-primary, var(--brand-primary, #f39c12));
+        color: var(--md3-on-primary, #fff);
         border: none;
       }
-      
+
       &.t-button--variant-outline {
-        border-color: var(--td-component-border);
-        color: var(--td-text-color-secondary);
-        
+        border-color: var(--md3-outline-variant, var(--td-component-border));
+        color: var(--md3-on-surface-variant, var(--td-text-color-secondary));
+
         &:hover {
-          border-color: var(--brand-primary, #f39c12);
-          color: var(--brand-primary, #f39c12);
+          border-color: var(--md3-accent, var(--brand-primary, #f39c12));
+          color: var(--md3-primary, var(--brand-primary, #f39c12));
           background: transparent;
         }
       }
@@ -76,13 +76,13 @@
 
   // Header Button
   .side-drawer__header-right .t-button {
-    border-radius: 6px;
+    border-radius: var(--md3-radius-full, 999px);
     font-weight: 500;
-    
+
     &:hover {
-      border-color: var(--brand-primary, #f39c12);
-      color: var(--brand-primary, #f39c12);
-      background: rgba(243, 156, 18, 0.05);
+      border-color: var(--md3-accent, var(--brand-primary, #f39c12));
+      color: var(--md3-primary, var(--brand-primary, #f39c12));
+      background: rgba(0, 0, 0, 0.05);
     }
   }
 
@@ -153,9 +153,9 @@
   align-items: center;
   gap: $spacing-md;
   padding: 12px; // 缩减内边距
-  border-radius: 12px;
-  background: var(--td-bg-color-container);
-  border: 1px solid var(--td-component-border); // 添加细边框增加精致感
+  border-radius: var(--md3-radius-lg, 16px);
+  background: var(--md3-surface-container-low, var(--td-bg-color-container));
+  border: none; // MD3：卡片去描边，tonal 表面 + elevation
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   user-select: none;
@@ -164,12 +164,11 @@
   box-sizing: border-box;
   min-height: 72px; // 压缩高度
   position: relative;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  box-shadow: var(--md3-elevation-1, 0 2px 8px rgba(0, 0, 0, 0.02));
 
   &:hover {
-    background: var(--td-bg-color-container);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
-    border-color: var(--td-border-level-2-color);
+    background: var(--md3-surface-container, var(--td-bg-color-container));
+    box-shadow: var(--md3-elevation-2, 0 4px 12px rgba(0, 0, 0, 0.04));
   }
 
   // 移除了之前的 ::before 渐变边框装饰，减少视觉干扰
@@ -185,11 +184,11 @@
     align-items: center;
     justify-content: center;
     font-size: 24px; // 缩小 Emoji 大小
-    background: var(--td-bg-color-container); // 使用更淡的背景
-    border: 1px solid var(--td-component-border); // 添加边框使其像一个按钮
-    border-radius: 8px; // 减小圆角，更显硬朗
+    background: var(--md3-surface-container-high, var(--td-bg-color-container));
+    border: none; // MD3：去描边
+    border-radius: var(--md3-radius-full, 999px);
     transition: all 0.3s ease;
-    color: var(--td-text-color-primary);
+    color: var(--md3-on-surface, var(--td-text-color-primary));
     
     svg {
       width: 20px; // 统一 SVG 大小
@@ -202,8 +201,7 @@
 
   // 移除了 hover 缩放效果，保持专业感
   &:hover &__icon {
-    border-color: var(--brand-primary, #f39c12);
-    color: var(--brand-primary, #f39c12);
+    color: var(--md3-primary, var(--brand-primary, #f39c12));
   }
 
   &__content {
@@ -250,12 +248,11 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 8px;
-      color: var(--td-text-color-secondary);
+      border-radius: var(--md3-radius-full, 999px);
+      color: var(--md3-on-surface-variant, var(--td-text-color-secondary));
 
       &:hover {
-        background: var(--td-bg-color-secondarycontainer) !important;
-        transform: scale(1.05);
+        background: var(--md3-surface-container-high, var(--td-bg-color-secondarycontainer)) !important;
       }
 
       .t-icon {
@@ -265,18 +262,14 @@
 
     // 强化“在窗口中打开”按钮
     .tool-item__action-btn--open-window {
-      color: var(--brand-primary, #f39c12);
-      border-color: rgba(243, 156, 18, 0.3);
-      background: rgba(243, 156, 18, 0.05);
-      width: auto; // 允许宽度自适应（如果后续加文字）
-      padding: 0 8px;
+      color: var(--md3-on-primary-container, var(--brand-primary, #f39c12));
+      background: var(--md3-primary-container, rgba(0, 0, 0, 0.05));
       width: 36px;
       height: 36px;
-      
+
       &:hover {
-        background: var(--brand-primary, #f39c12) !important;
-        color: #fff !important;
-        border-color: var(--brand-primary, #f39c12);
+        background: var(--md3-primary, var(--brand-primary, #f39c12)) !important;
+        color: var(--md3-on-primary, #fff) !important;
       }
 
       .t-icon {
@@ -350,20 +343,17 @@
 [data-theme='dark'] {
   .toolbox-drawer {
     background: var(--td-bg-color-container);
-    border-right-color: var(--td-component-border);
   }
 
   .tool-item {
-    background: var(--td-bg-color-secondarycontainer);
-    border-color: var(--td-component-border);
+    background: var(--md3-surface-container-low, var(--td-bg-color-secondarycontainer));
 
     &:hover {
-      background: var(--td-bg-color-container);
-      border-color: transparent;
+      background: var(--md3-surface-container, var(--td-bg-color-container));
     }
 
     &__icon {
-      background: var(--td-bg-color-container);
+      background: var(--md3-surface-container-high, var(--td-bg-color-container));
     }
 
     &__actions {
@@ -378,7 +368,7 @@
 .toolbox-drawer__wf-section {
   margin-top: 12px;
   padding-top: 10px;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid var(--md3-outline-variant, #f1f5f9);
 }
 
 .toolbox-drawer__wf-title {
@@ -395,16 +385,16 @@
 
 .toolbox-drawer__wf-btn {
   padding: 6px 8px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #1e293b;
+  border: none; // MD3：去描边
+  border-radius: var(--md3-radius-sm, 8px);
+  background: var(--md3-surface-container-high, #ffffff);
+  color: var(--md3-on-surface, #1e293b);
   cursor: pointer;
   font-size: 12px;
-  transition: border-color 0.15s, color 0.15s;
+  transition: background-color 0.15s, color 0.15s;
 
   &:hover {
-    border-color: #b45309;
-    color: #b45309;
+    background: var(--md3-primary-container, #ffffff);
+    color: var(--md3-on-primary-container, #b45309);
   }
 }

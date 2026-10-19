@@ -111,6 +111,7 @@ export const BottomActionsSection: React.FC<BottomActionsSectionProps> = ({
         type="icon"
         icon={<FolderIcon />}
         aria-label={projectDrawerOpen ? '关闭项目' : '打开项目'}
+        showAriaLabel
         tooltip={projectDrawerOpen ? '关闭项目' : '打开项目'}
         tooltipPlacement="right"
         selected={projectDrawerOpen}
@@ -129,6 +130,7 @@ export const BottomActionsSection: React.FC<BottomActionsSectionProps> = ({
           type="icon"
           icon={<ToolboxIcon />}
           aria-label={toolboxDrawerOpen ? '关闭工具箱' : '打开工具箱'}
+          showAriaLabel
           tooltip={toolboxDrawerOpen ? '关闭工具箱' : '打开工具箱'}
           tooltipPlacement="right"
           selected={toolboxDrawerOpen}
@@ -153,6 +155,7 @@ export const BottomActionsSection: React.FC<BottomActionsSectionProps> = ({
             type="icon"
             icon={<TaskIcon />}
             aria-label="任务队列"
+            showAriaLabel
             tooltip={taskTooltip}
             tooltipPlacement="right"
             selected={taskPanelExpanded}
@@ -179,7 +182,8 @@ export const BottomActionsSection: React.FC<BottomActionsSectionProps> = ({
       <ToolButton
         type="icon"
         icon={<FeedbacklandIcon />}
-        aria-label="Feedbackland 反馈"
+        aria-label="反馈"
+        showAriaLabel
         tooltip="Feedbackland 反馈"
         tooltipPlacement="right"
         visible={true}

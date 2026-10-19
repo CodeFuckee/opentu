@@ -9,9 +9,9 @@
   flex-direction: column;
   gap: 16px;
   padding: 16px;
-  background: var(--td-bg-color-container, #ffffff);
-  border: 1px solid var(--td-component-stroke, #e7e7e7);
-  border-radius: 12px;
+  background: var(--md3-surface-container-low, var(--td-bg-color-container, #ffffff));
+  border: none;
+  border-radius: var(--md3-radius-md, 12px);
 
   &__header {
     display: flex;
@@ -49,10 +49,10 @@
   &__new-badge {
     font-size: 10px;
     font-weight: 600;
-    color: #f59e0b;
-    background: #fef3c7;
+    color: var(--md3-on-primary-container, #f59e0b);
+    background: var(--md3-primary-container, #fef3c7);
     padding: 2px 6px;
-    border-radius: 4px;
+    border-radius: var(--md3-radius-full, 999px);
     letter-spacing: 0.5px;
   }
 
@@ -154,8 +154,8 @@
       top: 12px;
       border-color: var(--td-brand-color, #f39c12);
       background: var(--td-brand-color, #f39c12);
-      color: #ffffff;
-      box-shadow: 0 2px 8px rgba(243, 156, 18, 0.3);
+      color: var(--md3-on-primary, #ffffff);
+      box-shadow: var(--md3-elevation-1, 0 2px 8px rgba(0, 0, 0, 0.3));
     }
   }
 
@@ -165,7 +165,7 @@
     min-width: 0; // Critical: allow flex child to shrink below content size
     display: flex;
     flex-direction: column;
-    border-radius: 8px;
+    border-radius: var(--md3-radius-md, 12px);
     border: none;
     transition: all 0.2s ease;
     margin-bottom: 8px;
@@ -223,7 +223,7 @@
     gap: 3px;
     padding: 2px 6px;
     background: rgba(0, 0, 0, 0.04);
-    border-radius: 4px;
+    border-radius: var(--md3-radius-full, 999px);
     font-size: 11px;
     color: var(--td-text-color-secondary, #666666);
     white-space: nowrap;
@@ -235,15 +235,15 @@
   }
 
   &__scene--compact:hover &__scene-arrow {
-    transform: translateX(2px);
+    color: var(--md3-on-surface, #333333);
   }
 
   // Expanded scene card
   &__scene--expanded {
     padding: 14px;
     background: var(--td-bg-color-container, #ffffff);
-    border: 1px solid var(--td-brand-color, #f39c12);
-    box-shadow: 0 4px 16px rgba(243, 156, 18, 0.12);
+    border: 1px solid var(--md3-accent, var(--td-brand-color, #f39c12));
+    box-shadow: var(--md3-elevation-2, 0 4px 16px rgba(0, 0, 0, 0.12));
     gap: 12px;
   }
 
@@ -346,11 +346,11 @@
     &:hover {
       border-color: var(--td-brand-color, #f39c12) !important;
       color: var(--td-brand-color, #f39c12) !important;
-      background: rgba(243, 156, 18, 0.04) !important;
+      background: rgba(0, 0, 0, 0.04) !important;
     }
 
     &:active {
-      background: rgba(243, 156, 18, 0.08) !important;
+      background: rgba(0, 0, 0, 0.08) !important;
     }
   }
 
@@ -373,8 +373,8 @@
     line-height: 1.6;
     color: var(--td-text-color-primary, #000000);
     background: var(--td-bg-color-secondarycontainer, #f9f9f9);
-    border: 1px solid var(--td-component-stroke, #e7e7e7);
-    border-radius: 8px;
+    border: 1px solid var(--md3-outline-variant, var(--td-component-stroke, #e7e7e7));
+    border-radius: var(--md3-radius-sm, 8px);
     resize: none;
     outline: none;
     transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
@@ -386,7 +386,7 @@
 
     &:focus {
       border-color: var(--td-brand-color, #f39c12);
-      box-shadow: 0 0 0 2px rgba(243, 156, 18, 0.1);
+      box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
       background: var(--td-bg-color-container, #ffffff);
     }
 

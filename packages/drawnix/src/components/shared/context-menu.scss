@@ -5,18 +5,19 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  background: #fff;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 12px;
-  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.18);
+  background: var(--md3-surface-container, #fff);
+  // 去描边：tonal + elevation 分层
+  border-color: transparent;
+  border-radius: var(--md3-radius-md, 12px);
+  box-shadow: var(--md3-elevation-3, 0 18px 48px rgba(15, 23, 42, 0.18));
 }
 
 .context-menu__item {
   min-height: 34px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--md3-radius-full, 999px);
   background: transparent;
-  color: #334155;
+  color: var(--md3-on-surface, #334155);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -29,7 +30,7 @@
 
 .context-menu__item:hover:not(:disabled),
 .context-menu__item[aria-expanded='true'] {
-  background: rgba(15, 23, 42, 0.05);
+  background: var(--md3-surface-container-high, rgba(15, 23, 42, 0.05));
 }
 
 .context-menu__item:disabled {
@@ -38,7 +39,7 @@
 }
 
 .context-menu__item--danger {
-  color: #dc2626;
+  color: var(--md3-error, #dc2626);
 }
 
 .context-menu__icon {
@@ -56,7 +57,7 @@
 .context-menu__divider {
   height: 1px;
   margin: 4px 0;
-  background: rgba(15, 23, 42, 0.08);
+  background: var(--md3-outline-variant, rgba(15, 23, 42, 0.08));
 }
 
 .context-menu__submenu {

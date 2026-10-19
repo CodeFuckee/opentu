@@ -3,9 +3,9 @@
   &__popup {
     padding: 0 !important;
     width: 240px;
-    background-color: var(--td-bg-color-container);
-    border-radius: 6px;
-    box-shadow: var(--td-shadow-2);
+    background-color: var(--md3-surface-container, var(--td-bg-color-container));
+    border-radius: var(--md3-radius-md, 12px);
+    box-shadow: var(--md3-elevation-2, var(--td-shadow-2));
     overflow: hidden;
   }
 
@@ -17,7 +17,7 @@
 
   &__search {
     padding: 8px;
-    border-bottom: 1px solid var(--td-component-border);
+    border-bottom: 1px solid var(--md3-outline-variant, var(--td-component-border));
   }
 
   &__list {
@@ -33,15 +33,16 @@
     cursor: pointer;
     transition: background-color 0.2s;
     font-size: 13px;
-    color: var(--td-text-color-primary);
+    color: var(--md3-on-surface, var(--td-text-color-primary));
+    border-radius: var(--md3-radius-full, 999px);
 
     &:hover {
-      background-color: var(--td-bg-color-container-hover);
+      background-color: var(--md3-surface-container-high, var(--td-bg-color-container-hover));
     }
 
     &.is-selected {
-      background-color: var(--td-brand-color-light);
-      color: var(--td-brand-color);
+      background-color: var(--md3-primary-container, var(--td-brand-color-light));
+      color: var(--md3-on-primary-container, var(--td-brand-color));
     }
 
     &-dot {
@@ -59,36 +60,36 @@
     }
 
     &-count {
-      color: var(--td-text-color-placeholder);
+      color: var(--md3-outline, var(--td-text-color-placeholder));
       margin-left: 4px;
       font-size: 12px;
     }
 
     &-check {
       margin-left: 8px;
-      color: var(--td-brand-color);
+      color: var(--md3-primary, var(--td-brand-color));
     }
   }
 
   &__empty {
     padding: 16px;
     text-align: center;
-    color: var(--td-text-color-placeholder);
+    color: var(--md3-outline, var(--td-text-color-placeholder));
     font-size: 13px;
   }
 
   &__footer {
     padding: 8px;
-    border-top: 1px solid var(--td-component-border);
+    border-top: 1px solid var(--md3-outline-variant, var(--td-component-border));
     display: flex;
     justify-content: center;
   }
 
   &__clear-btn {
-    color: var(--td-error-color) !important;
-    
+    color: var(--md3-error, var(--td-error-color)) !important;
+
     &:hover {
-      background-color: var(--td-error-color-1) !important;
+      background-color: var(--md3-error-container, var(--td-error-color-1)) !important;
     }
   }
 }
@@ -100,13 +101,13 @@
   vertical-align: middle !important;
   height: 28px;
   line-height: 1;
-  
+
   &.is-active {
-    background-color: var(--td-brand-color-light) !important;
-    border-color: var(--td-brand-color) !important;
-    color: var(--td-brand-color) !important;
+    background-color: var(--md3-primary-container, var(--td-brand-color-light)) !important;
+    border-color: var(--md3-accent, var(--td-brand-color)) !important;
+    color: var(--md3-on-primary-container, var(--td-brand-color)) !important;
   }
-  
+
   /* 修复 TDesign Button 内部对齐 */
   > span, > .t-button__text {
     display: flex !important;
@@ -114,7 +115,7 @@
     justify-content: center !important;
     height: 100%;
   }
-  
+
   .t-icon, svg {
     margin-right: 4px;
     margin-top: 0 !important;
@@ -129,7 +130,7 @@
   vertical-align: middle !important;
   height: 28px;
   line-height: 1;
-  
+
   /* 修复 TDesign Button 内部对齐 */
   > span, > .t-button__text {
     display: flex !important;
@@ -137,7 +138,7 @@
     justify-content: center !important;
     height: 100%;
   }
-  
+
   .t-icon, svg {
     margin-right: 4px;
     margin-top: 0 !important;
@@ -147,11 +148,11 @@
 
 .kb-sort-dropdown {
   &__header {
-    color: var(--td-text-color-placeholder) !important;
+    color: var(--md3-outline, var(--td-text-color-placeholder)) !important;
     font-size: 12px !important;
     padding: 4px 12px !important;
     cursor: default !important;
-    
+
     &:hover {
       background: none !important;
     }

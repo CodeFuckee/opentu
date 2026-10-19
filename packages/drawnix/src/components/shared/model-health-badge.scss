@@ -3,7 +3,8 @@
  * 3格信号塔设计
  */
 
-$gray-light: #e5e7eb;
+// MD3：未激活信号格用 outline-variant
+$gray-light: var(--md3-outline-variant, #e5e7eb);
 
 .model-health-signal {
     display: inline-flex;

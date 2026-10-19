@@ -85,13 +85,13 @@
     align-items: center;
     gap: 4px;
     padding: 3px;
-    background: var(--td-bg-color-secondarycontainer, #f3f3f3);
-    border-radius: 10px;
+    background: var(--md3-surface-container-high, var(--td-bg-color-secondarycontainer, #f3f3f3));
+    border-radius: var(--md3-radius-full, 999px);
     flex-shrink: 0;
 
     .t-button {
       position: relative;
-      color: var(--td-text-color-secondary, #666);
+      color: var(--md3-on-surface-variant, var(--td-text-color-secondary, #666));
       border: none !important;
       background: transparent !important;
       height: 32px !important;
@@ -101,19 +101,19 @@
       display: flex !important;
       align-items: center !important;
       justify-content: center !important;
-      border-radius: 8px !important;
+      border-radius: var(--md3-radius-full, 999px) !important;
 
       &:hover {
-        color: var(--td-text-color-primary, #333);
+        color: var(--md3-on-surface, var(--td-text-color-primary, #333));
         background: rgba(0, 0, 0, 0.04) !important;
       }
     }
   }
 
   &__filter-btn--active {
-    color: #F39C12 !important;
-    background: rgba(243, 156, 18, 0.12) !important;
-    box-shadow: inset 0 0 0 1px rgba(243, 156, 18, 0.18);
+    color: var(--md3-on-primary-container, #f39c12) !important;
+    background: var(--md3-primary-container, rgba(0, 0, 0, 0.12)) !important;
+    box-shadow: none;
 
     svg,
     .t-icon,
@@ -142,19 +142,19 @@
     min-width: 100px;
     
     .t-input {
-      border-radius: 8px;
+      border-radius: var(--md3-radius-sm, 8px);
       height: 32px;
-      background: var(--td-bg-color-container, #fff) !important;
-      border: 1.5px solid #dcdcdc !important; // 强化边框
+      background: var(--md3-surface-container-lowest, var(--td-bg-color-container, #fff)) !important;
+      border: 1px solid var(--md3-outline-variant, #dcdcdc) !important;
       transition: all 0.25s ease;
-      
+
       &:hover {
-        border-color: #F39C12 !important;
+        border-color: var(--md3-accent, #f39c12) !important;
       }
 
       &--focused {
-        border-color: #F39C12 !important;
-        box-shadow: 0 0 0 3px rgba(243, 156, 18, 0.15) !important;
+        border-color: var(--md3-accent, #f39c12) !important;
+        box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.15) !important;
       }
     }
   }
@@ -193,17 +193,17 @@
     // 覆盖 TDesign Checkbox 默认样式为橙色主题
     :global(.t-checkbox) {
       &.t-is-checked .t-checkbox__input {
-        background-color: #F39C12;
-        border-color: #F39C12;
+        background-color: var(--md3-primary, #f39c12);
+        border-color: var(--md3-accent, #f39c12);
       }
 
       &.t-is-indeterminate .t-checkbox__input {
-        background-color: #F39C12;
-        border-color: #F39C12;
+        background-color: var(--md3-primary, #f39c12);
+        border-color: var(--md3-accent, #f39c12);
       }
 
       &:hover .t-checkbox__input {
-        border-color: #F39C12;
+        border-color: var(--md3-accent, #f39c12);
       }
     }
   }
@@ -255,10 +255,10 @@
     left: 50% !important;
     transform: translateX(-50%) !important;
     z-index: 10; // 在任务列表内容之上
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-    border: 1px solid var(--td-component-border, #e7e7e7);
-    background: var(--td-bg-color-container, #fff) !important;
-    color: var(--td-text-color-secondary, #757575) !important;
+    box-shadow: var(--md3-elevation-2, 0 4px 12px rgba(0, 0, 0, 0.12));
+    border: none; // MD3：去描边
+    background: var(--md3-surface-container-low, var(--td-bg-color-container, #fff)) !important;
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary, #757575)) !important;
     width: 32px !important;
     height: 32px !important;
     padding: 0 !important;
@@ -269,8 +269,8 @@
     flex-shrink: 0;
 
     &:hover {
-      background: var(--td-bg-color-secondarycontainer, #f3f3f3) !important;
-      color: var(--td-text-color-primary, #333) !important;
+      background: var(--md3-surface-container-high, var(--td-bg-color-secondarycontainer, #f3f3f3)) !important;
+      color: var(--md3-on-surface, var(--td-text-color-primary, #333)) !important;
     }
 
     .t-icon {
@@ -284,28 +284,28 @@
   display: grid;
   gap: 4px 12px;
   background: transparent;
-  border-bottom: 1px solid var(--td-component-border, #e7e7e7);
+  border-bottom: 1px solid var(--md3-outline-variant, var(--td-component-border, #e7e7e7));
   padding: 16px 24px 16px 0;
   transition: background-color 0.2s ease;
   position: relative;
   cursor: pointer;
 
   &:hover {
-    background-color: var(--td-bg-color-secondarycontainer, #f3f3f3);
+    background-color: var(--md3-surface-container, var(--td-bg-color-secondarycontainer, #f3f3f3));
   }
 
   &--selected {
-    border-color: #F39C12;
-    background: rgba(243, 156, 18, 0.04);
+    border-color: var(--md3-accent, #f39c12);
+    background: var(--md3-surface-container, rgba(0, 0, 0, 0.04));
   }
 
 
 
   &--processing {
     .task-item__status-tag {
-      background-color: rgba(90, 79, 207, 0.08) !important;
-      color: #5A4FCF !important;
-      border: 1px solid rgba(90, 79, 207, 0.15) !important;
+      background-color: var(--md3-primary-container, rgba(90, 79, 207, 0.08)) !important;
+      color: var(--md3-on-primary-container, #5a4fcf) !important;
+      border: none !important;
     }
   }
 
@@ -393,17 +393,17 @@
     // 覆盖 TDesign Checkbox 默认样式为橙色主题
     :global(.t-checkbox) {
       &.t-is-checked .t-checkbox__input {
-        background-color: #F39C12;
-        border-color: #F39C12;
+        background-color: var(--md3-primary, #f39c12);
+        border-color: var(--md3-accent, #f39c12);
       }
 
       &.t-is-indeterminate .t-checkbox__input {
-        background-color: #F39C12;
-        border-color: #F39C12;
+        background-color: var(--md3-primary, #f39c12);
+        border-color: var(--md3-accent, #f39c12);
       }
 
       &:hover .t-checkbox__input {
-        border-color: #F39C12;
+        border-color: var(--md3-accent, #f39c12);
       }
     }
   }
@@ -418,7 +418,7 @@
   &__preview {
     width: 100%;
     height: 100%;
-    border-radius: 8px;
+    border-radius: var(--md3-radius-md, 12px);
     overflow: hidden;
     cursor: pointer;
     position: relative;
@@ -428,14 +428,6 @@
       height: 100%;
       object-fit: contain;
       display: block;
-      transition: transform 0.2s ease;
-    }
-
-    // 图片和视频的 hover 效果
-    &:hover {
-      img, video {
-        transform: scale(1.05);
-      }
     }
 
     &-placeholder {
@@ -458,10 +450,10 @@
       align-items: center;
       justify-content: center;
       gap: 2px;
-      border-radius: 8px;
-      background: var(--td-bg-color-secondarycontainer, #f3f3f3);
-      border: 1px solid var(--td-component-border, #e7e7e7);
-      color: var(--td-text-color-placeholder, #bbb);
+      border-radius: var(--md3-radius-md, 12px);
+      background: var(--md3-surface-container-high, var(--td-bg-color-secondarycontainer, #f3f3f3));
+      border: none; // MD3：去描边
+      color: var(--md3-outline, var(--td-text-color-placeholder, #bbb));
       font-size: 10px;
 
       .t-icon {
@@ -560,14 +552,15 @@
     font-weight: 500 !important;
     height: 26px !important;
     padding: 0 10px !important;
-    border-radius: 13px !important;
+    border-radius: var(--md3-radius-full, 999px) !important;
     font-size: 12px !important;
-    background: #f39c12 !important;
+    background: var(--md3-primary, #f39c12) !important;
     border: none !important;
-    color: white !important;
+    color: var(--md3-on-primary, #fff) !important;
 
     &:hover {
-      background: #e67e22 !important;
+      background: var(--md3-primary, #e67e22) !important;
+      opacity: 0.92;
     }
 
     .t-icon {
@@ -588,8 +581,8 @@
       min-width: 0 !important;
 
       &:hover {
-        color: var(--td-text-color-primary, #333) !important;
-        background: var(--td-bg-color-secondarycontainer, #f3f3f3) !important;
+        color: var(--md3-on-surface, var(--td-text-color-primary, #333)) !important;
+        background: var(--md3-surface-container-high, var(--td-bg-color-secondarycontainer, #f3f3f3)) !important;
       }
     }
   }
@@ -617,10 +610,10 @@
     .t-tag {
       font-size: 10px !important;
       height: 18px !important;
-      border-radius: 4px !important;
+      border-radius: var(--md3-radius-full, 999px) !important;
       padding: 0 4px !important;
-      color: var(--td-text-color-secondary, #666);
-      background: var(--td-bg-color-secondarycontainer, #f3f3f3);
+      color: var(--md3-on-surface-variant, var(--td-text-color-secondary, #666));
+      background: var(--md3-surface-container-high, var(--td-bg-color-secondarycontainer, #f3f3f3));
       border: none;
     }
 
@@ -646,19 +639,19 @@
   }
 
   &__error {
-    background: #FFF1F0;
-    border-radius: 6px;
+    background: var(--md3-error-container, #fff1f0);
+    border-radius: var(--md3-radius-sm, 8px);
     padding: 6px 10px;
     margin-top: 4px;
-    
+
     &-message {
-      color: #E34D59;
+      color: var(--md3-error, #e34d59);
       font-size: 11px;
       line-height: 1.4;
     }
 
     &-details-link {
-      color: #0052d9;
+      color: var(--md3-primary, #0052d9);
       cursor: pointer;
       text-decoration: underline;
       margin-left: 4px;
@@ -670,9 +663,9 @@
     bottom: 4px;
     right: 4px;
     background: rgba(0, 0, 0, 0.65);
-    color: white;
+    color: var(--md3-surface-container-lowest, #fff);
     padding: 1px 5px;
-    border-radius: 4px;
+    border-radius: var(--md3-radius-xs, 4px);
     font-size: 10px;
     font-weight: 500;
     z-index: 1;
@@ -704,13 +697,13 @@
     z-index: 2;
     padding: 1px 5px;
     border-radius: 4px;
-    background: rgba(245, 158, 11, 0.92);
+    background: rgba(0, 0, 0, 0.92);
     color: #fff;
     font-size: 9px;
     font-weight: 600;
     line-height: 14px;
     cursor: help;
-    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.28);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.28);
   }
 
   // Sync badge styles
@@ -747,12 +740,11 @@
 
     &--clickable {
       background: rgba(0, 82, 217, 0.85);
-      color: white;
+      color: var(--md3-surface-container-lowest, #fff);
       cursor: pointer;
 
       &:hover {
         background: rgba(0, 82, 217, 1);
-        transform: scale(1.05);
       }
     }
   }
@@ -997,9 +989,9 @@
   right: -8px;
   min-width: 20px;
   height: 20px;
-  background: var(--td-error-color, #e34d59);
-  color: white;
-  border-radius: 10px;
+  background: var(--md3-error, var(--td-error-color, #e34d59));
+  color: var(--md3-on-error, #fff);
+  border-radius: var(--md3-radius-full, 999px);
   font-size: 12px;
   font-weight: 500;
   display: flex;
@@ -1051,8 +1043,8 @@
     gap: 4px;
     padding: 4px 10px;
     background: rgba(0, 168, 112, 0.9);
-    color: white;
-    border-radius: 6px;
+    color: var(--md3-surface-container-lowest, #fff);
+    border-radius: var(--md3-radius-sm, 8px);
     font-size: 12px;
     font-weight: 500;
   }
@@ -1069,10 +1061,7 @@
       margin-left: auto;
     }
 
-    &:hover {
-      transform: scale(1.1);
-      transition: transform 0.2s ease;
-    }
+    transition: transform 0.2s ease;
   }
 }
 
@@ -1080,9 +1069,9 @@
 .task-toolbar-button {
   width: 56px;
   height: 56px;
-  background: #ffffff;
+  background: var(--md3-surface-container-low, #ffffff);
   border-radius: 50%;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--md3-elevation-2, 0 2px 8px rgba(0, 0, 0, 0.15));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1092,18 +1081,13 @@
   position: relative;
 
   &:hover {
-    transform: scale(1.05);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    background: #f5f5f5;
-  }
-
-  &:active {
-    transform: scale(0.95);
+    box-shadow: var(--md3-elevation-3, 0 4px 12px rgba(0, 0, 0, 0.2));
+    background: var(--md3-surface-container-high, #f5f5f5);
   }
 
   &--expanded {
-    background: #f0f0f0;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    background: var(--md3-surface-container-high, #f0f0f0);
+    box-shadow: var(--md3-elevation-3, 0 4px 12px rgba(0, 0, 0, 0.2));
   }
 
   &--icon-only {
@@ -1118,7 +1102,7 @@
   }
 
   &__text {
-    color: #757575;
+    color: var(--md3-on-surface-variant, #757575);
     font-size: 14px;
     font-weight: 500;
     display: flex;
@@ -1141,8 +1125,8 @@
 // Override badge background color to transparent for embedded button
 .task-toolbar-button {
   .t-badge__count {
-    color: #E91E63 !important;
-    border: 1px solid #E91E63 !important;
+    color: #e91e63 !important;
+    border: none !important;
   }
 }
 
@@ -1161,8 +1145,8 @@
   &__loading-spinner {
     width: 16px;
     height: 16px;
-    border: 2px solid var(--td-component-border, #e7e7e7);
-    border-top-color: #F39C12;
+    border: 2px solid var(--md3-outline-variant, var(--td-component-border, #e7e7e7));
+    border-top-color: var(--md3-primary, #f39c12);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }

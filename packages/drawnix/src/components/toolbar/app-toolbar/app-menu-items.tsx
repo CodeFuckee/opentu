@@ -317,10 +317,10 @@ export const VersionInfo = () => {
       aria-label={t('menu.version')}
     >
       <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-        <span style={{ color: '#666' }}>{t('menu.version')}：{version}</span>
+        <span style={{ color: 'var(--md3-on-surface-variant, #666)' }}>{t('menu.version')}：{version}</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span
-            style={{ color: '#1890ff', cursor: 'pointer' }}
+            style={{ color: 'var(--md3-primary, #1890ff)', cursor: 'pointer' }}
             data-track="toolbar_click_menu_changelog"
             onClick={(e) => {
               e.stopPropagation();
@@ -330,7 +330,7 @@ export const VersionInfo = () => {
             {t('menu.changelog')}
           </span>
           <span
-            style={{ color: '#1890ff', cursor: 'pointer' }}
+            style={{ color: 'var(--md3-primary, #1890ff)', cursor: 'pointer' }}
             data-track="toolbar_click_menu_more_versions"
             onClick={(e) => {
               e.stopPropagation();

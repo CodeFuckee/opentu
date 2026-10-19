@@ -17,14 +17,14 @@
     &--storage {
       margin-top: auto;
       padding-top: 16px;
-      border-top: 1px solid var(--aitu-ui-border-subtle, rgba(15, 23, 42, 0.06));
+      border-top: 1px solid var(--md3-outline-variant, rgba(15, 23, 42, 0.06));
     }
   }
 
   &__title {
     font-size: 11px;
     font-weight: 700;
-    color: var(--aitu-ui-text-tertiary, #94a3b8);
+    color: var(--md3-outline, #94a3b8);
     text-transform: uppercase;
     letter-spacing: 0.08em;
     margin: 0;
@@ -37,8 +37,8 @@
       content: '';
       width: 3px;
       height: 12px;
-      background: var(--aitu-ui-brand, #f39c12);
-      border-radius: 2px;
+      background: var(--md3-primary, #f39c12);
+      border-radius: var(--md3-radius-full, 2px);
     }
   }
 
@@ -52,8 +52,9 @@
       padding: 10px 12px;
       font-size: 13px;
       font-weight: 500;
-      border-radius: 10px;
-      transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+      // MD3 菜单项：pill 形态
+      border-radius: var(--md3-radius-full, 999px);
+      transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
       display: flex;
       align-items: center;
       gap: 12px;
@@ -71,7 +72,7 @@
         align-items: center;
         justify-content: center;
         margin-right: 10px !important;
-        transition: transform 0.2s ease, color 0.2s ease;
+        transition: color 0.2s ease;
       }
 
       // 文本
@@ -93,40 +94,38 @@
         align-items: center;
       }
 
-      // 激活状态 (base variant)
+      // 激活状态 (base variant)：primary-container tonal 填充
       &.t-button--variant-base {
-        background: var(--aitu-ui-brand-soft, rgba(243, 156, 18, 0.12));
-        color: var(--aitu-ui-brand-text, #b45309);
-        border: 1px solid var(--aitu-ui-brand-border-soft, rgba(243, 156, 18, 0.28));
-
-        svg {
-          color: var(--aitu-ui-brand, #f39c12);
-        }
-
-        &:hover {
-          background: var(--aitu-ui-brand-soft, rgba(243, 156, 18, 0.12));
-        }
-      }
-
-      // 非激活状态 (outline variant)
-      &.t-button--variant-outline {
-        background: transparent;
-        color: var(--aitu-ui-text-secondary, #64748b);
+        background: var(--md3-primary-container, rgba(0, 0, 0, 0.12));
+        color: var(--md3-on-primary-container, #b45309);
         border-color: transparent;
 
         svg {
-          color: var(--aitu-ui-text-tertiary, #94a3b8);
+          color: var(--md3-primary, #f39c12);
         }
 
         &:hover {
-          background: var(--aitu-ui-brand-softer, rgba(243, 156, 18, 0.06));
-          color: var(--aitu-ui-brand-text, #b45309);
-          border-color: var(--aitu-ui-brand-border-soft, rgba(243, 156, 18, 0.28));
-          transform: translateX(4px);
+          background: var(--md3-primary-container, rgba(0, 0, 0, 0.12));
+        }
+      }
+
+      // 非激活状态 (outline variant)：hover 用表面状态层，不位移
+      &.t-button--variant-outline {
+        background: transparent;
+        color: var(--md3-on-surface-variant, #64748b);
+        border-color: transparent;
+
+        svg {
+          color: var(--md3-outline, #94a3b8);
+        }
+
+        &:hover {
+          background: var(--md3-surface-container-high, rgba(0, 0, 0, 0.06));
+          color: var(--md3-on-primary-container, #b45309);
+          border-color: transparent;
 
           svg {
-            color: var(--aitu-ui-brand, #f39c12);
-            transform: scale(1.1);
+            color: var(--md3-primary, #f39c12);
           }
         }
       }
@@ -148,7 +147,7 @@
       &--storage {
         padding-top: 0;
         border-top: none;
-        border-left: 1px solid var(--aitu-ui-border-subtle, rgba(15, 23, 42, 0.06));
+        border-left: 1px solid var(--md3-outline-variant, rgba(15, 23, 42, 0.06));
         padding-left: 10px;
         margin-left: auto;
         display: none;

@@ -36,10 +36,9 @@
   // 内容区域
   &__content {
     position: relative; // 用于预览框绝对定位
-    background: var(--minimap-bg, rgba(255, 255, 255, 0.95));
-    border: 1px solid var(--minimap-border, rgba(0, 0, 0, 0.1));
-    border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    background: var(--minimap-bg, var(--md3-surface-container-high, rgba(255, 255, 255, 0.95)));
+    border-radius: var(--md3-radius-lg, 16px);
+    box-shadow: var(--md3-elevation-2, 0 4px 16px rgba(0, 0, 0, 0.1));
     padding: 0;
     overflow: visible; // 允许预览框溢出
     transition: all 0.3s ease-out;
@@ -49,7 +48,7 @@
   // Canvas
   &__canvas {
     display: block;
-    border-radius: 8px;
+    border-radius: var(--md3-radius-lg, 16px);
     touch-action: none;
 
     &:active {
@@ -59,16 +58,15 @@
 
   // Hover 放大预览
   &__preview {
-    background: #fff;
-    border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    background: var(--md3-surface-container-lowest, #fff);
+    border-radius: var(--md3-radius-lg, 16px);
+    box-shadow: var(--md3-elevation-3, 0 4px 16px rgba(0, 0, 0, 0.15));
     overflow: hidden;
-    border: 1px solid rgba(0, 0, 0, 0.1);
   }
 
   &__preview-canvas {
     display: block;
-    border-radius: 7px;
+    border-radius: calc(var(--md3-radius-lg, 16px) - 1px);
   }
 
   // 折叠/展开按钮
@@ -79,9 +77,9 @@
     width: 24px;
     height: 24px;
     padding: 0;
-    background: var(--minimap-toggle-bg, rgba(255, 255, 255, 0.9));
-    border: 1px solid var(--minimap-border, rgba(0, 0, 0, 0.1));
-    border-radius: 4px;
+    background: var(--minimap-toggle-bg, var(--md3-surface-container-high, rgba(255, 255, 255, 0.9)));
+    border: 1px solid var(--minimap-border, var(--md3-outline-variant, rgba(0, 0, 0, 0.1)));
+    border-radius: var(--md3-radius-full, 999px);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -90,9 +88,8 @@
     z-index: 10;
 
     &:hover {
-      background: var(--minimap-toggle-hover-bg, rgba(90, 79, 207, 0.1));
-      border-color: var(--minimap-toggle-hover-border, rgba(90, 79, 207, 0.3));
-      transform: scale(1.1);
+      background: var(--minimap-toggle-hover-bg, var(--md3-primary-container, rgba(90, 79, 207, 0.1)));
+      border-color: var(--minimap-toggle-hover-border, var(--md3-primary, rgba(90, 79, 207, 0.3)));
     }
 
     &:active {
@@ -102,7 +99,7 @@
     svg {
       width: 16px;
       height: 16px;
-      color: var(--minimap-toggle-icon, #666);
+      color: var(--minimap-toggle-icon, var(--md3-on-surface-variant, #666));
       transition: transform 0.3s ease-out;
     }
 

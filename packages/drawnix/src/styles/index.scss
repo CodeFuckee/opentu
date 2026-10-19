@@ -2,6 +2,8 @@
 @import './../../../../node_modules/@plait/mind/styles/styles.scss';
 @import 'tailwindcss';
 @import './tdesign-theme.scss';
+@import './tdesign-md3-shape.scss'; // TDesign → MD3 形态桥（弹窗/按钮/弹层圆角与去描边）
+@import './md3-motion.scss'; // MD3 微动效层（入场/过渡/按压，含 reduced-motion 降级）
 @import './theme.scss';
 @import './z-index.scss'; // Z-Index层级管理变量
 @import './responsive'; // 响应式设计变量和混合宏
@@ -66,9 +68,9 @@
     left: 50%;
     transform: translateX(-50%);
     z-index: $z-unified-toolbar;
-    background: var(--color-surface-high);
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    background: var(--md3-surface-container, var(--color-surface-high));
+    border-radius: var(--md3-radius-lg, 16px);
+    box-shadow: var(--md3-elevation-3, 0 2px 8px rgba(0, 0, 0, 0.15));
 
     // 移动端调整定位，位于工具栏右侧避免重叠
     @media (max-width: 768px) {
@@ -83,9 +85,9 @@
     left: 50%;
     transform: translateX(-50%);
     z-index: $z-unified-toolbar;
-    background: var(--color-surface-high);
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    background: var(--md3-surface-container, var(--color-surface-high));
+    border-radius: var(--md3-radius-lg, 16px);
+    box-shadow: var(--md3-elevation-3, 0 2px 8px rgba(0, 0, 0, 0.15));
 
     // 移动端调整定位，位于工具栏右侧避免重叠
     @media (max-width: 768px) {
@@ -189,16 +191,22 @@
     flex-direction: column;
     gap: 0;
     width: fit-content;
-    max-width: 80px;
+    max-width: 92px;
     overflow: visible; // 允许 Badge 角标溢出显示，滚动由 __scrollable 处理
-    border-radius: 20px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08); // 更加柔和的阴影
+    // MD3 布局：xl 28dp 大圆角 + elevation + 发丝描边（黑白系与画布分离的关键）
+    border-radius: var(--md3-radius-xl, 28px);
+    box-shadow: var(--md3-elevation-3, 0 8px 32px rgba(0, 0, 0, 0.08));
+    border: 1px solid var(--md3-hairline, rgba(0, 0, 0, 0.1));
     background: rgba(
       var(--island-bg-color-rgb, 255, 255, 255),
       0.95
-    ); // 稍微透明感
+    ); // 旧浏览器回退
+    background: color-mix(
+      in srgb,
+      var(--md3-surface-panel, #fff) 94%,
+      transparent
+    );
     backdrop-filter: blur(10px); // 毛玻璃效果
-    border: 1px solid var(--color-border-light, rgba(0, 0, 0, 0.05));
 
     // 可滚动内容区域
     &__scrollable {
@@ -233,7 +241,7 @@
       justify-content: center;
       padding: 0;
       border: 0;
-      border-radius: 20px 20px 8px 8px;
+      border-radius: 28px 28px 12px 12px;
       background: transparent;
       color: var(--color-on-surface-variant, rgba(0, 0, 0, 0.28));
       cursor: grab;
@@ -267,7 +275,7 @@
     }
 
     &--dragging .unified-toolbar__drag-handle {
-      background: rgba(243, 156, 18, 0.08);
+      background: rgba(0, 0, 0, 0.08);
       color: var(--brand-primary, #f39c12);
       opacity: 1;
     }
@@ -277,31 +285,19 @@
     }
 
     &__section {
-      padding: 0 8px;
+      padding: 0 10px;
 
-      // 分区之间添加更加微妙的分割线
+      // MD3 分组：分区之间不用 1px 硬分割线，靠留白分组（M3 容器语义）
       &:not(:first-child):not(&--fixed-top):not(&--fixed-bottom) {
         margin-top: 8px;
-        padding-top: 8px;
-        position: relative;
-
-        &::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 12px;
-          right: 12px;
-          height: 1px;
-          background: var(--color-border-light, rgba(0, 0, 0, 0.05));
-        }
       }
 
       // 固定在底部的section (任务按钮)
       &--fixed-bottom {
         flex-shrink: 0;
         padding: 12px 8px;
-        border-top: 1px solid var(--color-border-light, rgba(0, 0, 0, 0.05));
-        border-radius: 0 0 20px 20px;
+        border-radius: 0 0 var(--md3-radius-xl, 28px)
+          var(--md3-radius-xl, 28px);
         display: flex;
         flex-direction: column; // 底部内容（任务队列、用户入口等）垂直排列
         justify-content: center;
@@ -314,7 +310,6 @@
       &--fixed-top {
         flex-shrink: 0;
         padding: 4px 8px 10px;
-        border-bottom: 1px solid var(--color-border-light, rgba(0, 0, 0, 0.05));
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -322,11 +317,46 @@
       }
     }
 
-    // 图标模式修饰符 (窗口高度不足时自动切换)
+    // 图标模式修饰符：桌面 rail 显示文字标签（用户确立），移动端仍隐藏
     &--icon-only {
-      // 隐藏工具按钮标签,仅显示图标
+      @include tablet-and-below {
+        .tool-icon__label {
+          display: none;
+        }
+      }
+    }
+
+    // 工具按钮纵向排列：图标在上、作用文字在下（紧凑尺寸保证全量工具一屏可见）
+    .tool-icon {
+      flex-direction: column;
+      gap: 2px;
+      height: auto;
+      padding: 4px 2px;
+
+      .tool-icon__icon {
+        width: 1.625rem;
+        height: 1.625rem;
+
+        svg {
+          width: 18px;
+          height: 18px;
+        }
+      }
+
       .tool-icon__label {
-        display: none;
+        margin: 0;
+        max-width: 74px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 10px;
+        line-height: 1.25;
+        color: var(--aitu-ui-text-secondary, var(--md3-on-surface-variant, #575757));
+      }
+
+      &.tool-icon--selected .tool-icon__label {
+        color: var(--md3-primary, #0b57d0);
+        font-weight: 500;
       }
     }
 
@@ -546,9 +576,11 @@
       width: auto;
     }
 
-    // 隐藏文本标签，节省空间
-    .tool-icon__label {
-      display: none;
+    // 纸墨主题：rail 内显示文字标签（桌面），移动端仍隐藏
+    @include tablet-and-below {
+      .tool-icon__label {
+        display: none;
+      }
     }
   }
 
@@ -557,8 +589,8 @@
     min-width: 200px;
     max-width: 280px;
     padding: 8px;
-    background: var(--island-bg-color);
-    border-radius: 8px;
+    background: var(--md3-surface-container-low, var(--island-bg-color));
+    border-radius: var(--md3-radius-lg, 16px);
 
     &__header {
       padding: 4px 8px 8px;
@@ -749,27 +781,28 @@
 
   .menu {
     min-width: 120px;
-    padding: 4px;
-    background: var(--island-bg-color, #fff);
-    border: 1px solid var(--color-border, #e0e0e0);
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    padding: 6px;
+    background: var(--md3-surface-container, var(--island-bg-color, #fff));
+    border: none;
+    border-radius: var(--md3-radius-lg, 16px);
+    box-shadow: var(--md3-elevation-2, 0 4px 12px rgba(0, 0, 0, 0.15));
   }
 
   .menu-container {
-    background-color: var(--island-bg-color, #fff);
+    background-color: var(--md3-surface-container, var(--island-bg-color, #fff));
   }
 
   .menu-item {
     display: flex;
     align-items: center;
-    padding: 0 10px;
-    height: 32px;
+    padding: 0 12px;
+    height: 34px;
     font-size: 14px;
-    color: var(--color-gray-90, #333);
+    color: var(--color-on-surface, var(--color-gray-90, #333));
     background: transparent;
     border: none;
-    border-radius: 6px;
+    // MD3 菜单项：pill 形（full shape）
+    border-radius: var(--md3-radius-full, 999px);
     cursor: pointer;
     width: 100%;
     box-sizing: border-box;
@@ -780,7 +813,7 @@
     }
 
     &:hover {
-      background-color: var(--color-surface-primary-container, #f5f5f5);
+      background-color: var(--md3-surface-container-high, #f5f5f5);
     }
 
     &[disabled] {
@@ -792,8 +825,8 @@
 
   .menu-separator {
     height: 1px;
-    background-color: var(--color-border, #e0e0e0);
-    margin: 4px 0;
+    background-color: var(--md3-outline-variant, var(--color-border, #e0e0e0));
+    margin: 5px 8px;
   }
 }
 

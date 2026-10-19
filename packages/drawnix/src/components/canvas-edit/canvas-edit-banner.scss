@@ -13,19 +13,18 @@
   gap: 10px;
   max-width: min(720px, 92vw);
   padding: 8px 14px;
-  border-radius: 10px;
+  border-radius: var(--md3-radius-lg, 16px);
   font-size: 13px;
-  box-shadow: 0 6px 22px rgba(15, 23, 42, 0.16);
+  border: none;
+  box-shadow: var(--md3-elevation-3, 0 6px 22px rgba(15, 23, 42, 0.16));
 
   &--editing {
-    background: #fffbeb;
-    border: 1px solid #f59e0b;
-    color: #92400e;
+    background: var(--md3-primary-container, #fffbeb);
+    color: var(--md3-on-primary-container, #92400e);
   }
 
   &--merged {
     background: #f0fdf4;
-    border: 1px solid #22c55e;
     color: #166534;
   }
 
@@ -43,26 +42,28 @@
     gap: 4px;
     flex-shrink: 0;
     padding: 5px 12px;
-    border-radius: 6px;
-    border: 1px solid rgba(100, 116, 139, 0.35);
-    background: #fff;
-    color: #334155;
+    border-radius: var(--md3-radius-full, 999px);
+    border: 1px solid var(--md3-outline-variant, rgba(100, 116, 139, 0.35));
+    background: var(--md3-surface-container-lowest, #fff);
+    color: var(--md3-on-surface, #334155);
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.15s ease;
 
     &:hover {
-      border-color: #64748b;
+      background: var(--md3-surface-container-high, rgba(100, 116, 139, 0.08));
+      border-color: var(--md3-outline, #64748b);
     }
 
     &--primary {
-      background: #0052d9;
-      border-color: #0052d9;
-      color: #fff;
+      background: var(--md3-primary, #0052d9);
+      border-color: transparent;
+      color: var(--md3-on-primary, #fff);
 
       &:hover {
-        background: #266fe8;
+        background: var(--md3-primary, #0052d9);
+        box-shadow: var(--md3-elevation-1, 0 1px 3px rgba(0, 82, 217, 0.3));
       }
     }
   }

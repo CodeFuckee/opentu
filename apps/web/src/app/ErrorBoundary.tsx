@@ -273,8 +273,8 @@ export const ErrorFallbackUI: React.FC<ErrorFallbackProps> = (props) => {
           <HoverButton
             label="安全模式"
             onClick={onSafeModeReload}
-            bg="#F39C12"
-            bgHover="#E67E22"
+            bg="#0B57D0"
+            bgHover="#1A73E8"
             color="#fff"
           />
         </div>

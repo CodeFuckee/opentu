@@ -15,14 +15,9 @@
   padding: 0;
   border-radius: 50%;
   overflow: hidden;
-  background: linear-gradient(
-    135deg,
-    rgba(243, 156, 18, 0.85),
-    rgba(90, 79, 207, 0.85)
-  );
-  backdrop-filter: blur(8px);
-  box-shadow: 0 6px 20px rgba(45, 52, 54, 0.12);
-  border: none;
+  background: var(--md3-primary, #191c1e);
+  border: 1px solid var(--md3-hairline, rgba(0, 0, 0, 0.1));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
 .avatar {

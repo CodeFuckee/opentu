@@ -1,4 +1,5 @@
 import React from 'react';
+import { Image as ImageIcon } from 'lucide-react';
 import { useImageQuota } from '../../hooks/useImageQuota';
 import './image-quota-banner.scss';
 
@@ -28,7 +29,7 @@ export function ImageQuotaBanner(): React.ReactNode {
   return (
     <div className={className}>
       <span className="image-quota-banner__icon" aria-hidden>
-        🖼️
+        <ImageIcon size={14} strokeWidth={2} />
       </span>
       {exhausted ? (
         <span>本月生图额度已用完（{quota.used}/{quota.limit}），下月自动恢复</span>

@@ -10,9 +10,9 @@
   max-height: var(--panel-max-height, 400px);
   display: flex;
   flex-direction: column;
-  background: var(--td-bg-color-container, #fff);
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  background: var(--md3-surface-container-high, var(--td-bg-color-container, #fff));
+  border-radius: var(--md3-radius-lg, 16px);
+  box-shadow: var(--md3-elevation-3, 0 4px 16px rgba(0, 0, 0, 0.12));
   overflow: hidden;
   animation: promptListPanelSlideUp 0.15s ease-out;
 
@@ -22,8 +22,8 @@
     align-items: center;
     justify-content: space-between;
     padding: 12px 16px;
-    border-bottom: 1px solid var(--td-component-stroke, #e7e7e7);
-    background: var(--td-bg-color-container, #fff);
+    border-bottom: 1px solid var(--md3-outline-variant, var(--td-component-stroke, #e7e7e7));
+    background: var(--md3-surface-container-high, var(--td-bg-color-container, #fff));
     position: sticky;
     top: 0;
     z-index: 1;
@@ -32,7 +32,7 @@
   &__title {
     font-size: 14px;
     font-weight: 500;
-    color: var(--td-text-color-primary, #333);
+    color: var(--md3-on-surface, var(--td-text-color-primary, #333));
   }
 
   &__title-button {
@@ -44,17 +44,17 @@
     line-height: inherit;
 
     &:hover {
-      color: var(--td-brand-color, #ff7a00);
+      color: var(--md3-primary, var(--td-brand-color, #ff7a00));
     }
   }
 
   &__count {
     font-size: 12px;
     font-weight: normal;
-    color: var(--td-text-color-placeholder, #999);
-    background: var(--td-bg-color-component, #f3f3f3);
+    color: var(--md3-outline, var(--td-text-color-placeholder, #999));
+    background: var(--md3-surface-container-highest, var(--td-bg-color-component, #f3f3f3));
     padding: 2px 8px;
-    border-radius: 10px;
+    border-radius: var(--md3-radius-full, 999px);
   }
 
   // 列表
@@ -66,7 +66,7 @@
 
     // 优化滚动条
     scrollbar-width: thin;
-    scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+    scrollbar-color: var(--md3-outline-variant, rgba(0, 0, 0, 0.15)) transparent;
 
     &::-webkit-scrollbar {
       width: 4px;
@@ -77,8 +77,8 @@
     }
 
     &::-webkit-scrollbar-thumb {
-      background: rgba(0, 0, 0, 0.15);
-      border-radius: 2px;
+      background: var(--md3-outline-variant, rgba(0, 0, 0, 0.15));
+      border-radius: var(--md3-radius-full, 2px);
     }
   }
 }

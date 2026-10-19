@@ -3,7 +3,7 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  background-color: var(--td-bg-color-container, #fff);
+  background-color: var(--md3-surface-container-lowest, var(--td-bg-color-container, #fff));
 
   &__body {
     flex: 1;
@@ -18,14 +18,14 @@
     display: flex;
     flex-direction: column;
     // border-right: 1px solid var(--td-component-border, #e7e7e7); // Border handled by resizer or kept?
-    background-color: var(--td-bg-color-secondarycontainer, #f5f5f5);
+    background-color: var(--md3-surface-container-low, var(--td-bg-color-secondarycontainer, #f5f5f5));
     flex-shrink: 0; // Prevent shrinking
   }
 
   &__toolbar {
     padding: 8px 12px;
-    border-bottom: 1px solid var(--td-component-border, #e7e7e7);
-    background-color: var(--td-bg-color-container, #fff);
+    border-bottom: 1px solid var(--md3-outline-variant, var(--td-component-border, #e7e7e7));
+    background-color: var(--md3-surface-container-lowest, var(--td-bg-color-container, #fff));
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -46,24 +46,24 @@
     border: none;
     background: transparent;
     cursor: pointer;
-    color: var(--td-text-color-secondary, #666);
-    border-radius: 4px;
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary, #666));
+    border-radius: var(--md3-radius-full, 999px);
     margin-left: 4px;
 
     &:hover {
-      background-color: var(--td-bg-color-container-hover, #f3f3f3);
+      background-color: var(--md3-surface-container-high, var(--td-bg-color-container-hover, #f3f3f3));
     }
   }
 
   &__storage-bar {
     padding: 8px 12px;
-    border-top: 1px solid var(--td-component-border, #e7e7e7);
+    border-top: 1px solid var(--md3-outline-variant, var(--td-component-border, #e7e7e7));
     display: flex;
     align-items: center;
     gap: 6px;
-    color: var(--td-text-color-placeholder, #999);
+    color: var(--md3-outline, var(--td-text-color-placeholder, #999));
     font-size: 11px;
-    background-color: var(--td-bg-color-container, #fff);
+    background-color: var(--md3-surface-container-lowest, var(--td-bg-color-container, #fff));
   }
 
   // Editor Area
@@ -73,7 +73,7 @@
     flex-direction: column;
     overflow: hidden;
     position: relative;
-    background-color: var(--td-bg-color-container, #fff);
+    background-color: var(--md3-surface-container-lowest, var(--td-bg-color-container, #fff));
     min-width: 400px; // Ensure editor doesn't get too small
   }
 
@@ -86,7 +86,7 @@
     display: flex;
     flex-direction: column;
     // border-left: 1px solid var(--td-component-border, #e7e7e7);
-    background-color: var(--td-bg-color-container, #fff);
+    background-color: var(--md3-surface-container-low, var(--td-bg-color-container, #fff));
     flex-shrink: 0; // Prevent shrinking
   }
 
@@ -97,73 +97,74 @@
     z-index: 10;
     width: 32px;
     height: 32px;
-    border-radius: 4px;
-    border: 1px solid var(--td-component-border, #e7e7e7);
-    background-color: var(--td-bg-color-container, #fff);
+    border-radius: var(--md3-radius-full, 999px);
+    border: none; // MD3：去描边，tonal 表面 + elevation 分层
+    background-color: var(--md3-surface-container-low, var(--td-bg-color-container, #fff));
+    box-shadow: var(--md3-elevation-1, 0 1px 2px rgba(0, 0, 0, 0.1));
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    color: var(--td-text-color-secondary, #666);
-    
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary, #666));
+
     &:hover {
-      background-color: var(--td-bg-color-container-hover, #f3f3f3);
+      background-color: var(--md3-surface-container-high, var(--td-bg-color-container-hover, #f3f3f3));
     }
   }
-  
+
   &__right-header {
     height: 48px;
-    border-bottom: 1px solid var(--td-component-border, #e7e7e7);
+    border-bottom: 1px solid var(--md3-outline-variant, var(--td-component-border, #e7e7e7));
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 0 12px;
   }
-  
+
   &__right-tabs {
     display: flex;
     gap: 4px;
   }
-  
+
   &__right-tab {
     padding: 6px 12px;
     border: none;
     background: transparent;
-    border-radius: 4px;
+    border-radius: var(--md3-radius-full, 999px);
     cursor: pointer;
-    color: var(--td-text-color-secondary, #666);
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary, #666));
     display: flex;
     align-items: center;
     justify-content: center;
-    
+
     &:hover {
-      background-color: var(--td-bg-color-container-hover, #f3f3f3);
+      background-color: var(--md3-surface-container-high, var(--td-bg-color-container-hover, #f3f3f3));
     }
-    
+
     &--active {
-      color: var(--td-brand-color, #0052d9);
-      background-color: var(--td-brand-color-light, #ecf2fe);
-      
+      color: var(--md3-on-primary-container, var(--td-brand-color, #0052d9));
+      background-color: var(--md3-primary-container, var(--td-brand-color-light, #ecf2fe));
+
       &:hover {
-        background-color: var(--td-brand-color-light, #ecf2fe);
+        background-color: var(--md3-primary-container, var(--td-brand-color-light, #ecf2fe));
       }
     }
   }
-  
+
   &__right-collapse-btn {
     border: none;
     background: transparent;
     cursor: pointer;
-    color: var(--td-text-color-secondary, #666);
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary, #666));
     padding: 4px;
-    border-radius: 4px;
+    border-radius: var(--md3-radius-full, 999px);
     display: flex;
-    
+
     &:hover {
-      background-color: var(--td-bg-color-container-hover, #f3f3f3);
+      background-color: var(--md3-surface-container-high, var(--td-bg-color-container-hover, #f3f3f3));
     }
   }
-  
+
   &__right-content {
     flex: 1;
     overflow: hidden;
@@ -175,13 +176,13 @@
 // Resizer styles
 .kb-resizer {
   width: 1px;
-  background-color: var(--td-component-border, #e7e7e7);
+  background-color: var(--md3-outline-variant, var(--td-component-border, #e7e7e7));
   cursor: col-resize;
   position: relative;
   flex-shrink: 0;
   z-index: 10;
   transition: background-color 0.2s;
-  
+
   &::after {
     content: '';
     position: absolute;
@@ -193,7 +194,7 @@
   }
 
   &:hover, &--active {
-    background-color: var(--td-brand-color, #0052d9);
+    background-color: var(--md3-primary, var(--td-brand-color, #0052d9));
     width: 2px; // Make it slightly visible on hover
   }
 }
@@ -215,20 +216,20 @@
     align-items: center;
     padding: 4px 12px;
     gap: 4px;
-    background-color: var(--td-bg-color-container-active, #eef2ff);
+    background-color: var(--md3-surface-container-high, var(--td-bg-color-container-active, #eef2ff));
   }
 
   &__input {
     flex: 1;
     height: 28px;
     padding: 0 8px;
-    border: 1px solid var(--td-component-border, #dcdcdc);
-    border-radius: 4px;
+    border: 1px solid var(--md3-outline-variant, var(--td-component-border, #dcdcdc));
+    border-radius: var(--md3-radius-sm, 8px);
     font-size: 13px;
     outline: none;
-    
+
     &:focus {
-      border-color: var(--td-brand-color, #0052d9);
+      border-color: var(--md3-accent, var(--td-brand-color, #0052d9));
     }
 
     &--inline {
@@ -247,17 +248,17 @@
     border: none;
     background: transparent;
     cursor: pointer;
-    color: var(--td-text-color-secondary, #666);
-    border-radius: 4px;
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary, #666));
+    border-radius: var(--md3-radius-full, 999px);
 
     &:hover {
-      background-color: var(--td-bg-color-container-hover, #f3f3f3);
-      color: var(--td-text-color-primary, #333);
+      background-color: var(--md3-surface-container-high, var(--td-bg-color-container-hover, #f3f3f3));
+      color: var(--md3-on-surface, var(--td-text-color-primary, #333));
     }
 
     &--danger:hover {
-      color: var(--td-error-color, #d54941);
-      background-color: var(--td-error-color-1, #fdecee);
+      color: var(--md3-error, var(--td-error-color, #d54941));
+      background-color: var(--md3-error-container, var(--td-error-color-1, #fdecee));
     }
   }
 
@@ -272,13 +273,13 @@
     align-items: center;
     padding: 6px 12px 6px 4px;
     cursor: pointer;
-    color: var(--td-text-color-primary, #333);
+    color: var(--md3-on-surface, var(--td-text-color-primary, #333));
     user-select: none;
     height: 32px;
-    
+
     &:hover {
-      background-color: var(--td-bg-color-container-hover, #f3f3f3);
-      
+      background-color: var(--md3-surface-container-high, var(--td-bg-color-container-hover, #f3f3f3));
+
       .kb-tree__dir-actions {
         opacity: 1;
       }
@@ -286,8 +287,8 @@
   }
 
   &__dir--selected > &__dir-row {
-    background-color: var(--td-warning-color-1, #fff3e8);
-    color: var(--td-warning-color, #ed7b2f);
+    background-color: var(--md3-primary-container, var(--td-warning-color-1, #fff3e8));
+    color: var(--md3-on-primary-container, var(--td-warning-color, #ed7b2f));
   }
 
   &__expand-btn {
@@ -315,7 +316,7 @@
 
   &__dir-count {
     font-size: 12px;
-    color: var(--td-text-color-placeholder, #999);
+    color: var(--md3-outline, var(--td-text-color-placeholder, #999));
     margin: 0 8px;
   }
 
@@ -335,7 +336,7 @@
   &__notes-empty {
     padding: 8px 12px 8px 32px;
     font-size: 12px;
-    color: var(--td-text-color-placeholder, #999);
+    color: var(--md3-outline, var(--td-text-color-placeholder, #999));
   }
 
   &__note-row {
@@ -345,18 +346,18 @@
     cursor: pointer;
     border-bottom: 1px solid transparent;
     position: relative;
-    
+
     &:hover {
-      background-color: var(--td-bg-color-container-hover, #f3f3f3);
-      
+      background-color: var(--md3-surface-container-high, var(--td-bg-color-container-hover, #f3f3f3));
+
       .kb-tree__note-delete {
         opacity: 1;
       }
     }
-    
+
     &--selected {
-      background-color: var(--td-warning-color-1, #fff3e8);
-      
+      background-color: var(--md3-primary-container, var(--td-warning-color-1, #fff3e8));
+
       &::before {
         content: '';
         position: absolute;
@@ -364,7 +365,7 @@
         top: 0;
         bottom: 0;
         width: 3px;
-        background-color: var(--td-warning-color, #ed7b2f);
+        background-color: var(--md3-primary, var(--td-warning-color, #ed7b2f));
       }
     }
   }
@@ -372,7 +373,7 @@
   &__note-icon {
     margin-top: 3px;
     margin-right: 8px;
-    color: var(--td-text-color-secondary, #666);
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary, #666));
     flex-shrink: 0;
   }
 
@@ -383,7 +384,7 @@
 
   &__note-title {
     font-size: 13px;
-    color: var(--td-text-color-primary, #333);
+    color: var(--md3-on-surface, var(--td-text-color-primary, #333));
     margin-bottom: 2px;
     white-space: nowrap;
     overflow: hidden;
@@ -396,14 +397,14 @@
     align-items: center;
     gap: 4px;
     font-size: 11px;
-    color: var(--td-text-color-placeholder, #999);
+    color: var(--md3-outline, var(--td-text-color-placeholder, #999));
     margin-bottom: 2px;
   }
 
   &__favicon {
     width: 12px;
     height: 12px;
-    border-radius: 2px;
+    border-radius: var(--md3-radius-xs, 2px);
   }
 
   &__note-meta {
@@ -420,7 +421,7 @@
 
   &__tag-badge {
     padding: 0 4px;
-    border-radius: 2px;
+    border-radius: var(--md3-radius-full, 999px);
     font-size: 10px;
     height: 16px;
     line-height: 16px;
@@ -428,12 +429,12 @@
 
   &__tag-more {
     font-size: 10px;
-    color: var(--td-text-color-placeholder, #999);
+    color: var(--md3-outline, var(--td-text-color-placeholder, #999));
   }
 
   &__note-time {
     font-size: 11px;
-    color: var(--td-text-color-placeholder, #999);
+    color: var(--md3-outline, var(--td-text-color-placeholder, #999));
   }
 
   &__note-delete {
@@ -444,32 +445,32 @@
     border: none;
     background: transparent;
     cursor: pointer;
-    color: var(--td-text-color-placeholder, #999);
+    color: var(--md3-outline, var(--td-text-color-placeholder, #999));
     padding: 4px;
-    border-radius: 4px;
+    border-radius: var(--md3-radius-full, 999px);
     opacity: 0;
     transition: opacity 0.2s;
 
     &:hover {
-      background-color: var(--td-error-color-1, #fdecee);
-      color: var(--td-error-color, #d54941);
+      background-color: var(--md3-error-container, var(--td-error-color-1, #fdecee));
+      color: var(--md3-error, var(--td-error-color, #d54941));
     }
   }
 
   // 系统内置 Skill 虚拟笔记行
   &__note-row--system {
-    background-color: var(--td-bg-color-secondarycontainer, #f5f5f5);
+    background-color: var(--md3-surface-container-low, var(--td-bg-color-secondarycontainer, #f5f5f5));
 
     .kb-tree__note-icon {
-      color: var(--td-warning-color, #ed7b2f);
+      color: var(--md3-primary, var(--td-warning-color, #ed7b2f));
     }
 
     &:hover {
-      background-color: var(--td-bg-color-container-hover, #f3f3f3);
+      background-color: var(--md3-surface-container-high, var(--td-bg-color-container-hover, #f3f3f3));
     }
 
     &.kb-tree__note-row--selected {
-      background-color: var(--td-warning-color-1, #fff3e8);
+      background-color: var(--md3-primary-container, var(--td-warning-color-1, #fff3e8));
     }
   }
 
@@ -481,10 +482,10 @@
     height: 16px;
     line-height: 16px;
     font-size: 10px;
-    border-radius: 3px;
-    background-color: var(--td-warning-color-1, #fff3e8);
-    color: var(--td-warning-color, #ed7b2f);
-    border: 1px solid var(--td-warning-color-3, #fac18a);
+    border-radius: var(--md3-radius-full, 999px);
+    background-color: var(--md3-primary-container, var(--td-warning-color-1, #fff3e8));
+    color: var(--md3-on-primary-container, var(--td-warning-color, #ed7b2f));
+    border: none; // MD3：chip 去描边
     vertical-align: middle;
     font-weight: 500;
   }
@@ -493,10 +494,10 @@
 // Context Menu
 .kb-context-menu {
   position: fixed;
-  background: var(--td-bg-color-container, #fff);
-  border: 1px solid var(--td-component-border, #e7e7e7);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  border-radius: 4px;
+  background: var(--md3-surface-container, var(--td-bg-color-container, #fff));
+  border: none; // MD3：浮层去描边
+  box-shadow: var(--md3-elevation-2, 0 2px 8px rgba(0, 0, 0, 0.1));
+  border-radius: var(--md3-radius-md, 12px);
   padding: 4px 0;
   min-width: 120px;
 
@@ -506,18 +507,19 @@
     align-items: center;
     gap: 8px;
     font-size: 13px;
-    color: var(--td-text-color-primary, #333);
+    color: var(--md3-on-surface, var(--td-text-color-primary, #333));
     cursor: pointer;
+    border-radius: var(--md3-radius-full, 999px);
 
     &:hover {
-      background-color: var(--td-bg-color-container-hover, #f3f3f3);
+      background-color: var(--md3-surface-container-high, var(--td-bg-color-container-hover, #f3f3f3));
     }
 
     &--danger {
-      color: var(--td-error-color, #d54941);
-      
+      color: var(--md3-error, var(--td-error-color, #d54941));
+
       &:hover {
-        background-color: var(--td-error-color-1, #fdecee);
+        background-color: var(--md3-error-container, var(--td-error-color-1, #fdecee));
       }
     }
   }

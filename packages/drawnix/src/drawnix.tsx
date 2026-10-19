@@ -310,11 +310,38 @@ function detectMobileViewport(): boolean {
 }
 
 // 画板静态配置：内容不可变，模块级常量避免每次渲染重建
+// 黑白主题内容化：亮色模式画布底浅灰、思维导图分支色灰阶化（原紫系彩支
+// 与黑白 UI 冲突）；暗色模式保留 plait 原值
+const DRAWNIX_BRANCH_COLORS = [
+  '#0B57D0',
+  '#1A73E8',
+  '#4285F4',
+  '#7BAAF7',
+  '#1967D2',
+  '#A8C7FA',
+  '#185ABC',
+  '#D2E3FC',
+];
+
+const DRAWNIX_THEME_COLORS = MindThemeColors.map((themeColor) => ({
+  ...themeColor,
+  boardBackground:
+    themeColor.mode === ThemeColorMode.dark ||
+    themeColor.mode === ThemeColorMode.starry
+      ? themeColor.boardBackground
+      : '#F8FAFD',
+  branchColors:
+    themeColor.mode === ThemeColorMode.dark ||
+    themeColor.mode === ThemeColorMode.starry
+      ? themeColor.branchColors
+      : DRAWNIX_BRANCH_COLORS,
+}));
+
 const DRAWNIX_BOARD_OPTIONS: PlaitBoardOptions = {
   readonly: false,
   hideScrollbar: false,
   disabledScrollOnNonFocus: false,
-  themeColors: MindThemeColors,
+  themeColors: DRAWNIX_THEME_COLORS,
 };
 
 export const Drawnix: React.FC<DrawnixProps> = ({

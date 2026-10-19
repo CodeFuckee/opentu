@@ -26,9 +26,10 @@ $drawer-width-wide: min(1024px, 50vw);
   display: flex;
   flex-direction: column;
   background: var(--td-bg-color-container);
-  border-right: none; // 移除右侧边框，由阴影替代
-  box-shadow: 8px 0 32px rgba(0, 0, 0, 0.08); // 增强阴影
-  border-radius: 0 16px 16px 0; // 右侧增加圆角
+  border: none; // MD3：无描边，tonal 表面 + elevation 分层
+  box-shadow: var(--md3-elevation-2, 8px 0 32px rgba(0, 0, 0, 0.08));
+  // MD3：抽屉内缘 24dp 圆角
+  border-radius: 0 24px 24px 0;
   transition: transform $animation-duration cubic-bezier(0.4, 0, 0.2, 1);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
     'Helvetica Neue', Arial, sans-serif;
@@ -139,10 +140,9 @@ $drawer-width-wide: min(1024px, 50vw);
 
   &__title {
     margin: 0;
-    font-size: 20px; // 加大标题
-    font-weight: 700;
+    font: var(--md3-text-title-lg, 600 17px/1.4 -apple-system, sans-serif);
     color: var(--td-text-color-primary);
-    letter-spacing: -0.02em;
+    letter-spacing: -0.01em;
   }
 
   &__subtitle {
@@ -152,21 +152,21 @@ $drawer-width-wide: min(1024px, 50vw);
 
   &__close-btn,
   &__pin-btn {
-    color: var(--td-text-color-placeholder, #999) !important;
+    color: var(--md3-outline, var(--td-text-color-placeholder, #999)) !important;
 
     &:hover {
-      color: var(--td-text-color-primary) !important;
-      background: var(--td-bg-color-container-hover) !important;
+      color: var(--md3-on-surface, var(--td-text-color-primary)) !important;
+      background: var(--md3-surface-container-high, var(--td-bg-color-container-hover)) !important;
     }
   }
 
   &__pin-btn--active {
-    color: var(--td-brand-color, #f39c12) !important;
-    background: var(--td-brand-color-light, rgba(243, 156, 18, 0.12)) !important;
+    color: var(--md3-on-primary-container, var(--td-brand-color, #f39c12)) !important;
+    background: var(--md3-primary-container, var(--td-brand-color-light, rgba(0, 0, 0, 0.12))) !important;
 
     &:hover {
-      color: var(--td-brand-color, #f39c12) !important;
-      background: var(--td-brand-color-light, rgba(243, 156, 18, 0.12)) !important;
+      color: var(--md3-on-primary-container, var(--td-brand-color, #f39c12)) !important;
+      background: var(--md3-primary-container, var(--td-brand-color-light, rgba(0, 0, 0, 0.12))) !important;
     }
   }
 
@@ -176,7 +176,7 @@ $drawer-width-wide: min(1024px, 50vw);
 
   &__filter {
     padding: 0 $spacing-md $spacing-md;
-    border-bottom: 1px solid var(--td-component-border);
+    border-bottom: 1px solid var(--md3-outline-variant, var(--td-component-border));
     flex-shrink: 0;
     background: transparent;
 
@@ -185,19 +185,19 @@ $drawer-width-wide: min(1024px, 50vw);
     }
 
     .t-input {
-      border-radius: 8px;
-      background: var(--td-bg-color-container); // 改为纯白背景，让边框更清晰
-      border: 1px solid var(--td-gray-color-4); // 使用更深的灰色边框
+      border-radius: var(--md3-radius-sm, 8px);
+      background: var(--md3-surface-container-lowest, var(--td-bg-color-container));
+      border: 1px solid var(--md3-outline-variant, var(--td-gray-color-4));
       transition: all 0.2s ease;
 
       &:hover {
-        border-color: var(--td-gray-color-6);
+        border-color: var(--md3-outline, var(--td-gray-color-6));
       }
 
       &:focus-within {
-        background: var(--td-bg-color-container);
-        border-color: var(--brand-primary, #f39c12);
-        box-shadow: 0 0 0 2px rgba(243, 156, 18, 0.1);
+        background: var(--md3-surface-container-lowest, var(--td-bg-color-container));
+        border-color: var(--md3-accent, #f39c12);
+        box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
       }
     }
   }
@@ -244,9 +244,9 @@ $drawer-width-wide: min(1024px, 50vw);
     align-items: center;
     gap: $spacing-sm;
     padding: $spacing-md;
-    border-top: 1px solid var(--td-component-border);
+    border-top: 1px solid var(--md3-outline-variant, var(--td-component-border));
     flex-shrink: 0;
-    background: var(--td-bg-color-container, #fff);
+    background: var(--md3-surface-container-lowest, var(--td-bg-color-container, #fff));
   }
 
   // ========================================
@@ -259,7 +259,7 @@ $drawer-width-wide: min(1024px, 50vw);
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--md3-scrim, rgba(0, 0, 0, 0.3));
     z-index: $z-task-queue-panel - 1;
     cursor: pointer;
   }
@@ -308,7 +308,7 @@ $drawer-width-wide: min(1024px, 50vw);
       transform: translate(-50%, -50%);
       width: 4px;
       height: 40px;
-      background: var(--td-component-border, #e7e7e7);
+      background: var(--md3-outline-variant, var(--td-component-border, #e7e7e7));
       border-radius: 2px;
       opacity: 0;
       transition: opacity 0.2s ease;
@@ -316,7 +316,7 @@ $drawer-width-wide: min(1024px, 50vw);
 
     &:hover::after {
       opacity: 1;
-      background: #F39C12;
+      background: var(--md3-primary, #f39c12);
     }
   }
 
@@ -330,7 +330,7 @@ $drawer-width-wide: min(1024px, 50vw);
 
   &--dragging &__resize-handle::after {
     opacity: 1;
-    background: #F39C12;
+    background: var(--md3-primary, #f39c12);
   }
 }
 
@@ -340,7 +340,7 @@ $drawer-width-wide: min(1024px, 50vw);
     calc(var(--aitu-toolbar-left, 0px) - 100%)
   );
 
-  border-radius: 16px 0 0 16px;
+  border-radius: 24px 0 0 24px;
   transform: translateX(calc(100vw + 12px));
   opacity: 0;
   visibility: hidden;
@@ -394,7 +394,7 @@ $drawer-width-wide: min(1024px, 50vw);
       
       &:active::after {
         opacity: 1;
-        background: #F39C12;
+        background: var(--md3-primary, #f39c12);
       }
     }
   }

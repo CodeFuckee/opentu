@@ -5,11 +5,10 @@
 
 .layer-control-panel {
   display: flex;
-  background: #fff;
-  border-radius: 8px;
+  background: var(--md3-surface-container-high, #fff);
+  border-radius: var(--md3-radius-lg, 16px);
   padding: 4px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: var(--md3-elevation-2, 0 2px 12px rgba(0, 0, 0, 0.1));
 }
 
 .layer-actions {
@@ -25,34 +24,30 @@
   justify-content: center;
   gap: 2px;
   padding: 6px 8px;
-  background: #f5f5f5;
+  background: var(--md3-surface-container-highest, #f5f5f5);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--md3-radius-full, 999px);
   cursor: pointer;
   transition: all 0.15s ease;
 
   svg {
     width: 16px;
     height: 16px;
-    color: #5A4FCF;
+    color: var(--md3-primary, #5a4fcf);
   }
 
   span {
     font-size: 10px;
-    color: #666;
+    color: var(--md3-on-surface-variant, #666);
     line-height: 1;
   }
 
   &:hover:not(.disabled) {
-    background: #5A4FCF;
+    background: var(--md3-primary-container, #5a4fcf);
 
     svg, span {
-      color: #fff;
+      color: var(--md3-on-primary-container, #fff);
     }
-  }
-
-  &:active:not(.disabled) {
-    transform: scale(0.96);
   }
 
   &.disabled {
@@ -64,11 +59,11 @@
 .layer-info {
   font-size: 11px;
   font-weight: 600;
-  color: #5A4FCF;
+  color: var(--md3-primary, #5a4fcf);
   font-family: 'SF Mono', Monaco, monospace;
-  background: rgba(90, 79, 207, 0.1);
+  background: var(--md3-primary-container, rgba(90, 79, 207, 0.1));
   padding: 4px 8px;
-  border-radius: 12px;
+  border-radius: var(--md3-radius-full, 999px);
   margin-left: 2px;
   white-space: nowrap;
 }

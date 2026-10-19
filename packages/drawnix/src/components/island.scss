@@ -2,14 +2,15 @@
   .island {
     --padding: 0;
     box-sizing: border-box;
-    // MD3（adopt-material-design-3）：面板底色/阴影走 MD3 surface/elevation 令牌，
-    // 回退值保持原视觉
-    background-color: var(--md3-surface-container-low, var(--island-bg-color));
-    box-shadow: var(--md3-elevation-2, var(--shadow-island));
+    // MD3（adopt-material-design-3）：面板 = tonal surface + elevation；
+    // 黑白系追加发丝描边保证与画布分离（灰度对比靠描边而非填充）
+    background-color: var(--md3-surface-panel, var(--island-bg-color));
+    box-shadow: var(--md3-elevation-3, var(--shadow-island));
     padding: calc(var(--padding) * var(--space-factor));
     position: relative;
     transition: box-shadow 0.5s ease-in-out;
-    border: 1px solid var(--md3-outline-variant, var(--island-border-color));
+    border: 1px solid var(--md3-hairline, rgba(0, 0, 0, 0.1));
+    border-radius: var(--md3-radius-lg, 16px);
 
     &.zen-mode {
       box-shadow: none;

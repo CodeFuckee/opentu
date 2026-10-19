@@ -27,10 +27,11 @@
     flex: 1;
     min-width: 0;
     padding: $spacing-md $spacing-lg;
-    background: #ffffff;
-    border-radius: 12px 12px 12px 4px;
-    border: 1px solid var(--td-component-border);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    background: var(--md3-surface-container-low, #ffffff);
+    border-radius: var(--md3-radius-lg, 16px) var(--md3-radius-lg, 16px)
+      var(--md3-radius-lg, 16px) var(--md3-radius-xs, 4px);
+    border: none; // MD3：气泡去描边
+    box-shadow: var(--md3-elevation-1, 0 2px 8px rgba(0, 0, 0, 0.04));
   }
 
   // 头部
@@ -56,17 +57,17 @@
   &__status {
     font-size: 12px;
     padding: 2px 8px;
-    border-radius: 10px;
+    border-radius: var(--md3-radius-full, 999px);
     font-weight: 500;
 
     &--pending {
-      background: var(--td-bg-color-component);
-      color: var(--td-text-color-secondary);
+      background: var(--md3-surface-container-high, var(--td-bg-color-component));
+      color: var(--md3-on-surface-variant, var(--td-text-color-secondary));
     }
 
     &--running {
-      background: rgba(90, 79, 207, 0.1);
-      color: var(--td-brand-color);
+      background: var(--md3-primary-container, rgba(90, 79, 207, 0.1));
+      color: var(--md3-on-primary-container, var(--td-brand-color));
     }
 
     &--completed {
@@ -126,14 +127,14 @@
     gap: $spacing-xs;
     margin-bottom: $spacing-md;
     padding: $spacing-sm $spacing-md;
-    background: linear-gradient(135deg, rgba(90, 79, 207, 0.08) 0%, rgba(123, 104, 238, 0.05) 100%);
-    border-radius: 6px;
+    background: var(--md3-surface-container-high, rgba(90, 79, 207, 0.08));
+    border-radius: var(--md3-radius-sm, 8px);
     font-size: 13px;
-    border-left: 3px solid var(--td-brand-color);
+    border-left: 3px solid var(--md3-primary, var(--td-brand-color));
   }
 
   &__analysis-text {
-    color: var(--td-text-color-primary);
+    color: var(--md3-on-surface, var(--td-text-color-primary));
     word-break: break-word;
     line-height: 1.5;
   }
@@ -145,8 +146,8 @@
     margin-bottom: $spacing-md;
     padding: $spacing-sm $spacing-md;
     background: rgba(var(--td-brand-color-rgb), 0.02);
-    border-left: 2px solid var(--td-brand-color);
-    border-radius: 2px 6px 6px 2px;
+    border-left: 2px solid var(--md3-primary, var(--td-brand-color));
+    border-radius: 2px var(--md3-radius-sm, 6px) var(--md3-radius-sm, 6px) 2px;
     font-size: 13px;
   }
 
@@ -185,20 +186,16 @@
     overflow: hidden;
     width: 100%;
     padding: 0;
-    border: 1px solid var(--td-component-border);
-    border-radius: 8px;
-    background: var(--td-bg-color-secondarycontainer);
+    border: none; // MD3：去描边
+    border-radius: var(--md3-radius-md, 12px);
+    background: var(--md3-surface-container-high, var(--td-bg-color-secondarycontainer));
     cursor: zoom-in;
     appearance: none;
     transition:
-      border-color 0.2s ease,
-      box-shadow 0.2s ease,
-      transform 0.2s ease;
+      box-shadow 0.2s ease;
 
     &:hover {
-      border-color: var(--td-brand-color);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-      transform: translateY(-1px);
+      box-shadow: var(--md3-elevation-2, 0 4px 12px rgba(0, 0, 0, 0.08));
     }
   }
 
@@ -235,8 +232,9 @@
     display: flex;
     flex-direction: column;
     gap: 0;
-    border: 1px solid #f0f0f0;
-    border-radius: 8px;
+    border: none; // MD3：去描边
+    background: var(--md3-surface-container, #ffffff);
+    border-radius: var(--md3-radius-md, 12px);
     overflow: hidden;
   }
 
@@ -246,22 +244,20 @@
     align-self: flex-start;
     gap: 6px;
     padding: 4px 8px;
-    background: var(--td-bg-color-container);
-    border: 1px solid var(--td-component-border);
-    border-radius: 6px;
-    color: var(--td-text-color-secondary);
+    background: var(--md3-surface-container-high, var(--td-bg-color-container));
+    border: none; // MD3：去描边
+    border-radius: var(--md3-radius-full, 999px);
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary));
     cursor: pointer;
     font-size: 12px;
     line-height: 1.2;
     transition:
       background 0.2s ease,
-      border-color 0.2s ease,
       color 0.2s ease;
 
     &:hover {
-      background: var(--td-bg-color-container-hover);
-      border-color: var(--td-brand-color);
-      color: var(--td-brand-color);
+      background: var(--md3-primary-container, var(--td-bg-color-container-hover));
+      color: var(--md3-on-primary-container, var(--td-brand-color));
     }
   }
 
@@ -271,22 +267,21 @@
     justify-content: center;
     min-height: 24px;
     padding: 4px 10px;
-    background: var(--td-brand-color-light);
-    border: 1px solid rgba(var(--td-brand-color-rgb), 0.18);
-    border-radius: 6px;
-    color: var(--td-brand-color);
+    background: var(--md3-primary-container, var(--td-brand-color-light));
+    border: none; // MD3：去描边
+    border-radius: var(--md3-radius-full, 999px);
+    color: var(--md3-on-primary-container, var(--td-brand-color));
     cursor: pointer;
     font-size: 12px;
     font-weight: 500;
     line-height: 1.2;
     transition:
       background 0.2s ease,
-      border-color 0.2s ease,
       color 0.2s ease;
 
     &:hover {
-      background: rgba(var(--td-brand-color-rgb), 0.12);
-      border-color: var(--td-brand-color);
+      background: var(--md3-primary, rgba(var(--td-brand-color-rgb), 0.12));
+      color: var(--md3-on-primary, #fff);
     }
   }
 
@@ -308,27 +303,24 @@
     gap: $spacing-sm;
     margin-top: $spacing-md;
     padding: $spacing-sm $spacing-md;
-    border-radius: 8px;
+    border-radius: var(--md3-radius-md, 12px);
     font-size: 13px;
     font-weight: 500;
-    border: 1px solid transparent;
+    border: none;
 
     &--success {
       background: var(--td-success-color-1);
       color: var(--td-success-color-7);
-      border-color: var(--td-success-color-2);
     }
 
     &--info {
-      background: var(--td-bg-color-secondarycontainer);
-      color: var(--td-text-color-secondary);
-      border-color: var(--td-component-border);
+      background: var(--md3-surface-container-high, var(--td-bg-color-secondarycontainer));
+      color: var(--md3-on-surface-variant, var(--td-text-color-secondary));
     }
 
     &--error {
-      background: var(--td-error-color-1);
+      background: var(--md3-error-container, var(--td-error-color-1));
       color: var(--td-error-color-7);
-      border-color: var(--td-error-color-2);
     }
 
     &--markdown {
@@ -369,21 +361,16 @@
     padding: 4px 12px;
     font-size: 12px;
     font-weight: 500;
-    color: #fff;
-    background: linear-gradient(135deg, #F39C12 0%, #E67E22 100%);
+    color: var(--md3-on-primary, #fff);
+    background: var(--md3-primary, #f39c12);
     border: none;
-    border-radius: 16px;
+    border-radius: var(--md3-radius-full, 999px);
     cursor: pointer;
     transition: all 0.2s ease;
     white-space: nowrap;
 
     &:hover:not(:disabled) {
-      transform: translateY(-1px);
-      box-shadow: 0 2px 8px rgba(243, 156, 18, 0.4);
-    }
-
-    &:active:not(:disabled) {
-      transform: translateY(0);
+      box-shadow: var(--md3-elevation-2, 0 2px 8px rgba(0, 0, 0, 0.4));
     }
 
     &:disabled {
@@ -417,10 +404,10 @@
 
 .workflow-bubble-step {
   transition: all 0.2s ease;
-  background: #ffffff;
+  background: transparent;
 
   &:not(:last-child) {
-    border-bottom: 1px solid #f5f5f5;
+    border-bottom: 1px solid var(--md3-outline-variant, #f5f5f5);
   }
 
   &--current {
@@ -435,7 +422,7 @@
     transition: background 0.2s ease;
 
     &:hover {
-      background: var(--td-bg-color-container-hover);
+      background: var(--md3-surface-container-high, var(--td-bg-color-container-hover));
     }
   }
 
@@ -468,9 +455,9 @@
     }
 
     &--running {
-      color: var(--td-brand-color);
-      background: rgba(90, 79, 207, 0.1);
-      border-radius: 4px;
+      color: var(--md3-primary, var(--td-brand-color));
+      background: var(--md3-primary-container, rgba(90, 79, 207, 0.1));
+      border-radius: var(--md3-radius-xs, 4px);
     }
 
     &--completed {
@@ -568,11 +555,11 @@
 
   &__tool {
     padding: 1px 6px;
-    background: var(--td-bg-color-secondarycontainer);
-    border-radius: 4px;
+    background: var(--md3-surface-container-high, var(--td-bg-color-secondarycontainer));
+    border-radius: var(--md3-radius-xs, 4px);
     font-family: 'SF Mono', Monaco, monospace;
     font-size: 11px;
-    color: var(--td-text-color-secondary);
+    color: var(--md3-on-surface-variant, var(--td-text-color-secondary));
   }
 
   &__args,
@@ -580,9 +567,9 @@
     width: 100%;
     margin: 0;
     padding: $spacing-sm $spacing-md;
-    background: #fafafa;
-    border: 1px solid #f0f0f0;
-    border-radius: 6px;
+    background: var(--md3-surface-container-high, #fafafa);
+    border: none; // MD3：去描边
+    border-radius: var(--md3-radius-sm, 8px);
     font-size: 11px;
     font-family: 'SF Mono', Monaco, monospace;
     white-space: pre-wrap;
@@ -596,9 +583,9 @@
   &__error {
     width: 100%;
     padding: $spacing-sm $spacing-md;
-    background: var(--td-error-color-1);
-    border: 1px solid var(--td-error-color-2);
-    border-radius: 6px;
+    background: var(--md3-error-container, var(--td-error-color-1));
+    border: none;
+    border-radius: var(--md3-radius-sm, 8px);
     font-size: 12px;
     color: var(--td-error-color-7);
   }
@@ -616,7 +603,7 @@
 
 .workflow-bubble__logs {
   margin-top: $spacing-md;
-  border-top: 1px solid var(--td-component-border);
+  border-top: 1px solid var(--md3-outline-variant, var(--td-component-border));
   padding-top: $spacing-md;
 }
 
@@ -643,10 +630,10 @@
 // ============================================================================
 
 .agent-log {
-  border-radius: 8px;
+  border-radius: var(--md3-radius-md, 12px);
   overflow: hidden;
-  background: #ffffff;
-  border: 1px solid #f0f0f0;
+  background: var(--md3-surface-container-low, #ffffff);
+  border: none; // MD3：卡片去描边
 
   &__header {
     display: flex;
@@ -660,7 +647,7 @@
       transition: background 0.2s ease;
 
       &:hover {
-        background: var(--td-bg-color-container-hover);
+        background: var(--md3-surface-container-high, var(--td-bg-color-container-hover));
       }
     }
   }
@@ -688,8 +675,8 @@
 
   &__content {
     padding: $spacing-sm $spacing-md;
-    border-top: 1px solid #f5f5f5;
-    background: #fafafa;
+    border-top: 1px solid var(--md3-outline-variant, #f5f5f5);
+    background: var(--md3-surface-container, #fafafa);
   }
 
   &__thinking-text {
@@ -706,7 +693,7 @@
     margin-top: $spacing-xs;
     padding: 2px 8px;
     font-size: 11px;
-    color: var(--td-brand-color);
+    color: var(--md3-primary, var(--td-brand-color));
     background: transparent;
     border: none;
     cursor: pointer;
@@ -722,9 +709,9 @@
     padding: $spacing-sm;
     font-size: 11px;
     font-family: 'SF Mono', Monaco, monospace;
-    background: #ffffff;
-    border: 1px solid #f0f0f0;
-    border-radius: 6px;
+    background: var(--md3-surface-container-lowest, #ffffff);
+    border: none; // MD3：去描边
+    border-radius: var(--md3-radius-sm, 8px);
     white-space: pre-wrap;
     word-break: break-all;
     max-height: 150px;
@@ -737,9 +724,9 @@
     padding: $spacing-sm;
     font-size: 12px;
     color: var(--td-error-color-7);
-    background: var(--td-error-color-1);
-    border: 1px solid var(--td-error-color-2);
-    border-radius: 6px;
+    background: var(--md3-error-container, var(--td-error-color-1));
+    border: none;
+    border-radius: var(--md3-radius-sm, 8px);
     margin-bottom: $spacing-xs;
   }
 

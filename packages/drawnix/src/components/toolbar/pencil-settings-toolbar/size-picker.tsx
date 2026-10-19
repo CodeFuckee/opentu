@@ -140,7 +140,7 @@ export const SizePicker: React.FC<SizePickerProps> = ({
             className={classNames('size-picker-popover')}
           >
             <Stack.Row gap={3} align="center" style={{ padding: '4px 8px' }}>
-              <div className="size-picker-value" style={{ minWidth: '40px', fontSize: '13px', fontWeight: 500, color: 'var(--color-on-surface)' }}>
+              <div className="size-picker-value" style={{ minWidth: '40px', fontSize: '13px', fontWeight: 500, color: 'var(--md3-on-surface, var(--color-on-surface))' }}>
                 {size}px
               </div>
               <div className="size-picker-slider-wrapper" style={{ flex: 1, minWidth: '160px' }}>

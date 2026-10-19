@@ -1,0 +1,113 @@
+/* ============================================================================
+ * TDesign → MD3 形态桥（adopt-material-design-3 批次 4-8 形态统一）
+ *
+ * 颜色已由 md3-theme.ts 的 --td-* 令牌桥接管；本文件只统一「形状语言」：
+ *   - 弹窗 28dp / 弹层与菜单 12~16dp / 输入 8dp / 按钮与菜单项 pill
+ *   - 容器去 1px 描边（tonal 表面 + elevation 分层）
+ * 规则：不动 DOM、不改行为；TDesign 弹层经 portal 挂 body，故用高特异性
+ * 选择器（双类/父子组合），不依赖打包顺序。
+ * ========================================================================== */
+
+/* ---------------------------------------------------------------- 弹窗 ---- */
+/* Dialog 卡片：M3 dialog shape（28dp）+ elevation-3，无描边 */
+.t-dialog__position .t-dialog__card,
+.t-dialog__ctx .t-dialog__card {
+  background-color: var(--md3-surface-container-high, var(--td-bg-color-container));
+  border: none;
+  border-radius: var(--md3-radius-xl, 28px);
+  box-shadow: var(--md3-elevation-3, 0 4px 8px 3px rgba(0, 0, 0, 0.15));
+}
+
+/* 弹窗遮罩：M3 scrim */
+.t-dialog__mask,
+.t-dialog__ctx .t-dialog__mask {
+  background-color: rgba(0, 0, 0, 0.4);
+}
+
+/* 弹窗关闭按钮：圆形 hit 区 */
+.t-dialog__card .t-dialog__close {
+  border-radius: 50%;
+}
+
+/* --------------------------------------------------------------- 按钮 ---- */
+/* 按钮 pill 形（M3 shape full）；--shape-square 图标方钮不劫持 */
+.t-button.t-button:not(.t-button--shape-square),
+.t-dialog__card .t-button:not(.t-button--shape-square) {
+  border-radius: var(--md3-radius-full, 999px);
+}
+
+/* --------------------------------------------------------- 输入/文本域 ---- */
+.t-input.t-input,
+.t-select-input.t-select-input,
+.t-input-number.t-input-number {
+  border-radius: var(--md3-radius-sm, 8px);
+}
+
+.t-textarea__inner {
+  border-radius: var(--md3-radius-sm, 8px);
+}
+
+/* ------------------------------------------------------- 弹层/下拉菜单 ---- */
+/* Popup（Dropdown/Select/Tooltip 等共用底座）：12dp + elevation-2 + 发丝描边 */
+.t-popup__content.t-popup__content {
+  border: 1px solid var(--md3-hairline, rgba(0, 0, 0, 0.1));
+  border-radius: var(--md3-radius-md, 12px);
+  box-shadow: var(--md3-elevation-2, 0 1px 2px rgba(0, 0, 0, 0.3),
+    0 2px 6px 2px rgba(0, 0, 0, 0.15));
+}
+
+/* 输入类：白底 + 描边（黑白系输入框的视觉语义），聚焦描边走强调色 */
+.t-input.t-input,
+.t-textarea__inner.t-textarea__inner,
+.t-input-number.t-input-number {
+  background-color: var(--md3-surface-container-lowest, #fff);
+  border: 1px solid var(--md3-outline-variant, #c4c6c8);
+}
+
+.t-input.t-input:focus-within,
+.t-textarea__inner:focus-within {
+  border-color: var(--md3-accent, #2563eb);
+}
+
+/* Dropdown 菜单项：pill */
+.t-dropdown__menu .t-dropdown__item,
+.t-dropdown__menu .t-dropdown__item-content {
+  border-radius: var(--md3-radius-full, 999px);
+}
+
+/* Select 下拉选项：pill（与 Dropdown 一致） */
+.t-select__list .t-select__item {
+  border-radius: var(--md3-radius-full, 999px);
+}
+
+/* ---------------------------------------------------------------- 表格 ---- */
+.t-table.t-table {
+  border-radius: var(--md3-radius-md, 12px);
+}
+
+.t-table th.t-table__th-cell {
+  background-color: var(--md3-surface-container, var(--td-bg-color-secondary-container));
+}
+
+/* ----------------------------------------------------------------- Tag ---- */
+.t-tag.t-tag {
+  border-radius: var(--md3-radius-sm, 8px);
+}
+
+/* ---------------------------------------------------------------- Tabs ---- */
+.t-tabs__nav-item.t-tabs__nav-item {
+  border-radius: var(--md3-radius-full, 999px);
+}
+
+/* -------------------------------------------------------------- Upload ---- */
+.t-upload__card.t-upload__card,
+.t-upload__flow .t-upload__card {
+  border-radius: var(--md3-radius-md, 12px);
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------- Loading ---- */
+/* 全屏 loading 遮罩跟随 scrim 语义 */
+.t-loading__full.t-loading__full {
+  background-color: rgba(0, 0, 0, 0.32);
+}

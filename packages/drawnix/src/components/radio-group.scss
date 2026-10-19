@@ -1,12 +1,12 @@
 @import '../styles/variables.module.scss';
 
 .drawnix {
-  --RadioGroup-background: var(--island-bg-color);
-  --RadioGroup-border: var(--color-surface-high);
+  --RadioGroup-background: var(--md3-surface-container, var(--island-bg-color));
+  --RadioGroup-border: var(--md3-outline-variant, var(--color-surface-high));
 
   --RadioGroup-choice-color-off: var(--color-primary);
   --RadioGroup-choice-color-off-hover: var(--color-brand-hover);
-  --RadioGroup-choice-background-off: var(--island-bg-color);
+  --RadioGroup-choice-background-off: transparent;
   --RadioGroup-choice-background-off-active: var(--color-surface-high);
 
   --RadioGroup-choice-color-on: var(--color-surface-lowest);
@@ -21,10 +21,10 @@
     align-items: flex-start;
 
     padding: 3px;
-    border-radius: 10px;
+    border-radius: var(--md3-radius-full, 999px);
 
     background: var(--RadioGroup-background);
-    border: 1px solid var(--RadioGroup-border);
+    border: none;
 
     &__choice {
       position: relative;
@@ -37,7 +37,7 @@
       color: var(--RadioGroup-choice-color-off);
       background: var(--RadioGroup-choice-background-off);
 
-      border-radius: 8px;
+      border-radius: var(--md3-radius-full, 999px);
 
       font-family: "Assistant";
       font-style: normal;
@@ -78,7 +78,7 @@
         margin: 0;
         padding: 0;
 
-        border-radius: 8px;
+        border-radius: var(--md3-radius-full, 999px);
 
         -webkit-appearance: none;
         -moz-appearance: none;

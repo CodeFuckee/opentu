@@ -16,24 +16,24 @@
   bottom: 6px;
   width: 32px;
   height: 32px;
-  border: 1px solid var(--color-border, #d9d9d9);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.96);
-  color: var(--color-text-placeholder, #999);
+  border: 1px solid var(--md3-outline-variant, var(--color-border, #d9d9d9));
+  border-radius: var(--md3-radius-full, 999px);
+  background: var(--md3-surface-container-lowest, rgba(255, 255, 255, 0.96));
+  color: var(--md3-outline, var(--color-text-placeholder, #999));
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--md3-elevation-1, 0 2px 8px rgba(15, 23, 42, 0.08));
   transition: all 0.2s ease;
   z-index: 3;
   pointer-events: auto;
 }
 
 .prompt-optimize-button:hover:not(:disabled) {
-  color: #f39c12;
-  border-color: rgba(243, 156, 18, 0.55);
-  box-shadow: 0 4px 12px rgba(243, 156, 18, 0.18);
+  color: var(--md3-primary, #f39c12);
+  border-color: rgba(0, 0, 0, 0.55);
+  box-shadow: var(--md3-elevation-2, 0 4px 12px rgba(0, 0, 0, 0.18));
 }
 
 .prompt-optimize-button:disabled {

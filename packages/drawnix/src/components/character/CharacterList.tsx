@@ -113,7 +113,7 @@ export const CharacterList: React.FC<CharacterListProps> = ({
             <UserAddIcon />
           </div>
           <div>暂无角色</div>
-          <div style={{ fontSize: '12px', marginTop: '4px', color: '#999' }}>
+          <div style={{ fontSize: '12px', marginTop: '4px', color: 'var(--md3-outline, #999)' }}>
             从已完成的 Sora-2 视频中提取角色
           </div>
         </div>
@@ -128,7 +128,7 @@ export const CharacterList: React.FC<CharacterListProps> = ({
           <h4>
             {title}
             {pendingCharacters.length > 0 && (
-              <span style={{ fontWeight: 'normal', fontSize: '12px', color: '#666', marginLeft: '8px' }}>
+              <span style={{ fontWeight: 'normal', fontSize: '12px', color: 'var(--md3-on-surface-variant, #666)', marginLeft: '8px' }}>
                 ({pendingCharacters.length} 创建中)
               </span>
             )}

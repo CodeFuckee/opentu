@@ -8,10 +8,11 @@
   flex-direction: column;
   gap: 8px;
   padding: 14px 16px;
-  background: var(--aitu-ui-surface, #ffffff);
-  border-radius: 12px;
-  border: 1px solid var(--aitu-ui-border-subtle, rgba(15, 23, 42, 0.06));
-  box-shadow: var(--aitu-ui-shadow-soft, 0 2px 10px rgba(15, 23, 42, 0.06));
+  background: var(--md3-surface-container-low, #ffffff);
+  border-radius: var(--md3-radius-md, 12px);
+  // 去描边：tonal 面板 + elevation 分层
+  border-color: transparent;
+  box-shadow: var(--md3-elevation-1, 0 2px 10px rgba(15, 23, 42, 0.06));
 
   &__header {
     display: flex;
@@ -27,7 +28,7 @@
 
   &__icon {
     flex-shrink: 0;
-    color: var(--aitu-ui-brand, #f39c12);
+    color: var(--md3-primary, #f39c12);
     width: 16px;
     height: 16px;
   }
@@ -35,17 +36,17 @@
   &__title {
     font-size: 12px;
     font-weight: 600;
-    color: var(--aitu-ui-text-primary, #1e293b);
+    color: var(--md3-on-surface, #1e293b);
   }
 
   &__count {
-    color: var(--aitu-ui-text-secondary, #64748b);
+    color: var(--md3-on-surface-variant, #64748b);
     font-weight: 500;
     font-size: 11px;
     white-space: nowrap;
-    background: var(--aitu-ui-brand-softer, rgba(243, 156, 18, 0.06));
+    background: var(--md3-primary-container, rgba(0, 0, 0, 0.06));
     padding: 2px 8px;
-    border-radius: 4px;
+    border-radius: var(--md3-radius-full, 999px);
   }
 
   &__usage {
@@ -56,7 +57,7 @@
 
   &__usage-value {
     font-size: 13px;
-    color: var(--aitu-ui-text-primary, #1e293b);
+    color: var(--md3-on-surface, #1e293b);
     font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
     letter-spacing: -0.5px;
     font-weight: 600;
@@ -68,15 +69,15 @@
 
     // 进度条轨道
     .t-progress__bar {
-      background: var(--aitu-ui-surface-muted, #f1f5f9);
-      border-radius: 6px;
+      background: var(--md3-surface-container-highest, #f1f5f9);
+      border-radius: var(--md3-radius-full, 6px);
       overflow: hidden;
     }
 
     // 进度条填充 - 单色
     .t-progress__inner {
-      background: var(--aitu-ui-brand, #f39c12) !important;
-      border-radius: 6px;
+      background: var(--md3-primary, #f39c12) !important;
+      border-radius: var(--md3-radius-full, 6px);
       transition: width 0.3s ease;
     }
 
@@ -84,7 +85,7 @@
     &__info {
       font-size: 11px;
       font-weight: 700;
-      color: var(--aitu-ui-brand, #f39c12);
+      color: var(--md3-primary, #f39c12);
       font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
     }
   }
@@ -93,7 +94,7 @@
   @media (max-width: 768px) {
     padding: 12px 14px;
     gap: 6px;
-    border-radius: 10px;
+    border-radius: var(--md3-radius-md, 10px);
 
     &__icon {
       width: 14px;

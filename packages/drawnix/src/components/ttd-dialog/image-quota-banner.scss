@@ -4,24 +4,24 @@
   gap: 6px;
   padding: 6px 12px;
   margin-bottom: 8px;
-  border-radius: 8px;
+  border-radius: var(--md3-radius-sm, 8px);
   font-size: 12px;
   line-height: 1.4;
-  background-color: rgba(64, 128, 255, 0.08);
-  color: rgba(38, 88, 255, 0.95);
+  background-color: var(--md3-primary-container, rgba(64, 128, 255, 0.08));
+  color: var(--md3-on-primary-container, rgba(38, 88, 255, 0.95));
 
   &__icon {
     flex-shrink: 0;
   }
 
   &--low {
-    background-color: rgba(255, 153, 0, 0.1);
-    color: #b25e00;
+    background-color: var(--md3-primary-container, rgba(255, 153, 0, 0.1));
+    color: var(--md3-on-primary-container, #b25e00);
   }
 
   &--exhausted {
-    background-color: rgba(255, 77, 79, 0.12);
-    color: #cf1322;
+    background-color: var(--md3-error-container, rgba(255, 77, 79, 0.12));
+    color: var(--md3-error, #cf1322);
     font-weight: 500;
   }
 }

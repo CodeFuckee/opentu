@@ -1,7 +1,9 @@
 /**
  * Material Design 3 主题（openspec adopt-material-design-3）
  *
- * - 种子色 = 品牌橙 #F39C12，手工调校的 MD3 color roles（light/dark 双方案）
+ * - 配色 = M3 官方蓝（2026-10-19 用户确立，Google Workspace 同款）：
+ *   primary #0B57D0 / #A8C7FA，中性色取 Google 灰阶。
+ *   语义色（error/success/warning）保留各自色相。
  * - createTheme 供 MUI 组件消费；typography/shape/elevation 按 MD3 规范
  * - 字体用系统栈（内网无 Google Fonts CDN）
  * - cssVariablesBridge：把 MD3 令牌以 `--md3-*` 变量暴露给迁移中的组件；
@@ -12,8 +14,8 @@ import { createTheme, Theme } from '@mui/material/styles';
 
 export type Md3Mode = 'light' | 'dark';
 
-/** 品牌锚点（与存量 --brand-primary 一致，迁移不换品牌色） */
-export const BRAND_PRIMARY = '#F39C12';
+/** 品牌锚点（与存量 --brand-primary 一致，迁移不换品牌锚点机制） */
+export const BRAND_PRIMARY = '#0B57D0';
 
 interface Md3Scheme {
   primary: string;
@@ -47,69 +49,69 @@ interface Md3Scheme {
   scrim: string;
 }
 
-/** MD3 light scheme（种子 #F39C12，primary 取白字可读的深橙 #B45309） */
+/** MD3 light scheme（官方 M3 蓝：primary #0B57D0，画布 #F8FAFD） */
 export const MD3_LIGHT: Md3Scheme = {
-  primary: '#B45309',
+  primary: '#0B57D0',
   onPrimary: '#FFFFFF',
-  primaryContainer: '#FEF5E7',
-  onPrimaryContainer: '#5A3A10',
-  secondary: '#74593F',
+  primaryContainer: '#D3E3FD',
+  onPrimaryContainer: '#041E49',
+  secondary: '#575E71',
   onSecondary: '#FFFFFF',
-  secondaryContainer: '#FFDCC2',
-  onSecondaryContainer: '#2B1707',
-  tertiary: '#5D6237',
+  secondaryContainer: '#DBE2F9',
+  onSecondaryContainer: '#131C2B',
+  tertiary: '#45518E',
   onTertiary: '#FFFFFF',
   error: '#BA1A1A',
   onError: '#FFFFFF',
   errorContainer: '#FFDAD6',
   onErrorContainer: '#410002',
-  surface: '#FFF8F5',
-  onSurface: '#201B16',
-  surfaceVariant: '#F2DFD1',
-  onSurfaceVariant: '#504439',
+  surface: '#FBFBFE',
+  onSurface: '#1A1C1E',
+  surfaceVariant: '#E0E2EC',
+  onSurfaceVariant: '#44474E',
   surfaceContainerLowest: '#FFFFFF',
-  surfaceContainerLow: '#FFF1E8',
-  surfaceContainer: '#FBEBDF',
-  surfaceContainerHigh: '#F5E5D9',
-  surfaceContainerHighest: '#F0DFD3',
-  outline: '#827366',
-  outlineVariant: '#D3C4B4',
-  inverseSurface: '#362F29',
-  inverseOnSurface: '#FBEBDF',
-  inversePrimary: '#FFB86B',
+  surfaceContainerLow: '#F4F6FB',
+  surfaceContainer: '#EFF2F9',
+  surfaceContainerHigh: '#FFFFFF',
+  surfaceContainerHighest: '#FFFFFF',
+  outline: '#74777F',
+  outlineVariant: '#C5C8D6',
+  inverseSurface: '#2F3037',
+  inverseOnSurface: '#F1F2F9',
+  inversePrimary: '#D3E3FD',
   scrim: '#000000',
 };
 
-/** MD3 dark scheme（同一色种，反转明度） */
+/** MD3 dark scheme（Google 灰阶：primary #A8C7FA，画布 #131314） */
 export const MD3_DARK: Md3Scheme = {
-  primary: '#FFB86B',
-  onPrimary: '#4A2800',
-  primaryContainer: '#6A3D00',
-  onPrimaryContainer: '#FFDCC2',
-  secondary: '#E5C0A3',
-  onSecondary: '#432B18',
-  secondaryContainer: '#5C402B',
-  onSecondaryContainer: '#FFDCC2',
-  tertiary: '#C6CC9D',
-  onTertiary: '#2E3300',
+  primary: '#A8C7FA',
+  onPrimary: '#062E6F',
+  primaryContainer: '#0842A0',
+  onPrimaryContainer: '#D3E3FD',
+  secondary: '#C4C6CF',
+  onSecondary: '#23252B',
+  secondaryContainer: '#3E4148',
+  onSecondaryContainer: '#DFE2F3',
+  tertiary: '#B5C4F2',
+  onTertiary: '#1A2C55',
   error: '#FFB4AB',
   onError: '#690005',
   errorContainer: '#93000A',
   onErrorContainer: '#FFDAD6',
-  surface: '#18120D',
-  onSurface: '#EDE0D4',
-  surfaceVariant: '#504439',
-  onSurfaceVariant: '#F2DFD1',
-  surfaceContainerLowest: '#120D08',
-  surfaceContainerLow: '#201B16',
-  surfaceContainer: '#241F19',
-  surfaceContainerHigh: '#2F2923',
-  surfaceContainerHighest: '#3A342D',
-  outline: '#9B8E80',
-  outlineVariant: '#504439',
-  inverseSurface: '#EDE0D4',
-  inverseOnSurface: '#362F29',
-  inversePrimary: '#B45309',
+  surface: '#131314',
+  onSurface: '#E3E3E3',
+  surfaceVariant: '#444746',
+  onSurfaceVariant: '#C4C7C5',
+  surfaceContainerLowest: '#0E0E0F',
+  surfaceContainerLow: '#1B1B1D',
+  surfaceContainer: '#202124',
+  surfaceContainerHigh: '#28292B',
+  surfaceContainerHighest: '#303134',
+  outline: '#8E918F',
+  outlineVariant: '#444746',
+  inverseSurface: '#E3E3E3',
+  inverseOnSurface: '#303030',
+  inversePrimary: '#0B57D0',
   scrim: '#000000',
 };
 
@@ -124,10 +126,11 @@ export function buildMd3Theme(mode: Md3Mode): Theme {
     palette: {
       mode,
       primary: {
+        // M3 baseline primary：驱动 MUI 控件激活态与 contained 按钮
         main: s.primary,
         contrastText: s.onPrimary,
-        light: mode === 'light' ? '#D0762B' : '#FFD2A8',
-        dark: mode === 'light' ? '#8A3F04' : '#C8894B',
+        light: mode === 'light' ? '#4C8DF6' : '#D3E3FD',
+        dark: mode === 'light' ? '#093E99' : '#7BAAF7',
       },
       secondary: {
         main: s.secondary,
@@ -154,8 +157,8 @@ export function buildMd3Theme(mode: Md3Mode): Theme {
       },
       divider: s.outlineVariant,
       action: {
-        hover: mode === 'light' ? 'rgba(32, 27, 22, 0.04)' : 'rgba(237, 224, 212, 0.06)',
-        selected: mode === 'light' ? 'rgba(180, 83, 9, 0.08)' : 'rgba(255, 184, 107, 0.10)',
+        hover: mode === 'light' ? 'rgba(0, 0, 0, 0.04)' : 'rgba(227, 227, 229, 0.06)',
+        selected: mode === 'light' ? 'rgba(0, 0, 0, 0.06)' : 'rgba(255, 255, 255, 0.10)',
         disabledOpacity: 0.38,
       },
     },
@@ -213,6 +216,38 @@ export function buildMd3Theme(mode: Md3Mode): Theme {
       MuiTooltip: {
         defaultProps: { enterDelay: 400 },
       },
+      // MD3 shape：大容器 28dp（Dialog），菜单 16dp，卡片/提示 12dp
+      MuiDialog: {
+        styleOverrides: {
+          paper: {
+            borderRadius: 28,
+            border: '1px solid var(--md3-hairline, rgba(0, 0, 0, 0.1))',
+          },
+        },
+      },
+      MuiMenu: {
+        styleOverrides: {
+          paper: {
+            borderRadius: 16,
+            border: '1px solid var(--md3-hairline, rgba(0, 0, 0, 0.1))',
+          },
+        },
+      },
+      MuiCard: {
+        styleOverrides: {
+          root: { borderRadius: 12 },
+        },
+      },
+      MuiAlert: {
+        styleOverrides: {
+          root: { borderRadius: 12 },
+        },
+      },
+      MuiListItemButton: {
+        styleOverrides: {
+          root: { borderRadius: 999 },
+        },
+      },
     },
   });
 }
@@ -262,11 +297,11 @@ export function md3CssVariableStyle(mode: Md3Mode): Record<string, string> {
     '--focus-highlight-color': s.primary,
     '--link-color': s.primary,
     '--shadow-island': 'var(--md3-elevation-2)',
-    // 品牌锚点不动（存量渐变/品牌装饰继续引用）
-    '--brand-primary': BRAND_PRIMARY,
-    '--color-primary': BRAND_PRIMARY,
-    '--color-primary-hover': mode === 'light' ? '#E67E22' : '#FFB86B',
-    '--color-brand-hover': mode === 'light' ? '#E67E22' : '#FFB86B',
+    // 品牌锚点：蓝主色；暗色下用浅蓝保证可读（存量装饰/文字引用随明暗取值）
+    '--brand-primary': mode === 'light' ? BRAND_PRIMARY : '#A8C7FA',
+    '--color-primary': mode === 'light' ? BRAND_PRIMARY : '#A8C7FA',
+    '--color-primary-hover': mode === 'light' ? '#1A73E8' : '#D3E3FD',
+    '--color-brand-hover': mode === 'light' ? '#1A73E8' : '#D3E3FD',
     '--aitu-ui-surface': s.surfaceContainerLow,
     '--aitu-ui-surface-elevated': s.surfaceContainerLow,
     '--aitu-ui-surface-subtle': s.surfaceContainer,
@@ -278,6 +313,12 @@ export function md3CssVariableStyle(mode: Md3Mode): Record<string, string> {
     '--aitu-ui-border-subtle': s.outlineVariant,
     '--aitu-ui-hover-bg': s.surfaceContainerHigh,
     '--aitu-ui-brand-text': s.primary,
+    // MD3 shape 回写：存量 SCSS 消费的 --border-radius-* 升到 MD3 shape scale
+    //（sm 4→8 / md 6→12 / lg 8→16 / xl→28），圆角语言全局统一
+    '--border-radius-sm': '8px',
+    '--border-radius-md': '12px',
+    '--border-radius-lg': '16px',
+    '--border-radius-xl': '28px',
   };
   return {
     ...legacy,
@@ -310,8 +351,46 @@ export function md3CssVariableStyle(mode: Md3Mode): Record<string, string> {
       '0px 1px 2px rgba(0, 0, 0, 0.30), 0px 2px 6px 2px rgba(0, 0, 0, 0.15)',
     '--md3-elevation-3':
       '0px 4px 8px 3px rgba(0, 0, 0, 0.15), 0px 1px 3px rgba(0, 0, 0, 0.30)',
-    '--md3-brand': BRAND_PRIMARY,
+    '--md3-brand': mode === 'light' ? BRAND_PRIMARY : '#A8C7FA',
     '--md3-font-family': FONT_FAMILY,
+    // MD3 shape scale：xs 4 / sm 8 / md 12 / lg 16 / xl 28 / full 圆
+    '--md3-radius-xs': '4px',
+    '--md3-radius-sm': '8px',
+    '--md3-radius-md': '12px',
+    '--md3-radius-lg': '16px',
+    '--md3-radius-xl': '28px',
+    '--md3-radius-full': '999px',
+    // 遮罩 scrim（弹窗/loading 蒙层）
+    '--md3-scrim': 'rgba(0, 0, 0, 0.5)',
+    // 语义补充色（迁移组件消费；success 与 td-success 同源）
+    '--md3-accent': s.primary,
+    '--md3-on-accent': s.onPrimary,
+    '--md3-accent-soft': mode === 'light' ? 'rgba(11, 87, 208, 0.10)' : 'rgba(168, 199, 250, 0.16)',
+    '--md3-success': mode === 'light' ? '#268029' : '#7FD985',
+    // 发丝分隔线（黑白系的悬浮物描边）
+    '--md3-hairline': mode === 'light' ? 'rgba(26, 28, 30, 0.10)' : 'rgba(255, 255, 255, 0.13)',
+    // 面板表面（工具栏/island 等悬浮面板专属，暖纸模式下与画布 #FAF9F6 拉开）
+    '--md3-surface-panel': mode === 'light' ? '#FFFFFF' : '#202124',
+    // 排版字阶（MD3 type scale 收敛版）：复合 font 简写，消费方 font: var(...)
+    '--md3-text-title-lg': `600 17px/1.4 ${FONT_FAMILY}`,
+    '--md3-text-title': `600 15px/1.45 ${FONT_FAMILY}`,
+    '--md3-text-body': `400 14px/1.5 ${FONT_FAMILY}`,
+    '--md3-text-secondary': `400 13px/1.5 ${FONT_FAMILY}`,
+    '--md3-text-caption': `400 12px/1.45 ${FONT_FAMILY}`,
+    '--md3-text-label': `500 11px/1.3 ${FONT_FAMILY}`,
+    // 动效（M3 emphasized ease）
+    '--md3-ease': 'cubic-bezier(0.2, 0, 0, 1)',
+    '--md3-dur-fast': '120ms',
+    '--md3-dur': '200ms',
+    '--md3-dur-slow': '280ms',
+    '--md3-inverse-surface': s.inverseSurface,
+    '--md3-inverse-on-surface': s.inverseOnSurface,
+    '--md3-inverse-primary': s.inversePrimary,
+    // 焦点环（box-shadow 值，消费方均为 box-shadow: var(--md3-focus-ring, …)）
+    '--md3-focus-ring':
+      mode === 'light'
+        ? '0 0 0 3px rgba(37, 99, 235, 0.16)'
+        : '0 0 0 3px rgba(138, 180, 248, 0.25)',
 
     // ----------------------------------------------------------------
     // TDesign → MD3 令牌桥（adopt-material-design-3 批次深化）：
@@ -319,26 +398,26 @@ export function md3CssVariableStyle(mode: Md3Mode): Record<string, string> {
     // TDesign 组件（81 文件）随 MD3 主题呈现，DOM 结构与选择器零破坏。
     // 深替换（组件换 MUI 原生）按 openspec 批次继续，此处只做令牌层统一。
     // ----------------------------------------------------------------
-    // 品牌族
+    // 品牌族 = 唯一强调色族（蓝 accent，驱动 TDesign 开关/复选/激活态）
     '--td-brand-color': s.primary,
     '--td-brand-color-1': s.primaryContainer,
-    '--td-brand-color-2': mode === 'light' ? '#F2C48D' : '#7A5A33',
-    '--td-brand-color-3': mode === 'light' ? '#E6A85C' : '#8A6537',
-    '--td-brand-color-4': mode === 'light' ? '#DE9440' : '#96703C',
-    '--td-brand-color-5': '#D9822B',
-    '--td-brand-color-6': BRAND_PRIMARY,
-    '--td-brand-color-7': mode === 'light' ? '#B45309' : '#FFB86B',
-    '--td-brand-color-8': mode === 'light' ? '#A34A08' : '#FFC98F',
-    '--td-brand-color-9': mode === 'light' ? '#8A3F04' : '#FFD9B3',
-    '--td-brand-color-10': mode === 'light' ? '#6E3303' : '#FFE7CC',
+    '--td-brand-color-2': mode === 'light' ? '#A8C7FA' : '#2B4869',
+    '--td-brand-color-3': mode === 'light' ? '#7BAAF7' : '#355F8C',
+    '--td-brand-color-4': mode === 'light' ? '#4C8DF6' : '#4173A8',
+    '--td-brand-color-5': '#1A73E8',
+    '--td-brand-color-6': mode === 'light' ? BRAND_PRIMARY : '#669DF6',
+    '--td-brand-color-7': mode === 'light' ? '#0A4CB3' : '#A8C7FA',
+    '--td-brand-color-8': mode === 'light' ? '#093E99' : '#C3DDFC',
+    '--td-brand-color-9': mode === 'light' ? '#083180' : '#D2E3FC',
+    '--td-brand-color-10': mode === 'light' ? '#062E6F' : '#E8F0FE',
     '--td-brand-color-focus': s.primary,
-    '--td-brand-color-hover': mode === 'light' ? '#E67E22' : '#FFB86B',
-    '--td-brand-color-active': mode === 'light' ? '#B45309' : '#FFC98F',
-    '--td-brand-color-disabled': mode === 'light' ? '#F2C48D' : '#7A5A33',
+    '--td-brand-color-hover': mode === 'light' ? '#1A73E8' : '#C3DDFC',
+    '--td-brand-color-active': mode === 'light' ? '#0A4CB3' : '#A8C7FA',
+    '--td-brand-color-disabled': mode === 'light' ? '#A8C7FA' : '#4173A8',
     '--td-brand-color-light': s.primaryContainer,
     '--td-brand-color-light-selected': s.primaryContainer,
-    '--td-brand-color-hover-dark': mode === 'light' ? '#E67E22' : '#FFB86B',
-    // 成功/警告/错误族（success/warning 与 MUI palette 同源）
+    '--td-brand-color-hover-dark': mode === 'light' ? '#1A73E8' : '#C3DDFC',
+    // 成功/警告/错误族（success/warning 与 MUI palette 同源；warning 保持琥珀语义色）
     '--td-success-color': mode === 'light' ? '#268029' : '#7FD985',
     '--td-success-color-focus': mode === 'light' ? '#1E6A21' : '#98E2A0',
     '--td-success-color-hover': mode === 'light' ? '#217424' : '#8FDC96',

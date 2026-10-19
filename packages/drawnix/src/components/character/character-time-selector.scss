@@ -24,7 +24,7 @@
     min-height: 180px;
     max-height: 240px;
     background: #1a1a1a;
-    border-radius: 8px;
+    border-radius: var(--md3-radius-md, 12px);
     overflow: hidden;
   }
 
@@ -33,14 +33,14 @@
     flex-direction: column;
     align-items: center;
     gap: 8px;
-    color: #999;
+    color: var(--md3-outline, #999);
   }
 
   &__spinner {
     width: 24px;
     height: 24px;
     border: 2px solid #333;
-    border-top-color: var(--td-brand-color, #0052d9);
+    border-top-color: var(--md3-primary, var(--td-brand-color, #0052d9));
     border-radius: 50%;
     animation: character-spin 0.8s linear infinite;
   }
@@ -53,7 +53,7 @@
   }
 
   &__placeholder {
-    color: #666;
+    color: var(--md3-on-surface-variant, #666);
     font-size: 14px;
   }
 
@@ -66,7 +66,7 @@
     color: #fff;
     font-size: 13px;
     font-family: 'SF Mono', Monaco, monospace;
-    border-radius: 4px;
+    border-radius: var(--md3-radius-full, 999px);
     font-weight: 500;
     backdrop-filter: blur(4px);
     transition: transform 0.15s ease;
@@ -77,7 +77,7 @@
     position: relative;
     height: 52px;
     background: #1e1e1e;
-    border-radius: 8px;
+    border-radius: var(--md3-radius-md, 12px);
     cursor: pointer;
     user-select: none;
     overflow: hidden;
@@ -208,10 +208,10 @@
     bottom: 6px;
     z-index: 2;
     background: linear-gradient(to bottom,
-        rgba(59, 130, 246, 0.35) 0%,
-        rgba(59, 130, 246, 0.2) 100%);
-    border-top: 2px solid #3b82f6;
-    border-bottom: 2px solid #3b82f6;
+        var(--md3-primary-container, rgba(59, 130, 246, 0.35)) 0%,
+        var(--md3-primary-container, rgba(59, 130, 246, 0.2)) 100%);
+    border-top: 2px solid var(--md3-primary, #3b82f6);
+    border-bottom: 2px solid var(--md3-primary, #3b82f6);
     // Smooth transition for click-to-move
     transition: left 0.2s cubic-bezier(0.4, 0, 0.2, 1),
       width 0.2s cubic-bezier(0.4, 0, 0.2, 1),
@@ -220,14 +220,14 @@
 
     &:hover:not(.dragging) {
       background: linear-gradient(to bottom,
-          rgba(59, 130, 246, 0.45) 0%,
-          rgba(59, 130, 246, 0.3) 100%);
+          var(--md3-primary-container, rgba(59, 130, 246, 0.45)) 0%,
+          var(--md3-primary-container, rgba(59, 130, 246, 0.3)) 100%);
     }
 
     &.dragging {
       background: linear-gradient(to bottom,
-          rgba(59, 130, 246, 0.5) 0%,
-          rgba(59, 130, 246, 0.35) 100%);
+          var(--md3-primary-container, rgba(59, 130, 246, 0.5)) 0%,
+          var(--md3-primary-container, rgba(59, 130, 246, 0.35)) 100%);
       // Disable transitions during active drag
       transition: background 0.1s ease;
     }
@@ -239,11 +239,10 @@
     top: -2px;
     bottom: -2px;
     width: 12px;
-    background: #3b82f6;
+    background: var(--md3-primary, #3b82f6);
     cursor: ew-resize;
     z-index: 3;
     transition: background 0.15s ease,
-      transform 0.15s cubic-bezier(0.4, 0, 0.2, 1),
       box-shadow 0.15s ease;
 
     // Inner grip lines
@@ -262,28 +261,26 @@
     }
 
     &:hover {
-      background: #60a5fa;
-      transform: scaleX(1.15);
-      box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+      background: var(--md3-primary, #60a5fa);
+      box-shadow: 0 0 8px var(--md3-primary-container, rgba(59, 130, 246, 0.5));
     }
 
     &:active {
-      background: #2563eb;
-      transform: scaleX(1.2);
+      background: var(--md3-primary, #2563eb);
     }
 
     &--left {
       left: 0;
-      border-radius: 6px 0 0 6px;
+      border-radius: var(--md3-radius-sm, 6px) 0 0 var(--md3-radius-sm, 6px);
     }
 
     &--right {
       right: 0;
-      border-radius: 0 6px 6px 0;
+      border-radius: 0 var(--md3-radius-sm, 6px) var(--md3-radius-sm, 6px) 0;
     }
 
     .dragging & {
-      background: #60a5fa;
+      background: var(--md3-primary, #60a5fa);
     }
   }
 
@@ -334,7 +331,7 @@
     justify-content: flex-end;
     gap: 12px;
     padding-top: 12px;
-    border-top: 1px solid var(--td-component-border, #e7e7e7);
+    border-top: 1px solid var(--md3-outline-variant, var(--td-component-border, #e7e7e7));
   }
 }
 

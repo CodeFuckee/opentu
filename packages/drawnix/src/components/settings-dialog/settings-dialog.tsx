@@ -2295,7 +2295,7 @@ export const SettingsDialog = ({
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{
-                          color: '#F39C12',
+                          color: 'var(--md3-primary, #F39C12)',
                           textDecoration: 'none',
                           display: 'inline-block',
                           marginBottom: 8,
@@ -2309,10 +2309,11 @@ export const SettingsDialog = ({
                           width: '100%',
                           paddingTop: '56.25%',
                           marginTop: 8,
-                          borderRadius: 8,
+                          borderRadius: 'var(--md3-radius-sm, 8px)',
                           overflow: 'hidden',
                           backgroundColor: '#000',
-                          boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+                          boxShadow:
+                            'var(--md3-elevation-2, 0 4px 16px rgba(0,0,0,0.2))',
                         }}
                       >
                         <iframe

@@ -9,10 +9,12 @@
 
 .Dialog {
     margin: 15px;
-    // MD3（adopt-material-design-3）：面板 surface-container-high + elevation-3 + 16dp 圆角
+    // MD3（adopt-material-design-3）：surface-container-high + elevation-3 + 28dp 大圆角（M3 dialog shape）
     background-color: var(--md3-surface-container-high, #ffffff);
     color: var(--md3-on-surface, inherit);
+    font: var(--md3-text-body, 400 14px/1.5 -apple-system, sans-serif);
     padding: 15px;
-    border-radius: 16px;
+    border-radius: var(--md3-radius-xl, 28px);
+    border: 1px solid var(--md3-hairline, rgba(0, 0, 0, 0.1));
     box-shadow: var(--md3-elevation-3, none);
 }

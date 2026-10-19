@@ -6,7 +6,7 @@
   padding: 24px;
   box-sizing: border-box;
   overflow: hidden;
-  background: var(--td-bg-color-container);
+  background: var(--md3-surface-container-low, var(--td-bg-color-container, #fff));
   color-scheme: light;
 
   // 确保内部元素也强制使用浅色模式
@@ -57,11 +57,11 @@
     min-width: 280px;
     height: 100%;
     overflow-y: auto;
-    background: var(--color-bg-container, #fff);
-    border: 1px solid var(--color-border-light, #e8e8e8);
-    border-radius: 10px;
+    background: var(--md3-surface-container-low, var(--color-bg-container, #fff));
+    border: none;
+    border-radius: var(--md3-radius-lg, 16px);
     padding: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    box-shadow: var(--md3-elevation-1, 0 2px 8px rgba(0, 0, 0, 0.06));
 
     scrollbar-width: thin;
     scrollbar-color: rgba(0, 0, 0, 0.15) transparent;

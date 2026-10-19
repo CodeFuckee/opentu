@@ -26,7 +26,7 @@
     height: 32px;
     padding: 0;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--md3-radius-full, 999px);
     background: transparent;
     color: var(--td-text-color-secondary, #666);
     cursor: pointer;
@@ -46,7 +46,7 @@
     height: 32px;
     padding: 0;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--md3-radius-full, 999px);
     background: transparent;
     color: var(--td-text-color-secondary, #666);
     cursor: pointer;

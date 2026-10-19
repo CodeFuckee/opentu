@@ -25,19 +25,19 @@
   padding: 8px 12px;
   border: none;
   background: transparent;
-  border-radius: 6px;
+  border-radius: var(--md3-radius-sm, 8px);
   cursor: pointer;
   transition: background-color 0.15s ease;
   width: 100%;
   text-align: left;
-  color: var(--color-text, #333);
+  color: var(--md3-on-surface, #333);
 
   &:hover {
-    background-color: var(--color-hover, rgba(0, 0, 0, 0.05));
+    background-color: var(--aitu-ui-hover-bg, rgba(0, 0, 0, 0.05));
   }
 
   &:active {
-    background-color: var(--color-active, rgba(0, 0, 0, 0.1));
+    background-color: var(--aitu-ui-hover-bg, rgba(0, 0, 0, 0.1));
   }
 
   svg {
@@ -52,7 +52,7 @@
 
   .distribute-shortcut {
     font-size: 12px;
-    color: var(--color-text-secondary, #999);
+    color: var(--md3-outline, #999);
     white-space: nowrap;
   }
 }

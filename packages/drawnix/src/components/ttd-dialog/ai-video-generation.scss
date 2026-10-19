@@ -109,11 +109,11 @@
   min-width: 240px;
   height: 100%;
   overflow-y: auto;
-  background: var(--color-bg-container, #fff);
-  border: 1px solid var(--color-border-light, #e8e8e8);
-  border-radius: 10px;
+  background: var(--md3-surface-container-low, var(--color-bg-container, #fff));
+  border: none;
+  border-radius: var(--md3-radius-lg, 16px);
   padding: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--md3-elevation-1, 0 2px 8px rgba(0, 0, 0, 0.06));
 
   /* 优化滚动条样式 */
   scrollbar-width: thin;
@@ -139,19 +139,19 @@
 
 /* Canvas video component styles */
 .video-origin {
-  border-radius: 6px;
+  border-radius: var(--md3-radius-md, 12px);
 
   &--focus {
-    outline: 2px solid var(--td-brand-color, #0052d9);
+    outline: 2px solid var(--md3-accent, #2563eb);
     outline-offset: 2px;
   }
 
   &--selected {
-    box-shadow: 0 0 0 2px var(--td-brand-color, #0052d9);
+    box-shadow: 0 0 0 2px var(--md3-accent, #2563eb);
   }
 
   &::-webkit-media-controls {
-    border-radius: 6px;
+    border-radius: var(--md3-radius-md, 12px);
   }
 }
 
@@ -176,17 +176,17 @@
     position: sticky;
     top: 0;
     z-index: 12;
-    background: #f5f7fb;
-    border: 1px solid #e8edf3;
-    border-radius: 16px;
+    background: var(--md3-surface-container-high, #f5f7fb);
+    border: none;
+    border-radius: var(--md3-radius-lg, 16px);
     margin: 4px 0 12px;
 
     &__tab {
       min-height: 42px;
       border: none;
-      border-radius: 12px;
+      border-radius: var(--md3-radius-md, 12px);
       background: transparent;
-      color: #64748b;
+      color: var(--md3-on-surface-variant, #64748b);
       font-size: 13px;
       font-weight: 700;
       cursor: pointer;
@@ -195,10 +195,9 @@
     }
 
     &__tab--active {
-      background: #ffffff;
-      color: #111827;
-      box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
-      transform: translateY(-1px);
+      background: var(--md3-primary-container, #ffffff);
+      color: var(--md3-on-primary-container, #111827);
+      box-shadow: var(--md3-elevation-1, 0 6px 16px rgba(15, 23, 42, 0.08));
     }
   }
 
@@ -261,7 +260,7 @@
     position: sticky;
     bottom: 0;
     z-index: 10;
-    background: #fff;
+    background: var(--md3-surface-container, #fff);
   }
 
   .task-list {

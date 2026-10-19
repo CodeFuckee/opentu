@@ -9,7 +9,7 @@ $ucp-slider-height: 10px;
 $ucp-indicator-size: 12px;
 $ucp-preset-size: 22px;
 $ucp-recent-size: 22px;
-$ucp-border-radius: 6px;
+$ucp-border-radius: var(--md3-radius-sm, 8px);
 $ucp-gap: 8px;
 
 // 棋盘格背景（用于透明度展示）
@@ -25,7 +25,7 @@ $checkerboard-bg: repeating-conic-gradient(
   width: 100%;
   min-width: $ucp-panel-min-width;
   padding: 8px;
-  background: var(--color-surface, #ffffff);
+  background: var(--md3-surface-container, var(--color-surface, #ffffff));
   border-radius: $ucp-border-radius;
   user-select: none;
   box-sizing: border-box;
@@ -163,12 +163,11 @@ $checkerboard-bg: repeating-conic-gradient(
     transition: transform 0.15s ease, box-shadow 0.15s ease;
 
     &:hover:not(:disabled) {
-      transform: scale(1.1);
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+      box-shadow: var(--md3-elevation-2, 0 2px 6px rgba(0, 0, 0, 0.2));
     }
 
     &--selected {
-      box-shadow: 0 0 0 2px var(--color-primary, #1890ff);
+      box-shadow: 0 0 0 2px var(--md3-primary, #1890ff);
     }
 
     &--no-color {
@@ -184,7 +183,7 @@ $checkerboard-bg: repeating-conic-gradient(
   &__no-color-icon {
     width: 14px;
     height: 14px;
-    color: #ff4d4f;
+    color: var(--md3-error, #ff4d4f);
   }
 
   &__check-icon {
@@ -206,7 +205,7 @@ $checkerboard-bg: repeating-conic-gradient(
 
   &-label {
     font-size: 11px;
-    color: var(--color-text-secondary, #666666);
+    color: var(--md3-on-surface-variant, var(--color-text-secondary, #666666));
   }
 
   &-colors {
@@ -223,16 +222,16 @@ $checkerboard-bg: repeating-conic-gradient(
     height: $ucp-recent-size;
     padding: 0;
     border: none;
-    border-radius: 4px;
+    border-radius: var(--md3-radius-sm, 8px);
     cursor: pointer;
-    transition: transform 0.15s ease;
+    transition: box-shadow 0.15s ease;
 
     &:hover:not(:disabled) {
-      transform: scale(1.1);
+      box-shadow: var(--md3-elevation-1, 0 1px 4px rgba(0, 0, 0, 0.15));
     }
 
     &--selected {
-      box-shadow: 0 0 0 2px var(--color-primary, #1890ff);
+      box-shadow: 0 0 0 2px var(--md3-primary, #1890ff);
     }
 
     &--light {
@@ -256,26 +255,26 @@ $checkerboard-bg: repeating-conic-gradient(
   width: 28px;
   height: 28px;
   padding: 0;
-  background: var(--color-bg-secondary, #f5f5f5);
-  border: 1px solid var(--color-border, #e0e0e0);
-  border-radius: 4px;
+  background: var(--md3-surface-container-high, var(--color-bg-secondary, #f5f5f5));
+  border: 1px solid var(--md3-outline-variant, var(--color-border, #e0e0e0));
+  border-radius: var(--md3-radius-sm, 8px);
   cursor: pointer;
   transition: background-color 0.15s ease, border-color 0.15s ease;
 
   &:hover:not(:disabled) {
-    background: var(--color-bg-hover, #e8e8e8);
-    border-color: var(--color-border-hover, #d0d0d0);
+    background: var(--md3-surface-container-highest, var(--color-bg-hover, #e8e8e8));
+    border-color: var(--md3-outline, var(--color-border-hover, #d0d0d0));
   }
 
   &--picking {
-    background: var(--color-primary-light, #e6f7ff);
-    border-color: var(--color-primary, #1890ff);
+    background: var(--md3-primary-container, var(--color-primary-light, #e6f7ff));
+    border-color: var(--md3-accent, var(--color-primary, #1890ff));
   }
 
   &__icon {
     width: 16px;
     height: 16px;
-    color: var(--color-text, #333333);
+    color: var(--md3-on-surface, var(--color-text, #333333));
   }
 }
 
@@ -292,19 +291,19 @@ $checkerboard-bg: repeating-conic-gradient(
     flex: 1;
     height: 28px;
     padding: 0 6px;
-    background: var(--color-bg-secondary, #f5f5f5);
-    border: 1px solid var(--color-border, #e0e0e0);
-    border-radius: 4px;
+    background: var(--md3-surface-container-highest, var(--color-bg-secondary, #f5f5f5));
+    border: 1px solid var(--md3-outline-variant, var(--color-border, #e0e0e0));
+    border-radius: var(--md3-radius-sm, 8px);
     transition: border-color 0.15s ease;
 
     &:focus-within {
-      border-color: var(--color-primary, #1890ff);
+      border-color: var(--md3-accent, var(--color-primary, #1890ff));
     }
   }
 
   &__prefix {
     font-size: 12px;
-    color: var(--color-text-secondary, #666666);
+    color: var(--md3-on-surface-variant, var(--color-text-secondary, #666666));
     margin-right: 2px;
   }
 
@@ -317,12 +316,12 @@ $checkerboard-bg: repeating-conic-gradient(
     background: transparent;
     font-size: 12px;
     font-family: 'SF Mono', Monaco, 'Consolas', monospace;
-    color: var(--color-text, #333333);
+    color: var(--md3-on-surface, var(--color-text, #333333));
     outline: none;
     text-transform: uppercase;
 
     &::placeholder {
-      color: var(--color-text-tertiary, #999999);
+      color: var(--md3-outline, var(--color-text-tertiary, #999999));
     }
   }
 
@@ -332,13 +331,13 @@ $checkerboard-bg: repeating-conic-gradient(
     width: 50px;
     height: 28px;
     padding: 0 6px;
-    background: var(--color-bg-secondary, #f5f5f5);
-    border: 1px solid var(--color-border, #e0e0e0);
-    border-radius: 4px;
+    background: var(--md3-surface-container-highest, var(--color-bg-secondary, #f5f5f5));
+    border: 1px solid var(--md3-outline-variant, var(--color-border, #e0e0e0));
+    border-radius: var(--md3-radius-sm, 8px);
     transition: border-color 0.15s ease;
 
     &:focus-within {
-      border-color: var(--color-primary, #1890ff);
+      border-color: var(--md3-accent, var(--color-primary, #1890ff));
     }
   }
 
@@ -351,18 +350,18 @@ $checkerboard-bg: repeating-conic-gradient(
     background: transparent;
     font-size: 12px;
     font-family: 'SF Mono', Monaco, 'Consolas', monospace;
-    color: var(--color-text, #333333);
+    color: var(--md3-on-surface, var(--color-text, #333333));
     outline: none;
     text-align: right;
 
     &::placeholder {
-      color: var(--color-text-tertiary, #999999);
+      color: var(--md3-outline, var(--color-text-tertiary, #999999));
     }
   }
 
   &__suffix {
     font-size: 12px;
-    color: var(--color-text-secondary, #666666);
+    color: var(--md3-on-surface-variant, var(--color-text-secondary, #666666));
     margin-left: 1px;
   }
 }

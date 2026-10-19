@@ -434,7 +434,7 @@ export const PencilSettingsToolbar: React.FC = () => {
                       minWidth: '40px',
                       fontSize: '13px',
                       fontWeight: 500,
-                      color: 'var(--color-on-surface)',
+                      color: 'var(--md3-on-surface, var(--color-on-surface))',
                     }}
                   >
                     {strokeWidth}px

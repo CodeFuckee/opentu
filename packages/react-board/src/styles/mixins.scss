@@ -1,7 +1,17 @@
 @mixin board-background-color {
+    // M3 蓝（Google Workspace 同款）：亮色画布 #F8FAFD + 蓝调点阵；暗色 #131314
     &.theme-colorful .board-host-svg,
     &.theme-default .board-host-svg {
-        background-color: #ffffff;
+        background-color: #F8FAFD;
+        background-image: radial-gradient(
+            circle,
+            rgba(11, 87, 208, 0.06) 1px,
+            transparent 1.2px
+        );
+        background-size: 22px 22px;
+    }
+    &.theme-dark .board-host-svg {
+        background-color: #131314;
     }
     &.theme-soft .board-host-svg {
         background-color: #f5f5f5;

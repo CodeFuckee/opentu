@@ -1,0 +1,113 @@
+/* ============================================================================
+ * MD3 微动效层（adopt-material-design-3）
+ *
+ * - 交互过渡：背景/描边/阴影统一 120~200ms emphasized ease
+ * - 入场动画：悬浮面板 fade-up、自定义弹窗 fade+scale、toast slide-down
+ * - 按压反馈：图标钮轻缩放（0.96）
+ * - prefers-reduced-motion: reduce 时全部动画/过渡关闭（可访问性）
+ * ========================================================================== */
+
+@keyframes md3-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes md3-dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes md3-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.drawnix {
+  /* ---- 交互过渡（状态层统一手感） ---- */
+  .tool-icon,
+  .tool-button,
+  .unified-toolbar__collapsed-btn,
+  .unified-toolbar__mobile-toggle,
+  .view-navigation__zoom-btn,
+  .view-navigation__zoom-percent,
+  .menu-item,
+  .toolbar-button-wrapper {
+    transition:
+      background-color var(--md3-dur-fast, 120ms) var(--md3-ease, ease),
+      color var(--md3-dur-fast, 120ms) var(--md3-ease, ease),
+      box-shadow var(--md3-dur, 200ms) var(--md3-ease, ease);
+  }
+
+  /* 图标钮按压轻缩放（M3 press 形变语义） */
+  .tool-icon:active,
+  .unified-toolbar__collapsed-btn:active {
+    transform: scale(0.96);
+  }
+
+  /* ---- 悬浮面板入场（挂载时一次） ---- */
+  .unified-toolbar {
+    animation: md3-fade-up var(--md3-dur-slow, 280ms) var(--md3-ease, ease) both;
+  }
+
+  .ai-input-bar__container {
+    animation: md3-fade-up var(--md3-dur-slow, 280ms) var(--md3-ease, ease) both;
+  }
+
+  /* 自定义弹窗基座（MUI Dialog 自带过渡，此处覆盖自绘弹层） */
+  .Dialog,
+  .confirm-dialog {
+    animation: md3-dialog-in var(--md3-dur, 200ms) var(--md3-ease, ease) both;
+  }
+
+  .toolbar-context-menu .menu {
+    animation: md3-dialog-in var(--md3-dur-fast, 120ms) var(--md3-ease, ease) both;
+  }
+}
+
+/* toast 入场（portal 挂 body） */
+.md3-message-host .MuiAlert-root {
+  animation: md3-toast-in var(--md3-dur, 200ms) var(--md3-ease, ease) both;
+}
+
+/* ---- 可访问性：减少动态效果 ---- */
+@media (prefers-reduced-motion: reduce) {
+  .drawnix .unified-toolbar,
+  .drawnix .ai-input-bar__container,
+  .drawnix .Dialog,
+  .drawnix .confirm-dialog,
+  .drawnix .toolbar-context-menu .menu,
+  .md3-message-host .MuiAlert-root {
+    animation: none;
+  }
+
+  .drawnix .tool-icon,
+  .drawnix .tool-button,
+  .drawnix .unified-toolbar__collapsed-btn,
+  .drawnix .view-navigation__zoom-btn,
+  .drawnix .menu-item {
+    transition-duration: 0ms;
+  }
+
+  .drawnix .tool-icon:active,
+  .drawnix .unified-toolbar__collapsed-btn:active {
+    transform: none;
+  }
+}
