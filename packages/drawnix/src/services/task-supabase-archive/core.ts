@@ -163,7 +163,11 @@ export function buildStoragePath(
 export async function sha256Hex(data: BufferSource): Promise<string> {
   const subtle = globalThis.crypto?.subtle;
   if (subtle) {
-    const digest = await subtle.digest('SHA-256', data);
+    // jsdom FileReader 产物属另一 realm（instanceof 通过但 webcrypto 品牌检查
+    // 在 node <22.13 仍拒绝）：统一拷贝为当前 realm 的 Uint8Array 再 digest
+    const bytes =
+      data instanceof Uint8Array ? data : new Uint8Array(data as ArrayBuffer);
+    const digest = await subtle.digest('SHA-256', bytes);
     return Array.from(new Uint8Array(digest))
       .map((byte) => byte.toString(16).padStart(2, '0'))
       .join('');
