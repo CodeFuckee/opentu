@@ -29,6 +29,7 @@ import type { SupabaseSyncConfig, SyncEntity } from './types';
 import { runExclusiveSync } from './sync-mutex';
 import { getSupabaseSyncConfig, getSupabaseSyncUser } from './runtime';
 import { installSyncWritePointWiring } from './write-point-wiring';
+import { registerVisibilityReconcile } from './reconcile';
 import { workspaceService } from '../workspace-service';
 
 /** 默认防抖：聚合写入突发，同时保证秒级上云体感 */
@@ -388,6 +389,7 @@ export function ensureSyncInfraStarted(): void {
   infraStarted = true;
   installSyncWritePointWiring();
   syncPusher.start();
+  registerVisibilityReconcile();
 }
 
 /** 默认单例（真实接线） */

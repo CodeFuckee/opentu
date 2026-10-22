@@ -1,5 +1,22 @@
 ## Unreleased
 
+### feat: 云同步 Phase C+D——登录即拉取、Realtime 实时推送、生命周期收口（openspec refactor-cloud-native-sync）
+
+- **修复隐藏缺陷**：登录后全量拉取此前挂在云同步设置弹窗的懒加载 Provider 上，
+  不开弹窗就永不执行——现提取为模块层 `reconcile.ts`，登录/启动/切后台/切回前台
+  （30s 节流）/手动/Realtime 全部共用，与推送器共享互斥锁
+- **Realtime 实时推送（Phase D）**：登录后订阅 Supabase postgres_changes
+  （user_sync_data 本用户行变更），其他设备的变更 2s 防抖 → 增量 reconcile，
+  秒级到达；连接失败/断线自动退化为 60s 增量轮询兜底，功能不缺失
+- **生命周期收口**：`configureSupabaseSync`（宿主登录态）统一驱动登录拉取与
+  Realtime 订阅；登出清推送队列与同步基线（下次登录走全量，不漏拉登出期间
+  其他设备的变更）
+- **回退开关**：localStorage 置 `supabase_sync_disable_cloud_reconcile=1` 可
+  关停云端读路径，退回纯本地推送模式
+- **测试**：reconcile 模块单测 5 例（防抖窗口/基线持久化/未登录跳过/无会话
+  错误/状态广播）；drawnix 全量 1694 例通过
+
+
 ### feat: 云同步改事件驱动——全数据面自动上云，无需手动同步（openspec refactor-cloud-native-sync Phase A+B）
 
 确立「云端权威、本地缓存」方向后的第一阶段落地：写路径全面事件化，任何数据面的

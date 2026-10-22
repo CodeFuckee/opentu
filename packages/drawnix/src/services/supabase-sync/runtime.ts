@@ -9,9 +9,29 @@ import type { SupabaseSyncConfig } from './types';
 
 let currentConfig: SupabaseSyncConfig | null = null;
 
+/** Realtime 订阅通道的最小结构面（supabase-js RealtimeChannel 的子集） */
+export interface RealtimeChannelLike {
+  channelLike: {
+    on: (
+      event: string,
+      opts: Record<string, unknown>,
+      cb: () => void
+    ) => unknown;
+    subscribe: (cb: (status: string) => void) => unknown;
+  };
+  unsubscribe: () => Promise<unknown>;
+}
+
 /** 注册/注销云同步配置。传 null 表示停用同步。 */
 export function configureSupabaseSync(config: SupabaseSyncConfig | null): void {
   currentConfig = config;
+  // 生命周期接管（登录/登出）：接线、推送器、Realtime、登录 reconcile、登出清理。
+  // 动态 import 避免与 infra 的静态循环依赖（infra 反向读取本模块的 config）
+  void import('./infra')
+    .then((m) => m.handleConfigChanged(config))
+    .catch((error) => {
+      console.warn('[SupabaseSync] infra 处理配置变更失败:', error);
+    });
 }
 
 /** 读取当前同步配置（未注册返回 null） */

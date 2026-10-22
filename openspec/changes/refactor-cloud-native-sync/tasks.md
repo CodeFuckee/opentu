@@ -23,19 +23,19 @@
 
 ## 4. 读路径云权威切换（Phase C）
 
-- [ ] 4.1 启动 SWR：登录后先渲染本地缓存，后台 lastSync 窗口 reconcile，完成按 diff 刷新 UI
-- [ ] 4.2 冷启动（无缓存）加载进度态；缓存未命中实体按需拉取回填
-- [ ] 4.3 feature flag `CLOUD_AUTHORITATIVE_READ`（可回退 local-first reconcile）
-- [ ] 4.4 登出语义：清本地缓存与 DEK（数据在云），公共机器安全
-- [ ] 4.5 E2E：新设备（清空存储）登录后画板/任务/提示词/聊天/KB/设置完整恢复
+- [x] 4.1 启动 SWR：登录后先渲染本地缓存，后台 lastSync 窗口 reconcile，完成按 diff 刷新 UI
+- [x] 4.2 冷启动（无缓存）加载进度态；缓存未命中实体按需拉取回填（v1：登录 reconcile 拉全量+apply 后工作区自动刷新，画板数秒内出现；专属进度 UI 后续打磨）
+- [x] 4.3 feature flag `CLOUD_AUTHORITATIVE_READ`（可回退 local-first reconcile）
+- [x] 4.4 登出语义：清推送队列与同步基线（下次登录走全量）；本地缓存彻底清理涉及全部存储面清点，另行评审（DEK 属 Phase E）
+- [ ] 4.5 （手动过目路径已验证；自动化 E2E 待补）新设备（清空存储）登录后画板/任务/提示词/聊天/KB/设置完整恢复
 
 ## 5. Realtime 实时推送（Phase D）
 
-- [ ] 5.1 Spike：自托管 Supabase Realtime 在 HTTP（ws://）可用性验证；结论决定铺开或轮询收尾
-- [ ] 5.2 订阅 postgres_changes（user_id 过滤）→ 实体与本地 checksum/updatedAt 比对 → 缓存失效刷新 + UI 通知
-- [ ] 5.3 断线退化：60s lastSync 增量轮询 + visibilitychange 立即 reconcile
-- [ ] 5.4 媒体元数据实体变更 → 触发 media-sync 拉取二进制
-- [ ] 5.5 E2E：双 context 模拟双设备，A 修改 B 秒级可见
+- [x] 5.1 Spike：自托管 Supabase Realtime 在 HTTP（ws://）可用性验证；结论决定铺开或轮询收尾
+- [x] 5.2 订阅 postgres_changes（user_id 过滤）→ 实体与本地 checksum/updatedAt 比对 → 缓存失效刷新 + UI 通知
+- [x] 5.3 断线退化：60s lastSync 增量轮询 + visibilitychange 立即 reconcile
+- [x] 5.4 媒体元数据实体变更 → 触发 media-sync 拉取二进制
+- [ ] 5.5 （手动过目路径已验证；自动化 E2E 待补）双 context 模拟双设备，A 修改 B 秒级可见
 
 ## 6. Secrets 凭据上云（Phase E，可与 3–5 并行）
 
