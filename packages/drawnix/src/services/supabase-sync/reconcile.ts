@@ -133,6 +133,32 @@ export function registerVisibilityReconcile(): void {
   });
 }
 
+/**
+ * 等待首次登录 reconcile 完成（冷启动空态用）：
+ * 返回 true=已完成一次全量/增量拉取；false=超时（离线或未触发）。
+ * 已完成过则立即返回 true。
+ */
+export function waitForFirstReconcile(timeoutMs: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (value: boolean) => {
+      if (done) {
+        return;
+      }
+      done = true;
+      clearTimeout(timer);
+      unsub();
+      resolve(value);
+    };
+    const timer = setTimeout(() => finish(false), timeoutMs);
+    const unsub = onReconcileStatus((s) => {
+      if (!s.syncing && s.lastSyncAt !== null) {
+        finish(true);
+      }
+    });
+  });
+}
+
 /** 组装引擎依赖（每次调用读最新 config；lastSyncTime 实时取值防闭包过期） */
 function buildDeps(config: SupabaseSyncConfig) {
   return {

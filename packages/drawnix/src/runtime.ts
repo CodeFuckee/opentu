@@ -2,6 +2,8 @@ export {
   WorkspaceService,
   workspaceService,
 } from './services/workspace-service';
+export { waitForFirstReconcile } from './services/supabase-sync/reconcile';
+export { getSupabaseSyncConfig } from './services/supabase-sync/runtime';
 export {
   migrateToWorkspace,
   isWorkspaceMigrationCompleted,

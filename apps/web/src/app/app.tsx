@@ -27,6 +27,10 @@ import type {
   Viewport,
 } from '@plait/core';
 import { ErrorFallbackUI, safeModeReload, goToDebug } from './ErrorBoundary';
+import {
+  getSupabaseSyncConfig,
+  waitForFirstReconcile,
+} from '@drawnix/drawnix/runtime';
 import { collectAndDownloadErrorLog } from '../utils/error-log-exporter';
 import { useAuth } from '../supabase/auth-context';
 import { UserMenu } from '../supabase/user-menu';
@@ -418,6 +422,27 @@ export function App() {
           const firstBoard = findFirstBoard(tree);
           if (firstBoard) {
             currentBoard = await workspaceService.switchBoard(firstBoard.id);
+          }
+        } else if (getSupabaseSyncConfig()) {
+          // 云同步已登录：本地空不代表云端空——等首次登录 reconcile（上限 20s），
+          // 拉到画布直接打开；云端确实为空/离线超时才种默认板
+          //（refactor-cloud-native-sync Phase C.2：消除「我的画板1」抢跑）
+          await waitForFirstReconcile(20_000);
+          await workspaceService.reload().catch(() => undefined);
+          const cloudTree = workspaceService.getTree();
+          const cloudFirstBoard = findFirstBoard(cloudTree);
+          if (cloudFirstBoard) {
+            currentBoard = await workspaceService.switchBoard(
+              cloudFirstBoard.id
+            );
+          } else {
+            const board = await workspaceService.createBoard({
+              name: '我的画板1',
+              elements: [],
+            });
+            if (board) {
+              currentBoard = await workspaceService.switchBoard(board.id);
+            }
           }
         } else {
           // No boards exist, create default board
