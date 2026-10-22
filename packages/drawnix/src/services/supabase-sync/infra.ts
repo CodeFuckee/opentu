@@ -12,6 +12,7 @@
 
 import {
   getSupabaseSyncUser,
+  isCloudPullDisabled,
   type RealtimeChannelLike,
 } from './runtime';
 import { installSyncWritePointWiring } from './write-point-wiring';
@@ -142,10 +143,7 @@ export async function handleConfigChanged(
     installSyncWritePointWiring();
     syncPusher.start();
     // 回退开关（C.3）：置 1 可关停「登录拉取 + Realtime」，退回纯推送模式
-    const cloudReadDisabled =
-      typeof localStorage !== 'undefined' &&
-      localStorage.getItem('supabase_sync_disable_cloud_reconcile') === '1';
-    if (cloudReadDisabled) {
+    if (isCloudPullDisabled()) {
       console.info('[SupabaseSync] 云端读路径已被开关关闭（仅保留本地推送）');
       return;
     }

@@ -4,9 +4,15 @@
  * 覆盖：空画布时灵感板展示、模板点击填充提示词、发送引导、返回恢复模板列表。
  */
 import { test, expect } from '../fixtures/test-base';
+import { disableCloudPullForLocalIsolation } from '../fixtures/cloud-sync-helpers';
 import type { Page } from '@playwright/test';
 
 const aiTextarea = (page: Page) => page.getByTestId('ai-input-textarea');
+
+// 灵感板断言「空画布」初始态——登录云拉取会带入共享账号池的云端画布，本地隔离
+test.beforeEach(async ({ page }) => {
+  await disableCloudPullForLocalIsolation(page);
+});
 
 test.describe('灵感创意板', () => {
   test('空画布展示灵感板与模板', async ({ page }) => {

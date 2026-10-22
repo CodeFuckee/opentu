@@ -3,7 +3,10 @@ export {
   workspaceService,
 } from './services/workspace-service';
 export { waitForFirstReconcile } from './services/supabase-sync/reconcile';
-export { getSupabaseSyncConfig } from './services/supabase-sync/runtime';
+export {
+  getSupabaseSyncConfig,
+  isCloudPullDisabled,
+} from './services/supabase-sync/runtime';
 export {
   migrateToWorkspace,
   isWorkspaceMigrationCompleted,

@@ -9,6 +9,18 @@ import type { SupabaseSyncConfig } from './types';
 
 let currentConfig: SupabaseSyncConfig | null = null;
 
+/** 云端读路径是否被本地隔离开关关闭（e2e 本地隔离/用户手动回退共用） */
+export function isCloudPullDisabled(): boolean {
+  try {
+    return (
+      typeof localStorage !== 'undefined' &&
+      localStorage.getItem('supabase_sync_disable_cloud_reconcile') === '1'
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** Realtime 订阅通道的最小结构面（supabase-js RealtimeChannel 的子集） */
 export interface RealtimeChannelLike {
   channelLike: {

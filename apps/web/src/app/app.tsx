@@ -29,6 +29,7 @@ import type {
 import { ErrorFallbackUI, safeModeReload, goToDebug } from './ErrorBoundary';
 import {
   getSupabaseSyncConfig,
+  isCloudPullDisabled,
   waitForFirstReconcile,
 } from '@drawnix/drawnix/runtime';
 import { collectAndDownloadErrorLog } from '../utils/error-log-exporter';
@@ -423,7 +424,7 @@ export function App() {
           if (firstBoard) {
             currentBoard = await workspaceService.switchBoard(firstBoard.id);
           }
-        } else if (getSupabaseSyncConfig()) {
+        } else if (getSupabaseSyncConfig() && !isCloudPullDisabled()) {
           // 云同步已登录：本地空不代表云端空——等首次登录 reconcile（上限 20s），
           // 拉到画布直接打开；云端确实为空/离线超时才种默认板
           //（refactor-cloud-native-sync Phase C.2：消除「我的画板1」抢跑）
