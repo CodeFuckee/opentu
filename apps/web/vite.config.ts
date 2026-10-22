@@ -1202,13 +1202,16 @@ export default defineConfig({
   preview: {
     port: 4300,
     host: 'localhost',
+    // 远程访问：经雷池反代（平板访问 https://yuehuabu.home.chenkaidi.top:444）时
+    // Host 不是 localhost，需加入白名单，否则 vite 会以 403 "Blocked request" 拒绝
+    allowedHosts: ['yuehuabu.home.chenkaidi.top'],
     headers: {
       // 注意：不能带 upgrade-insecure-requests —— E2E 用 vite preview 跑编译产物时，
       // 该指令会让浏览器把页面内所有 http:// 子资源（含内网 Supabase
       // http://10.37.80.25:8021 的登录请求）强制升级为 https，导致 ERR_SSL，
       // auth-setup 登录失败（dev server 无此头所以登录正常）。
       'Content-Security-Policy':
-        "default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://us.i.posthog.com https://us-assets.i.posthog.com https://wiki.tu-zi.com http://10.0.0.220:8021; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https: http:; connect-src 'self' https: http: wss: data: blob:; frame-ancestors 'self' localhost:* 127.0.0.1:* https://api.tu-zi.com;",
+        "default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://us.i.posthog.com https://us-assets.i.posthog.com https://wiki.tu-zi.com http://10.0.0.220:8021; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https: http:; connect-src 'self' https: http: ws: wss: data: blob:; frame-ancestors 'self' localhost:* 127.0.0.1:* https://api.tu-zi.com;",
     },
   },
 
