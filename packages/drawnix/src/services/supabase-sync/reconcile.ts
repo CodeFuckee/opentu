@@ -51,7 +51,7 @@ export interface ReconcileStatus {
   lastSyncAt: number | null;
 }
 
-let state: ReconcileStatus = { syncing: false, lastSyncAt: null };
+const state: ReconcileStatus = { syncing: false, lastSyncAt: null };
 let baselineLoaded = false;
 const statusListeners = new Set<(status: ReconcileStatus) => void>();
 

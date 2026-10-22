@@ -8,6 +8,15 @@
  */
 import 'fake-indexeddb/auto';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import {
+  reconcileFull,
+  onReconcileStatus,
+  setReconcileBaseline,
+  getReconcileStatus,
+} from './reconcile';
+import { kvStorageService } from '../kv-storage-service';
+import { clearOutbox } from './outbox';
+import { resetSyncLock } from './sync-mutex';
 
 const mockConfig = { client: {} };
 const runSyncMock = vi.hoisted(() =>
@@ -64,16 +73,6 @@ vi.mock('./merge', () => ({
   resolveBoardConflict: vi.fn(() => 'local'),
   toDiffInput: vi.fn((e) => e),
 }));
-
-import {
-  reconcileFull,
-  onReconcileStatus,
-  setReconcileBaseline,
-  getReconcileStatus,
-} from './reconcile';
-import { kvStorageService } from '../kv-storage-service';
-import { clearOutbox } from './outbox';
-import { resetSyncLock } from './sync-mutex';
 
 describe('reconcile（全量同步模块层）', () => {
   beforeEach(async () => {

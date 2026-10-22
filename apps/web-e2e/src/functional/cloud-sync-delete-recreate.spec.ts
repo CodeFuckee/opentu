@@ -42,7 +42,7 @@ test.describe('云端同步（删光重建）', () => {
     });
     const pageA = await contextA.newPage();
     await forceFileInputFallback(pageA);
-    const errorsA = collectErrors(pageA);
+    collectErrors(pageA);
     await loginViaUi(pageA, account.id);
 
     await openProjectDrawer(pageA);
