@@ -6,6 +6,7 @@
  */
 
 import { kvStorageService } from '../kv-storage-service';
+import { changeBus } from '../supabase-sync/change-bus';
 import {
   migrateGraph,
   ORCHESTRATOR_GRAPH_SCHEMA_VERSION,
@@ -28,6 +29,8 @@ export async function saveOrchestratorGraph(
     updatedAt: Date.now(),
   };
   await kvStorageService.set(graphKey(graph.id), payload);
+  // 云同步写点（refactor-cloud-native-sync）：编排图（含 flowgram 编辑器数据）上云
+  changeBus.emit('workflow_graph', graph.id, payload.updatedAt);
 }
 
 /** 读取(自动迁移到当前 schema;不存在返回 null) */
@@ -59,6 +62,7 @@ export async function listOrchestratorGraphs(): Promise<OrchestratorGraph[]> {
 /** 删除 */
 export async function deleteOrchestratorGraph(graphId: string): Promise<void> {
   await kvStorageService.remove(graphKey(graphId));
+  changeBus.emit('workflow_graph', graphId);
 }
 
 export { ORCHESTRATOR_GRAPH_SCHEMA_VERSION };

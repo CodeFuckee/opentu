@@ -27,7 +27,7 @@ create table if not exists public.user_sync_data (
 
 comment on table public.user_sync_data is '云端同步实体表（按用户隔离，一实体一行）';
 comment on column public.user_sync_data.entity_type is
-  '实体类型：board|folder|workspace_state|prompt|prompt_deleted|task|workflow|kb_note|kb_directory|kb_tag|kb_note_tag|kb_note_content|kb_note_image|chat_session|chat_message|audio_playlist|audio_playlist_item|character|asset|cache_media|settings|custom_tools';
+  '实体类型：board|folder|workspace_state|prompt|prompt_deleted(不再采集,删除走墓碑真同步)|task|workflow|workflow_graph|kb_note|kb_directory|kb_tag|kb_note_tag|kb_note_content|kb_note_image|chat_session|chat_message|audio_playlist|audio_playlist_item|character|asset|cache_media|settings|custom_tools';
 comment on column public.user_sync_data.checksum is '内容校验和，用于增量同步变更检测';
 comment on column public.user_sync_data.deleted_at is '软删除墓碑时间（null=存在）；其他设备据此删除本地副本';
 

@@ -6,6 +6,8 @@
  */
 
 import localforage from 'localforage';
+import { changeBus } from './supabase-sync/change-bus';
+import type LocalForage from 'localforage';
 import { generateUUID } from '../utils/runtime-helpers';
 import { IDB_DATABASES, LS_KEYS } from '../constants/storage-keys';
 import type {
@@ -29,36 +31,65 @@ import {
 
 const { NAME, STORES } = IDB_DATABASES.KNOWLEDGE_BASE;
 
+/**
+ * 云同步写点（refactor-cloud-native-sync）：包装 store，setItem/removeItem 成功后
+ * 发键级 ChangeBus 事件——知识库全部增删改（含批量/复制/来源抓取）与云同步下载
+ * 回写（apply-remote，处于 mute 期不回声）都经这些实例，一处收口全覆盖。
+ */
+function instrumentKbStore<T extends LocalForage>(
+  store: T,
+  entityType: 'kb_directory' | 'kb_note' | 'kb_tag' | 'kb_note_tag' | 'kb_note_content' | 'kb_note_image'
+): T {
+  return new Proxy(store, {
+    get(target, prop, receiver) {
+      if (prop === 'setItem') {
+        return async (key: string, value: unknown) => {
+          await target.setItem(key, value as never);
+          changeBus.emit(entityType, String(key), Date.now());
+        };
+      }
+      if (prop === 'removeItem') {
+        return async (key: string) => {
+          await target.removeItem(key);
+          changeBus.emit(entityType, String(key));
+        };
+      }
+      const value = Reflect.get(target, prop, receiver);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+}
+
 // localforage instances
-const directoriesStore = localforage.createInstance({
+const directoriesStore = instrumentKbStore(localforage.createInstance({
   name: NAME,
   storeName: STORES.DIRECTORIES,
-});
+}), 'kb_directory');
 
-const notesStore = localforage.createInstance({
+const notesStore = instrumentKbStore(localforage.createInstance({
   name: NAME,
   storeName: STORES.NOTES,
-});
+}), 'kb_note');
 
-const tagsStore = localforage.createInstance({
+const tagsStore = instrumentKbStore(localforage.createInstance({
   name: NAME,
   storeName: STORES.TAGS,
-});
+}), 'kb_tag');
 
-const noteTagsStore = localforage.createInstance({
+const noteTagsStore = instrumentKbStore(localforage.createInstance({
   name: NAME,
   storeName: STORES.NOTE_TAGS,
-});
+}), 'kb_note_tag');
 
-const noteContentsStore = localforage.createInstance({
+const noteContentsStore = instrumentKbStore(localforage.createInstance({
   name: NAME,
   storeName: STORES.NOTE_CONTENTS,
-});
+}), 'kb_note_content');
 
-const noteImagesStore = localforage.createInstance({
+const noteImagesStore = instrumentKbStore(localforage.createInstance({
   name: NAME,
   storeName: STORES.NOTE_IMAGES,
-});
+}), 'kb_note_image');
 
 function generateId(): string {
   return generateUUID();

@@ -11,6 +11,7 @@
 import { normalizeImageDataUrl } from '@aitu/utils';
 import { APP_DB_NAME, APP_DB_STORES } from '../app-database';
 import type { TaskInvocationRouteSnapshot } from '../../types/task.types';
+import { changeBus } from '../supabase-sync/change-bus';
 
 // 使用主线程专用数据库
 const DB_NAME = APP_DB_NAME;
@@ -170,7 +171,7 @@ class TaskStorageWriter {
    */
   async saveTask(task: SWTask): Promise<void> {
     const db = await this.getDB();
-    return new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       const transaction = db.transaction(TASKS_STORE, 'readwrite');
       const store = transaction.objectStore(TASKS_STORE);
       const request = store.put(task);
@@ -178,6 +179,8 @@ class TaskStorageWriter {
       request.onerror = () => reject(request.error);
       request.onsuccess = () => resolve();
     });
+    // 云同步写点（refactor-cloud-native-sync）：创建/更新/状态流转/归档全走这里
+    changeBus.emit('task', task.id, task.updatedAt ?? Date.now());
   }
 
   /**
@@ -378,6 +381,7 @@ class TaskStorageWriter {
       request.onerror = () => reject(request.error);
       request.onsuccess = () => resolve();
     });
+    changeBus.emit('task', taskId);
   }
 
   /**

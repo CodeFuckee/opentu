@@ -1,11 +1,12 @@
 /**
- * Supabase 云同步 Context
+ * Supabase 云同步 Context（refactor-cloud-native-sync Phase B）
  *
- * 替代 GitHubSyncContext：登录 Supabase 后自动同步 + 手动同步控制。
- * - 登录态由宿主（apps/web auth-context）通过 configureSupabaseSync 注册
- * - 登录后首次自动全量上传本地（云端无记录时）或增量合并
- * - 提供手动「立即同步 / 上传 / 下载」按钮
- * - workspace 变更通过 workspaceService.observeEvents 标记待同步
+ * 写入上云主路径：SyncPusher 事件驱动推送（ChangeBus → Outbox → 定向收集 → upsert），
+ * 本 Context 负责装配与兜底：
+ * - 登录后全量 reconcile 一次（增量窗口）
+ * - 切后台且有待推送变更时全量 reconcile（保证 sweep 型变更最终一致）
+ * - 手动「立即同步 / 上传 / 下载」保留为救急入口
+ * - 向 UI 暴露同步状态与待推送数量（徽标）
  */
 
 import React, {
@@ -35,6 +36,12 @@ import {
   toDiffInput,
 } from '../services/supabase-sync/merge';
 import { kvStorageService } from '../services/kv-storage-service';
+import {
+  syncPusher,
+  ensureSyncInfraStarted,
+} from '../services/supabase-sync/sync-pusher';
+import { listOutbox, removeOutboxKeys } from '../services/supabase-sync/outbox';
+import { runExclusiveSync, isSyncLocked } from '../services/supabase-sync/sync-mutex';
 import type {
   SupabaseSyncStatus,
   SupabaseSyncResult,
@@ -45,7 +52,6 @@ import { entityKey, parseEntityKey } from '../services/supabase-sync/checksum';
 import { logInfo, logError, logSuccess } from '../services/supabase-sync/log';
 
 const LAST_SYNC_KEY = 'supabase_sync_last_sync';
-const AUTO_SYNC_DEBOUNCE_MS = 30000;
 
 interface SupabaseSyncContextValue {
   /** 是否已注册（已登录） */
@@ -54,6 +60,10 @@ interface SupabaseSyncContextValue {
   isSyncing: boolean;
   lastSyncTime: number | null;
   error: string | null;
+  /** outbox 待推送条数（事件驱动推送队列） */
+  pendingSyncCount: number;
+  /** 浏览器离线（待推送变更将积压到恢复在线） */
+  offline: boolean;
   /** 立即双向同步 */
   sync: () => Promise<SupabaseSyncResult>;
   /** 以本地为准（上传） */
@@ -87,13 +97,12 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [offline, setOffline] = useState(
+    typeof navigator === 'undefined' ? false : navigator.onLine === false
+  );
 
-  const syncRef = useRef<{ inProgress: boolean; last: number | null }>({
-    inProgress: false,
-    last: null,
-  });
-  const autoSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingChangesRef = useRef(false);
+  const syncRef = useRef<{ last: number | null }>({ last: null });
   const initializedRef = useRef(false);
 
   /** 构建 sync deps（每次调用时读取最新 config） */
@@ -168,21 +177,21 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
     };
   }, []);
 
-  /** 执行同步（内部用当前 config） */
+  /** 全量 reconcile（登录/切后台/手动）：与事件驱动推送共享互斥锁 */
   const performSync = useCallback(async (): Promise<SupabaseSyncResult> => {
-    if (syncRef.current.inProgress) {
-      return { ...emptyResult, error: '同步正在进行中' };
-    }
     const config = getSupabaseSyncConfig();
     if (!config) {
       return { ...emptyResult, error: '未登录，无法同步' };
     }
 
-    syncRef.current.inProgress = true;
     setIsSyncing(true);
     setSyncStatus('syncing');
 
     try {
+      // 同步前快照 outbox：成功后这些条目的内容已随全量 reconcile 上云/墓碑化，
+      // 出队避免推送器重复上传；同步期间新入队的条目不受影响
+      const outboxBefore = await listOutbox();
+
       // 画布全量保存走防抖：上传前先把挂起保存落盘，否则收集到旧快照
       await workspaceService
         .flushPendingCurrentBoardSave()
@@ -212,19 +221,21 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
       }
 
       logInfo('开始 Supabase 云同步', { userId: user.id });
-      const result = await runSync({
-        ...deps,
-        user: { id: user.id, email: user.email },
-      });
+      const result = await runExclusiveSync(() =>
+        runSync({
+          ...deps,
+          user: { id: user.id, email: user.email },
+        })
+      );
 
       syncRef.current.last = Date.now();
       setLastSyncTime(syncRef.current.last);
       await kvStorageService.set(LAST_SYNC_KEY, syncRef.current.last);
 
       if (result.success) {
-        setSyncStatus('synced');
         setError(null);
-        pendingChangesRef.current = false;
+        await removeOutboxKeys(outboxBefore.map((entry) => entry.key));
+        setPendingSyncCount(await syncPusher.pendingCount());
         // 阶段耗时（openspec improve-sync-performance）：性能观测与回归对比
         if (result.stageTimings) {
           console.info(
@@ -264,17 +275,30 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
         error: err instanceof Error ? err.message : '同步失败',
       };
     } finally {
-      syncRef.current.inProgress = false;
       setIsSyncing(false);
     }
   }, [buildDeps]);
 
-  /** 初始化：读取上次同步时间 + 注册状态监听 */
+  /** 初始化：接线写点 + 推送器 + 登录后全量 reconcile */
   useEffect(() => {
     if (initializedRef.current) {
       return;
     }
     initializedRef.current = true;
+
+    // 写点接线 + 推送器（幂等；主应用挂载时已启动，这里兜底弹窗独立打开场景）
+    ensureSyncInfraStarted();
+    const unsubPusherStatus = syncPusher.onStatus((status) => {
+      setPendingSyncCount(status.pending);
+      setOffline(!status.online);
+      if (!status.syncing && status.pending > 0) {
+        setSyncStatus((prev) =>
+          prev === 'syncing' || prev === 'error' ? prev : 'local_changes'
+        );
+      } else if (!status.syncing && status.pending === 0) {
+        setSyncStatus((prev) => (prev === 'local_changes' ? 'synced' : prev));
+      }
+    });
 
     const init = async () => {
       const saved = await kvStorageService
@@ -284,7 +308,7 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
         syncRef.current.last = saved;
         setLastSyncTime(saved);
       }
-      // 已注册配置（宿主登录后）→ 自动同步
+      // 已注册配置（宿主登录后）→ 全量 reconcile 一次
       if (getSupabaseSyncConfig()) {
         setIsConfigured(true);
         setSyncStatus('synced');
@@ -296,47 +320,37 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
     // 轮询检查配置是否已注册（宿主登录异步发生）
     const configPoll = setInterval(() => {
       if (getSupabaseSyncConfig()) {
-        if (!isConfigured) {
-          setIsConfigured(true);
-          scheduleAutoSync(0);
-        }
+        setIsConfigured((configured) => {
+          if (!configured) {
+            scheduleAutoSync(0);
+          }
+          return true;
+        });
         clearInterval(configPoll);
       }
     }, 500);
     const pollRef = { timer: configPoll };
 
-    // workspace 变更 → 标记待同步 + 防抖自动同步
-    const workspaceSubscription = workspaceService
-      .observeEvents()
-      .subscribe((event: { type: string }) => {
-        const syncTriggerEvents = [
-          'boardCreated',
-          'boardUpdated',
-          'boardDeleted',
-          'folderCreated',
-          'folderUpdated',
-          'folderDeleted',
-        ];
-        if (!syncTriggerEvents.includes(event.type)) {
-          return;
-        }
-        if (!getSupabaseSyncConfig()) {
-          return;
-        }
-        pendingChangesRef.current = true;
-        setSyncStatus('local_changes');
-        scheduleAutoSync(AUTO_SYNC_DEBOUNCE_MS);
-      });
-
+    // 切回前台节流拉取：多设备工作流的高频路径是「在设备 A 建数据 → 切回设备 B」，
+    // Realtime（Phase D）就绪前靠这里保证切回即见（30s 节流防频繁切 tab 打爆云端）
+    let lastVisibleSyncAt = 0;
     const handleVisibilityChange = () => {
-      if (
-        document.visibilityState === 'hidden' &&
-        getSupabaseSyncConfig() &&
-        pendingChangesRef.current &&
-        !syncRef.current.inProgress
-      ) {
+      if (!getSupabaseSyncConfig() || isSyncLocked()) {
+        return;
+      }
+      if (document.visibilityState === 'hidden') {
+        // 切后台兜底全量 reconcile：sweep 型变更与推送器失败重试在此获得最终一致保证
         performSync().catch(() => {
           // 静默：visibilitychange 触发的同步失败不影响主流程
+        });
+        return;
+      }
+      // visible：距上次同步超过 30s 才拉，避免频繁切换反复 reconcile
+      const now = Date.now();
+      if (now - lastVisibleSyncAt > 30_000) {
+        lastVisibleSyncAt = now;
+        performSync().catch(() => {
+          // 静默
         });
       }
     };
@@ -344,29 +358,29 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
 
     return () => {
       clearInterval(pollRef.timer);
-      workspaceSubscription.unsubscribe();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      if (autoSyncTimerRef.current) {
-        clearTimeout(autoSyncTimerRef.current);
-      }
+      unsubPusherStatus();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /** 防抖自动同步 */
-  const scheduleAutoSync = useCallback(
-    (delay: number) => {
-      if (autoSyncTimerRef.current) {
-        clearTimeout(autoSyncTimerRef.current);
-      }
-      autoSyncTimerRef.current = setTimeout(() => {
-        performSync().catch(() => {
-          // 静默：防抖自动同步失败不影响使用
-        });
-      }, delay);
-    },
-    [performSync]
+  /** 登录后的初始全量 reconcile */
+  const scheduleAutoSync = useCallback((delay: number) => {
+    setTimeout(() => {
+      performSyncRef.current?.().catch(() => {
+        // 静默：初始同步失败不影响使用（切后台/手动可再触发）
+      });
+    }, delay);
+  }, []);
+
+  // scheduleAutoSync 定义在 effect 之后但 effect 首帧即可能调用：
+  // 经 ref 转发避免 use-before-declare 与闭包过期
+  const performSyncRef = useRef<(() => Promise<SupabaseSyncResult>) | null>(
+    null
   );
+  useEffect(() => {
+    performSyncRef.current = performSync;
+  }, [performSync]);
 
   /** 立即同步 */
   const sync = useCallback(async () => performSync(), [performSync]);
@@ -394,38 +408,37 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
     if (!deps) {
       return { ...emptyResult, error: '同步未配置' };
     }
-    // 与 performSync 相同的互斥守卫：防止与 30s 自动同步、visibilitychange
-    // 同步并发运行，交错写本地存储与云端
-    if (syncRef.current.inProgress) {
-      return { ...emptyResult, error: '同步正在进行中' };
-    }
-    syncRef.current.inProgress = true;
+    setIsSyncing(true);
+    setSyncStatus('syncing');
     let result: SupabaseSyncResult;
     try {
+      const outboxBefore = await listOutbox();
       // 上传前落盘挂起的画布保存（同 performSync）
       await workspaceService
         .flushPendingCurrentBoardSave()
         .catch(() => undefined);
-      result = await runSync({
-        ...deps,
-        user: { id: user.id },
-        lastSyncTime: 0,
-        applyRemote: async () => ({ applied: 0 }),
-        syncMedia: undefined,
-      });
-      // 同步更新 syncRef 基线（buildDeps 从 syncRef 取值），否则下次自动同步
-      // 仍用旧基线比对，制造大量假冲突
-      syncRef.current.last = Date.now();
-      setLastSyncTime(syncRef.current.last);
-      kvStorageService
-        .set(LAST_SYNC_KEY, syncRef.current.last)
-        .catch((error) => {
-          console.warn('[SupabaseSync] 同步基线写入 kv 失败:', error);
-        });
+      result = await runExclusiveSync(() =>
+        runSync({
+          ...deps,
+          user: { id: user.id },
+          lastSyncTime: 0,
+          applyRemote: async () => ({ applied: 0 }),
+          syncMedia: undefined,
+        })
+      );
+      if (result.success) {
+        // 同步更新 syncRef 基线（buildDeps 从 syncRef 取值），否则下次自动同步
+        // 仍用旧基线比对，制造大量假冲突
+        syncRef.current.last = Date.now();
+        setLastSyncTime(syncRef.current.last);
+        await kvStorageService.set(LAST_SYNC_KEY, syncRef.current.last);
+        await removeOutboxKeys(outboxBefore.map((entry) => entry.key));
+        setPendingSyncCount(await syncPusher.pendingCount());
+      }
       setSyncStatus(result.success ? 'synced' : 'error');
       setError(result.error ?? null);
     } finally {
-      syncRef.current.inProgress = false;
+      setIsSyncing(false);
     }
     return result;
   }, [buildDeps]);
@@ -448,58 +461,56 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
     if (!user) {
       return { ...emptyResult, error: '未能获取登录用户' };
     }
-    // 与 performSync 相同的互斥守卫（同 pushToRemote）
-    if (syncRef.current.inProgress) {
-      return { ...emptyResult, error: '同步正在进行中' };
-    }
-    syncRef.current.inProgress = true;
+    setIsSyncing(true);
+    setSyncStatus('syncing');
     try {
       await workspaceService
         .flushPendingCurrentBoardSave()
         .catch(() => undefined);
-      const remote = await fetchRemoteEntities(config, user.id);
-      // 拆分：有效实体 → 应用下载；墓碑实体（deleted_at 非空）→ 本地删除，
-      // 保证「下载远程」与「立即同步」的画板数量语义一致（墓碑不复活、生效删除）
-      const activeEntities = remote.entities.filter((e) => !e.deleted_at);
-      const tombstoneKeys = remote.entities
-        .filter((e) => !!e.deleted_at)
-        .map((e) => entityKey(e.entity_type, e.entity_id));
-      const { applied, failed } = await applyRemoteEntities(activeEntities);
-      if (failed.length > 0) {
-        // 失败实体此前被静默丢弃，留痕便于排查（是否重试/影响基线推进属
-        // 行为语义变更，另行决策）
-        console.warn(
-          '[SupabaseSync] applyRemoteEntities failed entities:',
-          failed
+      const applied = await runExclusiveSync(async () => {
+        const remote = await fetchRemoteEntities(config, user.id);
+        // 拆分：有效实体 → 应用下载；墓碑实体（deleted_at 非空）→ 本地删除，
+        // 保证「下载远程」与「立即同步」的画板数量语义一致（墓碑不复活、生效删除）
+        const activeEntities = remote.entities.filter((e) => !e.deleted_at);
+        const tombstoneKeys = remote.entities
+          .filter((e) => !!e.deleted_at)
+          .map((e) => entityKey(e.entity_type, e.entity_id));
+        const { applied: count, failed } = await applyRemoteEntities(
+          activeEntities
         );
-      }
-      let deleted = 0;
-      if (tombstoneKeys.length > 0) {
-        const { deleted: tombstoneDeleted } = await deleteLocalEntities(
-          tombstoneKeys
-        );
-        deleted = tombstoneDeleted;
-      }
+        if (failed.length > 0) {
+          // 失败实体此前被静默丢弃，留痕便于排查（是否重试/影响基线推进属
+          // 行为语义变更，另行决策）
+          console.warn(
+            '[SupabaseSync] applyRemoteEntities failed entities:',
+            failed
+          );
+        }
+        let deleted = 0;
+        if (tombstoneKeys.length > 0) {
+          const { deleted: tombstoneDeleted } = await deleteLocalEntities(
+            tombstoneKeys
+          );
+          deleted = tombstoneDeleted;
+        }
+        return { applied: count, deleted };
+      });
       // 同步更新 syncRef 基线（同 pushToRemote）
       syncRef.current.last = Date.now();
       setLastSyncTime(syncRef.current.last);
-      kvStorageService
-        .set(LAST_SYNC_KEY, syncRef.current.last)
-        .catch((error) => {
-          console.warn('[SupabaseSync] 同步基线写入 kv 失败:', error);
-        });
+      await kvStorageService.set(LAST_SYNC_KEY, syncRef.current.last);
       setSyncStatus('synced');
       setError(null);
       return {
         success: true,
         uploaded: 0,
-        downloaded: applied,
-        deleted,
+        downloaded: applied.applied,
+        deleted: applied.deleted,
         conflicts: 0,
         duration: 0,
       };
     } finally {
-      syncRef.current.inProgress = false;
+      setIsSyncing(false);
     }
   }, []);
 
@@ -509,6 +520,8 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
     isSyncing,
     lastSyncTime,
     error,
+    pendingSyncCount,
+    offline,
     sync,
     pushToRemote,
     pullFromRemote,

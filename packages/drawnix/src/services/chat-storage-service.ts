@@ -8,6 +8,7 @@ import localforage from 'localforage';
 import { generateUUID } from '../utils/runtime-helpers';
 import { CHAT_STORAGE_KEYS, CHAT_CONSTANTS } from '../constants/CHAT_CONSTANTS';
 import type { ChatSession, ChatMessage, DrawerState } from '../types/chat.types';
+import { changeBus } from './supabase-sync/change-bus';
 
 // Initialize localforage instances
 const sessionsStore = localforage.createInstance({
@@ -49,6 +50,7 @@ export async function createSession(): Promise<ChatSession> {
   };
 
   await sessionsStore.setItem(session.id, session);
+  changeBus.emit('chat_session', session.id, session.updatedAt);
   return session;
 }
 
@@ -81,6 +83,7 @@ export async function updateSession(
   if (session) {
     const updated = { ...session, ...updates, updatedAt: Date.now() };
     await sessionsStore.setItem(id, updated);
+    changeBus.emit('chat_session', id, updated.updatedAt);
   }
 }
 
@@ -92,6 +95,10 @@ export async function deleteSession(id: string): Promise<void> {
   }
   // Then delete the session
   await sessionsStore.removeItem(id);
+  for (const message of messages) {
+    changeBus.emit('chat_message', message.id);
+  }
+  changeBus.emit('chat_session', id);
 }
 
 // ============================================================================
@@ -100,6 +107,7 @@ export async function deleteSession(id: string): Promise<void> {
 
 export async function addMessage(message: ChatMessage): Promise<void> {
   await messagesStore.setItem(message.id, message);
+  changeBus.emit('chat_message', message.id, message.timestamp ?? Date.now());
 
   // Update session message count and title if this is the first user message
   const session = await getSession(message.sessionId);
@@ -132,6 +140,7 @@ export async function updateMessage(
   if (message) {
     const updated = { ...message, ...updates };
     await messagesStore.setItem(id, updated);
+    changeBus.emit('chat_message', id, updated.timestamp ?? Date.now());
   }
 }
 
@@ -139,6 +148,7 @@ export async function deleteMessage(id: string): Promise<void> {
   const message = await messagesStore.getItem<ChatMessage>(id);
   if (message) {
     await messagesStore.removeItem(id);
+    changeBus.emit('chat_message', id);
     // Update session message count
     const session = await getSession(message.sessionId);
     if (session) {

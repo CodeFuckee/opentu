@@ -31,9 +31,23 @@ import { characterStorageService } from '../character-storage-service';
 import { toolboxService } from '../toolbox-service';
 import type { SyncEntity } from './types';
 import { yieldToMain } from './checksum';
+import { changeBus } from './change-bus';
 
 /** 应用远程实体到本地，返回应用数量 */
 export async function applyRemoteEntities(
+  entities: SyncEntity[]
+): Promise<{ applied: number; failed: string[] }> {
+  // 下载回写全程静默 ChangeBus：回写命中各存储写点会 emit，若不静默会把
+  // 刚下载的数据再推送回云端（回声循环）（refactor-cloud-native-sync Phase B）
+  changeBus.mute();
+  try {
+    return await applyRemoteEntitiesInner(entities);
+  } finally {
+    changeBus.unmute();
+  }
+}
+
+async function applyRemoteEntitiesInner(
   entities: SyncEntity[]
 ): Promise<{ applied: number; failed: string[] }> {
   let applied = 0;

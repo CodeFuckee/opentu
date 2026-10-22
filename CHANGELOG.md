@@ -1,5 +1,63 @@
 ## Unreleased
 
+### feat: 云同步改事件驱动——全数据面自动上云，无需手动同步（openspec refactor-cloud-native-sync Phase A+B）
+
+确立「云端权威、本地缓存」方向后的第一阶段落地：写路径全面事件化，任何数据面的
+变更数秒内自动推送云端，手动同步按钮降级为救急入口：
+
+- **统一变更总线**（`supabase-sync/change-bus.ts`）：task/prompt/chat/知识库/工作流/
+  编排图/设置/素材/角色/音频/缓存媒体/工作区状态共 12 类数据面的存储写入点接入，
+  事件只带键不带内容，推送时从本地现读（天然最新）；知识库经 store 实例插桩一处
+  收口全覆盖，提示词/缓存媒体复用服务内建变更通知
+- **Outbox 持久化队列**（`supabase-sync/outbox.ts`）：写入事件先落盘再推送，成功才
+  出队——离线/崩溃/关页不丢变更，恢复在线按序回放
+- **SyncPusher 推送器**（`supabase-sync/sync-pusher.ts`）：3s 防抖聚合 → 按脏键/脏
+  类型定向收集（成本 O(脏)，画板/workspace 状态走单读不整快照）→ 批量 upsert →
+  出队；本地已删除的键自动向云端标墓碑（跨设备真删除）；失败指数退避重试（5s 起
+  封顶 5 分钟）；与全量 reconcile 共享互斥锁防交错
+- **防回声**：apply-remote/delete-local 下载回写全程静默变更总线，杜绝「下载→回写
+  →再上传」循环
+- **跨设备删除补齐**：提示词/编排图/素材/音频播放列表的云端删除现在会真正删除本地
+  数据（此前提示词删除只在单设备生效）
+- **编排图上云**：新增 `workflow_graph` 实体类型，画布编排图与 /workflow 编辑器
+  （Flowgram）的图数据随保存自动上云
+- **UI**：工具栏新增同步状态指示器（待推送数量徽标/离线提示/同步中动画，点击打开
+  同步设置）；原 30s 全量防抖主路径移除，登录与切后台保留全量 reconcile 兜底
+- **测试**：change-bus 6 例、outbox 6 例、sync-pusher 8 例；既有 supabase-sync 簇
+  115 例全绿；drawnix 全量 1686 例通过
+
+
+### feat: Flowgram.ai 节点编排编辑器——/workflow 全屏视图，共用既有编排底座（openspec add-flowgram-workflow-editor）
+
+引入字节开源 Flowgram free-layout 编辑器（MIT），为工作流编排提供专业节点画布
+（端口连线/框选/minimap/撤销），与画布原生编排共用同一图模型、存储与执行引擎，
+不产生第二套编排系统：
+
+- **/workflow 全屏视图**：`bootstrap.tsx` 按 pathname 分流，与主画布共用
+  Auth/Md3 主题 providers；编辑器代码经 `@drawnix/drawnix/workflow-editor`
+  子入口独立懒加载（716K chunk），主画布首屏零加载
+- **编辑器功能**：8 种编排节点（与画布原生同套 `NODE_TYPE_SPECS` 端口定义，
+  端口 id 原文透传）、连线类型校验（自环/成环/端口类型与编译器同规则拒绝）、
+  节点内联参数编辑 + 右侧参数面板、minimap、图列表（保存/打开/删除/`?graph=`
+  直达）、800ms 防抖自动保存
+- **共用底座**：新增 `flowgram-adapter.ts` 纯函数双向转换（Flowgram 文档 ↔
+  OrchestratorGraph）；`workflow-run-service` 新增 board-free 的 `runGraph()`
+  （复用既有编译/执行/状态广播管线；编辑器内无画布时「插入画布」步骤标失败
+  提示回画布运行，不阻断其余节点）
+- **入口**：工具箱「工作流节点」分区新增「打开工作流编排器」；编辑器顶栏
+  「← 画布」返回主应用
+- **视觉打磨**（过目反馈）：加节点改网格排布（横 4 列，列距/行距大于卡片尺寸，
+  根治 `getAntiOverlapPosition` 对零尺寸新实体避让失效导致的叠卡）+ 250ms 防抖
+  自动取景；节点 header 按分类着色（输入=primary-container/生成=tertiary/输出=
+  accent-soft）并配 lucide 类型图标，左面板同套色点；模型参数字段布局修正
+  （placeholder 截断/数量框加宽加标签）；右侧栏重复标题去重；连线配色对齐 Md3
+  primary；端口 hover 放大反馈
+- **修复**：从 /workflow 整页跳转回主画布会被崩溃恢复误判为「连续 2 次异常
+  退出」弹恢复窗——编辑器壳挂载时补调 `markLoadingComplete` 清除遗留 loading 标记
+- **测试**：adapter 转换 7 例、runGraph board-free 5 例、编辑器壳 smoke 5 例、
+  E2E functional 2 例（直达渲染/添加节点→保存→刷新仍在→返回画布）；单测全量
+  1666+ 例通过，覆盖率门禁（engine 95%）通过
+
 ### feat: 前端全面迁移 Material Design 3——主题/图标/布局语言/微动效（openspec adopt-material-design-3 深化批次）
 
 用户逐轮过目确立的方向：M3 官方蓝配色（Google Workspace 同款 #0B57D0/#A8C7FA）+

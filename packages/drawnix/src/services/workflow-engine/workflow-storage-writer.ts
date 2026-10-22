@@ -7,6 +7,7 @@
 
 import type { Workflow } from './types';
 import { getAppDB, APP_DB_STORES } from '../app-database';
+import { changeBus } from '../supabase-sync/change-bus';
 
 const WORKFLOWS_STORE = APP_DB_STORES.WORKFLOWS;
 
@@ -56,6 +57,8 @@ class WorkflowStorageWriter {
         };
         request.onsuccess = () => resolve();
       });
+      // 云同步写点（refactor-cloud-native-sync）
+      changeBus.emit('workflow', workflow.id, workflow.updatedAt ?? Date.now());
     } catch {
       // 静默跳过：降级模式不依赖持久化
     }
@@ -97,6 +100,7 @@ class WorkflowStorageWriter {
       request.onerror = () => reject(request.error);
       request.onsuccess = () => resolve();
     });
+    changeBus.emit('workflow', workflowId);
   }
 
   /**

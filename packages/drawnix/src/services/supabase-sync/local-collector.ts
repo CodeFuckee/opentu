@@ -13,6 +13,9 @@ import { workspaceStorageService } from '../workspace-storage-service';
 import { taskStorageReader } from '../task-storage-reader';
 import { workflowStorageReader } from '../workflow-storage-reader';
 import {
+  listOrchestratorGraphs,
+} from '../workflow-orchestrator/graph-storage';
+import {
   initPromptStorageCache,
   getPromptHistory,
   getVideoPromptHistory,
@@ -26,9 +29,14 @@ import { unifiedCacheService } from '../unified-cache-service';
 import { toolboxService } from '../toolbox-service';
 import { exportAllData } from '../kb-import-export-service';
 import { settingsManager } from '../../utils/settings-manager';
-import { collectLocalSnapshot, createDefaultCollector } from './collector-core';
-import type { LocalDataCollector, RawEntity } from './collector-core';
-import { yieldToMain } from './checksum';
+import {
+  collectLocalSnapshot,
+  createDefaultCollector,
+  toSyncEntities,
+} from './collector-core';
+import type { LocalDataCollector, NormalizedLocalData, RawEntity } from './collector-core';
+import { entityKey, parseEntityKey, yieldToMain } from './checksum';
+import type { SyncEntity } from './types';
 
 /** 敏感字段 key（脱敏过滤，避免 API Key 等上传云端） */
 const SENSITIVE_KEYS = new Set([
@@ -127,6 +135,17 @@ export function createLocalCollector(): LocalDataCollector {
         entityId: w.id,
         content: w,
         updatedAt: w.updatedAt,
+      }));
+      return { entities, stats: { total: entities.length } };
+    },
+
+    async collectWorkflowGraphs() {
+      const graphs = await listOrchestratorGraphs();
+      const entities: RawEntity[] = graphs.map((g) => ({
+        entityType: 'workflow_graph',
+        entityId: g.id,
+        content: g,
+        updatedAt: g.updatedAt,
       }));
       return { entities, stats: { total: entities.length } };
     },
@@ -342,5 +361,183 @@ export function getLocalCollector(): LocalDataCollector {
 export function collectLocalDataForSync() {
   return collectLocalSnapshot(getLocalCollector());
 }
+
+/** 实体类型 → 收集源（sweep/键级定向收集的路由表） */
+const TYPE_SOURCE_MAP: Partial<Record<string, keyof LocalDataCollector>> = {
+  board: 'collectWorkspace',
+  folder: 'collectWorkspace',
+  workspace_state: 'collectWorkspace',
+  task: 'collectTasks',
+  workflow: 'collectWorkflows',
+  workflow_graph: 'collectWorkflowGraphs',
+  prompt: 'collectPrompts',
+  kb_note: 'collectKnowledgeBase',
+  kb_directory: 'collectKnowledgeBase',
+  kb_tag: 'collectKnowledgeBase',
+  kb_note_tag: 'collectKnowledgeBase',
+  kb_note_content: 'collectKnowledgeBase',
+  kb_note_image: 'collectKnowledgeBase',
+  chat_session: 'collectChat',
+  chat_message: 'collectChat',
+  audio_playlist: 'collectAudioPlaylists',
+  character: 'collectCharacters',
+  asset: 'collectAssets',
+  cache_media: 'collectCacheMedia',
+  settings: 'collectSettings',
+  custom_tools: 'collectCustomTools',
+};
+
+export interface CollectForSyncOptions {
+  /**
+   * 类型级脏标记：整体收集这些类型的全部实体（不做窗口过滤——部分类型的
+   * 内容变化不改 updatedAt，如提示词置顶，窗口过滤会漏传）。
+   */
+  sweepTypes?: string[];
+  /**
+   * 键级脏标记（'type:id'）：board 逐板定向读取，workspace_state 单读，
+   * 其余类型整源收集后按 id 过滤。本地已不存在的键进 missingKeys。
+   */
+  specificKeys?: string[];
+}
+
+export interface CollectForSyncResult {
+  entities: SyncEntity[];
+  /** 键级请求但本地已不存在（本地删除）→ 推送侧向云端标记墓碑 */
+  missingKeys: string[];
+  /** 收集失败的类型 → 推送侧跳过对应键（保留 outbox 待重试，不误标墓碑） */
+  failedTypes: string[];
+}
+
+/**
+ * 按脏键定向收集（SyncPusher 专用）：成本 O(脏类型/脏板)，替代全量快照。
+ */
+export async function collectEntitiesForSync(
+  options: CollectForSyncOptions
+): Promise<CollectForSyncResult> {
+  const collector = getLocalCollector();
+  const sweepTypes = new Set(options.sweepTypes ?? []);
+  const specificByType = new Map<string, Set<string>>();
+  for (const key of options.specificKeys ?? []) {
+    const parsed = parseEntityKey(key);
+    if (!parsed) {
+      continue;
+    }
+    const ids = specificByType.get(parsed.entityType) ?? new Set<string>();
+    ids.add(parsed.entityId);
+    specificByType.set(parsed.entityType, ids);
+  }
+
+  const entities: SyncEntity[] = [];
+  const missingKeys: string[] = [];
+  const failedTypes = new Set<string>();
+
+  // board 键级定向：单板读取（画板是最大头，避免整源 loadAllBoards）
+  const boardIds = specificByType.get('board');
+  if (boardIds && !sweepTypes.has('board')) {
+    specificByType.delete('board');
+    try {
+      for (const id of boardIds) {
+        const board = await workspaceStorageService.loadBoard(id);
+        if (board) {
+          entities.push(
+            ...toSyncEntities([
+              { entityType: 'board', entityId: id, content: board, updatedAt: board.updatedAt },
+            ])
+          );
+        } else {
+          missingKeys.push(entityKey('board', id));
+        }
+      }
+    } catch {
+      failedTypes.add('board');
+    }
+  }
+
+  // workspace_state 键级定向：单读工作区状态（避免为小状态整源收集全部画板）
+  const stateIds = specificByType.get('workspace_state');
+  if (stateIds && !sweepTypes.has('workspace_state')) {
+    specificByType.delete('workspace_state');
+    try {
+      const state = await workspaceStorageService.loadState();
+      for (const id of stateIds) {
+        if (state) {
+          entities.push(
+            ...toSyncEntities([
+              { entityType: 'workspace_state', entityId: id, content: state, updatedAt: Date.now() },
+            ])
+          );
+        } else {
+          missingKeys.push(entityKey('workspace_state', id));
+        }
+      }
+    } catch {
+      failedTypes.add('workspace_state');
+    }
+  }
+
+  // 剩余类型：整源收集 → sweep 全留 / specific 按 id 过滤
+  const sourceTypes = new Map<keyof LocalDataCollector, string[]>();
+  const route = (type: string) => {
+    const source = TYPE_SOURCE_MAP[type];
+    if (!source) {
+      return;
+    }
+    const types = sourceTypes.get(source) ?? [];
+    if (!types.includes(type)) {
+      types.push(type);
+    }
+    sourceTypes.set(source, types);
+  };
+  sweepTypes.forEach(route);
+  for (const type of specificByType.keys()) {
+    route(type);
+  }
+
+  for (const [source, types] of sourceTypes) {
+    try {
+      const fn = collector[source] as
+        | (() => Promise<NormalizedLocalData>)
+        | undefined;
+      if (!fn) {
+        continue;
+      }
+      const converted = toSyncEntities((await fn.call(collector)).entities);
+      for (const entity of converted) {
+        if (sweepTypes.has(entity.entity_type)) {
+          entities.push(entity);
+        } else {
+          const ids = specificByType.get(entity.entity_type);
+          if (ids?.has(entity.entity_id)) {
+            entities.push(entity);
+          }
+        }
+      }
+      // 键级请求中未收集到的 id → 本地已删除
+      for (const type of types) {
+        const ids = specificByType.get(type);
+        if (!ids) {
+          continue;
+        }
+        for (const id of ids) {
+          if (
+            !converted.some(
+              (e) => e.entity_type === type && e.entity_id === id
+            )
+          ) {
+            missingKeys.push(entityKey(type, id));
+          }
+        }
+      }
+    } catch {
+      for (const type of types) {
+        failedTypes.add(type);
+      }
+    }
+  }
+
+  return { entities, missingKeys, failedTypes: [...failedTypes] };
+}
+
+export { toSyncEntities };
 
 export type { LocalDataCollector, RawEntity } from './collector-core';

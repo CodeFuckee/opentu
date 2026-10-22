@@ -8,6 +8,7 @@
 import localforage from 'localforage';
 import { ToolDefinition, ToolCategory } from '../types/toolbox.types';
 import { toolRegistry } from '../tools/registry';
+import { changeBus } from './supabase-sync/change-bus';
 
 /**
  * 自定义工具存储格式
@@ -274,6 +275,10 @@ class ToolboxService {
       await this.saveCustomTools();
     }
 
+    if (imported > 0) {
+      // 云同步写点（refactor-cloud-native-sync）
+      changeBus.emit('custom_tools', 'default', Date.now());
+    }
     return { imported, skipped };
   }
 

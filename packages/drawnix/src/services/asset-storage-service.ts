@@ -17,6 +17,7 @@ import {
 } from '../utils/asset-utils';
 import { canAddAssetBySize } from '../utils/storage-quota';
 import { unifiedCacheService } from './unified-cache-service';
+import { changeBus } from './supabase-sync/change-bus';
 import { analytics } from '../utils/posthog-analytics';
 import type {
   Asset,
@@ -365,6 +366,8 @@ class AssetStorageService {
       // 添加内容哈希到存储对象
       storedAsset.contentHash = contentHash;
       await this.store!.setItem(asset.id, storedAsset);
+      // 云同步写点（refactor-cloud-native-sync）
+      changeBus.emit('asset', asset.id, Date.now());
       // console.log('[AssetStorageService] Asset saved to IndexedDB');
 
       // 埋点：素材上传成功
@@ -531,6 +534,7 @@ class AssetStorageService {
 
       stored.name = newName;
       await this.store!.setItem(id, stored);
+      changeBus.emit('asset', id, Date.now());
     } catch (error: any) {
       if (error instanceof NotFoundError) {
         throw error;
@@ -566,6 +570,8 @@ class AssetStorageService {
       }
 
       await this.store!.setItem(id, stored);
+      // 云同步写点（refactor-cloud-native-sync）
+      changeBus.emit('asset', id, Date.now());
       await unifiedCacheService.updateCachedMedia(stored.url, {
         metadata: {
           category: stored.category,
@@ -590,6 +596,8 @@ class AssetStorageService {
    */
   async removeAsset(id: string): Promise<void> {
     this.ensureInitialized();
+    // 云同步写点：删除素材 → 推送侧收集不到该键时向云端标墓碑
+    changeBus.emit('asset', id);
 
     try {
       const stored = (await this.store!.getItem(id)) as StoredAsset | null;
@@ -601,6 +609,7 @@ class AssetStorageService {
       await unifiedCacheService.deleteCache(stored.url);
 
       await this.store!.removeItem(id);
+      changeBus.emit('asset', id);
 
       // 埋点：素材删除
       analytics.track('asset_delete', {

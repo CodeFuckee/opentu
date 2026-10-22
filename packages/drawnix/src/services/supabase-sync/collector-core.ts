@@ -23,6 +23,8 @@ export interface LocalDataCollector {
   collectWorkspace: () => Promise<NormalizedLocalData>;
   collectTasks: () => Promise<NormalizedLocalData>;
   collectWorkflows: () => Promise<NormalizedLocalData>;
+  /** 编排图（可选：旧 mock 未实现时快照收集跳过该源） */
+  collectWorkflowGraphs?: () => Promise<NormalizedLocalData>;
   collectPrompts: () => Promise<NormalizedLocalData>;
   collectKnowledgeBase: () => Promise<NormalizedLocalData>;
   collectChat: () => Promise<NormalizedLocalData>;
@@ -60,20 +62,7 @@ export function normalizeFromLocal(
 }
 
 /** 用一组数据源实现构建 LocalDataCollector */
-export function createDefaultCollector(impl: {
-  collectWorkspace: LocalDataCollector['collectWorkspace'];
-  collectTasks: LocalDataCollector['collectTasks'];
-  collectWorkflows: LocalDataCollector['collectWorkflows'];
-  collectPrompts: LocalDataCollector['collectPrompts'];
-  collectKnowledgeBase: LocalDataCollector['collectKnowledgeBase'];
-  collectChat: LocalDataCollector['collectChat'];
-  collectAudioPlaylists: LocalDataCollector['collectAudioPlaylists'];
-  collectCharacters: LocalDataCollector['collectCharacters'];
-  collectAssets: LocalDataCollector['collectAssets'];
-  collectCacheMedia: LocalDataCollector['collectCacheMedia'];
-  collectSettings: LocalDataCollector['collectSettings'];
-  collectCustomTools: LocalDataCollector['collectCustomTools'];
-}): LocalDataCollector {
+export function createDefaultCollector(impl: LocalDataCollector): LocalDataCollector {
   return { ...impl };
 }
 
@@ -92,6 +81,10 @@ export async function collectLocalSnapshot(
     ['workspace', () => collector.collectWorkspace()],
     ['tasks', () => collector.collectTasks()],
     ['workflows', () => collector.collectWorkflows()],
+    // 可选源（旧 mock 未实现时跳过，不进 failedSources）
+    ...(collector.collectWorkflowGraphs
+      ? [['workflowGraphs', () => collector.collectWorkflowGraphs!()] as [string, () => Promise<NormalizedLocalData>]]
+      : []),
     ['prompts', () => collector.collectPrompts()],
     ['knowledgeBase', () => collector.collectKnowledgeBase()],
     ['chat', () => collector.collectChat()],

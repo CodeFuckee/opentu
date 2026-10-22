@@ -11,6 +11,7 @@
 import { workspaceStorageService } from '../workspace-storage-service';
 import { workspaceService } from '../workspace-service';
 import { parseEntityKey, yieldToMain } from './checksum';
+import { changeBus } from './change-bus';
 
 export interface DeleteLocalOptions {
   /** 是否允许删除当前编辑的画板（默认 false，保护当前画板） */
@@ -25,6 +26,21 @@ export async function deleteLocalEntities(
   if (keys.length === 0) {
     return { deleted: 0, protectedItems: [] };
   }
+
+  // 删除回写静默 ChangeBus：云端墓碑触发的本地删除不应再触发上传
+  // （refactor-cloud-native-sync Phase B）
+  changeBus.mute();
+  try {
+    return await deleteLocalEntitiesInner(keys, options);
+  } finally {
+    changeBus.unmute();
+  }
+}
+
+async function deleteLocalEntitiesInner(
+  keys: string[],
+  options: DeleteLocalOptions = {}
+): Promise<{ deleted: number; protectedItems: string[] }> {
 
   let deleted = 0;
   const protectedItems: string[] = [];
@@ -111,6 +127,44 @@ async function deleteOne(
         '../workflow-engine/workflow-storage-writer'
       );
       await workflowStorageWriter.deleteWorkflow?.(entityId);
+      return true;
+    }
+    case 'prompt': {
+      // 提示词跨设备真删除（refactor-cloud-native-sync）：本地移除并把内容
+      // 记入已删除清单（防其他来源合并回加）；本地本无该 id 视为已删
+      const promptStorage = await import('../prompt-storage-service');
+      await promptStorage.initPromptStorageCache();
+      const existed = promptStorage
+        .getPromptHistory()
+        .some((entry) => entry.id === entityId);
+      if (existed) {
+        promptStorage.removePromptHistory(entityId);
+      }
+      return true;
+    }
+    case 'workflow_graph': {
+      const { deleteOrchestratorGraph } = await import(
+        '../workflow-orchestrator/graph-storage'
+      );
+      await deleteOrchestratorGraph(entityId);
+      return true;
+    }
+    case 'audio_playlist': {
+      const { audioPlaylistService } = await import('../audio-playlist-service');
+      await audioPlaylistService.deletePlaylist(entityId);
+      return true;
+    }
+    case 'asset': {
+      const { assetStorageService } = await import('../asset-storage-service');
+      try {
+        await assetStorageService.removeAsset(entityId);
+      } catch (error) {
+        // 云端有、本地已无（或已删）→ 视为删除成功，不算保护项
+        const name = (error as { name?: string })?.name;
+        if (name !== 'NotFoundError') {
+          throw error;
+        }
+      }
       return true;
     }
     case 'chat_message': {

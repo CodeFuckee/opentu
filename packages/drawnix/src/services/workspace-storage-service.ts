@@ -6,6 +6,7 @@
  */
 
 import localforage from 'localforage';
+import { changeBus } from './supabase-sync/change-bus';
 import {
   Folder,
   Board,
@@ -468,6 +469,8 @@ class WorkspaceStorageService {
   // ========== State Operations ==========
 
   async saveState(state: WorkspaceState): Promise<void> {
+    // 云同步写点（refactor-cloud-native-sync）：当前画板/折叠状态等变化触发上云
+    changeBus.emit('workspace_state', 'default', Date.now());
     await this.ensureInitialized();
     await this.getStateStore().setItem(STATE_KEY, state);
   }

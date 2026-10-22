@@ -7,6 +7,7 @@
 
 import localforage from 'localforage';
 import { BehaviorSubject, Observable } from 'rxjs';
+import { changeBus, SWEEP_ENTITY_ID } from './supabase-sync/change-bus';
 import type { SoraCharacter, CharacterStatus } from '../types/character.types';
 import { characterAvatarCacheService } from './character-avatar-cache-service';
 
@@ -103,6 +104,8 @@ class CharacterStorageService {
 
     await this.saveToStorage(characters);
     this.characters$.next([...characters]);
+    // 云同步写点（refactor-cloud-native-sync）
+    changeBus.emit('character', character.id, Date.now());
     // console.log('[CharacterStorage] Character saved:', character.id);
 
     // Cache avatar if character is completed and has profile picture
@@ -249,6 +252,8 @@ class CharacterStorageService {
   private async saveToStorage(characters: SoraCharacter[]): Promise<void> {
     try {
       await characterStore.setItem(STORAGE_KEY, characters);
+      // 云同步写点（refactor-cloud-native-sync）：角色数量少，sweep 整体比对
+      changeBus.emit('character', SWEEP_ENTITY_ID, Date.now());
     } catch (error) {
       console.error('[CharacterStorage] Save error:', error);
       throw error;

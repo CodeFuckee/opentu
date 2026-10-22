@@ -1,5 +1,6 @@
 import localforage from 'localforage';
 import { generateUUID } from '../utils/runtime-helpers';
+import { changeBus, SWEEP_ENTITY_ID } from './supabase-sync/change-bus';
 import {
   AUDIO_PLAYLIST_FAVORITES_ID,
   createAudioPlaylistItem,
@@ -102,6 +103,11 @@ class AudioPlaylistService {
     return Object.fromEntries(pairs);
   }
 
+  /** 云同步写点（refactor-cloud-native-sync）：列表与条目一起 sweep */
+  private emitSyncChange(): void {
+    changeBus.emit('audio_playlist', SWEEP_ENTITY_ID, Date.now());
+  }
+
   async createPlaylist(name: string): Promise<AudioPlaylist> {
     this.ensureInitialized();
     const trimmedName = name.trim();
@@ -121,6 +127,7 @@ class AudioPlaylistService {
     };
     await this.playlistStore!.setItem(playlist.id, playlist);
     await this.playlistItemsStore!.setItem(playlist.id, []);
+    this.emitSyncChange();
     return playlist;
   }
 
@@ -152,6 +159,7 @@ class AudioPlaylistService {
       name: trimmedName,
       updatedAt: this.getNow(),
     });
+    this.emitSyncChange();
   }
 
   async deletePlaylist(playlistId: string): Promise<void> {
@@ -167,6 +175,7 @@ class AudioPlaylistService {
     }
     await this.playlistStore!.removeItem(playlistId);
     await this.playlistItemsStore!.removeItem(playlistId);
+    this.emitSyncChange();
   }
 
   async addItemToPlaylist(
@@ -203,6 +212,7 @@ class AudioPlaylistService {
       ...playlist,
       updatedAt: this.getNow(),
     });
+    this.emitSyncChange();
   }
 
   async addAssetToPlaylist(assetId: string, playlistId: string): Promise<void> {
@@ -230,6 +240,7 @@ class AudioPlaylistService {
       ...playlist,
       updatedAt: this.getNow(),
     });
+    this.emitSyncChange();
   }
 
   async removeAssetFromPlaylist(

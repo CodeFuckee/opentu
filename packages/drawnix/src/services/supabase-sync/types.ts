@@ -11,9 +11,12 @@ export const SYNC_ENTITY_TYPES = [
   'folder',                // 文件夹
   'workspace_state',       // 工作区状态（content = WorkspaceState）
   'prompt',                // 提示词（content = PromptHistoryItem / Video / Image）
-  'prompt_deleted',        // 已删除提示词墓碑（content = PromptTombstone）
+  // 提示词删除已改为「跨设备真删除」：云端墓碑下载侧 delete-local 直接删本地
+  // 提示词（refactor-cloud-native-sync），prompt_deleted 实体类型不再采集
+  'prompt_deleted',
   'task',                  // 生成任务（content = Task 精简结构）
   'workflow',              // 工作流（content = WorkflowDefinition 精简结构）
+  'workflow_graph',        // 编排图（content = OrchestratorGraph，含 flowgram 编辑器数据）
   'kb_note',               // 知识库笔记元数据
   'kb_directory',          // 知识库目录
   'kb_tag',                // 知识库标签

@@ -5,6 +5,7 @@
  */
 
 import { CryptoUtils } from './crypto-utils';
+import { changeBus } from '../services/supabase-sync/change-bus';
 import { DRAWNIX_SETTINGS_KEY } from '../constants/storage';
 import { configIndexedDBWriter } from './config-indexeddb-writer';
 import { isManagedUpstreamEnabled } from '../services/managed-routing/managed-runtime';
@@ -1524,6 +1525,9 @@ class SettingsManager {
     );
     await this.saveToStorage();
     this.notifySettingsChange(oldSettings, this.settings, '');
+    // 云同步写点（refactor-cloud-native-sync）：设置变更触发上云
+    // （敏感字段在收集侧脱敏；apply-remote 回写处于 mute 期不会回声）
+    changeBus.emit('settings', 'default');
   }
 
   /**

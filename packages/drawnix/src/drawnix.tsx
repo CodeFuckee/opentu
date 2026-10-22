@@ -1,4 +1,5 @@
 import { Board, BoardChangeData, Wrapper } from '@plait-board/react-board';
+import { ensureSyncInfraStarted } from './services/supabase-sync/sync-pusher';
 import {
   PlaitBoard,
   PlaitBoardOptions,
@@ -389,6 +390,12 @@ export const Drawnix: React.FC<DrawnixProps> = ({
     });
   const [backupRestoreOpen, setBackupRestoreOpen] = useState(false);
   const [cloudSyncOpen, setCloudSyncOpen] = useState(false);
+
+  // 云同步基础设施（写点接线 + 事件驱动推送器）随主应用启动：
+  // 不依赖同步设置弹窗的 Provider，保证不开弹窗也自动上云、工具栏指示器有状态
+  useEffect(() => {
+    ensureSyncInfraStarted();
+  }, []);
   const [deferredRuntimeEnabled, setDeferredRuntimeEnabled] = useState(false);
   const [versionUpdateEnabled, setVersionUpdateEnabled] = useState(false);
   const [performancePanelEnabled, setPerformancePanelEnabled] = useState(false);
