@@ -330,6 +330,24 @@ export async function clickSyncNow(page: Page): Promise<void> {
 }
 
 /** 统计项目抽屉画布管理列表中的画板数量 */
+
+/**
+ * 本地隔离开关：登录不拉取云端（supabase_sync_disable_cloud_reconcile）。
+ *
+ * 供「断言本地干净初始状态」的用例使用（任务队列空态/模板中心/图片上传等）——
+ * 云原生登录拉取上线后，共享账号池的历史云端数据会进入本地，破坏此类断言。
+ * 用例显式开启本开关即回到「纯本地」语义（推送仍可用）。
+ */
+export async function disableCloudPullForLocalIsolation(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('supabase_sync_disable_cloud_reconcile', '1');
+    } catch {
+      // 忽略 localStorage 不可用
+    }
+  });
+}
+
 export async function countBoardsInDrawer(page: Page): Promise<number> {
   const drawer = page.getByTestId('project-drawer');
   await expect(drawer).toBeVisible({ timeout: TIMEOUTS.drawer });

@@ -9,6 +9,7 @@
  * （种子清理依赖单 worker 顺序执行）。
  */
 import { test, expect } from '../fixtures/test-base';
+import { disableCloudPullForLocalIsolation } from '../fixtures/cloud-sync-helpers';
 import type { Page } from '@playwright/test';
 import {
   cleanupE2eTemplates,
@@ -33,6 +34,12 @@ async function openGallery(page: Page): Promise<void> {
   await galleryButton(page).click();
   await expect(overlay(page)).toBeVisible({ timeout: 8000 });
 }
+
+// 登录云拉取的全量同步会挤占网络（外部模板数据加载），且共享账号池数据
+// 会污染计数断言——本地隔离
+test.beforeEach(async ({ page }) => {
+  await disableCloudPullForLocalIsolation(page);
+});
 
 test.describe('模板中心', () => {
   test.describe.configure({ mode: 'serial' });

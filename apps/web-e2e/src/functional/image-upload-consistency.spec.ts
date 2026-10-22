@@ -28,6 +28,7 @@ import { deflateSync } from 'zlib';
 import * as fs from 'fs';
 import * as path from 'path';
 import { test, expect } from '../fixtures/test-base';
+import { disableCloudPullForLocalIsolation } from '../fixtures/cloud-sync-helpers';
 import {
   dismissInspirationBoard,
   drawRectangle,
@@ -259,6 +260,11 @@ function aiBarPreviews(page: Page) {
     .getByTestId('ai-input-bar')
     .locator('.selected-content-preview');
 }
+
+// 登录云拉取的 25MB 校验/上传计数会被共享账号池历史数据干扰——本地隔离
+test.beforeEach(async ({ page }) => {
+  await disableCloudPullForLocalIsolation(page);
+});
 
 test.describe('AI 输入条上传', () => {
   test('E2E-IMG-01 文件选择 >25MB：提示拒绝且不添加', async ({ page }) => {
