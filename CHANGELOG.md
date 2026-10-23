@@ -1,5 +1,26 @@
 ## Unreleased
 
+### fix: 云端唯一存储两处保存链路缺陷 + E2E 落地（openspec remove-local-persistence 5.2）
+
+E2E 实测（本地 dev server 对齐内网 Supabase 栈实跑）暴露并修复两个问题：
+
+- **伪冲突自愈补全**：服务端 `updated_at` 为微秒精度（`user_sync_data_server_clock.sql`
+  未执行时）会让 CAS 的 `eq` 永久失配——原自愈用「换基线重试 eq」仍会失配。现改为
+  checksum 验证内容未被他人修改后**直接走 LWW 无条件覆盖**（对服务端时钟精度免疫）；
+  执行 migration 后此路径极少触发
+- **防抖保存失败传播**：`workspaceService.saveCurrentBoard` 的防抖落盘失败原先被
+  内部吞掉（只 warn），app 层的 CAS 冲突/未同步提示永远不触发。现失败向上传播，
+  app.tsx 按错误类型提示「画板已在其他窗口/设备修改」或「内容尚未同步」
+- **Realtime 禁用开关**（e2e/诊断用）：`cloud_only_storage_disable_realtime=1` 时
+  不订阅 Realtime、不启动轮询——设备保持打开时刻视图，供确定性验证 CAS 冲突
+  （否则远端变更会自动刷新基线，冲突不触发——这是应用正确行为）
+- **E2E 新增 `cloud-only-storage.spec.ts` 3 例**：冷启动直拉（设备 B 全新登录免手动
+  同步可见）、CAS 冲突（REST 受控外部修改构造确定性冲突）、断网未同步→恢复重试；
+  fixtures 增加 `enableCloudOnlyStorage`/`disableCloudRealtime`/`touchBoardRemotely`
+- 已知 quirk 记录：plait 画布新建后首次拖拽可能被异步渲染吞掉（元素延迟出现），
+  E2E 绘制统一走轮询增量＋重画的可靠绘制
+- 本地全量 231 文件单测通过；相关 E2E 回归（cloud-sync 系列/画板抽屉/画布基础）通过
+
 ### feat: 云端唯一存储三期——设置与素材库切云（openspec remove-local-persistence，flag 灰度默认关）
 
 - **设置跨设备同步**：settings-manager 在 flag 下把非敏感设置推送云端（`settings`

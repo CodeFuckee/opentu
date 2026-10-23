@@ -348,6 +348,36 @@ export async function disableCloudPullForLocalIsolation(page: Page): Promise<voi
   });
 }
 
+/**
+ * 云端唯一存储开关（openspec remove-local-persistence）：
+ * 开启后全部数据面云端 Postgres 直连，本地 IndexedDB 不参与持久化。
+ * 供 remove-local-persistence E2E 用例使用。
+ */
+export async function enableCloudOnlyStorage(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('cloud_only_storage', '1');
+    } catch {
+      // 忽略 localStorage 不可用
+    }
+  });
+}
+
+/**
+ * 云端唯一存储的 Realtime 禁用开关（e2e/诊断用）：
+ * 设备不订阅 Realtime/轮询，保持「打开时刻」的数据视图——供确定性验证
+ * CAS 乐观锁冲突（否则远端变更会自动刷新基线使冲突不触发）。
+ */
+export async function disableCloudRealtime(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('cloud_only_storage_disable_realtime', '1');
+    } catch {
+      // 忽略 localStorage 不可用
+    }
+  });
+}
+
 export async function countBoardsInDrawer(page: Page): Promise<number> {
   const drawer = page.getByTestId('project-drawer');
   await expect(drawer).toBeVisible({ timeout: TIMEOUTS.drawer });
@@ -364,8 +394,7 @@ export async function countBoardsInDrawer(page: Page): Promise<number> {
 }
 
 /** 从页面 localStorage 提取 Supabase access_token */
-async function getAccessToken(page: Page): Promise<string> {
-  return page.evaluate(() => {
+async function getAccessToken(page: Page): Promise<string> {  return page.evaluate(() => {
     try {
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i) || '';
@@ -657,4 +686,96 @@ export function extractSlateText(text: unknown): string {
     return t.text;
   }
   return (t.children ?? []).map(extractSlateText).join('');
+}
+
+/**
+ * 模拟另一设备修改画板：经 REST 直接改写该画板行的 checksum（content 不变）。
+ * 目的：让当前设备的 CAS 基线过期且自愈判定「内容已被他人修改」→ 保存被拒——
+ * 确定性构造乐观锁冲突（真实双设备场景受 Realtime 自动刷新基线影响无法定时）。
+ * 需在目标页面已登录后调用（复用其 access_token）。
+ */
+export async function touchBoardRemotely(
+  page: Page,
+  boardName: string
+): Promise<void> {
+  const accessToken = await getAccessToken(page);
+  if (!accessToken) {
+    throw new Error('touchBoardRemotely: 无登录态');
+  }
+  const rows = await fetchBoardRowsInternal(page);
+  const row = rows.find((r) => {
+    const content = r.content as Record<string, unknown> | null;
+    return content?.name === boardName;
+  });
+  if (!row) {
+    throw new Error(`touchBoardRemotely: 云端未找到画板 ${boardName}`);
+  }
+  const entityId = String(row.entity_id);
+  const res = await fetch(
+    `${SUPABASE.url}/rest/v1/user_sync_data?entity_type=eq.board&entity_id=eq.${encodeURIComponent(entityId)}`,
+    {
+      method: 'PATCH',
+      headers: {
+        apikey: SUPABASE.anonKey,
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({
+        checksum: 'e2e-remote-edit',
+        // CAS 仅比对 updated_at：必须同时推进行时间戳才能使当前设备基线过期
+        updated_at: new Date().toISOString(),
+      }),
+    }
+  );
+  if (!res.ok) {
+    throw new Error(`touchBoardRemotely: PATCH 失败 HTTP ${res.status}`);
+  }
+  // 回读核验 PATCH 是否真实生效（RLS/触发器可能改写）
+  const verify = await fetch(
+    `${SUPABASE.url}/rest/v1/user_sync_data?select=checksum,updated_at&entity_type=eq.board&entity_id=eq.${encodeURIComponent(entityId)}`,
+    {
+      headers: {
+        apikey: SUPABASE.anonKey,
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+  if (verify.ok) {
+    const after = (await verify.json()) as Array<Record<string, unknown>>;
+    const rowAfter = after[0] ?? {};
+    console.log(
+      `[touchBoardRemotely] PATCH 后行状态: checksum=${rowAfter.checksum} updated_at=${rowAfter.updated_at}`
+    );
+  }
+}
+
+/** fetchBoardRows 的内部复用出口（供 touchBoardRemotely 使用） */
+async function fetchBoardRowsInternal(
+  page: Page
+): Promise<Array<Record<string, unknown>>> {
+  // 复用模块内既有的分页拉取（不导出原函数，这里包一层）
+  return fetchBoardRowsForTouch(page);
+}
+
+async function fetchBoardRowsForTouch(
+  page: Page
+): Promise<Array<Record<string, unknown>>> {
+  const accessToken = await getAccessToken(page);
+  if (!accessToken) {
+    return [];
+  }
+  const res = await fetch(
+    `${SUPABASE.url}/rest/v1/user_sync_data?select=entity_type,entity_id,content,checksum&entity_type=eq.board&order=updated_at.desc`,
+    {
+      headers: {
+        apikey: SUPABASE.anonKey,
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+  if (!res.ok) {
+    return [];
+  }
+  return (await res.json()) as Array<Record<string, unknown>>;
 }

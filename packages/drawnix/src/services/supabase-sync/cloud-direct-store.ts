@@ -351,8 +351,9 @@ export class CloudDirectStore {
         );
         if ((conflict || savedAt === undefined) && !error) {
           // 伪冲突鉴别：时间戳精度伪影（如服务端触发器未截断毫秒）会让 eq 失配，
-          // 但内容其实没被别人改过——读回云端行，checksum 与本端基线一致则换新
-          // 基线重试一次；checksum 不同才是真冲突（他端真写了）
+          // 但内容其实没被别人改过——读回云端行，checksum 与本端基线一致则改走
+          // LWW 无条件覆盖（不再依赖 updated_at 等值匹配，对服务端时钟精度免疫）；
+          // checksum 不同才是真冲突（他端真写了）
           const baseChecksum = this.cache.get(key)?.checksum;
           if (baseChecksum) {
             const { entity: remote } = await this.deps.fetchEntity(
@@ -367,15 +368,13 @@ export class CloudDirectStore {
               remote.checksum &&
               remote.checksum === baseChecksum
             ) {
-              const retry = await this.deps.casWrite(
-                config,
-                userId,
-                entity,
-                remote.updated_at
-              );
-              savedAt = retry.savedAt;
-              conflict = retry.conflict;
+              const retry = await this.deps.lwwUpsert(config, userId, entity);
               error = retry.error;
+              if (!error && retry.savedAt !== undefined) {
+                // LWW 覆盖无冲突语义：内容已被证实未被他人修改
+                conflict = false;
+                savedAt = retry.savedAt;
+              }
             }
           }
         }

@@ -58,6 +58,8 @@ class WorkspaceService {
     boardId: string;
     data: BoardChangeData;
     resolve: () => void;
+    /** 落盘失败时向上传播（云端唯一存储：CAS 冲突/未同步提示依赖调用方感知） */
+    reject: (error: unknown) => void;
   } | null = null;
 
   private constructor() {
@@ -993,17 +995,22 @@ class WorkspaceService {
     this.cancelPendingCurrentBoardSave();
 
     let resolvePending!: () => void;
-    const pendingPromise = new Promise<void>((resolve) => {
+    let rejectPending!: (error: unknown) => void;
+    const pendingPromise = new Promise<void>((resolve, reject) => {
       resolvePending = resolve;
+      rejectPending = reject;
     });
     this.pendingCurrentBoardSave = {
       boardId: currentBoardId,
       data,
       resolve: resolvePending,
+      reject: rejectPending,
     };
     this.currentBoardSaveTimer = setTimeout(() => {
       this.flushPendingCurrentBoardSave().catch((error) => {
         console.warn('[Workspace] 当前画板防抖落盘失败:', error);
+        // 失败传播给 saveCurrentBoard 调用方（app.tsx 据此提示 CAS 冲突/未同步）
+        rejectPending(error);
       });
     }, 400);
 
@@ -1026,8 +1033,11 @@ class WorkspaceService {
     this.pendingCurrentBoardSave = null;
     try {
       await this.saveBoard(pending.boardId, pending.data);
-    } finally {
       pending.resolve();
+    } catch (error) {
+      // 先拒绝等待中的调用方（CAS 冲突/未同步提示依赖），再向上抛保持既有语义
+      pending.reject(error);
+      throw error;
     }
   }
 

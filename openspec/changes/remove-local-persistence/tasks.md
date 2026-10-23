@@ -26,7 +26,7 @@
 
 ## 5. 质量门禁
 - [x] 5.1 单测：CAS 命中/冲突、直写重试、真删除、投影退化（新增 21 例；全仓 typecheck + drawnix 1715 例通过）
-- [ ] 5.2 E2E：冷启动直拉渲染、双窗口 CAS 冲突提示、断网「未同步」恢复、换设备数据完整
+- [x] 5.2 E2E：`cloud-only-storage.spec.ts` 3 例（冷启动直拉渲染 / 受控外部修改构造 CAS 冲突提示 / 断网「未同步」→ 恢复重试落云）；E2E 实测暴露并修复伪冲突自愈缺口与防抖保存吞错（见 CHANGELOG）
 - [ ] 5.3 HTTP 非 localhost（LAN IP）实测通过（项目部署红线）
 - [ ] 5.4 CHANGELOG.md / README / user-manual 同步更新（CHANGELOG 已更；user-manual 待 flag 默认开启时随 4.x）
 

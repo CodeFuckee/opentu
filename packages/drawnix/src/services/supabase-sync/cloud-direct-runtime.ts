@@ -10,6 +10,7 @@
 import {
   getSupabaseSyncConfig,
   getSupabaseSyncUser,
+  isCloudRealtimeDisabled,
   type RealtimeChannelLike,
 } from './runtime';
 import { cloudDirectStore, type RemoteEntityChange } from './cloud-direct-store';
@@ -189,6 +190,12 @@ export async function stopCloudDirectRuntime(): Promise<void> {
 export async function startCloudDirectRuntime(
   config: SupabaseSyncConfig
 ): Promise<void> {
+  // e2e/诊断开关：不订阅 Realtime、不启动轮询——设备保持打开时刻的视图，
+  // 供确定性验证 CAS 冲突（见 runtime.isCloudRealtimeDisabled）
+  if (isCloudRealtimeDisabled()) {
+    console.info('[CloudDirect] Realtime 已被开关禁用（保持打开时刻视图）');
+    return;
+  }
   await startRealtime(config);
   if (!realtimeJoined) {
     startPollFallback('初始订阅未就绪');

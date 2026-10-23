@@ -134,7 +134,7 @@ describe('CloudDirectStore 写路径', () => {
     expect(store.getStatus().pending).toBe(0);
   });
 
-  it('伪冲突自愈：时间戳失配但云端内容未变时，换新基线重试一次成功', async () => {
+  it('伪冲突自愈：时间戳失配但云端内容未变时，改走 LWW 覆盖成功', async () => {
     // 预置缓存：基线 100、checksum 同云端（内容没被别人改过）
     const casWrite = vi
       .fn<
@@ -145,8 +145,8 @@ describe('CloudDirectStore 写路径', () => {
           base: number
         ) => Promise<{ savedAt?: number; conflict?: boolean; error?: unknown }>
       >()
-      .mockResolvedValueOnce({ conflict: true }) // 第一次：时间戳失配
-      .mockResolvedValueOnce({ savedAt: 888 }); // 重试：以服务端行基线
+      .mockResolvedValue({ conflict: true }); // eq 失配（微秒精度伪影）
+    const lwwUpsert = vi.fn().mockResolvedValue({ savedAt: 888 });
     const fetchEntity = vi
       .fn()
       .mockResolvedValue({
@@ -159,7 +159,7 @@ describe('CloudDirectStore 写路径', () => {
           deleted_at: null,
         },
       });
-    const store = makeStore({ casWrite, fetchEntity });
+    const store = makeStore({ casWrite, lwwUpsert, fetchEntity });
     const cache = (
       store as unknown as { cache: Map<string, { updatedAt: number; checksum?: string }> }
     ).cache;
@@ -168,17 +168,20 @@ describe('CloudDirectStore 写路径', () => {
     await store.saveEntity('board', 'b1', { name: '新' }, { cas: true });
 
     expect(fetchEntity).toHaveBeenCalledOnce();
-    expect(casWrite).toHaveBeenCalledTimes(2);
-    expect(casWrite.mock.calls[1][3]).toBe(777);
-    expect(cache.get('board:b1')).toMatchObject({ updatedAt: 888 });
+    expect(casWrite).toHaveBeenCalledOnce(); // 只试一次 CAS
+    expect(lwwUpsert).toHaveBeenCalledOnce(); // 自愈走 LWW 覆盖
+    expect(
+      (store as unknown as { cache: Map<string, { updatedAt: number }> }).cache.get('board:b1')
+    ).toMatchObject({ updatedAt: 888 });
   });
 
-  it('真冲突：云端 checksum 与基线不同则不重试，抛 CloudWriteConflictError', async () => {
+  it('真冲突：云端 checksum 与基线不同则不覆盖，抛 CloudWriteConflictError', async () => {
     const casWrite = vi
       .fn<
         () => Promise<{ conflict?: boolean; savedAt?: number }>
       >()
       .mockResolvedValue({ conflict: true });
+    const lwwUpsert = vi.fn();
     const fetchEntity = vi.fn().mockResolvedValue({
       entity: {
         entity_type: 'board',
@@ -189,7 +192,7 @@ describe('CloudDirectStore 写路径', () => {
         deleted_at: null,
       },
     });
-    const store = makeStore({ casWrite, fetchEntity });
+    const store = makeStore({ casWrite, lwwUpsert, fetchEntity });
     const cache = (
       store as unknown as { cache: Map<string, { updatedAt: number; checksum?: string }> }
     ).cache;
@@ -200,6 +203,7 @@ describe('CloudDirectStore 写路径', () => {
     ).rejects.toBeInstanceOf(CloudWriteConflictError);
     expect(fetchEntity).toHaveBeenCalledOnce();
     expect(casWrite).toHaveBeenCalledOnce();
+    expect(lwwUpsert).not.toHaveBeenCalled();
   });
 
   it('真删除：deleteHard 调用并清除缓存', async () => {

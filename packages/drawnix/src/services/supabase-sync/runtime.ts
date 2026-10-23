@@ -37,6 +37,22 @@ export function isCloudOnlyStorage(): boolean {
   }
 }
 
+/**
+ * 云端唯一存储的 Realtime 禁用开关（e2e/诊断用，与上述隔离开关同模式）：
+ * 置 1 后不订阅 Realtime、不启动轮询兜底——设备保持「打开时刻」的数据视图，
+ * 用于确定性验证 CAS 乐观锁冲突（否则远端变更会自动刷新基线使冲突不触发）。
+ */
+export function isCloudRealtimeDisabled(): boolean {
+  try {
+    return (
+      typeof localStorage !== 'undefined' &&
+      localStorage.getItem('cloud_only_storage_disable_realtime') === '1'
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** Realtime 订阅通道的最小结构面（supabase-js RealtimeChannel 的子集） */
 export interface RealtimeChannelLike {
   channelLike: {
