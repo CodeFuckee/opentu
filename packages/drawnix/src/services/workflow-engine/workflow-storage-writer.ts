@@ -8,6 +8,10 @@
 import type { Workflow } from './types';
 import { getAppDB, APP_DB_STORES } from '../app-database';
 import { changeBus } from '../supabase-sync/change-bus';
+import {
+  cloudDirectStore,
+  isCloudOnlyStorage,
+} from '../supabase-sync/cloud-direct-store';
 
 const WORKFLOWS_STORE = APP_DB_STORES.WORKFLOWS;
 
@@ -19,6 +23,10 @@ class WorkflowStorageWriter {
    * 检查是否可用
    */
   async isAvailable(): Promise<boolean> {
+    // 云端唯一存储：不依赖本地 IndexedDB
+    if (isCloudOnlyStorage()) {
+      return true;
+    }
     try {
       const db = await getAppDB();
       return db.objectStoreNames.contains(WORKFLOWS_STORE);
@@ -39,6 +47,18 @@ class WorkflowStorageWriter {
    * 降级模式下 IndexedDB 可能不可用，失败时静默跳过，不阻塞工作流执行
    */
   async saveWorkflow(workflow: Workflow): Promise<void> {
+    // 云端唯一存储（remove-local-persistence 2.3）：工作流直写云端（LWW）
+    if (isCloudOnlyStorage()) {
+      try {
+        await cloudDirectStore.saveEntity('workflow', workflow.id, workflow, {
+          cas: false,
+        });
+      } catch (error) {
+        // 与降级模式同语义：保存失败不阻塞工作流执行（重试由存储层负责）
+        console.warn('[WorkflowStorageWriter] 云端保存失败（不阻塞执行）:', error);
+      }
+      return;
+    }
     try {
       const db = await this.getDB();
       
@@ -72,6 +92,10 @@ class WorkflowStorageWriter {
       return null;
     }
 
+    if (isCloudOnlyStorage()) {
+      return cloudDirectStore.loadContent<Workflow>('workflow', workflowId);
+    }
+
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(WORKFLOWS_STORE, 'readonly');
@@ -88,6 +112,11 @@ class WorkflowStorageWriter {
    */
   async deleteWorkflow(workflowId: string): Promise<void> {
     if (!workflowId) {
+      return;
+    }
+
+    if (isCloudOnlyStorage()) {
+      await cloudDirectStore.deleteEntities([`workflow:${workflowId}`]);
       return;
     }
 

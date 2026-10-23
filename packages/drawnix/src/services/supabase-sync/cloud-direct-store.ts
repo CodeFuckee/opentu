@@ -245,6 +245,14 @@ export class CloudDirectStore {
     return (entity?.content as T) ?? null;
   }
 
+  /** 列出某类型全部实体内容（记录级数据面直连读的通用入口；每次实拉云端保最新） */
+  async listContents<T>(entityType: string): Promise<T[]> {
+    const entities = await this.loadEntitiesByTypes([entityType]);
+    return entities
+      .map((entity) => entity.content as T)
+      .filter((content) => content != null);
+  }
+
   /**
    * 画板元数据（树加载；投影拉取不含 elements 大字段）。
    * 顺带把各画板的 CAS 基线写入缓存（不覆盖已缓存的内容）。

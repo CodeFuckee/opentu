@@ -9,6 +9,10 @@ import localforage from 'localforage';
 import { ToolDefinition, ToolCategory } from '../types/toolbox.types';
 import { toolRegistry } from '../tools/registry';
 import { changeBus } from './supabase-sync/change-bus';
+import {
+  cloudDirectStore,
+  isCloudOnlyStorage,
+} from './supabase-sync/cloud-direct-store';
 
 /**
  * 自定义工具存储格式
@@ -70,9 +74,15 @@ class ToolboxService {
     }
 
     try {
-      const storage = await localforage.getItem<CustomToolsStorage>(
-        ToolboxService.STORAGE_KEY
-      );
+      // 云端唯一存储（remove-local-persistence 2.4）：自定义工具为单文档实体
+      const storage = isCloudOnlyStorage()
+        ? await cloudDirectStore.loadContent<CustomToolsStorage>(
+            'custom_tools',
+            'default'
+          )
+        : await localforage.getItem<CustomToolsStorage>(
+            ToolboxService.STORAGE_KEY
+          );
 
       if (storage) {
         // 验证版本兼容性
@@ -101,6 +111,14 @@ class ToolboxService {
         tools: this.customTools,
         updatedAt: Date.now(),
       };
+
+      // 云端唯一存储：整文档直写（低频小对象，LWW）
+      if (isCloudOnlyStorage()) {
+        await cloudDirectStore.saveEntity('custom_tools', 'default', storage, {
+          cas: false,
+        });
+        return;
+      }
 
       await localforage.setItem(ToolboxService.STORAGE_KEY, storage);
       // console.log(`[Toolbox] Saved ${this.customTools.length} custom tools`);
@@ -241,9 +259,14 @@ class ToolboxService {
    */
   async getUpdatedAt(): Promise<number> {
     try {
-      const storage = await localforage.getItem<CustomToolsStorage>(
-        ToolboxService.STORAGE_KEY
-      );
+      const storage = isCloudOnlyStorage()
+        ? await cloudDirectStore.loadContent<CustomToolsStorage>(
+            'custom_tools',
+            'default'
+          )
+        : await localforage.getItem<CustomToolsStorage>(
+            ToolboxService.STORAGE_KEY
+          );
       return storage?.updatedAt || 0;
     } catch {
       return 0;

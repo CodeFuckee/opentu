@@ -7,6 +7,10 @@
 
 import localforage from 'localforage';
 import { changeBus } from './supabase-sync/change-bus';
+import {
+  cloudDirectStore,
+  isCloudOnlyStorage,
+} from './supabase-sync/cloud-direct-store';
 import type LocalForage from 'localforage';
 import { generateUUID } from '../utils/runtime-helpers';
 import { IDB_DATABASES, LS_KEYS } from '../constants/storage-keys';
@@ -42,6 +46,51 @@ function instrumentKbStore<T extends LocalForage>(
 ): T {
   return new Proxy(store, {
     get(target, prop, receiver) {
+      // 云端唯一存储（remove-local-persistence 2.4）：KB 六仓读写直连云端，
+      // 实体粒度一记录一行（entity_id=记录键），与 apply-remote 写回语义一致
+      if (isCloudOnlyStorage()) {
+        if (prop === 'setItem') {
+          return async (key: string, value: unknown) => {
+            await cloudDirectStore.saveEntity(entityType, String(key), value, {
+              cas: false,
+            });
+          };
+        }
+        if (prop === 'getItem') {
+          return async (key: string) =>
+            cloudDirectStore.loadContent(entityType, String(key));
+        }
+        if (prop === 'removeItem') {
+          return async (key: string) => {
+            await cloudDirectStore.deleteEntities([`${entityType}:${key}`]);
+          };
+        }
+        if (prop === 'iterate') {
+          return async <V, R>(
+            iteratee: (
+              value: V,
+              key: string,
+              iterationNumber: number
+            ) => R | Promise<R>
+          ): Promise<R | undefined> => {
+            const entities =
+              await cloudDirectStore.loadEntitiesByTypes([entityType]);
+            let iterationNumber = 0;
+            for (const entity of entities) {
+              const result = await iteratee(
+                entity.content as V,
+                String(entity.entity_id),
+                iterationNumber++
+              );
+              // localforage 语义：iteratee 返回非 undefined 时提前结束
+              if (result !== undefined) {
+                return result as R;
+              }
+            }
+            return undefined;
+          };
+        }
+      }
       if (prop === 'setItem') {
         return async (key: string, value: unknown) => {
           await target.setItem(key, value as never);

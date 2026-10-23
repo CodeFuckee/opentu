@@ -31,6 +31,9 @@ export const SYNC_ENTITY_TYPES = [
   'cache_media',           // 缓存媒体元数据（含素材/AI 生成媒体）
   'settings',              // 应用设置（去除敏感字段）
   'custom_tools',          // 自定义工具
+  'color_history',         // 取色/渐变历史（remove-local-persistence 2.4，单文档）
+  'kv_data',               // 数据性 KV 键（提示词历史/外部技能/工具栏配置等，2.4）
+  'kb_collection',         // KB 整库导出文档（remove-local-persistence 2.4，单文档兜底）
 ] as const;
 
 export type SyncEntityType = (typeof SYNC_ENTITY_TYPES)[number];

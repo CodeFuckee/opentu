@@ -8,6 +8,10 @@
 import localforage from 'localforage';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { changeBus, SWEEP_ENTITY_ID } from './supabase-sync/change-bus';
+import {
+  cloudDirectStore,
+  isCloudOnlyStorage,
+} from './supabase-sync/cloud-direct-store';
 import type { SoraCharacter, CharacterStatus } from '../types/character.types';
 import { characterAvatarCacheService } from './character-avatar-cache-service';
 
@@ -28,6 +32,8 @@ const characterStore = localforage.createInstance({
 class CharacterStorageService {
   private characters$ = new BehaviorSubject<SoraCharacter[]>([]);
   private initialized = false;
+  // 云端唯一存储：已落云的角色 id 集合（saveToStorage 云分支据此删除被移除的角色）
+  private cloudKnownIds = new Set<string>();
 
   constructor() {
     // Initialize on first access
@@ -236,6 +242,21 @@ class CharacterStorageService {
    * @private
    */
   private async loadFromStorage(): Promise<SoraCharacter[]> {
+    // 云端唯一存储（remove-local-persistence 2.4）：从云端拉取全部角色
+    if (isCloudOnlyStorage()) {
+      try {
+        const characters = await cloudDirectStore.listContents<SoraCharacter>(
+          'character'
+        );
+        this.cloudKnownIds = new Set(
+          characters.filter((c) => c?.id).map((c) => c.id)
+        );
+        return characters;
+      } catch (error) {
+        console.error('[CharacterStorage] Cloud load error:', error);
+        return [];
+      }
+    }
     try {
       const data = await characterStore.getItem<SoraCharacter[]>(STORAGE_KEY);
       return data || [];
@@ -250,6 +271,30 @@ class CharacterStorageService {
    * @private
    */
   private async saveToStorage(characters: SoraCharacter[]): Promise<void> {
+    // 云端唯一存储：按角色逐实体对齐云端（upsert 现存 + 真删除被移除），
+    // 与云端实体粒度（一角色一行，apply-remote 同款）保持一致
+    if (isCloudOnlyStorage()) {
+      const presentIds = new Set<string>();
+      for (const character of characters) {
+        if (!character?.id) {
+          continue;
+        }
+        presentIds.add(character.id);
+        await cloudDirectStore.saveEntity('character', character.id, character, {
+          cas: false,
+        });
+      }
+      const removed = [...this.cloudKnownIds].filter(
+        (id) => !presentIds.has(id)
+      );
+      if (removed.length > 0) {
+        await cloudDirectStore.deleteEntities(
+          removed.map((id) => `character:${id}`)
+        );
+      }
+      this.cloudKnownIds = presentIds;
+      return;
+    }
     try {
       await characterStore.setItem(STORAGE_KEY, characters);
       // 云同步写点（refactor-cloud-native-sync）：角色数量少，sweep 整体比对

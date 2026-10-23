@@ -22,6 +22,10 @@ import { STORAGE_LIMITS } from '../constants/TASK_CONSTANTS';
 import type { CacheWarning } from '../types/cache-warning.types';
 
 import { APP_DB_NAME, APP_DB_STORES, getAppDB } from './app-database';
+import {
+  cloudDirectStore,
+  isCloudOnlyStorage,
+} from './supabase-sync/cloud-direct-store';
 
 // 使用主线程专用数据库
 const DB_NAME = APP_DB_NAME;
@@ -456,6 +460,17 @@ class TaskStorageReader extends BaseStorageReader<TaskCache> {
   }
 
   /**
+   * 云端唯一存储（remove-local-persistence 2.3）：拉取全部任务记录并按
+   * createdAt 倒序——对应 IDB createdAt 索引 prev 游标的排序语义
+   */
+  private async loadAllCloudTasks(): Promise<SWTask[]> {
+    const tasks = await cloudDirectStore.listContents<SWTask>('task');
+    return tasks
+      .filter((task) => task && task.id)
+      .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+  }
+
+  /**
    * 获取活跃任务（排除已归档，带 limit，使用 cursor 按 createdAt 倒序）
    */
   async getAllTasks(options?: { status?: TaskStatus; type?: TaskType; limit?: number; includeArchived?: boolean }): Promise<Task[]> {
@@ -463,6 +478,28 @@ class TaskStorageReader extends BaseStorageReader<TaskCache> {
     const hasStatusFilter = options?.status !== undefined;
     const includeArchived = options?.includeArchived ?? false;
     const limit = options?.limit ?? MAX_ACTIVE_LOAD;
+
+    // 云端唯一存储：云端全量拉取后内存过滤（排序语义与 createdAt prev 游标一致）
+    if (isCloudOnlyStorage()) {
+      const all = await this.loadAllCloudTasks();
+      const filtered: Task[] = [];
+      for (const task of all) {
+        if (filtered.length >= limit) {
+          break;
+        }
+        if (!includeArchived && task.archived) {
+          continue;
+        }
+        if (hasStatusFilter && task.status !== options!.status) {
+          continue;
+        }
+        if (hasTypeFilter && task.type !== options!.type) {
+          continue;
+        }
+        filtered.push(convertSWTaskToTask(task));
+      }
+      return filtered;
+    }
 
     // 检查缓存（仅类型过滤）
     if (this.isCacheValid() && this.cache) {
@@ -541,6 +578,28 @@ class TaskStorageReader extends BaseStorageReader<TaskCache> {
     const includeArchived = options?.includeArchived ?? false;
     const limit = options?.limit ?? MAX_ACTIVE_LOAD;
 
+    // 云端唯一存储：全量拉取后内存过滤（completed + 可转换项）
+    if (isCloudOnlyStorage()) {
+      const all = await this.loadAllCloudTasks();
+      const results: AssetTaskRecord[] = [];
+      for (const task of all) {
+        if (results.length >= limit) {
+          break;
+        }
+        if (!includeArchived && task.archived) {
+          continue;
+        }
+        if (task.status !== TaskStatus.COMPLETED) {
+          continue;
+        }
+        const assetTask = convertSWTaskToAssetTask(task);
+        if (assetTask) {
+          results.push(assetTask);
+        }
+      }
+      return results;
+    }
+
     try {
       const db = await this.getDB();
 
@@ -609,6 +668,40 @@ class TaskStorageReader extends BaseStorageReader<TaskCache> {
     const statusFilter = options?.statuses?.length
       ? new Set(options.statuses)
       : new Set([TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED]);
+
+    // 云端唯一存储：全量拉取后内存分页（排序/过滤语义与 createdAt prev 游标一致）
+    if (isCloudOnlyStorage()) {
+      const all = await this.loadAllCloudTasks();
+      const items: PromptHistoryTaskSummary[] = [];
+      let matched = 0;
+      let hasMore = false;
+      for (const task of all) {
+        if (!includeArchived && task.archived) {
+          continue;
+        }
+        if (typeFilter && !typeFilter.has(task.type)) {
+          continue;
+        }
+        if (statusFilter && !statusFilter.has(task.status)) {
+          continue;
+        }
+        const summary = convertSWTaskToPromptHistorySummary(task);
+        if (!summary) {
+          continue;
+        }
+        if (matched < offset) {
+          matched++;
+          continue;
+        }
+        if (items.length >= limit) {
+          hasMore = true;
+          break;
+        }
+        items.push(summary);
+        matched++;
+      }
+      return { items, nextOffset: matched, hasMore };
+    }
 
     try {
       const db = await this.getDB();
@@ -711,6 +804,16 @@ class TaskStorageReader extends BaseStorageReader<TaskCache> {
     offset = 0,
     limit = 50
   ): Promise<{ tasks: Task[]; hasMore: boolean }> {
+    // 云端唯一存储：全量拉取后内存分页
+    if (isCloudOnlyStorage()) {
+      const all = await this.loadAllCloudTasks();
+      const archived = all.filter((task) => task.archived);
+      const tasks = archived
+        .slice(offset, offset + limit)
+        .map(convertSWTaskToTask);
+      return { tasks, hasMore: offset + limit < archived.length };
+    }
+
     try {
       const db = await this.getDB();
       if (!db.objectStoreNames.contains(TASKS_STORE)) {
@@ -756,6 +859,12 @@ class TaskStorageReader extends BaseStorageReader<TaskCache> {
    * 获取已归档任务总数（用于历史标签数量展示）
    */
   async getArchivedTaskCount(): Promise<number> {
+    // 云端唯一存储：全量拉取后内存计数
+    if (isCloudOnlyStorage()) {
+      const all = await this.loadAllCloudTasks();
+      return all.filter((task) => task.archived).length;
+    }
+
     try {
       const db = await this.getDB();
       if (!db.objectStoreNames.contains(TASKS_STORE)) {
@@ -795,6 +904,14 @@ class TaskStorageReader extends BaseStorageReader<TaskCache> {
    */
   async getTask(taskId: string): Promise<Task | null> {
     try {
+      // 云端唯一存储：按需单拉
+      if (isCloudOnlyStorage()) {
+        const swTask = await cloudDirectStore.loadContent<SWTask>(
+          'task',
+          taskId
+        );
+        return swTask ? convertSWTaskToTask(swTask) : null;
+      }
       const swTask = await this.getById<SWTask>(TASKS_STORE, taskId);
       return swTask ? convertSWTaskToTask(swTask) : null;
     } catch {
@@ -809,6 +926,33 @@ class TaskStorageReader extends BaseStorageReader<TaskCache> {
     const includeArchived = options?.includeArchived ?? true;
     const limit = options?.limit ?? STORAGE_LIMITS.MAX_RETAINED_TASKS * 10;
     const targetUrl = normalizeComparableImageTaskUrl(imageUrl);
+
+    // 云端唯一存储：全量拉取后内存扫描（image 类型，createdAt 倒序）
+    if (isCloudOnlyStorage()) {
+      try {
+        const all = await this.loadAllCloudTasks();
+        let scannedImageTasks = 0;
+        for (const task of all) {
+          if (scannedImageTasks >= limit) {
+            return null;
+          }
+          if (!includeArchived && task.archived) {
+            continue;
+          }
+          if (task.type !== TaskType.IMAGE) {
+            continue;
+          }
+          scannedImageTasks++;
+          if (swImageTaskMatchesUrl(task, targetUrl)) {
+            return task.id;
+          }
+        }
+        return null;
+      } catch (error) {
+        console.error('[TaskStorageReader] Error finding image task:', error);
+        return null;
+      }
+    }
 
     try {
       const db = await this.getDB();

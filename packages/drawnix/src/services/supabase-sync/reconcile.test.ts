@@ -41,6 +41,12 @@ vi.mock('./sync-engine', () => ({ runSync: runSyncMock }));
 vi.mock('./repository', () => ({
   fetchRemoteEntities: vi.fn(async () => ({ entities: [] })),
   fetchRemoteEntityKeys: vi.fn(async () => ({ keys: [] })),
+  fetchRemoteEntitiesByTypes: vi.fn(async () => ({ entities: [] })),
+  fetchRemoteEntity: vi.fn(async () => ({ entity: null })),
+  fetchRemoteBoardMetadata: vi.fn(async () => ({ boards: [] })),
+  updateRemoteEntityCas: vi.fn(async () => ({ savedAt: 0 })),
+  upsertRemoteEntityReturnTs: vi.fn(async () => ({ savedAt: 0 })),
+  deleteRemoteEntitiesHard: vi.fn(async () => ({})),
   upsertRemoteEntities: vi.fn(async () => ({})),
   softDeleteRemoteEntities: vi.fn(async () => ({})),
 }));

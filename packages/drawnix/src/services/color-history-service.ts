@@ -7,6 +7,10 @@
 
 import localforage from 'localforage';
 import type { GradientFillConfig } from '../types/fill.types';
+import {
+  cloudDirectStore,
+  isCloudOnlyStorage,
+} from './supabase-sync/cloud-direct-store';
 
 // ============ 类型定义 ============
 
@@ -89,7 +93,23 @@ class ColorHistoryService {
    */
   async initialize(): Promise<void> {
     if (this.initialized) return;
-    
+
+    // 云端唯一存储（remove-local-persistence 2.4）：历史为单文档实体
+    if (isCloudOnlyStorage()) {
+      try {
+        const data = await cloudDirectStore.loadContent<ColorHistoryData>(
+          'color_history',
+          'default'
+        );
+        cachedData = data || { colors: [], gradients: [] };
+      } catch (error) {
+        console.error('[ColorHistoryService] Cloud init failed:', error);
+        cachedData = { colors: [], gradients: [] };
+      }
+      this.initialized = true;
+      return;
+    }
+
     try {
       const data = await colorHistoryStore.getItem<ColorHistoryData>('history');
       cachedData = data || { colors: [], gradients: [] };
@@ -106,7 +126,22 @@ class ColorHistoryService {
    */
   private async saveData(): Promise<void> {
     if (!cachedData) return;
-    
+
+    // 云端唯一存储：整文档直写（低频小对象，LWW）
+    if (isCloudOnlyStorage()) {
+      try {
+        await cloudDirectStore.saveEntity(
+          'color_history',
+          'default',
+          cachedData,
+          { cas: false }
+        );
+      } catch (error) {
+        console.error('[ColorHistoryService] Failed to save data:', error);
+      }
+      return;
+    }
+
     try {
       await colorHistoryStore.setItem('history', cachedData);
     } catch (error) {

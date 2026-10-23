@@ -2,6 +2,10 @@ import localforage from 'localforage';
 import { generateUUID } from '../utils/runtime-helpers';
 import { changeBus, SWEEP_ENTITY_ID } from './supabase-sync/change-bus';
 import {
+  cloudDirectStore,
+  isCloudOnlyStorage,
+} from './supabase-sync/cloud-direct-store';
+import {
   AUDIO_PLAYLIST_FAVORITES_ID,
   createAudioPlaylistItem,
   getAudioPlaylistItemRef,
@@ -43,15 +47,96 @@ class AudioPlaylistService {
     }
   }
 
+  // ==== 云端唯一存储（remove-local-persistence 2.4）存储原语分流 ====
+  // 云端实体布局与 local-collector/apply-remote 约定一致：
+  // <id> = 播放列表元数据；<id>:items = { playlistId, items }
+
+  private async getPlaylistMeta(id: string): Promise<AudioPlaylist | null> {
+    if (isCloudOnlyStorage()) {
+      return cloudDirectStore.loadContent<AudioPlaylist>('audio_playlist', id);
+    }
+    this.ensureInitialized();
+    return this.playlistStore!.getItem<AudioPlaylist>(id);
+  }
+
+  private async setPlaylistMeta(id: string, meta: AudioPlaylist): Promise<void> {
+    if (isCloudOnlyStorage()) {
+      await cloudDirectStore.saveEntity('audio_playlist', id, meta, {
+        cas: false,
+      });
+      return;
+    }
+    this.ensureInitialized();
+    await this.playlistStore!.setItem(id, meta);
+  }
+
+  private async removePlaylistMeta(id: string): Promise<void> {
+    if (isCloudOnlyStorage()) {
+      await cloudDirectStore.deleteEntities([`audio_playlist:${id}`]);
+      return;
+    }
+    this.ensureInitialized();
+    await this.playlistStore!.removeItem(id);
+  }
+
+  private async listPlaylistMetas(): Promise<AudioPlaylist[]> {
+    if (isCloudOnlyStorage()) {
+      return cloudDirectStore.listContents<AudioPlaylist>('audio_playlist');
+    }
+    this.ensureInitialized();
+    const keys = await this.playlistStore!.keys();
+    const playlists = await Promise.all(
+      keys.map((key) => this.playlistStore!.getItem<AudioPlaylist>(key))
+    );
+    return playlists.filter(
+      (playlist): playlist is AudioPlaylist => !!playlist
+    );
+  }
+
+  private async getItems(id: string): Promise<AudioPlaylistItem[]> {
+    if (isCloudOnlyStorage()) {
+      const wrapper = await cloudDirectStore.loadContent<{
+        playlistId: string;
+        items: AudioPlaylistItem[];
+      }>('audio_playlist', `${id}:items`);
+      return wrapper?.items ?? [];
+    }
+    this.ensureInitialized();
+    return (
+      (await this.playlistItemsStore!.getItem<AudioPlaylistItem[]>(id)) || []
+    );
+  }
+
+  private async setItems(id: string, items: AudioPlaylistItem[]): Promise<void> {
+    if (isCloudOnlyStorage()) {
+      await cloudDirectStore.saveEntity(
+        'audio_playlist',
+        `${id}:items`,
+        { playlistId: id, items },
+        { cas: false }
+      );
+      return;
+    }
+    this.ensureInitialized();
+    await this.playlistItemsStore!.setItem(id, items);
+  }
+
+  private async removeItems(id: string): Promise<void> {
+    if (isCloudOnlyStorage()) {
+      await cloudDirectStore.deleteEntities([`audio_playlist:${id}:items`]);
+      return;
+    }
+    this.ensureInitialized();
+    await this.playlistItemsStore!.removeItem(id);
+  }
+
   private getNow(): number {
     return Date.now();
   }
 
   private async ensureFavoritesPlaylist(): Promise<void> {
     this.ensureInitialized();
-    const existing = await this.playlistStore!.getItem<AudioPlaylist>(
-      AUDIO_PLAYLIST_FAVORITES_ID
-    );
+    const existing = await this.getPlaylistMeta(AUDIO_PLAYLIST_FAVORITES_ID);
     if (existing) {
       return;
     }
@@ -64,16 +149,23 @@ class AudioPlaylistService {
       updatedAt: now,
       isSystem: true,
     };
-    await this.playlistStore!.setItem(playlist.id, playlist);
-    await this.playlistItemsStore!.setItem(playlist.id, []);
+    await this.setPlaylistMeta(playlist.id, playlist);
+    await this.setItems(playlist.id, []);
   }
 
   async listPlaylists(): Promise<AudioPlaylist[]> {
+    if (isCloudOnlyStorage()) {
+      const playlists = await this.listPlaylistMetas();
+      return playlists
+        .filter((playlist) => !!playlist)
+        .sort((left, right) => {
+          if (left.id === AUDIO_PLAYLIST_FAVORITES_ID) return -1;
+          if (right.id === AUDIO_PLAYLIST_FAVORITES_ID) return 1;
+          return right.updatedAt - left.updatedAt;
+        });
+    }
     this.ensureInitialized();
-    const keys = await this.playlistStore!.keys();
-    const playlists = await Promise.all(
-      keys.map((key) => this.playlistStore!.getItem<AudioPlaylist>(key))
-    );
+    const playlists = await this.listPlaylistMetas();
     return playlists
       .filter((playlist): playlist is AudioPlaylist => !!playlist)
       .sort((left, right) => {
@@ -84,12 +176,7 @@ class AudioPlaylistService {
   }
 
   async getPlaylistItems(playlistId: string): Promise<AudioPlaylistItem[]> {
-    this.ensureInitialized();
-    return (
-      (await this.playlistItemsStore!.getItem<AudioPlaylistItem[]>(
-        playlistId
-      )) || []
-    );
+    return this.getItems(playlistId);
   }
 
   async listPlaylistItems(): Promise<Record<string, AudioPlaylistItem[]>> {
@@ -125,17 +212,15 @@ class AudioPlaylistService {
       createdAt: now,
       updatedAt: now,
     };
-    await this.playlistStore!.setItem(playlist.id, playlist);
-    await this.playlistItemsStore!.setItem(playlist.id, []);
+    await this.setItems(playlist.id, []);
+    await this.setPlaylistMeta(playlist.id, playlist);
     this.emitSyncChange();
     return playlist;
   }
 
   async renamePlaylist(playlistId: string, name: string): Promise<void> {
     this.ensureInitialized();
-    const playlist = await this.playlistStore!.getItem<AudioPlaylist>(
-      playlistId
-    );
+    const playlist = await this.getPlaylistMeta(playlistId);
     if (!playlist) {
       throw new Error('播放列表不存在');
     }
@@ -154,7 +239,7 @@ class AudioPlaylistService {
     ) {
       throw new Error('播放列表名称已存在');
     }
-    await this.playlistStore!.setItem(playlistId, {
+    await this.setPlaylistMeta(playlistId, {
       ...playlist,
       name: trimmedName,
       updatedAt: this.getNow(),
@@ -164,17 +249,15 @@ class AudioPlaylistService {
 
   async deletePlaylist(playlistId: string): Promise<void> {
     this.ensureInitialized();
-    const playlist = await this.playlistStore!.getItem<AudioPlaylist>(
-      playlistId
-    );
+    const playlist = await this.getPlaylistMeta(playlistId);
     if (!playlist) {
       return;
     }
     if (playlist.isSystem) {
       throw new Error('系统播放列表不可删除');
     }
-    await this.playlistStore!.removeItem(playlistId);
-    await this.playlistItemsStore!.removeItem(playlistId);
+    await this.removePlaylistMeta(playlistId);
+    await this.removeItems(playlistId);
     this.emitSyncChange();
   }
 
@@ -183,9 +266,7 @@ class AudioPlaylistService {
     playlistId: string
   ): Promise<void> {
     this.ensureInitialized();
-    const playlist = await this.playlistStore!.getItem<AudioPlaylist>(
-      playlistId
-    );
+    const playlist = await this.getPlaylistMeta(playlistId);
     if (!playlist) {
       throw new Error('播放列表不存在');
     }
@@ -207,8 +288,8 @@ class AudioPlaylistService {
       createAudioPlaylistItem(playlistId, itemRef, this.getNow()),
       ...items,
     ];
-    await this.playlistItemsStore!.setItem(playlistId, nextItems);
-    await this.playlistStore!.setItem(playlistId, {
+    await this.setItems(playlistId, nextItems);
+    await this.setPlaylistMeta(playlistId, {
       ...playlist,
       updatedAt: this.getNow(),
     });
@@ -224,9 +305,7 @@ class AudioPlaylistService {
     playlistId: string
   ): Promise<void> {
     this.ensureInitialized();
-    const playlist = await this.playlistStore!.getItem<AudioPlaylist>(
-      playlistId
-    );
+    const playlist = await this.getPlaylistMeta(playlistId);
     if (!playlist) {
       return;
     }
@@ -235,8 +314,8 @@ class AudioPlaylistService {
       const existingRef = getAudioPlaylistItemRef(item);
       return existingRef ? !isSameAudioPlaylistItemRef(existingRef, itemRef) : true;
     });
-    await this.playlistItemsStore!.setItem(playlistId, nextItems);
-    await this.playlistStore!.setItem(playlistId, {
+    await this.setItems(playlistId, nextItems);
+    await this.setPlaylistMeta(playlistId, {
       ...playlist,
       updatedAt: this.getNow(),
     });

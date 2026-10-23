@@ -15,6 +15,10 @@ import type {
 import { BaseStorageReader } from './base-storage-reader';
 
 import { APP_DB_NAME, APP_DB_STORES, getAppDB } from './app-database';
+import {
+  cloudDirectStore,
+  isCloudOnlyStorage,
+} from './supabase-sync/cloud-direct-store';
 
 // 使用主线程专用数据库
 const DB_NAME = APP_DB_NAME;
@@ -143,6 +147,23 @@ class WorkflowStorageReader extends BaseStorageReader<WorkflowCache> {
       return this.cache.workflows;
     }
 
+    // 云端唯一存储（remove-local-persistence 2.3）：云端拉取后按 createdAt 倒序
+    if (isCloudOnlyStorage()) {
+      try {
+        const rawWorkflows = await cloudDirectStore.listContents<SWWorkflow>(
+          'workflow'
+        );
+        rawWorkflows.sort((a, b) => b.createdAt - a.createdAt);
+        const workflows = rawWorkflows.map(convertSWWorkflowToDefinition);
+        this.cache = { workflows };
+        this.updateCacheTimestamp();
+        return workflows;
+      } catch (error) {
+        console.error('[WorkflowStorageReader] Error getting workflows:', error);
+        return [];
+      }
+    }
+
     try {
       const db = await this.getDB();
       
@@ -188,6 +209,19 @@ class WorkflowStorageReader extends BaseStorageReader<WorkflowCache> {
     if (this.isCacheValid() && this.cache?.workflows) {
       const cached = this.cache.workflows.find(w => w.id === workflowId);
       if (cached) return cached;
+    }
+
+    // 云端唯一存储：按需单拉
+    if (isCloudOnlyStorage()) {
+      try {
+        const swWorkflow = await cloudDirectStore.loadContent<SWWorkflow>(
+          'workflow',
+          workflowId
+        );
+        return swWorkflow ? convertSWWorkflowToDefinition(swWorkflow) : null;
+      } catch {
+        return null;
+      }
     }
 
     try {

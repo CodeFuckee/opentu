@@ -510,6 +510,12 @@ describe('media-sync：画布图片素材的媒体同步', () => {
   vi.mock('./repository', () => ({
     fetchRemoteMedia: repoMocks.fetchRemoteMedia,
     upsertRemoteMedia: repoMocks.upsertRemoteMedia,
+    fetchRemoteEntitiesByTypes: vi.fn(async () => ({ entities: [] })),
+    fetchRemoteEntity: vi.fn(async () => ({ entity: null })),
+    fetchRemoteBoardMetadata: vi.fn(async () => ({ boards: [] })),
+    updateRemoteEntityCas: vi.fn(async () => ({ savedAt: 0 })),
+    upsertRemoteEntityReturnTs: vi.fn(async () => ({ savedAt: 0 })),
+    deleteRemoteEntitiesHard: vi.fn(async () => ({})),
   }));
 
   vi.mock('../unified-cache-service', () => ({

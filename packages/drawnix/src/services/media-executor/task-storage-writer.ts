@@ -12,6 +12,10 @@ import { normalizeImageDataUrl } from '@aitu/utils';
 import { APP_DB_NAME, APP_DB_STORES } from '../app-database';
 import type { TaskInvocationRouteSnapshot } from '../../types/task.types';
 import { changeBus } from '../supabase-sync/change-bus';
+import {
+  cloudDirectStore,
+  isCloudOnlyStorage,
+} from '../supabase-sync/cloud-direct-store';
 
 // 使用主线程专用数据库
 const DB_NAME = APP_DB_NAME;
@@ -170,6 +174,12 @@ class TaskStorageWriter {
    * 保存任务
    */
   async saveTask(task: SWTask): Promise<void> {
+    // 云端唯一存储（remove-local-persistence 2.3）：任务直写云端（LWW，任务为
+    // 单端顺序流转的记录级数据，无并发编辑）
+    if (isCloudOnlyStorage()) {
+      await cloudDirectStore.saveEntity('task', task.id, task, { cas: false });
+      return;
+    }
     const db = await this.getDB();
     await new Promise<void>((resolve, reject) => {
       const transaction = db.transaction(TASKS_STORE, 'readwrite');
@@ -189,6 +199,10 @@ class TaskStorageWriter {
   async getTask(taskId: string): Promise<SWTask | null> {
     if (!taskId) {
       return null;
+    }
+
+    if (isCloudOnlyStorage()) {
+      return cloudDirectStore.loadContent<SWTask>('task', taskId);
     }
 
     const db = await this.getDB();
@@ -372,6 +386,11 @@ class TaskStorageWriter {
       return;
     }
 
+    if (isCloudOnlyStorage()) {
+      await cloudDirectStore.deleteEntities([`task:${taskId}`]);
+      return;
+    }
+
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(TASKS_STORE, 'readwrite');
@@ -381,7 +400,6 @@ class TaskStorageWriter {
       request.onerror = () => reject(request.error);
       request.onsuccess = () => resolve();
     });
-    changeBus.emit('task', taskId);
   }
 
   /**
@@ -396,6 +414,28 @@ class TaskStorageWriter {
   ): Promise<{ imported: number; skipped: number }> {
     if (tasks.length === 0) {
       return { imported: 0, skipped: 0 };
+    }
+
+    // 云端唯一存储：逐条 upsert（replaceExisting=false 时已存在则跳过）
+    if (isCloudOnlyStorage()) {
+      let imported = 0;
+      let skipped = 0;
+      for (const task of tasks) {
+        try {
+          if (!options.replaceExisting) {
+            const existing = await this.getTask(task.id);
+            if (existing) {
+              skipped++;
+              continue;
+            }
+          }
+          await this.saveTask(task);
+          imported++;
+        } catch {
+          skipped++;
+        }
+      }
+      return { imported, skipped };
     }
 
     const db = await this.getDB();
@@ -490,6 +530,17 @@ class TaskStorageWriter {
    * 清空任务表（用于完整覆盖恢复）
    */
   async clearAllTasks(): Promise<void> {
+    // 云端唯一存储：列出全部任务键后真删除
+    if (isCloudOnlyStorage()) {
+      const tasks = await cloudDirectStore.listContents<SWTask>('task');
+      const keys = tasks
+        .filter((task) => task?.id)
+        .map((task) => `task:${task.id}`);
+      if (keys.length > 0) {
+        await cloudDirectStore.deleteEntities(keys);
+      }
+      return;
+    }
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(TASKS_STORE, 'readwrite');
@@ -519,6 +570,11 @@ class TaskStorageWriter {
    */
   async archiveTasks(taskIds: string[]): Promise<void> {
     if (taskIds.length === 0) return;
+    // 云端唯一存储：逐条标记 archived（复用 getTask/saveTask 的云端分流）
+    if (isCloudOnlyStorage()) {
+      await Promise.all(taskIds.map((id) => this.archiveTask(id).catch(() => undefined)));
+      return;
+    }
     const db = await this.getDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(TASKS_STORE, 'readwrite');

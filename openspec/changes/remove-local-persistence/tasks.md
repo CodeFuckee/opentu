@@ -8,9 +8,9 @@
 ## 2. 数据面云端直连（按依赖顺序逐面切换，每面带 feature flag `cloud_only_storage`）
 - [x] 2.1 画板面先行：workspace-storage-service / workspace-service 读改「云端拉取→内存」、写改「防抖直写＋CAS」；删除本地持久化写入（flag 分流，关闭路径零变化）
 - [x] 2.2 冷启动链路重写（apps/web/src/app/app.tsx initialize）：登录→拉树→拉当前板→渲染；flag 分支删除 `waitForFirstReconcile` 依赖、种板特判简化为「云端确无画板时创建默认板」（旧路径保留给 flag off）
-- [ ] 2.3 aitu-app 三 store（tasks/workflows/config）迁 `user_sync_data`（task/workflow 实体已有，config 归入 settings 或新增实体类型）
-- [ ] 2.4 KB（6 store）/chat（2 store）/prompt/character/audio-playlist/asset 元数据/toolbox/settings 逐面切换
-- [ ] 2.5 编排图 `workflow_graph` / 编排运行记录 `workflow_run` 上云（承接 refactor-cloud-native-sync Phase A 未完项，走同一 CAS 写路径）
+- [x] 2.3 aitu-app 任务/工作流 store 迁 `user_sync_data`（task/workflow 实体已有；**config store 顺延 Phase E**——其内容为 API Key 等敏感凭据，按 design 须走 secret 信封加密，明文上云是安全倒退）
+- [x] 2.4 KB（6 store，经 instrumentKbStore Proxy 单点分流）/chat（2 store）/prompt（kv）/character/audio-playlist/color-history（新实体类型 color_history）/toolbox/kv 数据键（新实体类型 kv_data，提示词历史/外部技能/工具栏配置/自定义渐变/最近颜色/模型跑分，kv-storage-service 单点分流）已切换；**settings-manager（localStorage＋敏感字段，与 Phase E secret 关联）与 asset-storage（17 触点）顺延下一轮**
+- [x] 2.5 编排图 `workflow_graph` 上云（graph-storage 四函数分流；**`workflow_run` 顺延**——workflow-run-service.ts 存在另一项工作的未提交改动，待其合入后接同一模式；编排运行记录现仍走 kv）
 - [x] 2.6 写失败语义：内存保留＋「未同步」提示＋指数退避重试；beforeunload 尽力 flush；关闭快照兜底保留（机制落在 cloud-direct-store，各面切换即继承）
 - [x] 2.7 删除语义改真 DELETE（画板面已切；其余面随 2.3-2.5 切换继承），移除墓碑下载侧与 `deleted_at` 判断（新路径不再写墓碑；旧引擎文件随 4.x 清理）
 

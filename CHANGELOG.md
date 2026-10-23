@@ -1,5 +1,31 @@
 ## Unreleased
 
+### feat: 云端唯一存储二期——任务/工作流/编排图/聊天/知识库等数据面切云（openspec remove-local-persistence，flag 灰度默认关）
+
+在一期（画板面）基础上，flag `cloud_only_storage` 开启时以下数据面全部改为云端
+Postgres 直连（LWW 语义，记录级一实体一行），本地 IndexedDB 不再参与持久化：
+
+- **任务面**：task-storage-reader/writer 全方法分流——创建/状态流转/进度/完成/失败/
+  结果回填/归档/导入/清空直写云端；列表类查询云端全量拉取后内存过滤（排序语义与
+  原 createdAt 游标一致）
+- **工作流面**：workflow-storage-reader/writer（getAll/get/delete，createdAt 倒序）
+- **编排图**：graph-storage 四函数（保存/读取/列表/删除）直连 `workflow_graph` 实体
+- **聊天**：chat-storage-service 会话与消息（chat_session/chat_message 实体，
+  删除会话级联真删消息；抽屉状态仍为 localStorage 瞬态）
+- **知识库**：instrumentKbStore Proxy 单点接入——六仓（目录/笔记/标签/关联/正文/图片）
+  set/get/remove/iterate 全部直连云端，实体粒度一记录一行
+- **角色/音频播放列表/取色历史/自定义工具**：character（按角色逐实体对齐＋真删除）、
+  audio_playlist（meta＋items 双实体，与既有采集布局一致）、color_history（新实体类型，
+  单文档）、custom_tools（单文档 default）
+- **KV 数据键**：kv-storage-service 单点分流——提示词历史（3 键＋overrides）、外部技能、
+  工具栏配置、自定义渐变、最近颜色、模型跑分迁 `kv_data` 实体（按键白名单，瞬态缓存
+  键仍走本地）
+- **新增实体类型**：`color_history` / `kv_data`（entity_type 无 CHECK 约束，零迁移）
+- **顺延项**：aitu-app config store（API Key 敏感凭据，待 Phase E secret 信封加密）、
+  settings-manager 与 asset-storage（下一轮）、workflow_run（待并行的 flowgram 工作
+  合入后接同一模式）
+- **测试**：既有 231 文件全绿（含新增 repository mock 适配）；typecheck 5 项目通过
+
 ### feat: 云端唯一存储一期——画板面 IndexedDB 退役，整板 LWW＋乐观锁（openspec remove-local-persistence，灰度 flag 默认关）
 
 架构方向（2026-10-23 拍板）：浏览器本地不再保留持久化数据副本，云端 Postgres
