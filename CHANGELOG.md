@@ -1,5 +1,20 @@
 ## Unreleased
 
+### feat: 云端唯一存储三期——设置与素材库切云（openspec remove-local-persistence，flag 灰度默认关）
+
+- **设置跨设备同步**：settings-manager 在 flag 下把非敏感设置推送云端（`settings`
+  实体，敏感字段——`gemini.apiKey`、`providerProfiles[].apiKey`——整键移除，凭据留在
+  本地待 Phase E secret 信封加密）；启动后台拉取云端并与本地深度合并（远端缺键不
+  覆盖本地，本地敏感值天然保留），基线快照去重防无效合并；本地有未推送编辑时跳过
+  拉取防覆盖；Realtime 远端变更到达自动重拉。**已知限制**：API Key 不跨设备（Phase E）
+- **素材库元数据切云**：asset-storage-service 的 21 个 IndexedDB 触点收敛为 5 个
+  存储原语（keys/get/set/remove/clear）统一分流——素材元数据直连 `asset` 实体，
+  blob 仍由 Cache API/媒体同步承载；flag 下跳过本地旧版迁移（云端早已是权威）；
+  云端 keys() 预载内容入缓存，避免列表 N+1 拉取
+- 至此 flag 开启时除 aitu-app config（API Key，待 Phase E）与 workflow_run（待并行的
+  flowgram 工作合入）外全部数据面为云端直连
+- 既有 231 测试文件全绿；typecheck 5 项目通过
+
 ### feat: 云端唯一存储二期——任务/工作流/编排图/聊天/知识库等数据面切云（openspec remove-local-persistence，flag 灰度默认关）
 
 在一期（画板面）基础上，flag `cloud_only_storage` 开启时以下数据面全部改为云端

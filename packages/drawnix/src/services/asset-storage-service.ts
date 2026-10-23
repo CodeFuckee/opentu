@@ -18,6 +18,10 @@ import {
 import { canAddAssetBySize } from '../utils/storage-quota';
 import { unifiedCacheService } from './unified-cache-service';
 import { changeBus } from './supabase-sync/change-bus';
+import {
+  cloudDirectStore,
+  isCloudOnlyStorage,
+} from './supabase-sync/cloud-direct-store';
 import { analytics } from '../utils/posthog-analytics';
 import type {
   Asset,
@@ -108,9 +112,9 @@ class AssetStorageService {
     if (!this.store) return null;
 
     try {
-      const keys = await this.store.keys();
+      const keys = await this.storedKeys();
       for (const key of keys) {
-        const stored = await this.store.getItem(key) as StoredAsset | null;
+        const stored = await this.getStored(key);
         if (!stored) continue;
 
         // 如果已有 contentHash，直接比较
@@ -136,7 +140,7 @@ class AssetStorageService {
             
             // 更新旧素材的 contentHash
             stored.contentHash = oldHash;
-            await this.store.setItem(key, stored);
+            await this.setStored(key, stored);
             // console.log('[AssetStorageService] Updated contentHash for old asset:', stored.id);
 
             if (oldHash === contentHash) {
@@ -187,6 +191,11 @@ class AssetStorageService {
       storeName: ASSET_CONSTANTS.STORE_NAME,
       description: 'Media library assets storage',
     });
+
+    // 云端唯一存储：云端为元数据权威（旧同步早已把素材推云），跳过本地旧版迁移
+    if (isCloudOnlyStorage()) {
+      return;
+    }
 
     // 执行数据迁移
     await this.migrateOldData();
@@ -272,6 +281,59 @@ class AssetStorageService {
         'NOT_INITIALIZED',
       );
     }
+  }
+
+  // ==== 云端唯一存储原语分流（remove-local-persistence 三期）====
+  // 素材元数据直连云端（blob 仍由 Cache API/媒体同步承载）；云端路径下
+  // storedKeys() 会把全部实体内容载入缓存，后续 getStored 命中缓存不产生 N+1
+
+  private async storedKeys(): Promise<string[]> {
+    if (isCloudOnlyStorage()) {
+      const entities = await cloudDirectStore.loadEntitiesByTypes(['asset']);
+      return entities.map((entity) => entity.entity_id);
+    }
+    this.ensureInitialized();
+    return this.store!.keys();
+  }
+
+  private async getStored(id: string): Promise<StoredAsset | null> {
+    if (isCloudOnlyStorage()) {
+      return cloudDirectStore.loadContent<StoredAsset>('asset', id);
+    }
+    this.ensureInitialized();
+    return (await this.store!.getItem(id)) as StoredAsset | null;
+  }
+
+  private async setStored(id: string, value: StoredAsset): Promise<void> {
+    if (isCloudOnlyStorage()) {
+      await cloudDirectStore.saveEntity('asset', id, value, { cas: false });
+      return;
+    }
+    this.ensureInitialized();
+    await this.store!.setItem(id, value);
+  }
+
+  private async removeStored(id: string): Promise<void> {
+    if (isCloudOnlyStorage()) {
+      await cloudDirectStore.deleteEntities([`asset:${id}`]);
+      return;
+    }
+    this.ensureInitialized();
+    await this.removeStored(id);
+  }
+
+  private async clearStored(): Promise<void> {
+    if (isCloudOnlyStorage()) {
+      const ids = await this.storedKeys();
+      if (ids.length > 0) {
+        await cloudDirectStore.deleteEntities(
+          ids.map((id) => `asset:${id}`)
+        );
+      }
+      return;
+    }
+    this.ensureInitialized();
+    await this.clearStored();
   }
 
   /**
@@ -365,7 +427,7 @@ class AssetStorageService {
       const storedAsset = assetToStoredAsset(asset);
       // 添加内容哈希到存储对象
       storedAsset.contentHash = contentHash;
-      await this.store!.setItem(asset.id, storedAsset);
+      await this.setStored(asset.id, storedAsset);
       // 云同步写点（refactor-cloud-native-sync）
       changeBus.emit('asset', asset.id, Date.now());
       // console.log('[AssetStorageService] Asset saved to IndexedDB');
@@ -413,7 +475,7 @@ class AssetStorageService {
     this.ensureInitialized();
 
     try {
-      const keys = await this.store!.keys();
+      const keys = await this.storedKeys();
       // console.log(`[AssetStorageService] Found ${keys.length} keys in IndexedDB`);
 
       if (keys.length === 0) {
@@ -455,7 +517,7 @@ class AssetStorageService {
         const batchKeys = keys.slice(i, i + batchSize);
         const loadPromises = batchKeys.map(async (key) => {
           try {
-            const stored = (await this.store!.getItem(key)) as StoredAsset | null;
+            const stored = await this.getStored(key);
             if (!stored) return null;
 
             // 验证 Cache Storage 中是否有实际数据
@@ -498,7 +560,7 @@ class AssetStorageService {
     this.ensureInitialized();
 
     try {
-      const stored = (await this.store!.getItem(id)) as StoredAsset | null;
+      const stored = await this.getStored(id);
       if (!stored) {
         return null;
       }
@@ -527,13 +589,13 @@ class AssetStorageService {
     }
 
     try {
-      const stored = (await this.store!.getItem(id)) as StoredAsset | null;
+      const stored = await this.getStored(id);
       if (!stored) {
         throw new NotFoundError(id);
       }
 
       stored.name = newName;
-      await this.store!.setItem(id, stored);
+      await this.setStored(id, stored);
       changeBus.emit('asset', id, Date.now());
     } catch (error: any) {
       if (error instanceof NotFoundError) {
@@ -557,7 +619,7 @@ class AssetStorageService {
     this.ensureInitialized();
 
     try {
-      const stored = (await this.store!.getItem(id)) as StoredAsset | null;
+      const stored = await this.getStored(id);
       if (!stored) {
         throw new NotFoundError(id);
       }
@@ -569,7 +631,7 @@ class AssetStorageService {
         stored.characterMeta = patch.characterMeta;
       }
 
-      await this.store!.setItem(id, stored);
+      await this.setStored(id, stored);
       // 云同步写点（refactor-cloud-native-sync）
       changeBus.emit('asset', id, Date.now());
       await unifiedCacheService.updateCachedMedia(stored.url, {
@@ -600,7 +662,7 @@ class AssetStorageService {
     changeBus.emit('asset', id);
 
     try {
-      const stored = (await this.store!.getItem(id)) as StoredAsset | null;
+      const stored = await this.getStored(id);
       if (!stored) {
         throw new NotFoundError(id);
       }
@@ -608,7 +670,7 @@ class AssetStorageService {
       // 从统一缓存中删除（使用存储的 URL）
       await unifiedCacheService.deleteCache(stored.url);
 
-      await this.store!.removeItem(id);
+      await this.removeStored(id);
       changeBus.emit('asset', id);
 
       // 埋点：素材删除
@@ -638,16 +700,16 @@ class AssetStorageService {
 
     try {
       // 获取所有素材的 URL 并从统一缓存中删除
-      const keys = await this.store!.keys();
+      const keys = await this.storedKeys();
       const deletePromises = keys.map(async (key) => {
-        const stored = (await this.store!.getItem(key)) as StoredAsset | null;
+        const stored = await this.getStored(key);
         if (stored) {
           await unifiedCacheService.deleteCache(stored.url);
         }
       });
       await Promise.all(deletePromises);
 
-      await this.store!.clear();
+      await this.clearStored();
     } catch (error: any) {
       throw new AssetStorageError(
         `Failed to clear assets: ${error.message}`,
@@ -698,7 +760,7 @@ class AssetStorageService {
     this.ensureInitialized();
 
     try {
-      const keys = await this.store!.keys();
+      const keys = await this.storedKeys();
       let imageCount = 0;
       let videoCount = 0;
       let audioCount = 0;
@@ -707,7 +769,7 @@ class AssetStorageService {
       let totalSize = 0;
 
       for (const key of keys) {
-        const stored = (await this.store!.getItem(key)) as StoredAsset | null;
+        const stored = await this.getStored(key);
         if (stored) {
           // 统计类型
           if (stored.type === 'IMAGE') imageCount++;

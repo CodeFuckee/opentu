@@ -7,6 +7,10 @@
 import { CryptoUtils } from './crypto-utils';
 import { changeBus } from '../services/supabase-sync/change-bus';
 import { DRAWNIX_SETTINGS_KEY } from '../constants/storage';
+import {
+  cloudDirectStore,
+  isCloudOnlyStorage,
+} from '../services/supabase-sync/cloud-direct-store';
 import { configIndexedDBWriter } from './config-indexeddb-writer';
 import { isManagedUpstreamEnabled } from '../services/managed-routing/managed-runtime';
 import type { GeminiConfig } from './gemini-api/types';
@@ -203,6 +207,10 @@ class SettingsManager {
   private cryptoAvailable = false;
   private initializationPromise: Promise<void> | null = null;
   private shouldPersistSettingsAfterInitialization = false;
+  // 云端唯一存储（remove-local-persistence）：本地有未推送的设置编辑时，
+  // 跳过云端拉取合并，防止启动期晚到的远端快照覆盖用户刚做的修改
+  private cloudDirty = false;
+  private cloudRemoteWatcherInstalled = false;
 
   private constructor() {
     this.settings = this.loadSettings();
@@ -235,6 +243,20 @@ class SettingsManager {
       } else {
         // 初始化完成后，同步配置到 IndexedDB，供 SW 读取
         await this.syncToIndexedDB();
+      }
+      // 云端唯一存储（remove-local-persistence）：后台拉取云端非敏感设置并合并，
+      // 不阻塞初始化（登录会话未就绪时由 ensureReady 内部等待）；Realtime 远端
+      // 变更到达时重新拉取
+      if (isCloudOnlyStorage()) {
+        void this.pullAndApplyCloudSettings();
+        if (!this.cloudRemoteWatcherInstalled) {
+          this.cloudRemoteWatcherInstalled = true;
+          cloudDirectStore.onRemoteChange((changes) => {
+            if (changes.some((change) => change.entityType === 'settings')) {
+              void this.pullAndApplyCloudSettings();
+            }
+          });
+        }
       }
       // console.log('SettingsManager initialization completed');
     } catch (error) {
@@ -1353,8 +1375,88 @@ class SettingsManager {
 
       // 同步到 IndexedDB，供 SW 读取（必须等待完成，确保首次输入 API Key 后 SW 能立即拿到配置）
       await this.syncToIndexedDB();
+
+      // 云端唯一存储：非敏感设置推送云端（脱敏后；失败由存储层退避重试）
+      if (isCloudOnlyStorage()) {
+        this.cloudDirty = true;
+        void this.pushCloudSettings();
+      }
     } catch (error) {
       console.warn('Failed to save settings to localStorage:', error);
+    }
+  }
+
+  // ==== 云端同步（remove-local-persistence 三期）====
+
+  /**
+   * 生成脱敏的云端副本：敏感字段（API Key 等）整键移除——跨设备仅同步
+   * 非敏感设置；敏感凭据留在本地，待 Phase E secret 信封加密上云
+   */
+  private stripSensitiveForCloud(settings: AppSettings): AppSettings {
+    const clone = JSON.parse(JSON.stringify(settings)) as Record<string, unknown>;
+    const gemini = clone.gemini as Record<string, unknown> | undefined;
+    if (gemini && 'apiKey' in gemini) {
+      delete gemini.apiKey;
+    }
+    if (Array.isArray(clone.providerProfiles)) {
+      for (const profile of clone.providerProfiles as Array<Record<string, unknown>>) {
+        if (profile && 'apiKey' in profile) {
+          delete profile.apiKey;
+        }
+      }
+    }
+    return clone as unknown as AppSettings;
+  }
+
+  /** 推送当前设置（脱敏）到云端；成功后记录基线快照供拉取去重 */
+  private async pushCloudSettings(): Promise<void> {
+    try {
+      const sanitized = this.stripSensitiveForCloud(this.settings);
+      await cloudDirectStore.saveEntity('settings', 'default', sanitized, {
+        cas: false,
+      });
+      this.cloudDirty = false;
+      try {
+        localStorage.setItem(
+          'aitu_settings_cloud_sync_base',
+          JSON.stringify(sanitized)
+        );
+      } catch {
+        // 基线快照写失败不影响推送结果
+      }
+    } catch (error) {
+      console.warn('[SettingsManager] 云端推送失败（自动重试）:', error);
+    }
+  }
+
+  /**
+   * 拉取云端非敏感设置并与本地合并：
+   * - 与上次推送基线一致 → 远端无变更，跳过
+   * - 本地有未推送编辑（cloudDirty）→ 跳过，待下次推送后基线对齐
+   * - 合并方向：远端缺键不覆盖本地（敏感字段整键不在云端，天然保留本地值）
+   */
+  private async pullAndApplyCloudSettings(): Promise<void> {
+    if (!isCloudOnlyStorage() || this.cloudDirty) {
+      return;
+    }
+    try {
+      const remote =
+        await cloudDirectStore.loadContent<AppSettings>('settings', 'default');
+      if (!remote) {
+        return;
+      }
+      const base = localStorage.getItem('aitu_settings_cloud_sync_base');
+      if (base && JSON.stringify(remote) === base) {
+        return;
+      }
+      const oldSettings = this.cloneValue(this.settings);
+      this.settings = this.normalizeSettings(
+        this.deepMerge(this.settings, remote)
+      );
+      await this.saveToStorage();
+      this.notifySettingsChange(oldSettings, this.settings, '');
+    } catch (error) {
+      // 离线/未就绪：静默，下次远端变更或重新初始化再拉
     }
   }
 
