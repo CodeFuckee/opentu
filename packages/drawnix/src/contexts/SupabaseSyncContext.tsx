@@ -19,6 +19,7 @@ import { workspaceService } from '../services/workspace-service';
 import {
   getSupabaseSyncConfig,
   getSupabaseSyncUser,
+  isCloudOnlyStorage,
 } from '../services/supabase-sync/runtime';
 import { runSync } from '../services/supabase-sync/sync-engine';
 import {
@@ -180,6 +181,13 @@ export function SupabaseSyncProvider({ children }: SupabaseSyncProviderProps) {
 
   /** 上传（以本地为准）：强制 lastSyncTime=0 比较以触发全量上传 */
   const pushToRemote = useCallback(async (): Promise<SupabaseSyncResult> => {
+    // 云端唯一存储模式：本地快照是陈旧的，整包上推会覆盖云端——拒绝（remove-local-persistence）
+    if (isCloudOnlyStorage()) {
+      return {
+        ...emptyResult,
+        error: '云端唯一存储模式：数据已实时直写云端，无需上传',
+      };
+    }
     const config = getSupabaseSyncConfig();
     if (!config) {
       return { ...emptyResult, error: '未登录，无法同步' };

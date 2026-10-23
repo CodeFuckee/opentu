@@ -12,6 +12,7 @@
 
 import {
   getSupabaseSyncUser,
+  isCloudOnlyStorage,
   isCloudPullDisabled,
   type RealtimeChannelLike,
 } from './runtime';
@@ -19,6 +20,8 @@ import { installSyncWritePointWiring } from './write-point-wiring';
 import { syncPusher } from './sync-pusher';
 import { reconcileFull, LAST_SYNC_KEY } from './reconcile';
 import { clearOutbox } from './outbox';
+import { startCloudDirectRuntime, stopCloudDirectRuntime } from './cloud-direct-runtime';
+import { cloudDirectStore } from './cloud-direct-store';
 import { kvStorageService } from '../kv-storage-service';
 import type { SupabaseSyncConfig } from './types';
 
@@ -139,6 +142,12 @@ export async function handleConfigChanged(
   config: SupabaseSyncConfig | null
 ): Promise<void> {
   if (config) {
+    // 云端唯一存储模式（remove-local-persistence）：无本地副本即无「同步」——
+    // 写路径走各存储服务的云端直连分支，这里只接 Realtime/轮询的远端变更感知
+    if (isCloudOnlyStorage()) {
+      await startCloudDirectRuntime(config);
+      return;
+    }
     // 写点接线 + 推送器（幂等）
     installSyncWritePointWiring();
     syncPusher.start();
@@ -152,6 +161,8 @@ export async function handleConfigChanged(
     // 登录/启动全量 reconcile：SWR——UI 先渲染本地缓存，这里后台校准云端
     void reconcileFull().catch(() => undefined);
   } else {
+    stopCloudDirectRuntime();
+    cloudDirectStore.resetSession();
     stopRealtime();
     syncPusher.stop();
     // 登出：清推送队列与同步基线——下次登录 lastSyncTime=null 走全量，

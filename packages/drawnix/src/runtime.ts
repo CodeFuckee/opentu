@@ -5,8 +5,18 @@ export {
 export { waitForFirstReconcile } from './services/supabase-sync/reconcile';
 export {
   getSupabaseSyncConfig,
+  isCloudOnlyStorage,
   isCloudPullDisabled,
 } from './services/supabase-sync/runtime';
+export {
+  cloudDirectStore,
+  CloudWriteConflictError,
+  CloudWriteQueuedError,
+} from './services/supabase-sync/cloud-direct-store';
+export type {
+  RemoteEntityChange,
+  CloudStoreStatus,
+} from './services/supabase-sync/cloud-direct-store';
 export {
   migrateToWorkspace,
   isWorkspaceMigrationCompleted,

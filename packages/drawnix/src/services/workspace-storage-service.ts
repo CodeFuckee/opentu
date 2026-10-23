@@ -8,6 +8,10 @@
 import localforage from 'localforage';
 import { changeBus } from './supabase-sync/change-bus';
 import {
+  cloudDirectStore,
+  isCloudOnlyStorage,
+} from './supabase-sync/cloud-direct-store';
+import {
   Folder,
   Board,
   BoardMetadata,
@@ -215,7 +219,14 @@ class WorkspaceStorageService {
    */
   async initialize(): Promise<void> {
     if (this.initialized) return;
-    
+
+    // 云端唯一存储模式（remove-local-persistence）：本地 IndexedDB 不参与持久化，
+    // 跳过 localforage 初始化；数据读写全部走 cloudDirectStore
+    if (isCloudOnlyStorage()) {
+      this.initialized = true;
+      return;
+    }
+
     // Ensure we only initialize once even if called concurrently
     if (this.initPromise) {
       await this.initPromise;
@@ -317,16 +328,32 @@ class WorkspaceStorageService {
   // ========== Folder Operations ==========
 
   async saveFolder(folder: Folder): Promise<void> {
+    if (isCloudOnlyStorage()) {
+      await cloudDirectStore.saveEntity('folder', folder.id, folder, {
+        cas: false,
+      });
+      return;
+    }
     await this.ensureInitialized();
     await this.getFoldersStore().setItem(folder.id, folder);
   }
 
   async loadFolder(id: string): Promise<Folder | null> {
+    if (isCloudOnlyStorage()) {
+      return cloudDirectStore.loadContent<Folder>('folder', id);
+    }
     await this.ensureInitialized();
     return this.getFoldersStore().getItem<Folder>(id);
   }
 
   async loadAllFolders(): Promise<Folder[]> {
+    if (isCloudOnlyStorage()) {
+      const entities = await cloudDirectStore.loadEntitiesByTypes(['folder']);
+      const folders = entities
+        .map((entity) => entity.content as Folder)
+        .filter((folder) => folder && folder.id);
+      return folders.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    }
     await this.ensureInitialized();
     const folders: Folder[] = [];
     await this.getFoldersStore().iterate<Folder, void>((value) => {
@@ -338,6 +365,10 @@ class WorkspaceStorageService {
   }
 
   async deleteFolder(id: string): Promise<void> {
+    if (isCloudOnlyStorage()) {
+      await cloudDirectStore.deleteEntities([`folder:${id}`]);
+      return;
+    }
     await this.ensureInitialized();
     await this.getFoldersStore().removeItem(id);
   }
@@ -345,11 +376,46 @@ class WorkspaceStorageService {
   // ========== Board Operations ==========
 
   async saveBoard(board: Board): Promise<void> {
+    if (isCloudOnlyStorage()) {
+      // 画板写走 CAS 乐观锁（remove-local-persistence D2）：基线来自本端最近一次
+      // 云端读取/写入的行时间戳；他端抢先写入时抛 CloudWriteConflictError 拒绝覆盖
+      await cloudDirectStore.saveEntity('board', board.id, board, { cas: true });
+      return;
+    }
     await this.ensureInitialized();
     await this.getBoardsStore().setItem(board.id, board);
   }
 
+  /**
+   * 画板加载后的元素迁移（fill 数据格式 + Base64 图片落 Cache API）。
+   * 两条存储路径共用；迁移写回复用 saveBoard（云端路径即 CAS 写）。
+   */
+  private async migrateLoadedBoard(board: Board): Promise<Board> {
+    if (board && board.elements) {
+      // 迁移 fill 数据格式，确保渐变填充不会显示为黑色
+      board.elements = migrateElementsFillData(board.elements);
+
+      // 迁移 Base64 图片 URL 到虚拟路径（同步等待，确保画布显示迁移后的数据）
+      try {
+        const migrated = await migrateElementsBase64Urls(board.elements);
+        if (migrated) {
+          await this.saveBoard(board);
+        }
+      } catch (error) {
+        console.error(`[Migration] Board ${board.id}: Failed to migrate`, error);
+      }
+    }
+    return board;
+  }
+
   async loadBoard(id: string): Promise<Board | null> {
+    if (isCloudOnlyStorage()) {
+      const board = await cloudDirectStore.loadContent<Board>('board', id);
+      if (!board) {
+        return null;
+      }
+      return this.migrateLoadedBoard(board);
+    }
     await this.ensureInitialized();
     let board: Board | null;
     try {
@@ -359,25 +425,27 @@ class WorkspaceStorageService {
       return null;
     }
     if (board && board.elements) {
-      // 迁移 fill 数据格式，确保渐变填充不会显示为黑色
-      board.elements = migrateElementsFillData(board.elements);
-      
-      // 迁移 Base64 图片 URL 到虚拟路径（同步等待，确保画布显示迁移后的数据）
-      try {
-        const migrated = await migrateElementsBase64Urls(board.elements);
-        if (migrated) {
-          // 保存迁移后的数据
-          await this.saveBoard(board);
-          // console.log(`[Migration] Board ${id}: Base64 URLs migrated and saved`);
-        }
-      } catch (error) {
-        console.error(`[Migration] Board ${id}: Failed to migrate`, error);
-      }
+      await this.migrateLoadedBoard(board);
     }
     return board;
   }
 
   async loadAllBoards(): Promise<Board[]> {
+    if (isCloudOnlyStorage()) {
+      const entities = await cloudDirectStore.loadEntitiesByTypes(['board']);
+      const boards: Board[] = [];
+      for (const entity of entities) {
+        const board = entity.content as Board;
+        if (!board || !board.id) {
+          continue;
+        }
+        if (board.elements) {
+          board.elements = migrateElementsFillData(board.elements);
+        }
+        boards.push(board);
+      }
+      return boards.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    }
     await this.ensureInitialized();
     const boards: Board[] = [];
     await this.getBoardsStore().iterate<Board, void>((value) => {
@@ -391,7 +459,7 @@ class WorkspaceStorageService {
     });
     // Wait for browser idle time after IndexedDB operation
     await waitForIdle();
-    
+
     // 迁移 Base64 图片 URL 到虚拟路径
     for (const board of boards) {
       if (board.elements) {
@@ -406,7 +474,7 @@ class WorkspaceStorageService {
         }
       }
     }
-    
+
     return boards.sort((a, b) => a.order - b.order);
   }
 
@@ -415,6 +483,21 @@ class WorkspaceStorageService {
    * 用于侧边栏显示，减少内存占用
    */
   async loadAllBoardMetadata(): Promise<BoardMetadata[]> {
+    if (isCloudOnlyStorage()) {
+      // 云端投影拉取：不传 elements 大字段（remove-local-persistence D5）
+      const rows = await cloudDirectStore.loadBoardMetadata();
+      const boards: BoardMetadata[] = rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        folderId: row.folderId,
+        order: row.order,
+        viewport: row.viewport as BoardMetadata['viewport'],
+        theme: row.theme as BoardMetadata['theme'],
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+      }));
+      return boards.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    }
     await this.ensureInitialized();
     const boards: BoardMetadata[] = [];
     await this.getBoardsStore().iterate<Board, void>((value) => {
@@ -434,11 +517,25 @@ class WorkspaceStorageService {
     });
     // Wait for browser idle time after IndexedDB operation
     await waitForIdle();
-    
+
     return boards.sort((a, b) => a.order - b.order);
   }
 
   async loadFolderBoards(folderId: string | null): Promise<Board[]> {
+    if (isCloudOnlyStorage()) {
+      const metas = await cloudDirectStore.loadBoardMetadata();
+      const ids = metas
+        .filter((meta) => (meta.folderId ?? null) === folderId)
+        .map((meta) => meta.id);
+      const boards: Board[] = [];
+      for (const id of ids) {
+        const board = await cloudDirectStore.loadContent<Board>('board', id);
+        if (board) {
+          boards.push(board);
+        }
+      }
+      return boards.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    }
     await this.ensureInitialized();
     const boards: Board[] = [];
     await this.getBoardsStore().iterate<Board, void>((value) => {
@@ -456,11 +553,24 @@ class WorkspaceStorageService {
   }
 
   async deleteBoard(id: string): Promise<void> {
+    if (isCloudOnlyStorage()) {
+      // 云端唯一存储：真删除（无墓碑，remove-local-persistence D6）
+      await cloudDirectStore.deleteEntities([`board:${id}`]);
+      return;
+    }
     await this.ensureInitialized();
     await this.getBoardsStore().removeItem(id);
   }
 
   async deleteFolderBoards(folderId: string): Promise<void> {
+    if (isCloudOnlyStorage()) {
+      const metas = await cloudDirectStore.loadBoardMetadata();
+      const keys = metas
+        .filter((meta) => meta.folderId === folderId)
+        .map((meta) => `board:${meta.id}`);
+      await cloudDirectStore.deleteEntities(keys);
+      return;
+    }
     await this.ensureInitialized();
     const boards = await this.loadFolderBoards(folderId);
     await Promise.all(boards.map((b) => this.deleteBoard(b.id)));
@@ -469,6 +579,12 @@ class WorkspaceStorageService {
   // ========== State Operations ==========
 
   async saveState(state: WorkspaceState): Promise<void> {
+    if (isCloudOnlyStorage()) {
+      await cloudDirectStore.saveEntity('workspace_state', 'default', state, {
+        cas: false,
+      });
+      return;
+    }
     // 云同步写点（refactor-cloud-native-sync）：当前画板/折叠状态等变化触发上云
     changeBus.emit('workspace_state', 'default', Date.now());
     await this.ensureInitialized();
@@ -476,6 +592,20 @@ class WorkspaceStorageService {
   }
 
   async loadState(): Promise<WorkspaceState> {
+    if (isCloudOnlyStorage()) {
+      const state = await cloudDirectStore.loadContent<WorkspaceState>(
+        'workspace_state',
+        'default'
+      );
+      return (
+        state || {
+          currentBoardId: null,
+          expandedFolderIds: [],
+          sidebarWidth: WORKSPACE_DEFAULTS.SIDEBAR_WIDTH,
+          sidebarCollapsed: false,
+        }
+      );
+    }
     await this.ensureInitialized();
     const state = await this.getStateStore().getItem<WorkspaceState>(STATE_KEY);
     return (
@@ -491,11 +621,26 @@ class WorkspaceStorageService {
   // ========== Utility Operations ==========
 
   async getBoardCount(): Promise<number> {
+    if (isCloudOnlyStorage()) {
+      return (await cloudDirectStore.loadBoardMetadata()).length;
+    }
     await this.ensureInitialized();
     return this.getBoardsStore().length();
   }
 
   async clearAll(): Promise<void> {
+    if (isCloudOnlyStorage()) {
+      const entities = await cloudDirectStore.loadEntitiesByTypes([
+        'board',
+        'folder',
+      ]);
+      const keys = entities.map(
+        (entity) => `${entity.entity_type}:${entity.entity_id}`
+      );
+      keys.push('workspace_state:default');
+      await cloudDirectStore.deleteEntities(keys);
+      return;
+    }
     await this.ensureInitialized();
     await Promise.all([
       this.getFoldersStore().clear(),

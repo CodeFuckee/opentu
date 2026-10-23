@@ -29,7 +29,11 @@ import type {
 import { ErrorFallbackUI, safeModeReload, goToDebug } from './ErrorBoundary';
 import {
   getSupabaseSyncConfig,
+  isCloudOnlyStorage,
   isCloudPullDisabled,
+  cloudDirectStore,
+  CloudWriteConflictError,
+  CloudWriteQueuedError,
   waitForFirstReconcile,
 } from '@drawnix/drawnix/runtime';
 import { collectAndDownloadErrorLog } from '../utils/error-log-exporter';
@@ -195,6 +199,11 @@ export function App() {
   const localDirtyRef = useRef<boolean>(false);
   // 标记当前标签页是否还有未落盘的本地变更（含元素与 viewport）
   const hasPendingPersistenceRef = useRef<boolean>(false);
+  // 云端唯一存储（remove-local-persistence）：CAS 冲突的画板集合——冲突后暂停
+  // 自动保存，避免陈旧基线反复被拒；切板/刷新后解除
+  const conflictedBoardIdsRef = useRef<Set<string>>(new Set());
+  // 保存类提示（冲突/未同步）的节流时间戳
+  const lastSaveTipAtRef = useRef<number>(0);
 
   // 使用 useDocumentTitle hook 管理页面标题
   useDocumentTitle(currentBoardId);
@@ -202,6 +211,39 @@ export function App() {
   useEffect(() => {
     currentBoardIdRef.current = currentBoardId;
   }, [currentBoardId]);
+
+  /**
+   * 云端唯一存储的保存错误分流（remove-local-persistence 2.6/3.1）：
+   * - CAS 冲突：标记冲突画板（暂停其自动保存，内存内容保留），节流提示刷新
+   * - 网络/服务端失败：内容在内存＋存储层自动退避重试，节流提示「未同步」
+   * 返回 true 表示已按云端保存错误处理（调用方无需再打日志/提示）。
+   */
+  const handleCloudSaveError = useCallback(
+    (error: unknown, boardId: string | null): boolean => {
+      const isConflict = error instanceof CloudWriteConflictError;
+      const isQueued = error instanceof CloudWriteQueuedError;
+      if (!isConflict && !isQueued) {
+        return false;
+      }
+      if (isConflict && boardId) {
+        conflictedBoardIdsRef.current.add(boardId);
+      }
+      const now = Date.now();
+      if (now - lastSaveTipAtRef.current < 8000) {
+        return true;
+      }
+      lastSaveTipAtRef.current = now;
+      MessagePlugin.warning({
+        content: isConflict
+          ? '画板已在其他窗口/设备修改，自动保存已暂停；你的编辑仍保留在本页，刷新页面可加载云端最新版本'
+          : '内容尚未同步到云端（离线或网络异常），恢复后将自动重试',
+        duration: 8000,
+        closeBtn: true,
+      });
+      return true;
+    },
+    []
+  );
 
   const updateLatestBoardData = useCallback(
     (
@@ -250,10 +292,17 @@ export function App() {
           { immediate: true }
         )
         .catch((error: Error) => {
+          if (handleCloudSaveError(error, boardId)) {
+            // 关页场景内容已由 close snapshot 兜底，仅留痕
+            console.warn(
+              `[App] Board not flushed to cloud on ${reason}; close snapshot kept`
+            );
+            return;
+          }
           console.warn(`[App] Failed to flush board on ${reason}:`, error);
         });
     },
-    []
+    [handleCloudSaveError]
   );
 
   useEffect(() => {
@@ -424,6 +473,17 @@ export function App() {
           if (firstBoard) {
             currentBoard = await workspaceService.switchBoard(firstBoard.id);
           }
+        } else if (isCloudOnlyStorage()) {
+          // 云端唯一存储（remove-local-persistence）：画板树已在
+          // workspaceService.initialize() 时从云端拉取——此处空即云端确认为空，
+          // 直接种默认板（无等待窗口、无本地/云端二段确认）
+          const board = await workspaceService.createBoard({
+            name: '我的画板1',
+            elements: [],
+          });
+          if (board) {
+            currentBoard = await workspaceService.switchBoard(board.id);
+          }
         } else if (getSupabaseSyncConfig() && !isCloudPullDisabled()) {
           // 云同步已登录：本地空不代表云端空——等首次登录 reconcile（上限 20s），
           // 拉到画布直接打开；云端确实为空/离线超时才种默认板
@@ -572,6 +632,8 @@ export function App() {
         // 切换画布时重置脏标志，新画布的初始数据不需要保存
         localDirtyRef.current = false;
         hasPendingPersistenceRef.current = false;
+        // 云端唯一存储：离开冲突画板即解除其暂停状态
+        conflictedBoardIdsRef.current.clear();
 
         // 在设置 state 之前，预先恢复失效的视频 URL
         const elements = await recoverVideoUrlsInElements(board.elements || []);
@@ -755,6 +817,11 @@ export function App() {
 
       updateLatestBoardData(currentBoard.id, data);
 
+      // 云端唯一存储：冲突画板暂停自动保存（陈旧基线会被 CAS 拒绝，编辑保留在内存）
+      if (conflictedBoardIdsRef.current.has(currentBoard.id)) {
+        return;
+      }
+
       // 全量保存走 WorkspaceService 内部的 400ms trailing 防抖（Promise 在真正
       // 落盘后 resolve）；同步上传前会 flush，关闭场景由 close snapshot 兜底
       workspaceService
@@ -766,10 +833,13 @@ export function App() {
           markTabSyncVersion(currentBoard.id);
         })
         .catch((err: Error) => {
+          if (handleCloudSaveError(err, currentBoard.id)) {
+            return;
+          }
           console.error('[App] Failed to save board:', err);
         });
     },
-    [updateLatestBoardData]
+    [updateLatestBoardData, handleCloudSaveError]
   );
 
   // Handle viewport changes (pan/zoom) - 单独保存 viewport
@@ -806,6 +876,10 @@ export function App() {
         const workspaceService = WorkspaceService.getInstance();
         const currentBoard = workspaceService.getCurrentBoard();
         if (currentBoard) {
+          // 云端唯一存储：冲突画板暂停自动保存
+          if (conflictedBoardIdsRef.current.has(currentBoard.id)) {
+            return;
+          }
           // 只保存 viewport，不影响其他数据
           workspaceService
             .saveCurrentBoard({
@@ -818,13 +892,117 @@ export function App() {
               clearBoardCloseSnapshot(currentBoard.id);
             })
             .catch((err: Error) => {
+              if (handleCloudSaveError(err, currentBoard.id)) {
+                return;
+              }
               console.error('[App] Failed to save viewport:', err);
             });
         }
       }, VIEWPORT_SAVE_DEBOUNCE);
     },
-    [updateLatestBoardData]
+    [updateLatestBoardData, handleCloudSaveError]
   );
+
+  // 云端唯一存储：远端变更定向刷新（remove-local-persistence 3.2）。
+  // 当前画板被改：无未保存编辑→自动刷新画布；有未保存编辑/冲突暂停→节流提示不覆盖。
+  // 其余结构变更（文件夹/工作区状态/其他画板）→ 后台重载画板树。
+  useEffect(() => {
+    if (!isCloudOnlyStorage()) {
+      return;
+    }
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    const unsubChange = cloudDirectStore.onRemoteChange((changes) => {
+      const currentId = currentBoardIdRef.current;
+      const currentHit = changes.find(
+        (change) =>
+          change.entityType === 'board' && change.entityId === currentId
+      );
+      const structural = changes.some(
+        (change) =>
+          change.entityType === 'folder' ||
+          change.entityType === 'workspace_state' ||
+          (change.entityType === 'board' && change.entityId !== currentId)
+      );
+
+      if (currentHit) {
+        const hasLocalEdits =
+          localDirtyRef.current ||
+          hasPendingPersistenceRef.current ||
+          (currentId !== null &&
+            conflictedBoardIdsRef.current.has(currentId));
+        if (hasLocalEdits) {
+          const now = Date.now();
+          if (now - lastSaveTipAtRef.current > 8000) {
+            lastSaveTipAtRef.current = now;
+            MessagePlugin.warning({
+              content:
+                '当前画板刚被其他窗口/设备修改；本页有未保存编辑，未自动刷新',
+              duration: 6000,
+              closeBtn: true,
+            });
+          }
+        } else if (currentId && !refreshTimer) {
+          // 短时多次变更只刷新一次
+          refreshTimer = setTimeout(() => {
+            refreshTimer = null;
+            void (async () => {
+              const workspaceService = WorkspaceService.getInstance();
+              try {
+                const board = await workspaceService.reloadBoard(currentId);
+                if (!board) {
+                  return;
+                }
+                const elements = await recoverVideoUrlsInElements(
+                  board.elements || []
+                );
+                const nextData = {
+                  children: elements,
+                  viewport: board.viewport,
+                  theme: board.theme,
+                };
+                updateLatestBoardData(board.id, nextData, board.updatedAt);
+                setValue(nextData);
+              } catch (error) {
+                console.warn('[App] Failed to refresh board from cloud:', error);
+              }
+            })();
+          }, 500);
+        }
+      }
+
+      if (structural) {
+        void WorkspaceService.getInstance()
+          .reload()
+          .catch(() => undefined);
+      }
+    });
+    return () => {
+      unsubChange();
+      if (refreshTimer) {
+        clearTimeout(refreshTimer);
+      }
+    };
+  }, [updateLatestBoardData]);
+
+  // 云端唯一存储：写通道状态提示（remove-local-persistence 2.6）
+  // pending>0=有写入暂未落云（重试中）；归零即全部落云
+  useEffect(() => {
+    if (!isCloudOnlyStorage()) {
+      return;
+    }
+    let lastPending = 0;
+    return cloudDirectStore.onStatus((status) => {
+      if (status.pending > 0 && lastPending === 0) {
+        MessagePlugin.warning({
+          content: '部分内容尚未同步到云端，将自动重试',
+          duration: 5000,
+        });
+      } else if (status.pending === 0 && lastPending > 0) {
+        MessagePlugin.success({ content: '内容已同步到云端', duration: 3000 });
+      }
+      lastPending = status.pending;
+    });
+  }, []);
 
   // 页面关闭/隐藏前保存当前画布快照，并尽量 flush 到 IndexedDB
   useEffect(() => {

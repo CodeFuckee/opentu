@@ -21,6 +21,22 @@ export function isCloudPullDisabled(): boolean {
   }
 }
 
+/**
+ * 云端唯一存储开关（openspec remove-local-persistence，灰度用 feature flag）：
+ * 置 1 后浏览器 IndexedDB 不再承担画板面持久化，读写直连云端 Postgres。
+ * 稳定后随退役清理（tasks 4.3）移除。
+ */
+export function isCloudOnlyStorage(): boolean {
+  try {
+    return (
+      typeof localStorage !== 'undefined' &&
+      localStorage.getItem('cloud_only_storage') === '1'
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** Realtime 订阅通道的最小结构面（supabase-js RealtimeChannel 的子集） */
 export interface RealtimeChannelLike {
   channelLike: {

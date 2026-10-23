@@ -35,6 +35,7 @@ const configMock = vi.hoisted(() => vi.fn(() => mockConfig));
 vi.mock('./runtime', () => ({
   getSupabaseSyncConfig: configMock,
   getSupabaseSyncUser: userMock,
+  isCloudOnlyStorage: () => false,
 }));
 vi.mock('./sync-engine', () => ({ runSync: runSyncMock }));
 vi.mock('./repository', () => ({

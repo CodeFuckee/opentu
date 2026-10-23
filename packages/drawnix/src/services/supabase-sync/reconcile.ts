@@ -13,7 +13,7 @@
  * - 与 SyncPusher 共享互斥锁，防交错写
  */
 
-import { getSupabaseSyncConfig, getSupabaseSyncUser } from './runtime';
+import { getSupabaseSyncConfig, getSupabaseSyncUser, isCloudOnlyStorage } from './runtime';
 import { runSync } from './sync-engine';
 import { collectLocalDataForSync } from './local-collector';
 import {
@@ -227,6 +227,14 @@ function buildDeps(config: SupabaseSyncConfig) {
 export async function reconcileFull(
   options: { force?: boolean } = {}
 ): Promise<SupabaseSyncResult> {
+  // 云端唯一存储模式（remove-local-persistence）：本地无持久化副本，全量对账
+  // 会把陈旧的本地快照推上云端——一律拒绝（含手动「立即同步」入口）
+  if (isCloudOnlyStorage()) {
+    return {
+      ...emptyResult,
+      error: '云端唯一存储模式：数据已实时直写云端，无需同步',
+    };
+  }
   const config = getSupabaseSyncConfig();
   if (!config) {
     return { ...emptyResult, error: '未登录，无法同步' };

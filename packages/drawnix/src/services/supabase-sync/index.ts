@@ -6,7 +6,25 @@
 export * from './types';
 
 // 运行时配置
-export { configureSupabaseSync, getSupabaseSyncConfig, getSupabaseSyncUser } from './runtime';
+export {
+  configureSupabaseSync,
+  getSupabaseSyncConfig,
+  getSupabaseSyncUser,
+  isCloudOnlyStorage,
+  isCloudPullDisabled,
+} from './runtime';
+
+// 云端直连存储（remove-local-persistence）
+export {
+  cloudDirectStore,
+  CloudWriteConflictError,
+  CloudWriteQueuedError,
+} from './cloud-direct-store';
+export type { RemoteEntityChange, CloudStoreStatus } from './cloud-direct-store';
+export {
+  startCloudDirectRuntime,
+  stopCloudDirectRuntime,
+} from './cloud-direct-runtime';
 
 // 核心纯函数
 export { calculateChecksum, entityKey, parseEntityKey } from './checksum';
@@ -21,6 +39,12 @@ export { createLocalCollector, getLocalCollector, collectLocalDataForSync } from
 // 仓库层（Supabase 读写）
 export {
   fetchRemoteEntities,
+  fetchRemoteEntitiesByTypes,
+  fetchRemoteEntity,
+  fetchRemoteBoardMetadata,
+  updateRemoteEntityCas,
+  upsertRemoteEntityReturnTs,
+  deleteRemoteEntitiesHard,
   upsertRemoteEntities,
   softDeleteRemoteEntities,
   fetchRemoteMedia,
@@ -28,6 +52,7 @@ export {
   SYNC_DATA_TABLE,
   SYNC_MEDIA_TABLE,
 } from './repository';
+export type { RemoteBoardMetaRow } from './repository';
 
 // 媒体同步
 export { syncMediaToSupabase, collectLocalMediaUrls } from './media-sync';

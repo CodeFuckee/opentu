@@ -1,5 +1,35 @@
 ## Unreleased
 
+### feat: 云端唯一存储一期——画板面 IndexedDB 退役，整板 LWW＋乐观锁（openspec remove-local-persistence，灰度 flag 默认关）
+
+架构方向（2026-10-23 拍板）：浏览器本地不再保留持久化数据副本，云端 Postgres
+（自托管 Supabase `user_sync_data`/`user_sync_media`）是唯一持久层。本期以
+feature flag `cloud_only_storage`（localStorage 置 1 开启）灰度落地**画板面**：
+
+- **画板面云端直连**：`workspace-storage-service` 的画板/文件夹/工作区状态读写
+  在 flag 开启时改走 `cloudDirectStore`（会话内存缓存＋云端直连），本地
+  localforage 不再参与持久化；树加载用 PostgREST JSON 投影（不带 elements
+  大字段），切换失败自动退化为整行拉取
+- **乐观锁 CAS**：画板保存携带读取时的 `updated_at` 做条件更新（0 行命中即
+  冲突），冲突时拒绝覆盖、保留本页编辑并暂停该板自动保存，提示刷新；新增
+  migration `user_sync_data_server_clock.sql`——`updated_at` 由触发器统一生成
+  并截断毫秒（CAS 时间戳无损往返 JS，**需在自托管 Supabase 上执行**）
+- **真删除**：画板/文件夹删除改为云端 DELETE，无墓碑
+- **冷启动简化**：树直接从云端拉取后渲染，删除 `waitForFirstReconcile` 等待与
+  「云端为空才种默认板」二段确认；断网/超时进入初始化失败态
+- **写失败可见**：保存失败内容保留内存＋「未同步」提示＋指数退避自动重试
+  （会话内，不做跨会话离线队列）；恢复在线立即重放
+- **多设备感知**：Realtime postgres_changes 事件归一化后定向失效缓存——当前
+  画板无未保存编辑自动刷新，有编辑则提示不覆盖；其余结构变更后台重载画板树；
+  Realtime 不可用退化 60s 键扫描轮询
+- **旧同步路径防误触**：flag 开启时 `reconcileFull`/`pushToRemote`（手动同步/
+  以上传为准）直接拒绝——本地无持久化副本，整包上推会用陈旧快照覆盖云端；
+  infra 登录接线改走 `startCloudDirectRuntime`（不再启动 SyncPusher/reconcile）
+- **flag 关闭路径零变化**：所有改动经 `isCloudOnlyStorage()` 分流，默认行为与
+  现状完全一致；未提交的其他数据面（任务/聊天/知识库等）按批次跟进
+- **测试**：新增 cloud-direct-store 14 例（CAS/LWW/重试/回声抑制/失效）与
+  repository CAS/真删除/投影退化 7 例；drawnix 全量 1715 例通过
+
 ### feat: 云同步 Phase C+D——登录即拉取、Realtime 实时推送、生命周期收口（openspec refactor-cloud-native-sync）
 
 - **修复隐藏缺陷**：登录后全量拉取此前挂在云同步设置弹窗的懒加载 Provider 上，
