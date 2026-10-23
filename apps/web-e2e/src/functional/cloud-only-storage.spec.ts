@@ -169,27 +169,16 @@ test.describe('云端唯一存储（cloud_only_storage）', () => {
     await touchBoardRemotely(pageA, boardName);
 
     // ============ A 在陈旧基线上编辑保存 → CAS 拒绝 + 提示 ============
-    // 冲突 toast 生命周期 8s，可能与元素渲染并行出现——先挂 toast 等待再绘制
-    const consoleLogs: string[] = [];
-    pageA.on('console', (msg) => {
-      const text = msg.text();
-      if (msg.type() === 'error' || text.includes('云端') || text.includes('[App]') || text.includes('[SupabaseSync]')) {
-        consoleLogs.push(`[${msg.type()}] ${text.slice(0, 240)}`);
-      }
-    });
+    // 冲突 toast 生命周期 8s，可能与元素渲染并行出现——toast 等待与绘制并行
     const prevCount = await elementCount(pageA);
     const toastA = pageA
       .locator('.md3-message-host')
       .getByText(CONFLICT_TOAST)
       .first();
-    const toastWait = expect(toastA).toBeVisible({ timeout: 30_000 });
-    await drawRectangleReliable(pageA, prevCount);
-    try {
-      await toastWait;
-    } catch (error) {
-      const diag = `A_ELEMENTS: ${await elementCount(pageA)} | CONSOLE: ${consoleLogs.join(' || ') || '(none)'}`;
-      throw new Error(`${(error as Error).message}\nDIAG2: ${diag}`);
-    }
+    await Promise.all([
+      expect(toastA).toBeVisible({ timeout: 30_000 }),
+      drawRectangleReliable(pageA, prevCount),
+    ]);
 
     await contextA.close();
   });
