@@ -45,6 +45,7 @@
     "e2e:visual:report": "npx playwright show-report apps/web-e2e/playwright-report",
     "e2e:features": "nx e2e web-e2e -- --project=chromium",
     "e2e:functional": "nx e2e web-e2e -- --project=functional",
+    "e2e:cloud-only": "nx run web-e2e:e2e --skip-nx-cache -- --workers=1 -- cloud-only-storage cloud-sync-auto-cross-device --project=functional",
     "e2e:manual-nav": "nx run web-e2e:e2e --skip-nx-cache -- --project=manual-nav",
     "e2e:manual-nav:prod": "nx run web-e2e:e2e --skip-nx-cache -- --project=manual-nav-prod",
     "e2e:manual-nav:both": "nx run web-e2e:e2e --skip-nx-cache -- --project=manual-nav --project=manual-nav-prod",
