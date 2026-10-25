@@ -22,18 +22,20 @@ export function isCloudPullDisabled(): boolean {
 }
 
 /**
- * 云端唯一存储开关（openspec remove-local-persistence，灰度用 feature flag）：
- * 置 1 后浏览器 IndexedDB 不再承担画板面持久化，读写直连云端 Postgres。
- * 稳定后随退役清理（tasks 4.3）移除。
+ * 云端唯一存储开关（openspec remove-local-persistence）：
+ * **默认开启**——全部数据面云端 Postgres 直连，浏览器 IndexedDB 不再承担持久化，
+ * 数据天然在云端、无需任何手动同步（2026-10-24 用户确立为默认行为）。
+ * 显式回退旧路径：localStorage 置 `cloud_only_storage=0`（'0' 之外的值均为开启）。
+ * 退役清理（tasks 4.x）时移除本开关。
  */
 export function isCloudOnlyStorage(): boolean {
   try {
-    return (
-      typeof localStorage !== 'undefined' &&
-      localStorage.getItem('cloud_only_storage') === '1'
-    );
+    if (typeof localStorage === 'undefined') {
+      return true;
+    }
+    return localStorage.getItem('cloud_only_storage') !== '0';
   } catch {
-    return false;
+    return true;
   }
 }
 

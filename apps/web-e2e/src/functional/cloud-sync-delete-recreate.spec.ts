@@ -9,6 +9,7 @@ import {
   createNamedBoard,
   countBoardsInDrawer,
   clickSyncNow,
+  disableCloudOnlyForLegacyPath,
   randomBoardName,
   verifyBoardInSupabase,
 } from '../fixtures/cloud-sync-helpers';
@@ -41,6 +42,7 @@ test.describe('云端同步（删光重建）', () => {
       storageState: { cookies: [], origins: [] },
     });
     const pageA = await contextA.newPage();
+    await disableCloudOnlyForLegacyPath(pageA);
     await forceFileInputFallback(pageA);
     collectErrors(pageA);
     await loginViaUi(pageA, account.id);
@@ -96,6 +98,7 @@ test.describe('云端同步（删光重建）', () => {
       storageState: { cookies: [], origins: [] },
     });
     const pageB = await contextB.newPage();
+    await disableCloudOnlyForLegacyPath(pageB);
     await forceFileInputFallback(pageB);
     const errorsB = collectErrors(pageB);
     await loginViaUi(pageB, account.id);

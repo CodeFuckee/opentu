@@ -23,6 +23,7 @@ import { getTestAccount } from '../config/e2e.config';
 import {
   clickSyncAction,
   clickSyncNow,
+  disableCloudOnlyForLegacyPath,
   closeSyncSettingsDialog,
   countBoardsInDrawer,
   createNamedBoard,
@@ -56,6 +57,7 @@ test.describe('云端同步（跨设备）', () => {
       storageState: { cookies: [], origins: [] },
     });
     const pageA = await contextA.newPage();
+    await disableCloudOnlyForLegacyPath(pageA);
     await forceFileInputFallback(pageA);
     await loginViaUi(pageA, account.id);
 
@@ -90,6 +92,7 @@ test.describe('云端同步（跨设备）', () => {
       storageState: { cookies: [], origins: [] },
     });
     const pageB = await contextB.newPage();
+    await disableCloudOnlyForLegacyPath(pageB);
     await forceFileInputFallback(pageB);
     await loginViaUi(pageB, account.id);
 
@@ -137,6 +140,7 @@ test.describe('云端同步（跨设备）', () => {
       storageState: { cookies: [], origins: [] },
     });
     const pageA = await contextA.newPage();
+    await disableCloudOnlyForLegacyPath(pageA);
     await forceFileInputFallback(pageA);
     await loginViaUi(pageA, account.id);
 
@@ -158,6 +162,7 @@ test.describe('云端同步（跨设备）', () => {
       storageState: { cookies: [], origins: [] },
     });
     const pageB = await contextB.newPage();
+    await disableCloudOnlyForLegacyPath(pageB);
     await forceFileInputFallback(pageB);
     await loginViaUi(pageB, account.id);
 

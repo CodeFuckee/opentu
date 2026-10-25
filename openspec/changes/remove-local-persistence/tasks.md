@@ -31,5 +31,6 @@
 - [ ] 5.4 CHANGELOG.md / README / user-manual 同步更新（CHANGELOG 已更；user-manual 待 flag 默认开启时随 4.x）
 
 ## 6. 收尾
-- [ ] 6.1 存量收口确认：全量上推一次并核对实体计数后，本地持久化代码归零
+- [x] 6.1 存量收口：`legacy-workspace-migration.ts`——云模式首次启动自动把遗留 aitu-workspace 本地画板/文件夹按 updatedAt 新者胜上推（幂等标记＋失败重试＋完成刷新树；单测 6 例）；其余数据面历史数据在旧引擎时代已持续上云，无本地独有存量（五期：flag 已默认开启，见下）
+- [x] 6.3 **flag 默认开启（五期，2026-10-24 用户确立"数据本身在云端、无需手动同步"为默认行为）**：`isCloudOnlyStorage()` 默认 ON，显式回退=置 `cloud_only_storage=0`；vitest setup 强制单测走旧路径；旧引擎 E2E 显式 opt-out 继续作回归（4.3 完整退役仍待 flag 稳定观察）
 - [ ] 6.2 归档顺序执行：先 `refactor-cloud-native-sync` 后本变更（openspec archive）

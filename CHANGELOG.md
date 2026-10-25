@@ -1,5 +1,26 @@
 ## Unreleased
 
+### feat: 云端唯一存储转为默认行为——无需任何手动同步（openspec remove-local-persistence 五期）
+
+按用户确立的产品要求（"所有数据本身就保存在云端，不需要手动同步"）落地终态：
+
+- **flag 默认开启**：`cloud_only_storage` 不再需要手动设置——全部数据面（画板/
+  任务/工作流/编排图/聊天/知识库/角色/音频/取色历史/自定义工具/KV 数据键/设置/
+  素材库元数据）默认云端 Postgres 直连，数据天然在云端、跨设备登录即见。
+  显式回退旧路径：localStorage 置 `cloud_only_storage=0`（'0' 之外均为开启）
+- **存量本地画板自动上推**：云模式首次启动自动把遗留 IndexedDB（aitu-workspace
+  的画板/文件夹/工作区状态）与云端合并——本地独有或本地较新者上推（LWW 按实体
+  updatedAt 比对），云端已有较新者保留；幂等标记防重复，失败下次启动重试；
+  完成后自动刷新画板树。老用户从旧构建升级数据零丢失
+- **单元测试环境固定旧路径**（vitest setup 置 `cloud_only_storage=0`）：云端直连
+  行为由 cloud-direct-store/repository 独立单测与 E2E 覆盖，既有存储服务单测
+  保持 IndexedDB 语义
+- **E2E 适配**：新增存量迁移单测 6 例；旧引擎手动同步类用例（cloud-sync 系列等
+  4 个 spec）显式回退旧路径继续作为旧引擎回归；`disableCloudPullForLocalIsolation`
+  隔离开关叠加 opt-out 保持"本地干净态"断言语义
+- 全量 233 文件单测通过（新增 6 例）；typecheck 5 项目通过；E2E：云端直连 5 例
+  ＋旧路径回归 2 例在默认 ON 的本地栈实测通过
+
 ### fix: 云端唯一存储两处保存链路缺陷 + E2E 落地（openspec remove-local-persistence 5.2）
 
 E2E 实测（本地 dev server 对齐内网 Supabase 栈实跑）暴露并修复两个问题：

@@ -59,6 +59,7 @@ import {
 import type { E2ETestAccount } from '../config/e2e.config';
 import {
   clickSyncNow,
+  disableCloudOnlyForLegacyPath,
   closeSyncSettingsDialog,
   createNamedBoard,
   fetchRemoteBoardByElementId,
@@ -518,6 +519,7 @@ async function runCloudSyncImageScenario(
       storageState: { cookies: [], origins: [] },
     });
     const pageA = await contextA.newPage();
+    await disableCloudOnlyForLegacyPath(pageA);
     await forceFileInputFallback(pageA);
     const consoleA = watchConsole(pageA);
     const assetA = watchAssetRequests(pageA);
@@ -623,6 +625,7 @@ async function runCloudSyncImageScenario(
         storageState: { cookies: [], origins: [] },
       });
       pageB = await contextB.newPage();
+      await disableCloudOnlyForLegacyPath(pageB);
       await forceFileInputFallback(pageB);
       consoleB = watchConsole(pageB);
       assetB = watchAssetRequests(pageB);

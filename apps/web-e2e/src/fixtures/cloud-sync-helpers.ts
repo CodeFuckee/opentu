@@ -342,6 +342,24 @@ export async function disableCloudPullForLocalIsolation(page: Page): Promise<voi
   await page.addInitScript(() => {
     try {
       localStorage.setItem('supabase_sync_disable_cloud_reconcile', '1');
+      // 云端唯一存储已是默认行为（五期）：旧路径隔离用例需同时显式回退，
+      // 否则新链路冷启动仍会拉取云端共享数据破坏"本地干净态"断言
+      localStorage.setItem('cloud_only_storage', '0');
+    } catch {
+      // 忽略 localStorage 不可用
+    }
+  });
+}
+
+/**
+ * 旧引擎路径回退（e2e 用）：云端唯一存储默认开启后，依赖旧引擎手动同步按钮
+ * （立即同步/上传本地/下载远程）的用例需显式回退旧路径才能继续验证其语义。
+ * 4.x 退役清理（删除旧引擎）时随用例一并移除。
+ */
+export async function disableCloudOnlyForLegacyPath(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('cloud_only_storage', '0');
     } catch {
       // 忽略 localStorage 不可用
     }

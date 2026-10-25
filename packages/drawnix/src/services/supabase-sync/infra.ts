@@ -22,6 +22,7 @@ import { reconcileFull, LAST_SYNC_KEY } from './reconcile';
 import { clearOutbox } from './outbox';
 import { startCloudDirectRuntime, stopCloudDirectRuntime } from './cloud-direct-runtime';
 import { cloudDirectStore } from './cloud-direct-store';
+import { maybeRunLegacyWorkspaceMigration } from './legacy-workspace-migration';
 import { kvStorageService } from '../kv-storage-service';
 import type { SupabaseSyncConfig } from './types';
 
@@ -146,6 +147,17 @@ export async function handleConfigChanged(
     // 写路径走各存储服务的云端直连分支，这里只接 Realtime/轮询的远端变更感知
     if (isCloudOnlyStorage()) {
       await startCloudDirectRuntime(config);
+      // 存量收口（D8）：老用户本地 IndexedDB 遗留画板自动上推（幂等），
+      // 完成后刷新工作区树——首次冷启动时树可能先于迁移渲染
+      void maybeRunLegacyWorkspaceMigration()
+        .then((ran) => {
+          if (ran) {
+            void import('../workspace-service')
+              .then((m) => m.workspaceService.reload())
+              .catch(() => undefined);
+          }
+        })
+        .catch(() => undefined);
       return;
     }
     // 写点接线 + 推送器（幂等）

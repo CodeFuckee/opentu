@@ -63,6 +63,15 @@ function installStorageFallback(name: 'localStorage' | 'sessionStorage'): void {
 installStorageFallback('localStorage');
 installStorageFallback('sessionStorage');
 
+// 单元测试统一走旧存储路径（openspec remove-local-persistence）：云端直连路径
+// 的行为由 cloud-direct-store / repository 的独立单测与 E2E 覆盖，既有存储服务
+// 单测依赖 IndexedDB 旧路径语义。flag 默认开启（生产行为），测试环境显式回退。
+if (typeof localStorage !== 'undefined' && localStorage.getItem) {
+  if (localStorage.getItem('cloud_only_storage') === null) {
+    localStorage.setItem('cloud_only_storage', '0');
+  }
+}
+
 // Node 20（CI 镜像）下全局 Blob 与 jsdom 的 Blob 是不同实现，
 // FileReader.readAsDataURL/readAsArrayBuffer 校验参数 instanceof 时拒绝
 // Node 全局 Blob（"parameter 1 is not of type 'Blob'"）。统一为 jsdom 的实现。

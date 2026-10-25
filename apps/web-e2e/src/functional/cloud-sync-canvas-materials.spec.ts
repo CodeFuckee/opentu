@@ -29,6 +29,7 @@ import {
 import {
   classifyBoardElements,
   clickSyncNow,
+  disableCloudOnlyForLegacyPath,
   closeSyncSettingsDialog,
   createNamedBoard,
   extractSlateText,
@@ -160,6 +161,7 @@ test.describe('云端同步（画布素材跨设备）', () => {
       storageState: { cookies: [], origins: [] },
     });
     const pageA = await contextA.newPage();
+    await disableCloudOnlyForLegacyPath(pageA);
     await forceFileInputFallback(pageA);
     await loginViaUi(pageA, account.id);
 
@@ -209,6 +211,7 @@ test.describe('云端同步（画布素材跨设备）', () => {
       storageState: { cookies: [], origins: [] },
     });
     const pageB = await contextB.newPage();
+    await disableCloudOnlyForLegacyPath(pageB);
     await forceFileInputFallback(pageB);
     await loginViaUi(pageB, account.id);
 
@@ -258,6 +261,7 @@ test.describe('云端同步（画布素材跨设备）', () => {
       storageState: { cookies: [], origins: [] },
     });
     const pageA = await contextA.newPage();
+    await disableCloudOnlyForLegacyPath(pageA);
     await forceFileInputFallback(pageA);
     await loginViaUi(pageA, account.id);
 
@@ -305,6 +309,7 @@ test.describe('云端同步（画布素材跨设备）', () => {
       storageState: { cookies: [], origins: [] },
     });
     const pageB = await contextB.newPage();
+    await disableCloudOnlyForLegacyPath(pageB);
     await forceFileInputFallback(pageB);
     await loginViaUi(pageB, account.id);
     // 设备 B：同步（含一次自动重试）并打开同步来的画板
