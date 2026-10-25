@@ -6,6 +6,8 @@
  */
 import { test, expect } from '../fixtures/test-base';
 import {
+
+
   clickToolRadio,
   deleteSelectedElement,
   dismissInspirationBoard,
@@ -19,6 +21,13 @@ import {
   waitForPointer,
   warmUpCanvasRuntime,
 } from '../fixtures/canvas-helpers';
+import { disableCloudPullForLocalIsolation } from '../fixtures/cloud-sync-helpers';
+
+// 云端唯一存储默认开启后，共享账号池的云端历史画板会进视图——本 spec 依赖
+// 空画布起点（插入文本/图形后断言），统一接入本地隔离
+test.beforeEach(async ({ page }) => {
+  await disableCloudPullForLocalIsolation(page);
+});
 
 // 套件级预热标记：只在首个用例前执行一次（drawing.spec 单文件单 worker，
 // 后续用例直接复用已热化的浏览器缓存/chunk）
