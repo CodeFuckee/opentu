@@ -412,6 +412,9 @@ class WorkspaceStorageService {
     if (isCloudOnlyStorage()) {
       const board = await cloudDirectStore.loadContent<Board>('board', id);
       if (!board) {
+        // 诊断：元数据在而内容缺失多为历史数据漂移（content.id ≠ entity_id 等），
+        // 上层会回退到可用画板；留痕便于统计漂移规模
+        console.warn(`[WorkspaceStorage] 云端画板内容缺失: ${id}`);
         return null;
       }
       return this.migrateLoadedBoard(board);

@@ -797,3 +797,82 @@ async function fetchBoardRowsForTouch(
   }
   return (await res.json()) as Array<Record<string, unknown>>;
 }
+
+
+/**
+ * 构造"悬空 currentBoardId"：把云端 workspace_state 的 currentBoardId 改为
+ * 不存在的画板 id——复现历史数据漂移下的冷启动（remove-local-persistence 五期
+ * 修复的崩溃场景：元数据在/内容缺失导致 switchBoard 抛错初始化失败）。
+ * 需在目标页面已登录后调用。
+ */
+export async function setDanglingCurrentBoard(page: Page): Promise<string> {
+  const accessToken = await getAccessToken(page);
+  if (!accessToken) {
+    throw new Error('setDanglingCurrentBoard: 无登录态');
+  }
+  const bogusId = `dangling-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const res = await fetch(
+    `${SUPABASE.url}/rest/v1/user_sync_data?entity_type=eq.workspace_state&entity_id=eq.default`,
+    {
+      method: 'PATCH',
+      headers: {
+        apikey: SUPABASE.anonKey,
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({
+        content: { currentBoardId: bogusId, expandedFolderIds: [], sidebarWidth: 260, sidebarCollapsed: false },
+        updated_at: new Date().toISOString(),
+      }),
+    }
+  );
+  if (!res.ok) {
+    throw new Error(`setDanglingCurrentBoard: PATCH 失败 HTTP ${res.status}`);
+  }
+  // sessionStorage 里同样可能残留旧 currentBoardId，一并置为悬空值
+  await page.evaluate((id) => {
+    try {
+      sessionStorage.setItem('workspace-current-board-id', id);
+    } catch {
+      // 忽略
+    }
+  }, bogusId);
+  return bogusId;
+}
+
+
+/** 恢复/设置云端 workspace_state 的 currentBoardId（悬空用例结束后的状态还原） */
+export async function setCurrentBoardRemotely(
+  page: Page,
+  boardEntityId: string
+): Promise<void> {
+  const accessToken = await getAccessToken(page);
+  if (!accessToken) {
+    throw new Error('setCurrentBoardRemotely: 无登录态');
+  }
+  const res = await fetch(
+    `${SUPABASE.url}/rest/v1/user_sync_data?entity_type=eq.workspace_state&entity_id=eq.default`,
+    {
+      method: 'PATCH',
+      headers: {
+        apikey: SUPABASE.anonKey,
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({
+        content: {
+          currentBoardId: boardEntityId,
+          expandedFolderIds: [],
+          sidebarWidth: 260,
+          sidebarCollapsed: false,
+        },
+        updated_at: new Date().toISOString(),
+      }),
+    }
+  );
+  if (!res.ok) {
+    throw new Error(`setCurrentBoardRemotely: PATCH 失败 HTTP ${res.status}`);
+  }
+}

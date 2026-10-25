@@ -21,6 +21,9 @@ import {
   touchBoardRemotely,
   enableCloudOnlyStorage,
   disableCloudRealtime,
+  setDanglingCurrentBoard,
+  setCurrentBoardRemotely,
+  fetchRemoteBoardContent,
 } from '../fixtures/cloud-sync-helpers';
 import {
   focusCanvasEmptyArea,
@@ -225,4 +228,57 @@ test.describe('云端唯一存储（cloud_only_storage）', () => {
 
     await contextA.close();
   });
+
+  test('悬空 currentBoardId 冷启动自动回退，不再初始化失败', async ({
+    browser,
+  }, testInfo) => {
+    // 回归：五期真实故障——云端 workspace_state 指向内容缺失的画板时，
+    // switchBoard 抛错导致整页「应用初始化失败」。修复后必须回退到可用画板。
+    test.setTimeout(600_000);
+
+    const boardName = randomBoardName();
+    const account = getTestAccount(testInfo.workerIndex);
+    await ensureE2EAccountRegistered(account);
+
+    const contextA = await browser.newContext({
+      storageState: { cookies: [], origins: [] },
+    });
+    const pageA = await contextA.newPage();
+    await enableCloudOnlyStorage(pageA);
+    await loginViaUi(pageA, account.id);
+
+    await openProjectDrawer(pageA);
+    await createNamedBoard(pageA, boardName);
+    await pageA.waitForTimeout(2_500); // 等落云
+
+    // ============ 构造悬空引用：云端 state 指向不存在的画板 ============
+    await setDanglingCurrentBoard(pageA);
+
+    // ============ 冷启动：必须回退可用画板，绝不能初始化失败 ============
+    await pageA.reload();
+    // 工作区正常挂载（而非「应用初始化失败」错误页）
+    await expect(pageA.getByTestId('unified-toolbar')).toBeVisible({
+      timeout: 30_000,
+    });
+    // 画板树非空：回退到了可用画板（新建的画板仍在树上）
+    await openProjectDrawer(pageA);
+    await expect(
+      pageA
+        .getByTestId('project-drawer')
+        .locator('.project-drawer-node__row')
+        .first()
+    ).toBeVisible({ timeout: 30_000 });
+
+    // 还原云端 state 指向真实画板（避免污染共享账号的后续登录）
+    const boardRow = await fetchRemoteBoardContent(pageA, boardName);
+    if (boardRow) {
+      await setCurrentBoardRemotely(
+        pageA,
+        String(boardRow.row.entity_id)
+      );
+    }
+
+    await contextA.close();
+  });
+
 });

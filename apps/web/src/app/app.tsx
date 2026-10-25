@@ -56,6 +56,30 @@ const BOARD_CLOSE_SNAPSHOT_KEY = 'aitu_board_close_snapshot_v1';
 // Global flag to prevent duplicate initialization in StrictMode
 let appInitialized = false;
 
+
+/**
+ * 冷启动种默认板（同名容错版）：云端已存在同名「我的画板1」时（如其他设备先种过），
+ * ValidationError 降级为唯一名重试——绝不因种板失败阻断初始化
+ *（remove-local-persistence 五期修复：与用户报告的初始化崩溃同族）
+ */
+async function createDefaultBoardSafely(
+  workspaceService: WorkspaceService
+): Promise<Board | null> {
+  try {
+    return await workspaceService.createBoard({ name: '我的画板1', elements: [] });
+  } catch {
+    try {
+      return await workspaceService.createBoard({
+        name: `我的画板1 ${Date.now() % 100000}`,
+        elements: [],
+      });
+    } catch (error) {
+      console.warn('[App] 默认画板创建失败:', error);
+      return null;
+    }
+  }
+}
+
 async function refreshBoardViewportBounds(board: PlaitBoard): Promise<void> {
   const { initializeViewBox, updateViewBox, updateViewportOffset } =
     await import('@plait/core');
@@ -352,21 +376,35 @@ export function App() {
           currentBoardId &&
           workspaceService.getBoardMetadata(currentBoardId)
         ) {
-          const currentBoard = await workspaceService.switchBoard(
-            currentBoardId
-          );
-          const nextData = {
-            children: currentBoard.elements || [],
-            viewport: currentBoard.viewport,
-            theme: currentBoard.theme,
-          };
-          updateLatestBoardData(
-            currentBoard.id,
-            nextData,
-            currentBoard.updatedAt
-          );
-          hasPendingPersistenceRef.current = false;
-          setValue(nextData);
+          try {
+            const currentBoard = await workspaceService.switchBoard(
+              currentBoardId
+            );
+            const nextData = {
+              children: currentBoard.elements || [],
+              viewport: currentBoard.viewport,
+              theme: currentBoard.theme,
+            };
+            updateLatestBoardData(
+              currentBoard.id,
+              nextData,
+              currentBoard.updatedAt
+            );
+            hasPendingPersistenceRef.current = false;
+            setValue(nextData);
+          } catch (error) {
+            // 云端唯一存储：内容可能已缺失（历史漂移）——回退首板，不致命
+            console.warn(
+              '[App] 二次初始化目标画板加载失败，回退首板:',
+              currentBoardId,
+              error
+            );
+            const tree = workspaceService.getTree();
+            const fallback = findFirstBoard(tree);
+            if (fallback) {
+              await workspaceService.switchBoard(fallback.id);
+            }
+          }
         }
         setIsLoading(false);
         // 标记加载完成
@@ -465,26 +503,54 @@ export function App() {
 
         // If has target board ID, load it via switchBoard (triggers lazy loading)
         if (targetBoardId) {
-          currentBoard = await workspaceService.switchBoard(targetBoardId);
-        } else if (workspaceService.hasBoards()) {
+          try {
+            currentBoard = await workspaceService.switchBoard(targetBoardId);
+          } catch (error) {
+            // 云端唯一存储：目标画板可能已云端缺失/历史数据漂移（元数据在、
+            // 内容取不到）——回退到可用画板，绝不让初始化失败
+            console.warn(
+              '[App] 目标画板加载失败，回退可用画板:',
+              targetBoardId,
+              error
+            );
+          }
+        }
+        if (
+          !currentBoard &&
+          !targetBoardId &&
+          workspaceService.hasBoards()
+        ) {
           // No valid board ID, select first available board
           const tree = workspaceService.getTree();
           const firstBoard = findFirstBoard(tree);
           if (firstBoard) {
             currentBoard = await workspaceService.switchBoard(firstBoard.id);
           }
-        } else if (isCloudOnlyStorage()) {
+        } else if (!currentBoard && targetBoardId) {
+          // 目标画板加载失败：回退到画板树中第一个可用画板
+          const tree = workspaceService.getTree();
+          const firstBoard = findFirstBoard(tree);
+          if (firstBoard) {
+            try {
+              currentBoard = await workspaceService.switchBoard(firstBoard.id);
+            } catch (error) {
+              console.warn('[App] 回退画板加载失败:', firstBoard.id, error);
+            }
+          }
+        }
+        if (!currentBoard && isCloudOnlyStorage()) {
           // 云端唯一存储（remove-local-persistence）：画板树已在
           // workspaceService.initialize() 时从云端拉取——此处空即云端确认为空，
           // 直接种默认板（无等待窗口、无本地/云端二段确认）
-          const board = await workspaceService.createBoard({
-            name: '我的画板1',
-            elements: [],
-          });
+          const board = await createDefaultBoardSafely(workspaceService);
           if (board) {
             currentBoard = await workspaceService.switchBoard(board.id);
           }
-        } else if (getSupabaseSyncConfig() && !isCloudPullDisabled()) {
+        } else if (
+          !currentBoard &&
+          getSupabaseSyncConfig() &&
+          !isCloudPullDisabled()
+        ) {
           // 云同步已登录：本地空不代表云端空——等首次登录 reconcile（上限 20s），
           // 拉到画布直接打开；云端确实为空/离线超时才种默认板
           //（refactor-cloud-native-sync Phase C.2：消除「我的画板1」抢跑）
@@ -497,20 +563,14 @@ export function App() {
               cloudFirstBoard.id
             );
           } else {
-            const board = await workspaceService.createBoard({
-              name: '我的画板1',
-              elements: [],
-            });
+            const board = await createDefaultBoardSafely(workspaceService);
             if (board) {
               currentBoard = await workspaceService.switchBoard(board.id);
             }
           }
         } else {
           // No boards exist, create default board
-          const board = await workspaceService.createBoard({
-            name: '我的画板1',
-            elements: [],
-          });
+          const board = await createDefaultBoardSafely(workspaceService);
 
           if (board) {
             currentBoard = await workspaceService.switchBoard(board.id);
