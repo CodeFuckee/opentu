@@ -5,6 +5,13 @@
  * 视图切换（网格/紧凑/列表）、空态提示、关闭。
  */
 import { test, expect } from '../fixtures/test-base';
+import { disableCloudPullForLocalIsolation } from '../fixtures/cloud-sync-helpers';
+
+// 云端唯一存储默认开启后，共享账号池的云端素材会进视图——本 spec 断言素材库
+// 空态，统一接入本地隔离
+test.beforeEach(async ({ page }) => {
+  await disableCloudPullForLocalIsolation(page);
+});
 
 test.describe('素材库', () => {
   async function openMediaLibrary(page: import('@playwright/test').Page) {
