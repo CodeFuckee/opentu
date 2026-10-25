@@ -9,7 +9,15 @@
  * 推理服务全程 route mock(与 smart-cutout.spec 同款),不依赖 GPU 服务。
  */
 import { deflateSync } from 'node:zlib';
+import { disableCloudPullForLocalIsolation } from '../fixtures/cloud-sync-helpers';
 import { test, expect } from '../fixtures/test-base';
+
+// 云端唯一存储默认开启后，共享账号池的云端历史数据会进入视图——本 spec 依赖
+// 干净的空画布起点，统一在此接入本地隔离（旧路径＋不拉取，见 cloud-sync-helpers）
+test.beforeEach(async ({ page }) => {
+  await disableCloudPullForLocalIsolation(page);
+});
+
 
 function pngChunk(type: string, data: Buffer): Buffer {
   const len = Buffer.alloc(4);
