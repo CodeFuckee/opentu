@@ -33,7 +33,7 @@ const TOOLBAR_MIN_HEIGHT = 460;
 // AI 按钮 ID，用于初始化时滚动到可见位置
 
 const TOOLBAR_LEFT_STORAGE_KEY = 'aitu-toolbar-left';
-const TOOLBAR_DEFAULT_LEFT = 0;
+const TOOLBAR_DEFAULT_LEFT = 12; // 浮岛式停靠：与屏幕边缘留出间距（未拖动过的默认位）
 const TOOLBAR_MOBILE_LEFT = 8;
 const TOOLBAR_VIEWPORT_GAP = 0;
 const TOOLBAR_CONTENT_WIDTH = 58;

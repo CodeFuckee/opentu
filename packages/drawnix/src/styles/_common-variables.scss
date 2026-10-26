@@ -7,9 +7,9 @@
 // Layout
 $drawer-width: 300px;
 $toolbar-safe-area-left: 48px; // 侧边标签冲突时，拖入画布内侧的建议避让距离
-$toolbar-edge-gap: 0px; // 默认贴屏幕左边缘
+$toolbar-edge-gap: 12px; // 浮岛式停靠：与屏幕边缘留出间距（参照专业画布工具的浮动 dock）
 $toolbar-left: $toolbar-edge-gap;
-$toolbar-content-width: 58px;
+$toolbar-content-width: 80px; // 与 unified-toolbar max-width 一致（图标+文字标签）
 $toolbar-width: $toolbar-left + $toolbar-content-width; // 工具栏右边界，用于抽屉/提示避让
 
 // Animation

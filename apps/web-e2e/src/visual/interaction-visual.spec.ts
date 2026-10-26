@@ -256,22 +256,33 @@ test.describe('@visual 交互状态视觉回归', () => {
   test.describe('输入交互', () => {
     test('AI输入栏 - 输入前后', async ({ page }) => {
       const aiInputBar = app.aiInputBar.container;
-      
-      // 空输入状态
+
+      // 模板卡图片为懒加载：首帧加载与否会改变元素盒高，等全部加载完再截
+      await page
+        .waitForFunction(
+          () => [...document.images].every((img) => img.complete),
+          undefined,
+          { timeout: 15000 }
+        )
+        .catch(() => {});
+
+      // 空状态（含渐入动画与聚焦光环过渡，禁用动画保证确定性）
       await expect(aiInputBar).toHaveScreenshot('ai-input-empty.png', {
         maxDiffPixelRatio: 0.10,
+        animations: 'disabled',
       });
-      
+
       // 输入内容
       const textarea = app.aiInputBar.textarea;
       if (await textarea.isVisible()) {
         await textarea.fill('一只可爱的橘猫在阳光下晒太阳');
         await page.waitForTimeout(200);
       }
-      
+
       // 有内容状态
       await expect(aiInputBar).toHaveScreenshot('ai-input-with-text.png', {
         maxDiffPixelRatio: 0.10,
+        animations: 'disabled',
       });
     });
   });

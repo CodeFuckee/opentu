@@ -1,12 +1,12 @@
 @mixin board-background-color {
-    // 中性灰画布（参照专业设计工具）：与白色面板拉开一档，点阵用中性黑点
-    // —— 蓝调画布偏「活泼」，中性灰更接近建筑学长/PS 类工具的专业气质
+    // 中性灰画布（参照专业设计工具）：比白色浮层深两档，浮动工具条/输入卡
+    // 才有「浮」在画布上的对比度；点阵用中性黑点
     &.theme-colorful .board-host-svg,
     &.theme-default .board-host-svg {
-        background-color: #F2F3F5;
+        background-color: #ECEDEF;
         background-image: radial-gradient(
             circle,
-            rgba(0, 0, 0, 0.07) 1px,
+            rgba(0, 0, 0, 0.08) 1px,
             transparent 1.2px
         );
         background-size: 22px 22px;
