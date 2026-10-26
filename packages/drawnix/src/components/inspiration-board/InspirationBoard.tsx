@@ -6,7 +6,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { ChevronLeftIcon, ChevronRightIcon } from 'tdesign-icons-react';
-import { ArrowLeft, Lightbulb, MousePointerClick, Send, X } from 'lucide-react';
+import { ArrowLeft, Lightbulb, MousePointerClick, Send, Sparkles, X } from 'lucide-react';
 import { MessagePlugin } from 'tdesign-react';
 import { InspirationCard } from './InspirationCard';
 import {
@@ -154,7 +154,10 @@ export const InspirationBoard: React.FC<InspirationBoardProps> = ({
             <h3 className="inspiration-board__title">确认后发送</h3>
           </div>
         ) : (
-          <h3 className="inspiration-board__title">灵感创意</h3>
+          <h3 className="inspiration-board__title">
+            <Sparkles size={14} className="inspiration-board__title-icon" aria-hidden />
+            灵感创意
+          </h3>
         )}
 
         {/* 不再提示按钮 */}

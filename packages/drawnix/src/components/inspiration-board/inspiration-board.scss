@@ -58,6 +58,15 @@ $animation-duration: 0.3s;
     font-weight: 600;
     color: var(--td-text-color-primary);
     flex: 1; // 占据剩余空间，把右侧按钮推到最右边
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  // 标题前缀图标：与主题强调色同族，给面板一个视觉锚点
+  &__title-icon {
+    color: var(--md3-primary, var(--td-brand-color));
+    flex-shrink: 0;
   }
 
   &__guide-title-group {
@@ -342,14 +351,19 @@ $animation-duration: 0.3s;
   display: flex;
   flex-direction: column;
   background: var(--md3-surface-container-lowest, #fff);
-  border: none;
+  border: 1px solid var(--md3-hairline, rgba(0, 0, 0, 0.1));
   border-radius: var(--md3-radius-lg, 16px);
   overflow: hidden;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
   box-shadow: var(--md3-elevation-1, 0 1px 2px rgba(0, 0, 0, 0.06));
 
   &:hover {
+    transform: translateY(-2px);
+    border-color: var(--md3-outline-variant, rgba(11, 87, 208, 0.35));
     box-shadow: var(--md3-elevation-2, 0 4px 12px rgba(0, 0, 0, 0.08));
 
     .inspiration-card__hover-overlay {
@@ -375,12 +389,7 @@ $animation-duration: 0.3s;
     aspect-ratio: 1 / 1;
     overflow: hidden;
     background: var(--md3-surface-container-low, var(--td-bg-color-container));
-
-    // 内容资产降噪：糖果色插画在纸墨界面上降饱和（约 45%），消除贴纸感
-    img,
-    svg {
-      filter: saturate(0.55) contrast(0.96) sepia(0.04);
-    }
+    // 插画已统一为品牌蓝单色系（constants.ts 内联 SVG），不再需要降饱和滤镜
   }
 
   &__image {

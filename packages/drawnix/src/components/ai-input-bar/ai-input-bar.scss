@@ -375,6 +375,9 @@ $ai-input-small-expanded-max-height: $ai-input-small-line-height * 6 +
     .ai-input-bar--with-inspiration & {
       border-radius: 0 0 var(--md3-radius-xl, 28px)
         var(--md3-radius-xl, 28px);
+      // 组合态由外层背板统一描边；内衬 border-top 会在面板与输入栏
+      // 交界处形成贯穿缝线
+      border-top: none;
       box-shadow: none; // 移除阴影，由灵感板统一处理
 
       &--expanded {

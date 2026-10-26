@@ -15,88 +15,57 @@ const GRID_IMAGE_URL =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(`
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 420">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#f8f4ff"/>
-      <stop offset="1" stop-color="#fff7ed"/>
-    </linearGradient>
-    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#a855f7"/>
-      <stop offset="1" stop-color="#f97316"/>
-    </linearGradient>
-  </defs>
-  <rect width="420" height="420" rx="34" fill="url(#bg)"/>
-  <rect x="38" y="46" width="344" height="316" rx="22" fill="#ffffff" opacity="0.95"/>
-  <g transform="translate(58 116)" stroke="#d8b4fe" stroke-width="3">
-    <rect width="86" height="72" rx="14" fill="#fff7ed"/>
-    <rect x="108" width="86" height="72" rx="14" fill="#f5f3ff"/>
-    <rect x="216" width="86" height="72" rx="14" fill="#fffbeb"/>
-    <rect y="92" width="86" height="72" rx="14" fill="#fef2f2"/>
-    <rect x="108" y="92" width="86" height="72" rx="14" fill="#eef2ff"/>
-    <rect x="216" y="92" width="86" height="72" rx="14" fill="#fff7ed"/>
-    <rect y="184" width="86" height="72" rx="14" fill="#f5f3ff"/>
-    <rect x="108" y="184" width="86" height="72" rx="14" fill="#fffbeb"/>
-    <rect x="216" y="184" width="86" height="72" rx="14" fill="#fef2f2"/>
+  <rect width="420" height="420" rx="34" fill="#EDF2FB"/>
+  <rect x="38" y="46" width="344" height="316" rx="22" fill="#ffffff"/>
+  <g transform="translate(58 116)" stroke="#D3E3FD" stroke-width="3">
+    <rect width="86" height="72" rx="14" fill="#E8F0FE"/>
+    <rect x="108" width="86" height="72" rx="14" fill="#F7FAFF"/>
+    <rect x="216" width="86" height="72" rx="14" fill="#E8F0FE"/>
+    <rect y="92" width="86" height="72" rx="14" fill="#F7FAFF"/>
+    <rect x="108" y="92" width="86" height="72" rx="14" fill="#D3E3FD" fill-opacity="0.45"/>
+    <rect x="216" y="92" width="86" height="72" rx="14" fill="#F7FAFF"/>
+    <rect y="184" width="86" height="72" rx="14" fill="#E8F0FE"/>
+    <rect x="108" y="184" width="86" height="72" rx="14" fill="#F7FAFF"/>
+    <rect x="216" y="184" width="86" height="72" rx="14" fill="#E8F0FE"/>
   </g>
-  <circle cx="101" cy="152" r="18" fill="#f97316"/>
-  <circle cx="209" cy="152" r="18" fill="#a855f7"/>
-  <circle cx="317" cy="152" r="18" fill="#f59e0b"/>
-  <circle cx="101" cy="244" r="18" fill="#ef4444"/>
-  <circle cx="209" cy="244" r="18" fill="#6366f1"/>
-  <circle cx="317" cy="244" r="18" fill="#fb923c"/>
-  <circle cx="101" cy="336" r="18" fill="#8b5cf6"/>
-  <circle cx="209" cy="336" r="18" fill="#eab308"/>
-  <circle cx="317" cy="336" r="18" fill="#f43f5e"/>
-  <path d="M356 78l8 10 12-20" fill="none" stroke="url(#accent)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="101" cy="152" r="18" fill="#0B57D0"/>
+  <circle cx="209" cy="152" r="18" fill="#A8C7FA"/>
+  <circle cx="317" cy="152" r="18" fill="#4285F4"/>
+  <circle cx="101" cy="244" r="18" fill="#A8C7FA"/>
+  <circle cx="209" cy="244" r="18" fill="#4285F4"/>
+  <circle cx="317" cy="244" r="18" fill="#0B57D0"/>
+  <circle cx="101" cy="336" r="18" fill="#4285F4"/>
+  <circle cx="209" cy="336" r="18" fill="#0B57D0"/>
+  <circle cx="317" cy="336" r="18" fill="#A8C7FA"/>
 </svg>`);
 
 const PPT_OUTLINE_IMAGE_URL =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(`
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 420">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#eef5ff"/>
-      <stop offset="1" stop-color="#e7e2ff"/>
-    </linearGradient>
-    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#3b82f6"/>
-      <stop offset="1" stop-color="#8b5cf6"/>
-    </linearGradient>
-  </defs>
-  <rect width="420" height="420" rx="34" fill="url(#bg)"/>
-  <rect x="34" y="44" width="352" height="318" rx="22" fill="#ffffff" opacity="0.94"/>
-  <rect x="34" y="44" width="352" height="52" rx="22" fill="#e8edff"/>
-  <rect x="56" y="126" width="160" height="14" rx="7" fill="url(#accent)"/>
-  <rect x="56" y="164" width="274" height="12" rx="6" fill="#c7d2fe"/>
-  <rect x="56" y="192" width="220" height="12" rx="6" fill="#dbeafe"/>
-  <rect x="56" y="244" width="100" height="70" rx="12" fill="#eff6ff" stroke="#93c5fd"/>
-  <rect x="186" y="244" width="100" height="70" rx="12" fill="#f5f3ff" stroke="#a78bfa"/>
-  <rect x="316" y="244" width="52" height="70" rx="12" fill="#ecfeff" stroke="#67e8f9"/>
-  <circle cx="82" cy="279" r="14" fill="#3b82f6"/>
-  <circle cx="236" cy="279" r="14" fill="#8b5cf6"/>
-  <circle cx="342" cy="279" r="14" fill="#06b6d4"/>
-  <path d="M158 279h24M288 279h24" stroke="#94a3b8" stroke-width="8" stroke-linecap="round"/>
-  <rect x="56" y="334" width="312" height="10" rx="5" fill="#dbeafe"/>
+  <rect width="420" height="420" rx="34" fill="#EDF2FB"/>
+  <rect x="34" y="44" width="352" height="318" rx="22" fill="#ffffff"/>
+  <rect x="34" y="44" width="352" height="52" rx="22" fill="#E8F0FE"/>
+  <rect x="56" y="126" width="160" height="14" rx="7" fill="#0B57D0"/>
+  <rect x="56" y="164" width="274" height="12" rx="6" fill="#D3E3FD"/>
+  <rect x="56" y="192" width="220" height="12" rx="6" fill="#E8F0FE"/>
+  <rect x="56" y="244" width="100" height="70" rx="12" fill="#F7FAFF" stroke="#A8C7FA"/>
+  <rect x="186" y="244" width="100" height="70" rx="12" fill="#F7FAFF" stroke="#A8C7FA"/>
+  <rect x="316" y="244" width="52" height="70" rx="12" fill="#F7FAFF" stroke="#A8C7FA"/>
+  <circle cx="82" cy="279" r="14" fill="#0B57D0"/>
+  <circle cx="236" cy="279" r="14" fill="#4285F4"/>
+  <circle cx="342" cy="279" r="14" fill="#A8C7FA"/>
+  <path d="M158 279h24M288 279h24" stroke="#C5C8D6" stroke-width="8" stroke-linecap="round"/>
+  <rect x="56" y="334" width="312" height="10" rx="5" fill="#E8F0FE"/>
 </svg>`);
 
 const MINDMAP_IMAGE_URL =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(`
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 420">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#f0fdf4"/>
-      <stop offset="1" stop-color="#ecfeff"/>
-    </linearGradient>
-    <linearGradient id="lineA" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#22c55e"/>
-      <stop offset="1" stop-color="#06b6d4"/>
-    </linearGradient>
-  </defs>
-  <rect width="420" height="420" rx="34" fill="url(#bg)"/>
-  <rect x="34" y="48" width="352" height="312" rx="22" fill="#ffffff" opacity="0.94"/>
-  <g fill="none" stroke="url(#lineA)" stroke-width="3" stroke-linecap="round">
+  <rect width="420" height="420" rx="34" fill="#EDF2FB"/>
+  <rect x="34" y="48" width="352" height="312" rx="22" fill="#ffffff"/>
+  <g fill="none" stroke="#A8C7FA" stroke-width="3" stroke-linecap="round">
     <path d="M210 210C170 190 150 156 126 128"/>
     <path d="M210 210C170 220 144 252 116 286"/>
     <path d="M210 210C250 184 278 150 312 128"/>
@@ -106,20 +75,20 @@ const MINDMAP_IMAGE_URL =
     <path d="M116 286C98 300 82 310 66 324"/>
     <path d="M322 292C342 302 356 312 372 326"/>
   </g>
-  <rect x="168" y="178" width="84" height="64" rx="18" fill="#ecfdf5" stroke="#22c55e" stroke-width="3"/>
-  <circle cx="210" cy="210" r="16" fill="#22c55e"/>
-  <rect x="76" y="98" width="98" height="36" rx="13" fill="#f0fdf4" stroke="#86efac"/>
-  <rect x="72" y="270" width="102" height="36" rx="13" fill="#eff6ff" stroke="#93c5fd"/>
-  <rect x="262" y="98" width="102" height="36" rx="13" fill="#ecfeff" stroke="#67e8f9"/>
-  <rect x="266" y="276" width="108" height="36" rx="13" fill="#f0fdfa" stroke="#5eead4"/>
-  <circle cx="96" cy="116" r="7" fill="#22c55e"/>
-  <circle cx="96" cy="288" r="7" fill="#3b82f6"/>
-  <circle cx="286" cy="116" r="7" fill="#06b6d4"/>
-  <circle cx="290" cy="294" r="7" fill="#14b8a6"/>
-  <rect x="116" y="112" width="42" height="7" rx="3.5" fill="#bbf7d0"/>
-  <rect x="116" y="284" width="44" height="7" rx="3.5" fill="#bfdbfe"/>
-  <rect x="306" y="112" width="42" height="7" rx="3.5" fill="#a5f3fc"/>
-  <rect x="310" y="290" width="46" height="7" rx="3.5" fill="#99f6e4"/>
+  <rect x="168" y="178" width="84" height="64" rx="18" fill="#D3E3FD" stroke="#0B57D0" stroke-width="3"/>
+  <circle cx="210" cy="210" r="16" fill="#0B57D0"/>
+  <rect x="76" y="98" width="98" height="36" rx="13" fill="#F7FAFF" stroke="#C9DCF8"/>
+  <rect x="72" y="270" width="102" height="36" rx="13" fill="#F7FAFF" stroke="#C9DCF8"/>
+  <rect x="262" y="98" width="102" height="36" rx="13" fill="#F7FAFF" stroke="#C9DCF8"/>
+  <rect x="266" y="276" width="108" height="36" rx="13" fill="#F7FAFF" stroke="#C9DCF8"/>
+  <circle cx="96" cy="116" r="7" fill="#0B57D0"/>
+  <circle cx="96" cy="288" r="7" fill="#4285F4"/>
+  <circle cx="286" cy="116" r="7" fill="#A8C7FA"/>
+  <circle cx="290" cy="294" r="7" fill="#0B57D0"/>
+  <rect x="116" y="112" width="42" height="7" rx="3.5" fill="#D3E3FD"/>
+  <rect x="116" y="284" width="44" height="7" rx="3.5" fill="#D3E3FD"/>
+  <rect x="306" y="112" width="42" height="7" rx="3.5" fill="#D3E3FD"/>
+  <rect x="310" y="290" width="46" height="7" rx="3.5" fill="#D3E3FD"/>
 </svg>`);
 
 /**
@@ -163,15 +132,22 @@ export const INSPIRATION_TEMPLATES: InspirationTemplate[] = [
 /**
  * 分类对应的颜色配置
  */
+/**
+ * 分类对应的颜色配置
+ *
+ * 全部分类统一为品牌蓝 chip（M3 primary-container）：原先七分类七彩
+ * （紫/蓝/绿/黄…），三张卡三个色系让首屏像「三个产品拼的」——统一后
+ * 与主题强调色同族，画面成套。
+ */
 export const CATEGORY_COLORS: Record<
   InspirationCategory,
   { bg: string; text: string }
 > = {
-  [InspirationCategory.VIDEO]: { bg: '#fce7f3', text: '#be185d' },
-  [InspirationCategory.IMAGE]: { bg: '#dbeafe', text: '#1d4ed8' },
-  [InspirationCategory.MINDMAP]: { bg: '#dcfce7', text: '#15803d' },
-  [InspirationCategory.FLOWCHART]: { bg: '#fef3c7', text: '#b45309' },
-  [InspirationCategory.PPT]: { bg: '#dbeafe', text: '#1d4ed8' },
-  [InspirationCategory.GRID]: { bg: '#f3e8ff', text: '#7c3aed' },
-  [InspirationCategory.SVG]: { bg: '#e0e7ff', text: '#4338ca' },
+  [InspirationCategory.VIDEO]: { bg: '#D3E3FD', text: '#041E49' },
+  [InspirationCategory.IMAGE]: { bg: '#D3E3FD', text: '#041E49' },
+  [InspirationCategory.MINDMAP]: { bg: '#D3E3FD', text: '#041E49' },
+  [InspirationCategory.FLOWCHART]: { bg: '#D3E3FD', text: '#041E49' },
+  [InspirationCategory.PPT]: { bg: '#D3E3FD', text: '#041E49' },
+  [InspirationCategory.GRID]: { bg: '#D3E3FD', text: '#041E49' },
+  [InspirationCategory.SVG]: { bg: '#D3E3FD', text: '#041E49' },
 };
