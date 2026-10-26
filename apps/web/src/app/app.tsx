@@ -524,7 +524,11 @@ export function App() {
           const tree = workspaceService.getTree();
           const firstBoard = findFirstBoard(tree);
           if (firstBoard) {
-            currentBoard = await workspaceService.switchBoard(firstBoard.id);
+            try {
+              currentBoard = await workspaceService.switchBoard(firstBoard.id);
+            } catch (error) {
+              console.warn('[App] 首板加载失败:', firstBoard.id, error);
+            }
           }
         } else if (!currentBoard && targetBoardId) {
           // 目标画板加载失败：回退到画板树中第一个可用画板
@@ -663,6 +667,39 @@ export function App() {
         }
       } catch (error) {
         console.error('[App] Initialization failed:', error);
+        // 云端唯一存储（remove-local-persistence）：画板缺失类错误降级为
+        // 可用空工作区（工具栏/抽屉可用，用户可切板/新建），绝不显示
+        // 「应用初始化失败」致命页——空引用不该摧毁整个应用
+        const message = String(
+          error instanceof Error ? error.message : error
+        );
+        if (message.includes('not found in storage')) {
+          try {
+            const fallbackBoard = await createDefaultBoardSafely(
+              WorkspaceService.getInstance()
+            );
+            if (fallbackBoard) {
+              await WorkspaceService.getInstance().switchBoard(
+                fallbackBoard.id
+              );
+              setValue({
+                children: fallbackBoard.elements || [],
+                viewport: fallbackBoard.viewport,
+                theme: fallbackBoard.theme,
+              });
+              setCurrentBoardId(fallbackBoard.id);
+              MessagePlugin.warning({
+                content:
+                  '原画板数据未能加载（可能已被删除），已创建新画板。可从左侧画板列表查看其他画布。',
+                duration: 8000,
+                closeBtn: true,
+              });
+              return;
+            }
+          } catch (fallbackError) {
+            console.error('[App] 降级创建默认画板也失败:', fallbackError);
+          }
+        }
         setInitError(error instanceof Error ? error : new Error(String(error)));
       } finally {
         isDataReadyRef.current = true;

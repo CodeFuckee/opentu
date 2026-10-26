@@ -281,4 +281,48 @@ test.describe('云端唯一存储（cloud_only_storage）', () => {
     await contextA.close();
   });
 
+
+  test('画板单实体内容拉取失败时冷启动降级可用工作区', async ({
+    browser,
+  }, testInfo) => {
+    // 回归补充：用户真机第二次崩溃路径——元数据在而单实体内容拉不到
+    // （模拟：拦截按 entity_id 单拉画板内容的请求返回空）。修复后必须
+    // 降级为可用工作区（工具栏挂载、可新建画板），而非初始化失败页。
+    test.setTimeout(600_000);
+
+    const boardName = randomBoardName();
+    const account = getTestAccount(testInfo.workerIndex);
+    await ensureE2EAccountRegistered(account);
+
+    const contextA = await browser.newContext({
+      storageState: { cookies: [], origins: [] },
+    });
+    const pageA = await contextA.newPage();
+    await enableCloudOnlyStorage(pageA);
+    await loginViaUi(pageA, account.id);
+
+    await openProjectDrawer(pageA);
+    await createNamedBoard(pageA, boardName);
+    await pageA.waitForTimeout(2_500);
+
+    // 拦截"按 entity_id 单拉画板内容"的请求 → 返回空（模拟元数据在/内容缺失）
+    await pageA.route('**/rest/v1/user_sync_data?*entity_id=eq.*', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    );
+
+    await pageA.reload();
+    // 工作区必须可用（回退/降级），而非「应用初始化失败」错误页
+    await expect(pageA.getByTestId('unified-toolbar')).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(pageA.getByText('应用初始化失败')).toHaveCount(0);
+
+    // 解除拦截后工作区功能应完全可用：能新建画板
+    await pageA.unroute('**/rest/v1/user_sync_data?*entity_id=eq.*');
+    await openProjectDrawer(pageA);
+    await createNamedBoard(pageA, randomBoardName());
+
+    await contextA.close();
+  });
+
 });
