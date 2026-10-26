@@ -63,27 +63,26 @@ $ai-input-small-expanded-max-height: $ai-input-small-line-height * 6 +
   align-items: center;
   gap: 8px;
 
-  // 当有灵感板时，移除 gap 实现无缝连接，并添加统一阴影
+  // ─── Studio 空态首屏：输入台居中成为主角 ───
+  // 画布为空时整个组合从「底部拼贴面板」改为「居中创作台」：
+  // 问候语 + 模板卡（灵感板）在上，输入框作为白色主卡收底，
+  // 直接落在点阵画布上，不再有包裹整组的第二层背板。
   &--with-inspiration {
-    gap: 0;
+    bottom: auto;
+    top: 44%;
+    transform: translate(-50%, -50%);
+    gap: 18px;
 
-    // 使用伪元素为整个组合添加统一的阴影和圆角边框
-    &::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 16px; // 与 padding 对应
-      right: 16px;
-      bottom: 0;
-      background: var(
-        --md3-surface-container-high,
-        var(--island-bg-color, #fff)
-      );
-      border: 1px solid var(--md3-hairline, rgba(0, 0, 0, 0.1));
-      border-radius: var(--md3-radius-xl, 28px);
-      box-shadow: var(--md3-elevation-3, 0 2px 16px rgba(0, 0, 0, 0.1));
-      z-index: -1;
-      pointer-events: none;
+    // 桌面端收窄一点，让输入框比例更接近「主卡」
+    max-width: 680px;
+
+    // 小屏回落为底部停靠（居中 hero 在窄屏会挤压模板卡）
+    //（本文件未导入 _responsive 的 mixin，用原生媒体查询；768px = $breakpoint-tablet）
+    @media (max-width: 768px) {
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+      top: auto;
+      transform: translate(-50%, 0);
+      gap: 10px;
     }
   }
 
@@ -371,17 +370,25 @@ $ai-input-small-expanded-max-height: $ai-input-small-line-height * 6 +
       padding: 12px;
     }
 
-    // 当有灵感板时，上边缘直角与灵感板连接
-    .ai-input-bar--with-inspiration & {
-      border-radius: 0 0 var(--md3-radius-xl, 28px)
-        var(--md3-radius-xl, 28px);
-      // 组合态由外层背板统一描边；内衬 border-top 会在面板与输入栏
-      // 交界处形成贯穿缝线
-      border-top: none;
-      box-shadow: none; // 移除阴影，由灵感板统一处理
+    // 聚焦/展开：主题色描边 + 柔光环——输入框是创作台的「主角」
+    &:focus-within,
+    &--expanded {
+      border-color: rgba(11, 87, 208, 0.4);
+      box-shadow:
+        0 0 0 4px rgba(11, 87, 208, 0.07),
+        var(--md3-elevation-3, 0 2px 12px rgba(0, 0, 0, 0.08));
+    }
 
-      &--expanded {
-        border-radius: 0 0 20px 20px;
+    // Studio 空态：输入框是居中主角，字号升一档、留白加大
+    .ai-input-bar--with-inspiration & {
+      padding: 10px 14px;
+      box-shadow:
+        0 2px 6px rgba(16, 42, 84, 0.06),
+        0 12px 36px rgba(16, 42, 84, 0.1);
+
+      .ai-input-bar__input {
+        font-size: 15px;
+        line-height: 1.6;
       }
     }
   }

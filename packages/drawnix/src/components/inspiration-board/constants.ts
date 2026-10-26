@@ -14,81 +14,71 @@ export const ITEMS_PER_PAGE = 3;
 const GRID_IMAGE_URL =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(`
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 420">
-  <rect width="420" height="420" rx="34" fill="#EDF2FB"/>
-  <rect x="38" y="46" width="344" height="316" rx="22" fill="#ffffff"/>
-  <g transform="translate(58 116)" stroke="#D3E3FD" stroke-width="3">
-    <rect width="86" height="72" rx="14" fill="#E8F0FE"/>
-    <rect x="108" width="86" height="72" rx="14" fill="#F7FAFF"/>
-    <rect x="216" width="86" height="72" rx="14" fill="#E8F0FE"/>
-    <rect y="92" width="86" height="72" rx="14" fill="#F7FAFF"/>
-    <rect x="108" y="92" width="86" height="72" rx="14" fill="#D3E3FD" fill-opacity="0.45"/>
-    <rect x="216" y="92" width="86" height="72" rx="14" fill="#F7FAFF"/>
-    <rect y="184" width="86" height="72" rx="14" fill="#E8F0FE"/>
-    <rect x="108" y="184" width="86" height="72" rx="14" fill="#F7FAFF"/>
-    <rect x="216" y="184" width="86" height="72" rx="14" fill="#E8F0FE"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 320">
+  <rect width="420" height="320" rx="30" fill="#EDF2FB"/>
+  <rect x="36" y="32" width="348" height="256" rx="20" fill="#ffffff"/>
+  <g transform="translate(100 68)" stroke="#D3E3FD" stroke-width="2.5">
+    <rect width="64" height="52" rx="12" fill="#E8F0FE"/>
+    <rect x="78" width="64" height="52" rx="12" fill="#F7FAFF"/>
+    <rect x="156" width="64" height="52" rx="12" fill="#E8F0FE"/>
+    <rect y="66" width="64" height="52" rx="12" fill="#F7FAFF"/>
+    <rect x="78" y="66" width="64" height="52" rx="12" fill="#D3E3FD" fill-opacity="0.5"/>
+    <rect x="156" y="66" width="64" height="52" rx="12" fill="#F7FAFF"/>
+    <rect y="132" width="64" height="52" rx="12" fill="#E8F0FE"/>
+    <rect x="78" y="132" width="64" height="52" rx="12" fill="#F7FAFF"/>
+    <rect x="156" y="132" width="64" height="52" rx="12" fill="#E8F0FE"/>
   </g>
-  <circle cx="101" cy="152" r="18" fill="#0B57D0"/>
-  <circle cx="209" cy="152" r="18" fill="#A8C7FA"/>
-  <circle cx="317" cy="152" r="18" fill="#4285F4"/>
-  <circle cx="101" cy="244" r="18" fill="#A8C7FA"/>
-  <circle cx="209" cy="244" r="18" fill="#4285F4"/>
-  <circle cx="317" cy="244" r="18" fill="#0B57D0"/>
-  <circle cx="101" cy="336" r="18" fill="#4285F4"/>
-  <circle cx="209" cy="336" r="18" fill="#0B57D0"/>
-  <circle cx="317" cy="336" r="18" fill="#A8C7FA"/>
+  <circle cx="132" cy="94" r="11" fill="#0B57D0"/>
+  <circle cx="210" cy="160" r="11" fill="#4285F4"/>
+  <circle cx="288" cy="226" r="11" fill="#A8C7FA"/>
 </svg>`);
 
 const PPT_OUTLINE_IMAGE_URL =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(`
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 420">
-  <rect width="420" height="420" rx="34" fill="#EDF2FB"/>
-  <rect x="34" y="44" width="352" height="318" rx="22" fill="#ffffff"/>
-  <rect x="34" y="44" width="352" height="52" rx="22" fill="#E8F0FE"/>
-  <rect x="56" y="126" width="160" height="14" rx="7" fill="#0B57D0"/>
-  <rect x="56" y="164" width="274" height="12" rx="6" fill="#D3E3FD"/>
-  <rect x="56" y="192" width="220" height="12" rx="6" fill="#E8F0FE"/>
-  <rect x="56" y="244" width="100" height="70" rx="12" fill="#F7FAFF" stroke="#A8C7FA"/>
-  <rect x="186" y="244" width="100" height="70" rx="12" fill="#F7FAFF" stroke="#A8C7FA"/>
-  <rect x="316" y="244" width="52" height="70" rx="12" fill="#F7FAFF" stroke="#A8C7FA"/>
-  <circle cx="82" cy="279" r="14" fill="#0B57D0"/>
-  <circle cx="236" cy="279" r="14" fill="#4285F4"/>
-  <circle cx="342" cy="279" r="14" fill="#A8C7FA"/>
-  <path d="M158 279h24M288 279h24" stroke="#C5C8D6" stroke-width="8" stroke-linecap="round"/>
-  <rect x="56" y="334" width="312" height="10" rx="5" fill="#E8F0FE"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 320">
+  <rect width="420" height="320" rx="30" fill="#EDF2FB"/>
+  <rect x="34" y="32" width="352" height="256" rx="20" fill="#ffffff"/>
+  <rect x="34" y="32" width="352" height="44" rx="20" fill="#E8F0FE"/>
+  <rect x="56" y="96" width="150" height="13" rx="6.5" fill="#0B57D0"/>
+  <rect x="56" y="126" width="252" height="11" rx="5.5" fill="#D3E3FD"/>
+  <rect x="56" y="150" width="200" height="11" rx="5.5" fill="#E8F0FE"/>
+  <rect x="56" y="190" width="92" height="62" rx="12" fill="#F7FAFF" stroke="#A8C7FA"/>
+  <rect x="168" y="190" width="92" height="62" rx="12" fill="#F7FAFF" stroke="#A8C7FA"/>
+  <rect x="280" y="190" width="52" height="62" rx="12" fill="#F7FAFF" stroke="#A8C7FA"/>
+  <circle cx="80" cy="221" r="12" fill="#0B57D0"/>
+  <circle cx="212" cy="221" r="12" fill="#4285F4"/>
+  <circle cx="306" cy="221" r="12" fill="#A8C7FA"/>
+  <path d="M150 221h16M262 221h16" stroke="#C5C8D6" stroke-width="7" stroke-linecap="round"/>
+  <rect x="56" y="264" width="276" height="9" rx="4.5" fill="#E8F0FE"/>
 </svg>`);
 
 const MINDMAP_IMAGE_URL =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(`
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 420">
-  <rect width="420" height="420" rx="34" fill="#EDF2FB"/>
-  <rect x="34" y="48" width="352" height="312" rx="22" fill="#ffffff"/>
-  <g fill="none" stroke="#A8C7FA" stroke-width="3" stroke-linecap="round">
-    <path d="M210 210C170 190 150 156 126 128"/>
-    <path d="M210 210C170 220 144 252 116 286"/>
-    <path d="M210 210C250 184 278 150 312 128"/>
-    <path d="M210 210C252 224 280 254 322 292"/>
-    <path d="M126 128C108 116 94 110 78 104"/>
-    <path d="M312 128C332 116 346 110 362 104"/>
-    <path d="M116 286C98 300 82 310 66 324"/>
-    <path d="M322 292C342 302 356 312 372 326"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 320">
+  <rect width="420" height="320" rx="30" fill="#EDF2FB"/>
+  <rect x="34" y="32" width="352" height="256" rx="20" fill="#ffffff"/>
+  <g fill="none" stroke="#A8C7FA" stroke-width="2.5" stroke-linecap="round">
+    <path d="M210 160C178 144 162 118 140 96"/>
+    <path d="M210 160C180 170 158 192 138 220"/>
+    <path d="M210 160C242 142 262 116 284 96"/>
+    <path d="M210 160C244 174 268 196 290 222"/>
   </g>
-  <rect x="168" y="178" width="84" height="64" rx="18" fill="#D3E3FD" stroke="#0B57D0" stroke-width="3"/>
-  <circle cx="210" cy="210" r="16" fill="#0B57D0"/>
-  <rect x="76" y="98" width="98" height="36" rx="13" fill="#F7FAFF" stroke="#C9DCF8"/>
-  <rect x="72" y="270" width="102" height="36" rx="13" fill="#F7FAFF" stroke="#C9DCF8"/>
-  <rect x="262" y="98" width="102" height="36" rx="13" fill="#F7FAFF" stroke="#C9DCF8"/>
-  <rect x="266" y="276" width="108" height="36" rx="13" fill="#F7FAFF" stroke="#C9DCF8"/>
-  <circle cx="96" cy="116" r="7" fill="#0B57D0"/>
-  <circle cx="96" cy="288" r="7" fill="#4285F4"/>
-  <circle cx="286" cy="116" r="7" fill="#A8C7FA"/>
-  <circle cx="290" cy="294" r="7" fill="#0B57D0"/>
-  <rect x="116" y="112" width="42" height="7" rx="3.5" fill="#D3E3FD"/>
-  <rect x="116" y="284" width="44" height="7" rx="3.5" fill="#D3E3FD"/>
-  <rect x="306" y="112" width="42" height="7" rx="3.5" fill="#D3E3FD"/>
-  <rect x="310" y="290" width="46" height="7" rx="3.5" fill="#D3E3FD"/>
+  <rect x="176" y="134" width="68" height="52" rx="14" fill="#D3E3FD" stroke="#0B57D0" stroke-width="2.5"/>
+  <circle cx="210" cy="160" r="12" fill="#0B57D0"/>
+  <rect x="86" y="78" width="88" height="32" rx="11" fill="#F7FAFF" stroke="#C9DCF8"/>
+  <rect x="86" y="210" width="92" height="32" rx="11" fill="#F7FAFF" stroke="#C9DCF8"/>
+  <rect x="282" y="78" width="92" height="32" rx="11" fill="#F7FAFF" stroke="#C9DCF8"/>
+  <rect x="278" y="212" width="98" height="32" rx="11" fill="#F7FAFF" stroke="#C9DCF8"/>
+  <circle cx="104" cy="94" r="6" fill="#0B57D0"/>
+  <circle cx="104" cy="226" r="6" fill="#4285F4"/>
+  <circle cx="300" cy="94" r="6" fill="#A8C7FA"/>
+  <circle cx="296" cy="228" r="6" fill="#0B57D0"/>
+  <rect x="120" y="90" width="38" height="6" rx="3" fill="#D3E3FD"/>
+  <rect x="120" y="222" width="40" height="6" rx="3" fill="#D3E3FD"/>
+  <rect x="314" y="90" width="38" height="6" rx="3" fill="#D3E3FD"/>
+  <rect x="318" y="224" width="42" height="6" rx="3" fill="#D3E3FD"/>
 </svg>`);
 
 /**

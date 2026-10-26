@@ -120,22 +120,25 @@ test.describe('@visual 交互状态视觉回归', () => {
   test.describe('下拉菜单交互', () => {
     test('AI输入栏 - 模型下拉', async ({ page }) => {
       const aiInputBar = app.aiInputBar.container;
-      
+
       // 关闭状态
       await expect(aiInputBar).toHaveScreenshot('ai-input-model-closed.png', {
         maxDiffPixelRatio: 0.10,
+        // 空态组合含渐入动画与聚焦光环过渡，禁用动画保证确定性
+        animations: 'disabled',
       });
-      
+
       // 打开模型选择器
       const modelSelector = app.aiInputBar.modelSelector;
       if (await modelSelector.isVisible()) {
         await modelSelector.click();
         await page.waitForTimeout(300);
-        
+
         // 打开状态（包含下拉菜单）
         await expect(page).toHaveScreenshot('ai-input-model-open.png', {
           maxDiffPixelRatio: 0.10,
           fullPage: true,
+          animations: 'disabled',
         });
       }
     });
