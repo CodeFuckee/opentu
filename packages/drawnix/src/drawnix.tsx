@@ -330,7 +330,7 @@ const DRAWNIX_THEME_COLORS = MindThemeColors.map((themeColor) => ({
     themeColor.mode === ThemeColorMode.dark ||
     themeColor.mode === ThemeColorMode.starry
       ? themeColor.boardBackground
-      : '#F3F6FB',
+      : '#F2F3F5',
   branchColors:
     themeColor.mode === ThemeColorMode.dark ||
     themeColor.mode === ThemeColorMode.starry

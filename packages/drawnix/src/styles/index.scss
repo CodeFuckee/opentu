@@ -191,7 +191,7 @@
     flex-direction: column;
     gap: 0;
     width: fit-content;
-    max-width: 92px;
+    max-width: 80px;
     overflow: visible; // 允许 Badge 角标溢出显示，滚动由 __scrollable 处理
     // MD3 布局：xl 28dp 大圆角 + elevation + 发丝描边（黑白系与画布分离的关键）
     border-radius: var(--md3-radius-xl, 28px);

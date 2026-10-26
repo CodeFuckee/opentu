@@ -63,27 +63,11 @@ $ai-input-small-expanded-max-height: $ai-input-small-line-height * 6 +
   align-items: center;
   gap: 8px;
 
-  // ─── Studio 空态首屏：输入台居中成为主角 ───
-  // 画布为空时整个组合从「底部拼贴面板」改为「居中创作台」：
-  // 问候语 + 模板卡（灵感板）在上，输入框作为白色主卡收底，
-  // 直接落在点阵画布上，不再有包裹整组的第二层背板。
+  // ─── 空态组合：贴底停靠（参照建筑学长画布：画布是主角，输入条归位底部）───
+  // 模板卡行贴在输入条上方，不再有居中 hero 与包裹背板
   &--with-inspiration {
-    bottom: auto;
-    top: 44%;
-    transform: translate(-50%, -50%);
-    gap: 18px;
-
-    // 桌面端收窄一点，让输入框比例更接近「主卡」
-    max-width: 680px;
-
-    // 小屏回落为底部停靠（居中 hero 在窄屏会挤压模板卡）
-    //（本文件未导入 _responsive 的 mixin，用原生媒体查询；768px = $breakpoint-tablet）
-    @media (max-width: 768px) {
-      bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
-      top: auto;
-      transform: translate(-50%, 0);
-      gap: 10px;
-    }
+    gap: 12px;
+    max-width: 720px;
   }
 
   // Selected content preview - first row in container
@@ -377,19 +361,6 @@ $ai-input-small-expanded-max-height: $ai-input-small-line-height * 6 +
       box-shadow:
         0 0 0 4px rgba(11, 87, 208, 0.07),
         var(--md3-elevation-3, 0 2px 12px rgba(0, 0, 0, 0.08));
-    }
-
-    // Studio 空态：输入框是居中主角，字号升一档、留白加大
-    .ai-input-bar--with-inspiration & {
-      padding: 10px 14px;
-      box-shadow:
-        0 2px 6px rgba(16, 42, 84, 0.06),
-        0 12px 36px rgba(16, 42, 84, 0.1);
-
-      .ai-input-bar__input {
-        font-size: 15px;
-        line-height: 1.6;
-      }
     }
   }
 

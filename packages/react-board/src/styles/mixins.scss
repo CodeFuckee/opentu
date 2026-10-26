@@ -1,12 +1,12 @@
 @mixin board-background-color {
-    // M3 蓝（Google Workspace 同款）：亮色画布 #F3F6FB + 蓝调点阵；暗色 #131314
-    // 底色需与纯白面板拉开一档明度，点阵透明度低于 0.08 时肉眼不可见
+    // 中性灰画布（参照专业设计工具）：与白色面板拉开一档，点阵用中性黑点
+    // —— 蓝调画布偏「活泼」，中性灰更接近建筑学长/PS 类工具的专业气质
     &.theme-colorful .board-host-svg,
     &.theme-default .board-host-svg {
-        background-color: #F3F6FB;
+        background-color: #F2F3F5;
         background-image: radial-gradient(
             circle,
-            rgba(11, 87, 208, 0.1) 1px,
+            rgba(0, 0, 0, 0.07) 1px,
             transparent 1.2px
         );
         background-size: 22px 22px;

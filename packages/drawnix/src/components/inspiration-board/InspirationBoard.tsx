@@ -136,62 +136,68 @@ export const InspirationBoard: React.FC<InspirationBoardProps> = ({
       } ${className}`}
       data-testid="inspiration-board"
     >
-      {/* 顶部工具行：右对齐的轻量操作（Studio 空态下不再是面板标题行） */}
+      {/* 空态分组行：品牌锚（左）+ 轻量操作（右），贴合参照工具的克制气质 */}
       {!isGuideView && (
-        <div className="inspiration-board__topbar">
-          <HoverTip content="不再提示" showArrow={false}>
-            <button
-              className="inspiration-board__hide-btn"
-              onClick={handleHide}
-              onMouseDown={(e) => e.preventDefault()}
-              data-track="inspiration_click_hide"
-            >
-              <X size={14} />
-              <span>不再提示</span>
-            </button>
-          </HoverTip>
-
-          {onOpenPromptTool && (
-            <HoverTip content="提示词工具" showArrow={false}>
+        <div className="inspiration-board__section-head">
+          <h3 className="inspiration-board__eyebrow">
+            <Sparkles size={13} aria-hidden="true" />
+            灵感创意
+          </h3>
+          <div className="inspiration-board__topbar">
+            <HoverTip content="不再提示" showArrow={false}>
               <button
-                className="inspiration-board__prompt-btn"
-                onClick={onOpenPromptTool}
+                className="inspiration-board__hide-btn"
+                onClick={handleHide}
                 onMouseDown={(e) => e.preventDefault()}
-                data-track="inspiration_click_prompt_tool"
+                data-track="inspiration_click_hide"
               >
-                <Lightbulb size={14} />
-                <span>提示词</span>
+                <X size={14} />
+                <span>不再提示</span>
               </button>
             </HoverTip>
-          )}
 
-          {hasMultiplePages && (
-            <div className="inspiration-board__pagination">
-              <span className="inspiration-board__page-indicator">
-                {currentPage + 1} / {totalPages}
-              </span>
-              <div className="inspiration-board__nav-buttons">
+            {onOpenPromptTool && (
+              <HoverTip content="提示词工具" showArrow={false}>
                 <button
-                  className="inspiration-board__nav-btn"
+                  className="inspiration-board__prompt-btn"
+                  onClick={onOpenPromptTool}
                   onMouseDown={(e) => e.preventDefault()}
-                  onClick={handlePrev}
-                  aria-label="上一页"
-                  data-track="inspiration_click_prev"
+                  data-track="inspiration_click_prompt_tool"
                 >
-                  <ChevronLeftIcon size={16} />
+                  <Lightbulb size={14} />
+                  <span>提示词</span>
                 </button>
-                <button
-                  className="inspiration-board__nav-btn"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={handleNext}
-                  aria-label="下一页"
-                  data-track="inspiration_click_next"
-                >
-                  <ChevronRightIcon size={16} />
-                </button>
+              </HoverTip>
+            )}
+
+            {hasMultiplePages && (
+              <div className="inspiration-board__pagination">
+                <span className="inspiration-board__page-indicator">
+                  {currentPage + 1} / {totalPages}
+                </span>
+                <div className="inspiration-board__nav-buttons">
+                  <button
+                    className="inspiration-board__nav-btn"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={handlePrev}
+                    aria-label="上一页"
+                    data-track="inspiration_click_prev"
+                  >
+                    <ChevronLeftIcon size={16} />
+                  </button>
+                  <button
+                    className="inspiration-board__nav-btn"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={handleNext}
+                    aria-label="下一页"
+                    data-track="inspiration_click_next"
+                  >
+                    <ChevronRightIcon size={16} />
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
 
@@ -273,41 +279,26 @@ export const InspirationBoard: React.FC<InspirationBoardProps> = ({
           </div>
         </>
       ) : (
-        <>
-          {/* Studio 空态问候：eyebrow 品牌锚 + 大标题 + 副标 */}
-          <div className="inspiration-board__hero">
-            <h3 className="inspiration-board__eyebrow">
-              <Sparkles size={13} aria-hidden="true" />
-              灵感创意
-            </h3>
-            <h2 className="inspiration-board__hero-title">
-              今天想创造点什么？
-            </h2>
-            <p className="inspiration-board__hero-sub">
-              一句话描述想法，或从下面的模板开始
-            </p>
-          </div>
-          <div className="inspiration-board__grid">
-            {currentTemplates.map((template) => (
-              <InspirationCard
-                key={template.id}
-                template={template}
-                onClick={() => handleSelectTemplate(template)}
+        <div className="inspiration-board__grid">
+          {currentTemplates.map((template) => (
+            <InspirationCard
+              key={template.id}
+              template={template}
+              onClick={() => handleSelectTemplate(template)}
+            />
+          ))}
+
+          {/* 占位元素，保持网格对齐 */}
+          {currentTemplates.length < ITEMS_PER_PAGE &&
+            Array.from({
+              length: ITEMS_PER_PAGE - currentTemplates.length,
+            }).map((_, i) => (
+              <div
+                key={`placeholder-${i}`}
+                className="inspiration-card inspiration-card--placeholder"
               />
             ))}
-
-            {/* 占位元素，保持网格对齐 */}
-            {currentTemplates.length < ITEMS_PER_PAGE &&
-              Array.from({
-                length: ITEMS_PER_PAGE - currentTemplates.length,
-              }).map((_, i) => (
-                <div
-                  key={`placeholder-${i}`}
-                  className="inspiration-card inspiration-card--placeholder"
-                />
-              ))}
-          </div>
-        </>
+        </div>
       )}
     </div>
   );
