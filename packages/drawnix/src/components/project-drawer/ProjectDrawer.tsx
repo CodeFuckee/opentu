@@ -65,6 +65,11 @@ import {
   type PPTEditorOpenEventDetail,
 } from '../../services/ppt/ppt-ui-events';
 import { analytics } from '../../utils/posthog-analytics';
+import {
+  collectBoardIds,
+  isAllSelected,
+  resolveBoardClickAction,
+} from './selection';
 import './project-drawer.scss';
 
 export interface ProjectDrawerProps {
@@ -192,6 +197,8 @@ const ProjectDrawerContent: React.FC<{
   lastClickedBoardId: string | null;
   /** 设置上次点击的画板 ID */
   onLastClickedChange: (id: string | null) => void;
+  /** 批量管理模式：普通点击画板变为选中/取消选中 */
+  isBatchMode: boolean;
 }> = ({
   tree,
   currentBoard,
@@ -211,6 +218,7 @@ const ProjectDrawerContent: React.FC<{
   onSelectionChange,
   lastClickedBoardId,
   onLastClickedChange,
+  isBatchMode,
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
@@ -261,49 +269,36 @@ const ProjectDrawerContent: React.FC<{
     [flattenBoards, tree]
   );
 
-  // 处理画板点击（支持 Shift 和 Ctrl/Cmd 多选）
+  // 处理画板点击（支持 Shift 和 Ctrl/Cmd 多选；批量模式下普通点击即切换选中）
   const handleBoardClickWithSelection = useCallback(
     (board: Board, e: React.MouseEvent) => {
-      const isShift = e.shiftKey;
-      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+      const result = resolveBoardClickAction({
+        board,
+        isShift: e.shiftKey,
+        isCtrlOrCmd: e.ctrlKey || e.metaKey,
+        batchMode: isBatchMode,
+        lastClickedBoardId,
+        flatBoards: flatBoardList,
+        currentSelection: selectedBoardIds ?? new Set(),
+      });
 
-      if (isShift && lastClickedBoardId) {
-        // Shift+点击：范围选择
-        const startIndex = flatBoardList.findIndex(
-          (b) => b.id === lastClickedBoardId
-        );
-        const endIndex = flatBoardList.findIndex((b) => b.id === board.id);
-        if (startIndex !== -1 && endIndex !== -1) {
-          const [from, to] =
-            startIndex < endIndex
-              ? [startIndex, endIndex]
-              : [endIndex, startIndex];
-          const rangeIds = flatBoardList.slice(from, to + 1).map((b) => b.id);
-          const newSelection = new Set(selectedBoardIds ?? []);
-          rangeIds.forEach((id) => newSelection.add(id));
-          onSelectionChange?.(newSelection);
-        }
-      } else if (isCtrlOrCmd) {
-        // Ctrl/Cmd+点击：切换单个选择
-        const newSelection = new Set(selectedBoardIds ?? []);
-        if (newSelection.has(board.id)) {
-          newSelection.delete(board.id);
-        } else {
-          newSelection.add(board.id);
-        }
-        onSelectionChange?.(newSelection);
-        onLastClickedChange?.(board.id);
-      } else {
-        // 普通点击：清除选择，切换画板
-        onSelectionChange?.(new Set());
-        onLastClickedChange?.(board.id);
-        onBoardClick(board);
+      if (result.action === 'switch') {
+        onSelectionChange?.(result.nextSelection);
+        onLastClickedChange?.(result.lastClickedBoardId);
+        onBoardClick(result.board);
+      } else if (result.action === 'toggle') {
+        onSelectionChange?.(result.nextSelection);
+        onLastClickedChange?.(result.lastClickedBoardId);
+      } else if (result.action === 'range') {
+        onSelectionChange?.(result.nextSelection);
       }
+      // 'none'：范围选择无法计算，维持现状
     },
     [
       flatBoardList,
       lastClickedBoardId,
       selectedBoardIds,
+      isBatchMode,
       onSelectionChange,
       onLastClickedChange,
       onBoardClick,
@@ -1070,6 +1065,8 @@ export const ProjectDrawer: React.FC<ProjectDrawerProps> = ({
   const [lastClickedBoardId, setLastClickedBoardId] = useState<string | null>(
     null
   );
+  // 批量管理模式：普通点击画板即选中/取消选中，无需按住 Ctrl/Shift
+  const [isBatchMode, setIsBatchMode] = useState(false);
   // 批量删除目标
   const [deleteMultipleTargets, setDeleteMultipleTargets] = useState<string[]>(
     []
@@ -1296,8 +1293,9 @@ export const ProjectDrawer: React.FC<ProjectDrawerProps> = ({
     if (deletedCount > 0) {
       MessagePlugin.success(`成功删除 ${deletedCount} 个画板`);
 
-      // Clear selection
+      // Clear selection（批量删除成功后同时退出批量模式）
       setSelectedBoardIds(new Set());
+      setIsBatchMode(false);
 
       // If we deleted the current board, switch to the first available board
       if (deletingCurrentBoard) {
@@ -1626,6 +1624,37 @@ export const ProjectDrawer: React.FC<ProjectDrawerProps> = ({
     return tree.map(filterNode).filter((n): n is TreeNode => n !== null);
   }, [tree, searchQuery]);
 
+  // 全选集合：过滤树中的全部画板（不依赖目录展开状态）
+  const allBoardIds = useMemo(() => collectBoardIds(filteredTree), [
+    filteredTree,
+  ]);
+  const allSelected = useMemo(
+    () => isAllSelected(selectedBoardIds, allBoardIds),
+    [selectedBoardIds, allBoardIds]
+  );
+
+  const handleEnterBatchMode = useCallback(() => {
+    setIsBatchMode(true);
+    trackProjectDrawerAction('batch_mode_enter');
+  }, []);
+
+  const handleExitBatchMode = useCallback(() => {
+    setIsBatchMode(false);
+    setSelectedBoardIds(new Set());
+  }, []);
+
+  const handleToggleSelectAll = useCallback(() => {
+    if (allSelected) {
+      setSelectedBoardIds(new Set());
+    } else {
+      setSelectedBoardIds(new Set(allBoardIds));
+    }
+    trackProjectDrawerAction('select_all', {
+      selected: !allSelected,
+      total: allBoardIds.length,
+    });
+  }, [allSelected, allBoardIds]);
+
   // Tab switcher + filter section
   const tabSwitcher = (
     <div className="project-drawer-tabs">
@@ -1691,9 +1720,30 @@ export const ProjectDrawer: React.FC<ProjectDrawerProps> = ({
             >
               新建目录
             </Button>
+            <Button
+              variant="outline"
+              size="small"
+              theme={isBatchMode ? 'primary' : 'default'}
+              onClick={isBatchMode ? handleExitBatchMode : handleEnterBatchMode}
+              data-testid="project-drawer-batch-mode-btn"
+              title="进入批量管理：点击画板即可选中/取消，无需按住 Ctrl/Shift"
+            >
+              {isBatchMode ? '完成' : '批量管理'}
+            </Button>
           </div>
-          {selectedBoardIds.size > 0 && (
+          {(isBatchMode || selectedBoardIds.size > 0) && (
             <div className="project-drawer__selection-bar">
+              {isBatchMode && (
+                <Button
+                  variant="text"
+                  size="small"
+                  disabled={allBoardIds.length === 0}
+                  onClick={handleToggleSelectAll}
+                  data-testid="project-drawer-select-all-btn"
+                >
+                  {allSelected ? '取消全选' : '全选'}
+                </Button>
+              )}
               <span className="project-drawer__selection-count">
                 已选择 {selectedBoardIds.size} 个画板
               </span>
@@ -1702,19 +1752,23 @@ export const ProjectDrawer: React.FC<ProjectDrawerProps> = ({
                 size="small"
                 theme="danger"
                 icon={<DeleteIcon />}
+                disabled={isBatchMode && selectedBoardIds.size === 0}
                 onClick={() =>
                   handleDeleteMultipleConfirm(Array.from(selectedBoardIds))
                 }
+                data-testid="project-drawer-batch-delete-btn"
               >
                 删除
               </Button>
-              <Button
-                variant="text"
-                size="small"
-                onClick={() => setSelectedBoardIds(new Set())}
-              >
-                取消
-              </Button>
+              {!isBatchMode && (
+                <Button
+                  variant="text"
+                  size="small"
+                  onClick={() => setSelectedBoardIds(new Set())}
+                >
+                  取消
+                </Button>
+              )}
             </div>
           )}
         </>
@@ -1812,6 +1866,7 @@ export const ProjectDrawer: React.FC<ProjectDrawerProps> = ({
             onSelectionChange={setSelectedBoardIds}
             lastClickedBoardId={lastClickedBoardId}
             onLastClickedChange={setLastClickedBoardId}
+            isBatchMode={isBatchMode}
           />
         )}
       </BaseDrawer>
