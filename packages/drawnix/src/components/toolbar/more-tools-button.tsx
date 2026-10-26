@@ -46,6 +46,7 @@ import { ArrowLineShape, BasicShapes, DrawPointerType } from '@plait/draw';
 import { BoardCreationMode, setCreationMode } from '@plait/common';
 import { FreehandShape } from '../../plugins/freehand/type';
 import { fitFrame } from '../../utils/fit-frame';
+import { formatZoomPercent, usableZoom } from '../../utils/zoom';
 import { PenShape } from '../../plugins/pen/type';
 import { LassoPointerType } from '../../plugins/with-lasso-selection';
 import { finishPenOnToolSwitch } from '../../plugins/pen/with-pen-create';
@@ -570,7 +571,7 @@ const MoreToolsPanel: React.FC<MoreToolsPanelProps> = ({
             aria-label={t('zoom.out')}
             data-track="toolbar_click_zoom_out"
             onPointerUp={() => {
-              BoardTransforms.updateZoom(board, board.viewport.zoom - 0.1);
+              BoardTransforms.updateZoom(board, usableZoom(board.viewport.zoom) - 0.1);
             }}
             className="zoom-out-button"
           />
@@ -592,7 +593,7 @@ const MoreToolsPanel: React.FC<MoreToolsPanelProps> = ({
                     setZoomMenuOpen(!zoomMenuOpen);
                   }}
                 >
-                  {Number(((board?.viewport?.zoom || 1) * 100).toFixed(0))}%
+                  {formatZoomPercent(board?.viewport?.zoom)}%
                 </div>
               </PopoverTrigger>
             </HoverTip>
@@ -637,7 +638,7 @@ const MoreToolsPanel: React.FC<MoreToolsPanelProps> = ({
             aria-label={t('zoom.in')}
             data-track="toolbar_click_zoom_in"
             onPointerUp={() => {
-              BoardTransforms.updateZoom(board, board.viewport.zoom + 0.1);
+              BoardTransforms.updateZoom(board, usableZoom(board.viewport.zoom) + 0.1);
             }}
             className="zoom-in-button"
           />

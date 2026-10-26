@@ -66,6 +66,7 @@ import { PenShape } from '../../plugins/pen/type';
 import { LassoPointerType } from '../../plugins/with-lasso-selection';
 import { finishPenOnToolSwitch } from '../../plugins/pen/with-pen-create';
 import { fitFrame } from '../../utils/fit-frame';
+import { usableZoom } from '../../utils/zoom';
 import {
   DrawnixPointerType,
   DialogType,
@@ -823,7 +824,7 @@ export const CreationToolbar: React.FC<ToolbarSectionProps> = ({
               aria-label={t('zoom.out')}
               data-track="toolbar_click_zoom_out"
               onPointerUp={() => {
-                BoardTransforms.updateZoom(board, board.viewport.zoom - 0.1);
+                BoardTransforms.updateZoom(board, usableZoom(board.viewport.zoom) - 0.1);
               }}
               className="zoom-out-button"
             />
@@ -901,7 +902,7 @@ export const CreationToolbar: React.FC<ToolbarSectionProps> = ({
               aria-label={t('zoom.in')}
               data-track="toolbar_click_zoom_in"
               onPointerUp={() => {
-                BoardTransforms.updateZoom(board, board.viewport.zoom + 0.1);
+                BoardTransforms.updateZoom(board, usableZoom(board.viewport.zoom) + 0.1);
               }}
               className="zoom-in-button"
             />

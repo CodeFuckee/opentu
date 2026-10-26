@@ -20,6 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '../popover/popover';
 import { Z_INDEX } from '../../constants/z-index';
 import { useI18n } from '../../i18n';
 import { fitAllPPTFrames, fitFrame } from '../../utils/fit-frame';
+import { formatZoomPercent, usableZoom } from '../../utils/zoom';
 import { HoverTip } from '../shared/hover';
 import { isFrameElement } from '../../types/frame.types';
 import { requestOpenPPTEditor } from '../../services/ppt/ppt-ui-events';
@@ -84,13 +85,13 @@ export const ViewNavigation: React.FC<ViewNavigationProps> = ({
     return EDGE_MARGIN;
   }, [isDrawerOpen, drawerWidth]);
 
-  // 缩放操作
+  // 缩放操作（空画布 viewport.zoom 可能为 -Infinity，需先归一）
   const handleZoomOut = useCallback(() => {
-    BoardTransforms.updateZoom(board, board.viewport.zoom - 0.1);
+    BoardTransforms.updateZoom(board, usableZoom(board.viewport.zoom) - 0.1);
   }, [board]);
 
   const handleZoomIn = useCallback(() => {
-    BoardTransforms.updateZoom(board, board.viewport.zoom + 0.1);
+    BoardTransforms.updateZoom(board, usableZoom(board.viewport.zoom) + 0.1);
   }, [board]);
 
   const handleFitViewport = useCallback(() => {
@@ -227,8 +228,8 @@ export const ViewNavigation: React.FC<ViewNavigationProps> = ({
     setZoomMenuOpen((prev) => !prev);
   }, []);
 
-  // 当前缩放百分比
-  const zoomPercentage = Math.round((board?.viewport?.zoom || 1) * 100);
+  // 当前缩放百分比（空画布 zoom 可能为 -Infinity，需守卫）
+  const zoomPercentage = formatZoomPercent(board?.viewport?.zoom);
 
   return (
     <div
