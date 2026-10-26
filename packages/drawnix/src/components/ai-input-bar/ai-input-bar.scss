@@ -79,6 +79,7 @@ $ai-input-small-expanded-max-height: $ai-input-small-line-height * 6 +
         --md3-surface-container-high,
         var(--island-bg-color, #fff)
       );
+      border: 1px solid var(--md3-hairline, rgba(0, 0, 0, 0.1));
       border-radius: var(--md3-radius-xl, 28px);
       box-shadow: var(--md3-elevation-3, 0 2px 16px rgba(0, 0, 0, 0.1));
       z-index: -1;

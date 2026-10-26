@@ -133,13 +133,17 @@
     }
 
     &--active {
-      color: var(--md3-primary, var(--td-brand-color));
+      // 激活态遵循 M3 导航模式：文字保持表面色（整行蓝字过噪），
+      // 用左侧指示条 + 浅色容器底表达选中
+      color: var(--md3-on-surface, var(--td-text-color-primary));
       font-weight: 500;
+      background: var(--md3-secondary-container, rgba(11, 87, 208, 0.08));
       border-left: 2px solid var(--md3-primary, var(--td-brand-color));
+      border-radius: 0 var(--md3-radius-sm, 8px) var(--md3-radius-sm, 8px) 0;
       padding-left: 6px;
 
       &:hover {
-        background: var(--md3-surface-container-high, var(--td-bg-color-container-hover));
+        background: var(--md3-secondary-container, rgba(11, 87, 208, 0.12));
       }
     }
 

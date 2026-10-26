@@ -260,16 +260,16 @@
       }
     }
 
-    // 强化“在窗口中打开”按钮
+    // “在窗口中打开”按钮：ghost 化（此前是实心浅蓝圆钮，一列 12 张卡形成蓝点墙）
     .tool-item__action-btn--open-window {
-      color: var(--md3-on-primary-container, var(--brand-primary, #f39c12));
-      background: var(--md3-primary-container, rgba(0, 0, 0, 0.05));
+      color: var(--md3-on-surface-variant, var(--td-text-color-secondary));
+      background: transparent;
       width: 36px;
       height: 36px;
 
       &:hover {
-        background: var(--md3-primary, var(--brand-primary, #f39c12)) !important;
-        color: var(--md3-on-primary, #fff) !important;
+        background: var(--md3-surface-container-high, var(--td-bg-color-secondarycontainer)) !important;
+        color: var(--md3-primary, var(--brand-primary, #f39c12)) !important;
       }
 
       .t-icon {

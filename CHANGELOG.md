@@ -1,5 +1,46 @@
 ## Unreleased
 
+### style(drawnix): 首屏视觉分层与三抽屉视觉语言统一
+
+针对「界面不够美观」的截图诊断（层级糊、信息架构乱）做的纯外观优化，
+不改任何业务行为：
+
+- **画布/面板分层**：亮色画布底 #F8FAFD→#F3F6FB、点阵透明度 0.06→0.10
+  （mixins.scss 与 drawnix.tsx DRAWNIX_THEME_COLORS 同步）——原先画布与
+  纯白面板明度差不足 2%，面板浮不起来、点阵肉眼不可见
+- **灵感创意面板**：去掉自身灰底（#F4F6FB），透出 ai-input-bar 组合块的
+  白色背板；组合背板补发丝描边——面板与画布、输入栏之间恢复层级
+- **「更多工具」弹层**：灰底（surface-container-low）→ 纯白表面 + 发丝
+  描边 + elevation-3，与 Dialog/Menu 等弹层表面语言统一；图标流改为
+  4 列网格 + 图下文字标签（复用 ToolButton showAriaLabel，与左侧 rail
+  同一视觉语言），不再是猜不出的纯图标墙
+- **左侧工具栏分组**：编辑工具与 AI 工具之间、工具区与项目/任务入口之间
+  加居中短线分隔（24px 发丝线，延续「分区靠留白+短线、不用整行硬线」的
+  既有约定），15 个入口不再一根通栏
+- **工具箱抽屉**：卡片「在窗口中打开」按钮由实心浅蓝圆钮 ghost 化
+  （悬停才显色）——一列 12 张卡的蓝点墙是界面最吵的重复元素
+- **项目抽屉**：画板激活态由「整行蓝字」改为 M3 导航模式（文字保持
+  表面色 + 左侧指示条 + secondary-container 浅底 + 右侧圆角）
+- 暗色模式：以上令牌均走明暗成对的 MD3 变量（hairline 暗色自动翻转浅色）
+- 本地全量单测 1749 通过、typecheck 5 项目通过；E2E 视觉快照按流程更新
+
+### fix(drawnix): 空画布缩放显示「-Infinity%」且缩放按钮失效——zoom 有限性守卫
+
+安全模式/空画布上 board.viewport.zoom 为 -Infinity：它是 truthy 值，
+`|| 1` 兜不住——①右上角缩放控件与「更多工具」面板会直接渲染
+「-Infinity%」，是首屏观感的最大单点伤害；②缩放运算 `-Infinity ± 0.1`
+仍为 -Infinity，放大/缩小按钮在空画布上是静默无效的（旧 E2E 用例恰因
+显示为「-Infinity%」≠「100%」而假绿通过）：
+
+- 抽出 `utils/zoom.ts`（usableZoom / formatZoomPercent / isUsableZoom）：
+  非正有限值一律归一为 1（100%），缩放运算与显示统一走守卫；
+  ViewNavigation、more-tools-button、creation-toolbar 六处 updateZoom
+  与 AIInputBar 视口换算、drawnix 行内文本输入共 9 个消费点全部替换
+- 新增 zoom.test.ts 单测覆盖 ±Infinity/NaN/undefined/null/0/负数回退
+- 连带修复：main 上响应式视觉用例的 `.ai-input-bar` 模糊选择器与聊天
+  composer 同类名冲突导致 strict mode 必失败（该套件不在 CI 门禁集，
+  属既有损坏）——改用 data-testid 精确定位
+
 ### feat(drawnix): 项目抽屉批量管理——显式多选入口与全选/批量删除
 
 画板批量删除此前只能靠 Ctrl/Cmd、Shift 键盘修饰键多选（无任何可见入口，

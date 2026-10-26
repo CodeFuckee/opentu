@@ -693,6 +693,7 @@ const MoreToolsPanel: React.FC<MoreToolsPanelProps> = ({
                   tooltip={title}
                   tooltipPlacement="left"
                   aria-label={title}
+                  showAriaLabel
                   visible={true}
                   selected={openPopup === popupKey}
                   data-track={`toolbar_click_${buttonId}`}
@@ -726,6 +727,7 @@ const MoreToolsPanel: React.FC<MoreToolsPanelProps> = ({
           tooltip={title}
           tooltipPlacement="right"
           aria-label={title}
+          showAriaLabel
           visible={true}
           selected={false}
           disabled={isDisabled}

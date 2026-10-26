@@ -21,7 +21,9 @@ $animation-duration: 0.3s;
 .inspiration-board {
   padding: $spacing-md;
   padding-bottom: $spacing-md; // 底部内边距
-  background: var(--island-bg-color, #fff);
+  // 背景保持透明：白色背板/圆角/阴影由 ai-input-bar--with-inspiration::before
+  // 统一处理，这里再铺灰底会把背板的白色与阴影对比盖掉（画布上浮不起来）
+  background: transparent;
   border: none;
   border-radius: var(--md3-radius-xl, 28px) var(--md3-radius-xl, 28px) 0 0; // 上圆角，下直角与输入框连接
   backdrop-filter: blur(10px);

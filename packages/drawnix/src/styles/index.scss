@@ -224,6 +224,32 @@
         display: none;
       }
 
+      // 工具组分隔：编辑工具与 AI 工具之间用居中短线分组
+      //（沿用分区靠留白+短线的语言，不用整行硬分割线）
+      // 仅桌面端生效：移动端工具栏悬浮于输入栏上方，避让既有重叠区
+      [data-button-id='smart-cutout'] {
+        position: relative;
+        margin-top: 12px;
+
+        &::before {
+          content: '';
+          position: absolute;
+          top: -7px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 24px;
+          height: 1px;
+          background: var(--md3-hairline, rgba(0, 0, 0, 0.1));
+        }
+
+        @include tablet-and-below {
+          margin-top: 0;
+          &::before {
+            display: none;
+          }
+        }
+      }
+
       // 滚动区域内第一个section不需要顶部边框
       .unified-toolbar__section:first-child {
         border-top: none;
@@ -295,7 +321,23 @@
       // 固定在底部的section (任务按钮)
       &--fixed-bottom {
         flex-shrink: 0;
+        position: relative;
         padding: 12px 8px;
+        // 与工具区之间用居中短线分组，区分「工具」与「项目/任务入口」（仅桌面端）
+        &::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 24px;
+          height: 1px;
+          background: var(--md3-hairline, rgba(0, 0, 0, 0.1));
+
+          @include tablet-and-below {
+            display: none;
+          }
+        }
         border-radius: 0 0 var(--md3-radius-xl, 28px)
           var(--md3-radius-xl, 28px);
         display: flex;
@@ -586,10 +628,13 @@
 
   // More tools panel styles
   .more-tools-panel {
-    min-width: 200px;
-    max-width: 280px;
+    min-width: 264px;
+    max-width: 300px;
     padding: 8px;
-    background: var(--md3-surface-container-low, var(--island-bg-color));
+    // 悬浮面板与其他弹层统一：纯白表面 + 发丝描边 + elevation-3
+    background: var(--color-surface-high, #fff);
+    border: 1px solid var(--md3-hairline, rgba(0, 0, 0, 0.1));
+    box-shadow: var(--md3-elevation-3, 0 4px 8px 3px rgba(0, 0, 0, 0.15));
     border-radius: var(--md3-radius-lg, 16px);
 
     &__header {
@@ -604,20 +649,41 @@
       color: var(--text-primary-color);
     }
 
+    // 网格布局：图标在上、文字标签在下（与左侧 rail 同一视觉语言）
     &__content {
-      display: flex;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
       gap: 4px;
       max-height: 300px;
       overflow-y: auto;
     }
 
     &__item {
-      border-radius: 6px;
+      display: flex;
+      justify-content: center;
+      border-radius: var(--md3-radius-sm, 8px);
       transition: background-color 0.15s ease;
 
       &:hover {
         background-color: var(--color-surface-high);
+      }
+
+      .tool-icon {
+        flex-direction: column;
+        gap: 2px;
+        height: auto;
+        width: 56px;
+        padding: 6px 2px;
+      }
+
+      .tool-icon__label {
+        display: block;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 10px;
+        line-height: 13px;
       }
     }
 
