@@ -66,6 +66,9 @@ const STATIC_SCAN_EXCLUDED_DIRS = new Set([
   'product_showcase',
   'help_tooltips',
   'sw-debug',
+  // 嵌入的无限画布子应用(独立构建写入 dist/apps/web/infinite):
+  // 不进主应用 SW 预缓存/预取清单,由子应用自身按需加载
+  'infinite',
 ]);
 
 const STATIC_SCAN_EXCLUDED_PATTERNS = [
@@ -1196,6 +1199,27 @@ export default defineConfig({
     headers: {
       'Content-Security-Policy':
         "default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://us.i.posthog.com https://us-assets.i.posthog.com https://wiki.tu-zi.com http://10.0.0.220:8021; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https: http:; connect-src 'self' http: https: ws: wss: data: blob:; frame-ancestors 'self' localhost:* 127.0.0.1:* https://api.tu-zi.com;",
+    },
+    // 嵌入的无限画布(apps/infinite-canvas)是独立 vite 应用:开发态代理到其
+    // dev server(VITE_BASE=/infinite/ vite --port 3001)。注意 vite preview
+    // 会沿用 server.proxy——bypass 里优先探测嵌套静态产物(dist/apps/web/
+    // infinite),存在即交还本地静态伺服(E2E preview/生产同根形态),只有
+    // 产物不存在(纯 dev 场景)才走代理
+    proxy: {
+      '/infinite': {
+        target: process.env.INFINITE_CANVAS_DEV_URL || 'http://127.0.0.1:3001',
+        changeOrigin: true,
+        bypass: (req) => {
+          // 嵌套静态产物存在 → 一律交还本地静态伺服(目录索引/文件/深链
+          // 都由它处理,子应用是 hash 路由,unknown path 由 index.html 接管);
+          // 产物不存在(纯 dev,未构建子应用)才代理到其 dev server
+          const indexFile = path.resolve(
+            __dirname,
+            '../../dist/apps/web/infinite/index.html'
+          );
+          return fs.existsSync(indexFile) ? (req.url ?? '') : undefined;
+        },
+      },
     },
   },
 

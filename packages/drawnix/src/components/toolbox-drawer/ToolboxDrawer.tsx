@@ -602,6 +602,18 @@ export const ToolboxDrawer: React.FC<ToolboxDrawerProps> = ({
               打开工作流编排器 ↗
             </button>
           </HoverTip>
+          <HoverTip content="无限画布工作台(AI 生图编排/素材沉淀,独立画布)" placement="top">
+            <button
+              type="button"
+              className="toolbox-drawer__wf-btn toolbox-drawer__wf-btn--accent"
+              data-testid="toolbox-open-canvas-ai"
+              onClick={() => {
+                window.open('/canvas-ai', '_blank');
+              }}
+            >
+              无限画布 ↗
+            </button>
+          </HoverTip>
         </div>
       </BaseDrawer>
 

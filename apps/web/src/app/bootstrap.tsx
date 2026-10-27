@@ -783,8 +783,14 @@ const WorkflowEditorApp = lazy(() =>
   }))
 );
 
+/** /canvas-ai 宿主页:全屏 iframe 承载嵌入的无限画布(/infinite/) */
+const CanvasAiHost = lazy(() => import('./CanvasAiHost'));
+
 const isWorkflowView = () =>
   window.location.pathname.startsWith('/workflow');
+
+const isCanvasAiView = () =>
+  window.location.pathname.startsWith('/canvas-ai');
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
@@ -796,7 +802,7 @@ root.render(
         <AuthProvider>
           <AuthGate>
             <UiStatsCaptureMount />
-            {isWorkflowView() ? (
+            {(isWorkflowView() || isCanvasAiView()) ? (
               <Suspense
                 fallback={
                   <div
@@ -809,11 +815,11 @@ root.render(
                       fontSize: 14,
                     }}
                   >
-                    正在加载工作流编辑器…
+                    正在加载…
                   </div>
                 }
               >
-                <WorkflowEditorApp />
+                {isWorkflowView() ? <WorkflowEditorApp /> : <CanvasAiHost />}
               </Suspense>
             ) : (
               <App />

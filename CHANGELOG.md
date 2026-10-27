@@ -1,5 +1,30 @@
 ## Unreleased
 
+### feat: 嵌入 infinite-canvas 无限画布工作台（/infinite 子路径 + /canvas-ai 宿主页）
+
+按用户决策把 [basketikun/infinite-canvas](https://github.com/basketikun/infinite-canvas)
+（MIT，v0.20.0）**整包嵌入**平台——独立 React 19 + Vite 7 应用，与主仓 React 18
+栈有意隔离、不合并打包：
+
+- **vendor**：上游 `web/` 全部源码（173 个 TS 文件）入 `apps/infinite-canvas/`，
+  6 处最小补丁逐条记录在该目录 README（hash 路由 / antd6 类型 / 子路径 logo /
+  TS 版本 / react 类型钉扎 / 构建出目录），MIT 归属与页面标识保留
+- **部署形态**：构建产物嵌在主应用 dist 的 `infinite/` 子目录（已从主应用 SW
+  预缓存扫描排除），生产 busybox httpd 同根伺服——**Dockerfile 零改动**；
+  入口资源 base `/infinite/` 由上游内建的 `VITE_BASE` 支持
+- **平台接线**：SW app-shell 路由把 `/infinite` 前缀排除（否则导航会被主应用
+  壳截胡，单测先行覆盖）；主应用 vite dev/preview 对 `/infinite` 智能代理
+  （嵌套产物存在走静态伺服，纯 dev 才转发子应用 dev server——vite preview
+  会沿用 server.proxy，须 bypass）；工具箱「无限画布 ↗」入口；
+  `/canvas-ai` 宿主页（AuthGate 内全屏 iframe + 返回画布，防崩溃恢复误报）
+- **类型隔离**：根 hoist 的 `@types/react@18` 与子应用 19 的双向泄漏各修一侧
+  ——应用内 tsconfig `paths` 钉 19；`pnpm-workspace.yaml` overrides 把
+  `@types/react-dom@18.3.0` 自带的 `@types/react@*` 依赖钉回 18.3.1；
+  drawnix typecheck 显式用仓库钉定的 tsc（防 pnpm 散落 shim 遮蔽编译器版本）
+- **测试**：SW 路由排除单测（先红后绿）+ E2E 三用例（/infinite/ 直达与 hash
+  深链刷新、/canvas-ai iframe 承载与返回画布、工具箱入口全链路弹窗），
+  与既有 workflow-editor 两用例同跑 6/6 绿
+
 ### feat(drawnix): /workflow 节点编排编辑器——Flowgram 全屏视图，共用编排底座
 
 画布原生 workflow-node 受白板语义约束（无端口级连线、参数靠双击弹层），

@@ -1,3 +1,8 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+# @types/react-dom@18.3.0 自带 @types/react@* 依赖:仓库引入 React 19 的
+# apps/infinite-canvas 后,该范围被重解析到 @types/react@19,反把主应用
+# (React 18)的类型解析污染(d.ts 里 ReactPortal 来自 19)——钉回 18 配对
+overrides:
+  '@types/react-dom@18.3.0>@types/react': 18.3.1

@@ -80,7 +80,7 @@ export default defineConfig({
       : process.env.E2E_WEB_SERVER === 'preview'
       ? {
           command:
-            'pnpm exec nx build web && pnpm exec vite preview --config apps/web/vite.config.ts --port 7200 --strictPort',
+            'pnpm exec nx build web && pnpm exec nx build infinite-canvas && pnpm exec vite preview --config apps/web/vite.config.ts --port 7200 --strictPort',
           url: 'http://localhost:7200',
           reuseExistingServer: true,
           cwd: workspaceRoot,
@@ -89,6 +89,8 @@ export default defineConfig({
           // 覆盖本机 gitignored apps/web/.env（避免烘焙 https/生产地址导致登录失败）
           env: {
             AITU_REWRITE_ENTRY_ASSETS_TO_CDN: '0',
+            // 嵌入的无限画布子应用构建基数路径(与生产 Dockerfile 伺服位置一致)
+            VITE_BASE: '/infinite/',
             // Supabase 连接取值单一来源：e2e.config 的 SUPABASE（env → apps/web/.env
             // → 内网默认）。此前 anon key 在此硬编码内网值，GitHub 桥接的临时栈
             // key-auth 凭据不同，登录被 Kong 拒为 401 Unauthorized（auth-setup

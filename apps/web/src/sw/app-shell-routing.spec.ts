@@ -23,6 +23,23 @@ describe('app-shell-routing', () => {
     ).toBe(false);
   });
 
+  it('routes /infinite（嵌入的无限画布工作台）to the real static app, never the shell', () => {
+    expect(shouldUseAppShellStrategy('navigate', '/infinite')).toBe(false);
+    expect(shouldUseAppShellStrategy('navigate', '/infinite/')).toBe(false);
+    expect(shouldUseAppShellStrategy('navigate', '/infinite/#/canvas/1')).toBe(
+      false
+    );
+    expect(
+      shouldUseAppShellStrategy('navigate', '/infinite/canvas/1')
+    ).toBe(false);
+    // 静态资源请求本就不走 shell,一并锁定
+    expect(shouldUseAppShellStrategy('script', '/infinite/assets/index.js')).toBe(
+      false
+    );
+    // 相邻主应用路由不受前缀排除影响
+    expect(shouldUseAppShellStrategy('navigate', '/infinite-tools')).toBe(true);
+  });
+
   it('keeps only root shell and release metadata on origin-first preload', () => {
     expect(shouldUseOriginFirstPreload('/')).toBe(true);
     expect(shouldUseOriginFirstPreload('/index.html')).toBe(true);
