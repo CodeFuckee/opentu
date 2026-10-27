@@ -1,7 +1,6 @@
 import { useBoard } from '@plait-board/react-board';
 import Stack from '../../stack';
 import { ToolButton } from '../../tool-button';
-import { SyncStatusIndicator } from '../../sync-status';
 import {
   MenuIcon,
   RedoIcon,
@@ -155,7 +154,6 @@ export const AppToolbar: React.FC<AppToolbarProps> = ({
             />
           </ToolbarContextMenu>
         )}
-        <SyncStatusIndicator />
       </Stack.Row>
   );
   if (embedded) {
