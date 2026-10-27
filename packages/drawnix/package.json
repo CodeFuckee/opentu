@@ -12,6 +12,10 @@
   "dependencies": {
     "@aitu/utils": "workspace:*",
     "@floating-ui/react": "^0.26.24",
+    "@flowgram.ai/free-layout-editor": "^1.0.16",
+    "@flowgram.ai/free-lines-plugin": "1.0.16",
+    "@flowgram.ai/free-stack-plugin": "1.0.16",
+    "@flowgram.ai/minimap-plugin": "1.0.16",
     "@huggingface/transformers": "^4.3.0",
     "@milkdown/crepe": "^7.18.0",
     "@milkdown/kit": "^7.18.0",
@@ -28,6 +32,7 @@
     "mermaid": "10.9.3",
     "postmessage-duplex": "^1.2.0",
     "pptxgenjs": "^4.0.1",
+    "reflect-metadata": "^0.2.2",
     "web-vitals": "^5.1.0"
   },
   "exports": {
@@ -40,6 +45,11 @@
       "types": "./runtime.d.ts",
       "import": "./runtime.mjs",
       "require": "./runtime.js"
+    },
+    "./workflow-editor": {
+      "types": "./workflow-editor.d.ts",
+      "import": "./workflow-editor.mjs",
+      "require": "./workflow-editor.js"
     }
   }
 }

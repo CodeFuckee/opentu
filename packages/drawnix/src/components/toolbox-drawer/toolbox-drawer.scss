@@ -397,4 +397,19 @@
     background: var(--md3-primary-container, #ffffff);
     color: var(--md3-on-primary-container, #b45309);
   }
+
+  // 「打开工作流编排器」强调入口(全屏 Flowgram 编辑器)
+  &--accent {
+    margin-top: 6px;
+    width: 100%;
+    grid-column: 1 / -1;
+    background: var(--md3-primary-container, #ffffff);
+    color: var(--md3-on-primary-container, #b45309);
+    font-weight: 600;
+
+    &:hover {
+      filter: brightness(1.05);
+      background: var(--md3-primary-container, #ffffff);
+    }
+  }
 }

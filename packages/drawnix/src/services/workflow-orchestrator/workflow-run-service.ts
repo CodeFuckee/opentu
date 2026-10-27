@@ -195,7 +195,7 @@ class WorkflowRunService {
     return element;
   }
 
-  private ensureEngine(board: PlaitBoard): WorkflowEngine {
+  private ensureEngine(): WorkflowEngine {
     if (!this.engine) {
       this.engine = new WorkflowEngine({
         onEvent: (event: WorkflowEvent) => this.handleEvent(event),
@@ -253,13 +253,15 @@ class WorkflowRunService {
   }
 
   private submitSteps(
-    board: PlaitBoard,
+    board: PlaitBoard | null,
     name: string,
     graph: OrchestratorGraph,
     steps: ReturnType<typeof compileGraph>['steps']
   ): void {
-    this.attachDropStartPoints(board, graph, steps);
-    const engine = this.ensureEngine(board);
+    if (board) {
+      this.attachDropStartPoints(board, graph, steps);
+    }
+    const engine = this.ensureEngine();
     const workflow = createWorkflow(name, steps);
     this.currentRunIds.add(workflow.id);
     this.running = true;
@@ -271,6 +273,53 @@ class WorkflowRunService {
         error instanceof Error ? error.message : '工作流提交失败'
       );
     });
+  }
+
+  /**
+   * 运行一张编排图(Flowgram 编辑器入口,无画布依赖)
+   *
+   * 与 runAll 共用「编译 → 建工作流 → 引擎执行」管线与状态广播;区别:
+   * 无画布上下文时「插入画布」步骤标 failed(提示回画布运行)并跳过,
+   * 其余步骤照常执行。
+   */
+  runGraph(graph: OrchestratorGraph): void {
+    if (this.running) {
+      MessagePlugin.warning('已有工作流在运行中');
+      return;
+    }
+    let steps: ReturnType<typeof compileGraph>['steps'];
+    try {
+      steps = compileGraph(graph).steps;
+    } catch (error) {
+      if (error instanceof CompilerError) {
+        MessagePlugin.error(error.message);
+        return;
+      }
+      throw error;
+    }
+    if (steps.length === 0) {
+      MessagePlugin.warning('工作流中没有可执行的节点');
+      return;
+    }
+    const board = this.board;
+    const executable: typeof steps = [];
+    for (const step of steps) {
+      if (step.mcp === 'insert_images' && !board) {
+        this.setStatus(
+          step.id,
+          'failed',
+          '编辑器内没有画布,请回画布后运行「插入画布」节点'
+        );
+        continue;
+      }
+      this.setStatus(step.id, 'pending');
+      executable.push(step);
+    }
+    if (executable.length === 0) {
+      MessagePlugin.warning('工作流中没有可执行的节点');
+      return;
+    }
+    this.submitSteps(board, graph.name, graph, executable);
   }
 
   /** 运行画布上的全部工作流 */

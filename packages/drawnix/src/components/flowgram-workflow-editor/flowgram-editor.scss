@@ -1,0 +1,512 @@
+/**
+ * Flowgram 工作流编辑器样式。
+ *
+ * 颜色全部消费 Md3 令牌(--md3-*,由 Md3ThemeProvider 注入 :root,
+ * 暗/亮模式自动跟随);flowgram 自带 index.css 管画布内部样式,
+ * 这里只管应用壳(顶栏/面板/节点卡片/侧栏)。
+ */
+
+.fwf-root {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--md3-surface);
+  color: var(--md3-on-surface);
+  font-family: var(--md3-font-family);
+  z-index: 10;
+
+  &--loading {
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: var(--md3-text-secondary);
+  }
+}
+
+.fwf-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+/* ---- 顶栏 ---- */
+
+.fwf-topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--md3-surface-container);
+  border-bottom: 1px solid var(--md3-outline-variant);
+  position: relative;
+  z-index: 20;
+
+  &__btn {
+    border: 1px solid var(--md3-outline-variant);
+    background: var(--md3-surface-container-low);
+    color: var(--md3-on-surface);
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background var(--md3-dur-fast) var(--md3-ease);
+
+    &:hover {
+      background: var(--md3-surface-container-high);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+
+    &--primary {
+      background: var(--md3-primary);
+      color: var(--md3-on-primary);
+      border-color: transparent;
+
+      &:hover {
+        filter: brightness(1.08);
+        background: var(--md3-primary);
+      }
+    }
+
+    &--danger {
+      background: var(--md3-error-container);
+      color: var(--md3-on-error);
+      border-color: transparent;
+    }
+  }
+
+  &__name {
+    width: 240px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--md3-on-surface);
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 8px;
+    padding: 6px 10px;
+
+    &:hover {
+      border-color: var(--md3-outline-variant);
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--md3-primary);
+      background: var(--md3-surface-container-lowest);
+    }
+  }
+
+  &__spacer {
+    flex: 1;
+  }
+
+  &__failed {
+    font-size: 12px;
+    color: var(--md3-error);
+  }
+}
+
+/* ---- 图列表弹层 ---- */
+
+.fwf-graph-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 200px;
+  width: 320px;
+  max-height: 420px;
+  overflow: auto;
+  background: var(--md3-surface-container-low);
+  border: 1px solid var(--md3-outline-variant);
+  border-radius: 12px;
+  box-shadow: var(--md3-elevation-2);
+  padding: 8px;
+
+  &__title {
+    font-size: 12px;
+    color: var(--md3-text-secondary);
+    padding: 4px 8px 8px;
+  }
+
+  &__empty {
+    font-size: 13px;
+    color: var(--md3-text-secondary);
+    padding: 12px 8px;
+  }
+
+  &__item {
+    display: flex;
+    align-items: stretch;
+    border-radius: 8px;
+    overflow: hidden;
+
+    &:hover {
+      background: var(--md3-surface-container-high);
+    }
+
+    &--current .fwf-graph-list__name {
+      color: var(--md3-primary);
+    }
+  }
+
+  &__open {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    border: none;
+    background: transparent;
+    color: var(--md3-on-surface);
+    text-align: left;
+    padding: 8px;
+    cursor: pointer;
+    min-width: 0;
+  }
+
+  &__name {
+    font-size: 13px;
+    font-weight: 500;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__meta {
+    font-size: 11px;
+    color: var(--md3-text-secondary);
+  }
+
+  &__delete {
+    border: none;
+    background: transparent;
+    color: var(--md3-error);
+    font-size: 12px;
+    padding: 0 10px;
+    cursor: pointer;
+  }
+}
+
+/* ---- 主体三栏 ---- */
+
+.fwf-main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.fwf-canvas {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+
+  .fwf-editor {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+/* ---- 左侧节点面板 ---- */
+
+.fwf-node-panel {
+  width: 148px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--md3-surface-container);
+  border-right: 1px solid var(--md3-outline-variant);
+  padding: 10px;
+  gap: 8px;
+  overflow: auto;
+
+  &__title {
+    font-size: 12px;
+    color: var(--md3-text-secondary);
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    border: 1px solid var(--md3-outline-variant);
+    background: var(--md3-surface-container-low);
+    color: var(--md3-on-surface);
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+    transition:
+      background var(--md3-dur-fast) var(--md3-ease),
+      border-color var(--md3-dur-fast) var(--md3-ease);
+
+    &:hover {
+      background: var(--md3-surface-container-high);
+      border-color: var(--md3-outline);
+    }
+  }
+
+  // 分类色点(与节点 header 分类一致)
+  &__dot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    flex-shrink: 0;
+
+    &--input {
+      background: var(--md3-primary-container);
+      color: var(--md3-on-primary-container);
+    }
+
+    &--generate {
+      background: var(--md3-tertiary);
+      color: var(--md3-on-primary);
+    }
+
+    &--output {
+      background: var(--md3-accent-soft);
+      color: var(--md3-on-primary-container);
+    }
+  }
+
+  &__hint {
+    font-size: 11px;
+    color: var(--md3-text-secondary);
+    line-height: 1.4;
+    margin-top: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* ---- 右侧参数面板 ---- */
+
+.fwf-sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  background: var(--md3-surface-container);
+  border-left: 1px solid var(--md3-outline-variant);
+  padding: 12px;
+  overflow: auto;
+
+  &__empty {
+    font-size: 12px;
+    color: var(--md3-text-secondary);
+    text-align: center;
+    padding-top: 24px;
+  }
+
+  &__card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  &__title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--md3-on-surface);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--md3-outline-variant);
+  }
+
+  &__body {
+    font-size: 13px;
+  }
+}
+
+/* ---- 节点卡片 ---- */
+
+.fwf-node {
+  // 宽高由组件内联样式按注册尺寸设置(meta.size 不保证落到渲染容器)
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  background: var(--md3-surface-container-low);
+  border: 1px solid var(--md3-outline);
+  border-radius: 10px;
+  box-shadow: var(--md3-elevation-1);
+  overflow: hidden;
+  cursor: grab;
+
+  &--selected {
+    border-color: var(--md3-primary);
+    box-shadow:
+      0 0 0 1px var(--md3-primary),
+      var(--md3-elevation-2);
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 10px;
+    background: var(--md3-surface-container-high);
+    border-bottom: 1px solid var(--md3-outline-variant);
+
+    // 分类色:输入=primary-container / 生成=tertiary / 输出=accent-soft
+    &--input {
+      background: var(--md3-primary-container);
+      color: var(--md3-on-primary-container);
+      border-bottom-color: transparent;
+    }
+
+    &--generate {
+      background: var(--md3-tertiary);
+      color: var(--md3-on-primary);
+      border-bottom-color: transparent;
+    }
+
+    &--output {
+      background: var(--md3-accent-soft);
+      color: var(--md3-on-primary-container);
+      border-bottom-color: transparent;
+    }
+  }
+
+  &__type {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    color: inherit;
+    min-width: 0;
+
+    > svg {
+      flex-shrink: 0;
+    }
+
+    > span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  &__body {
+    flex: 1;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    justify-content: center;
+    min-height: 0;
+  }
+
+  &__status {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: var(--md3-surface-container-highest);
+    color: var(--md3-text-secondary);
+
+    &--running {
+      background: var(--md3-primary-container);
+      color: var(--md3-on-primary-container);
+    }
+
+    &--completed {
+      background: var(--md3-accent-soft);
+      color: var(--md3-on-primary-container);
+    }
+
+    &--failed {
+      background: var(--md3-error-container);
+      color: var(--md3-on-error);
+    }
+  }
+}
+
+.fwf-node-form-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.fwf-field-label {
+  font-size: 11px;
+  color: var(--md3-text-secondary);
+  flex-shrink: 0;
+}
+
+.fwf-node-hint {
+  font-size: 11px;
+  color: var(--md3-text-secondary);
+  line-height: 1.5;
+}
+
+.fwf-field-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--md3-outline-variant);
+  background: var(--md3-surface);
+  color: var(--md3-on-surface);
+  border-radius: 6px;
+  font-size: 12px;
+  padding: 5px 8px;
+  resize: none;
+  font-family: inherit;
+
+  &::placeholder {
+    color: var(--md3-text-secondary);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--md3-primary);
+  }
+
+  &--narrow {
+    width: 64px;
+    flex-shrink: 0;
+  }
+}
+
+.fwf-sidebar-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  &__body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+// 端口 hover 反馈(类名来自 flowgram free-lines 的 WorkflowPortRender)
+.fwf-canvas .workflow-port {
+  transition: transform var(--md3-dur-fast) var(--md3-ease), filter var(--md3-dur-fast) var(--md3-ease);
+
+  &:hover {
+    transform: scale(1.3);
+    filter: brightness(1.1);
+  }
+}
+
+/* flowgram 画布内滚动条等细节对齐应用 */
+.fwf-root ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.fwf-root ::-webkit-scrollbar-thumb {
+  background: var(--md3-outline-variant);
+  border-radius: 4px;
+}

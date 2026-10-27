@@ -32,6 +32,7 @@ import { WorkflowNodeTransforms } from '../../data/workflow-node-transforms';
 import { CustomToolDialog } from '../custom-tool-dialog/CustomToolDialog';
 import { BaseDrawer } from '../side-drawer';
 import { useConfirmDialog } from '../dialog/ConfirmDialog';
+import { HoverTip } from '../shared/hover';
 import { needsApiKeyConfiguration } from '../../utils/url-template';
 import { geminiSettings } from '../../utils/settings-manager';
 import { DRAWER_PIN_KEYS } from '../../utils/drawer-pin';
@@ -589,6 +590,18 @@ export const ToolboxDrawer: React.FC<ToolboxDrawerProps> = ({
               </button>
             ))}
           </div>
+          <HoverTip content="打开全屏节点编排编辑器(Flowgram)" placement="top">
+            <button
+              type="button"
+              className="toolbox-drawer__wf-btn toolbox-drawer__wf-btn--accent"
+              data-testid="toolbox-open-workflow-editor"
+              onClick={() => {
+                window.open('/workflow', '_blank');
+              }}
+            >
+              打开工作流编排器 ↗
+            </button>
+          </HoverTip>
         </div>
       </BaseDrawer>
 

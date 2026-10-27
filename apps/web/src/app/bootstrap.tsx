@@ -1,4 +1,4 @@
-import { StrictMode } from 'react';
+import { StrictMode, lazy, Suspense } from 'react';
 import * as ReactDOM from 'react-dom/client';
 import App from './app';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -772,6 +772,20 @@ updateBootStatus({
   progress: 88,
 });
 
+/**
+ * /workflow 独立全屏视图(Flowgram 节点编排编辑器):
+ * 按 pathname 分流,与主画布共用 Auth/Theme providers;
+ * 编辑器代码(含 flowgram 依赖)是独立懒加载 chunk,主画布首屏零影响。
+ */
+const WorkflowEditorApp = lazy(() =>
+  import('@drawnix/drawnix/workflow-editor').then((m) => ({
+    default: m.WorkflowEditorApp,
+  }))
+);
+
+const isWorkflowView = () =>
+  window.location.pathname.startsWith('/workflow');
+
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
@@ -782,7 +796,28 @@ root.render(
         <AuthProvider>
           <AuthGate>
             <UiStatsCaptureMount />
-            <App />
+            {isWorkflowView() ? (
+              <Suspense
+                fallback={
+                  <div
+                    style={{
+                      position: 'fixed',
+                      inset: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 14,
+                    }}
+                  >
+                    正在加载工作流编辑器…
+                  </div>
+                }
+              >
+                <WorkflowEditorApp />
+              </Suspense>
+            ) : (
+              <App />
+            )}
           </AuthGate>
         </AuthProvider>
       </Md3ThemeProvider>

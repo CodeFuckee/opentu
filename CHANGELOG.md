@@ -1,5 +1,26 @@
 ## Unreleased
 
+### feat(drawnix): /workflow 节点编排编辑器——Flowgram 全屏视图，共用编排底座
+
+画布原生 workflow-node 受白板语义约束（无端口级连线、参数靠双击弹层），
+新增一块专业节点编排编辑器视图承复杂 DAG；数据与执行不另起第二套底座：
+
+- **编辑器视图**：新增 `components/flowgram-workflow-editor/`——左节点面板
+  （8 类节点，点击添加/网格防叠卡）、中画布（端口连线、框选、minimap、
+  自动取景）、右参数栏、顶栏（图名/我的图/新建/保存/▶ 运行|停止/← 画布）；
+  节点注册由 `NODE_TYPE_SPECS` 单一事实源派生；悬浮提示统一 HoverTip
+- **数据转换**：新增 `flowgram-adapter.ts`——`OrchestratorGraph` ↔ Flowgram
+  文档纯函数双向转换（端口 id 原文透传，坏数据防御），存量图直接可开
+- **编辑器内运行**：`workflow-run-service` 新增 board-free `runGraph()`，
+  复用既有「编译 → 建工作流 → 引擎执行」管线与状态广播；无画布上下文时
+  「插入画布」步骤标 failed（提示回画布运行）不阻断其余节点
+- **应用接线**：`bootstrap.tsx` 按 pathname 分流 `/workflow`（复用 Auth/Theme
+  providers，lazy 独立 chunk ~732KB，主画布首屏零体积增量）；工具箱工作流
+  分区新增「打开工作流编排器 ↗」入口；`?graph=<id>` 直开指定图
+- **测试**：flowgram-adapter 7 例 / runGraph 5 例 / 编辑器壳 smoke 5 例；
+  E2E-WF-EDITOR-001（/workflow 直达渲染）、002（加节点→保存→刷新恢复→
+  返回画布，修复崩溃恢复误报拦截返回路径的问题）
+
 ### style(drawnix): 画布视觉对齐 infinite-canvas 参照——暖纸中性轴、细线网格、悬浮坞令牌、缩放滑杆
 
 用户给出新参照项目（basketikun/infinite-canvas，本地实跑拆解其设计
