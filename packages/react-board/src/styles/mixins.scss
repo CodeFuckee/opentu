@@ -1,18 +1,28 @@
 @mixin board-background-color {
-    // 中性灰画布（参照专业设计工具）：比白色浮层深两档，浮动工具条/输入卡
-    // 才有「浮」在画布上的对比度；点阵用中性黑点
+    // 暖纸画布（参照专业画布工具）：比白色浮层深一档且偏暖，浮动工具条/输入卡
+    // 才有「浮」在画布上的对比度；细线网格低对比，读作纸面纹理而非方格纸
     &.theme-colorful .board-host-svg,
     &.theme-default .board-host-svg {
-        background-color: #ECEDEF;
-        background-image: radial-gradient(
-            circle,
-            rgba(0, 0, 0, 0.08) 1px,
-            transparent 1.2px
-        );
-        background-size: 22px 22px;
+        background-color: #f3f0e9;
+        background-image: linear-gradient(
+                rgba(74, 68, 60, 0.07) 1px,
+                transparent 1px
+            ),
+            linear-gradient(90deg, rgba(74, 68, 60, 0.07) 1px, transparent 1px);
+        background-size: 24px 24px;
     }
     &.theme-dark .board-host-svg {
-        background-color: #131314;
+        background-color: #161513;
+        background-image: linear-gradient(
+                rgba(245, 245, 244, 0.045) 1px,
+                transparent 1px
+            ),
+            linear-gradient(
+                90deg,
+                rgba(245, 245, 244, 0.045) 1px,
+                transparent 1px
+            );
+        background-size: 24px 24px;
     }
     &.theme-soft .board-host-svg {
         background-color: #f5f5f5;

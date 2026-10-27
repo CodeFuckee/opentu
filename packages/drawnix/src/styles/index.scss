@@ -193,19 +193,12 @@
     width: fit-content;
     max-width: 80px;
     overflow: visible; // 允许 Badge 角标溢出显示，滚动由 __scrollable 处理
-    // MD3 布局：xl 28dp 大圆角 + elevation + 发丝描边（黑白系与画布分离的关键）
+    // MD3 布局：xl 28dp 大圆角 + 悬浮坞令牌（暖白玻璃 + 暖发丝 + 双层软阴影，
+    // 与缩放器/输入卡同一「落」在画布上的视觉语言）
     border-radius: var(--md3-radius-xl, 28px);
-    box-shadow: var(--md3-elevation-3, 0 8px 32px rgba(0, 0, 0, 0.08));
-    border: 1px solid var(--md3-hairline, rgba(0, 0, 0, 0.1));
-    background: rgba(
-      var(--island-bg-color-rgb, 255, 255, 255),
-      0.95
-    ); // 旧浏览器回退
-    background: color-mix(
-      in srgb,
-      var(--md3-surface-panel, #fff) 94%,
-      transparent
-    );
+    box-shadow: var(--md3-dock-shadow, 0 12px 36px rgba(43, 38, 32, 0.14));
+    border: 1px solid var(--md3-dock-border, rgba(93, 86, 76, 0.16));
+    background: var(--md3-dock-bg, rgba(252, 251, 248, 0.94));
     backdrop-filter: blur(10px); // 毛玻璃效果
 
     // 可滚动内容区域

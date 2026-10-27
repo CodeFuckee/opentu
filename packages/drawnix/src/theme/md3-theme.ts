@@ -49,68 +49,69 @@ interface Md3Scheme {
   scrim: string;
 }
 
-/** MD3 light scheme（官方 M3 蓝：primary #0B57D0，画布 #F8FAFD） */
+/** MD3 light scheme（官方 M3 蓝：primary #0B57D0；中性轴 = 暖纸灰阶，
+ * 与画布 #F3F0E9 暖纸底同族——参照专业画布工具的纸感中性色，冷灰显闷） */
 export const MD3_LIGHT: Md3Scheme = {
   primary: '#0B57D0',
   onPrimary: '#FFFFFF',
   primaryContainer: '#D3E3FD',
   onPrimaryContainer: '#041E49',
-  secondary: '#575E71',
+  secondary: '#5F5B52',
   onSecondary: '#FFFFFF',
-  secondaryContainer: '#DBE2F9',
-  onSecondaryContainer: '#131C2B',
+  secondaryContainer: '#ECE8DF',
+  onSecondaryContainer: '#1C1B17',
   tertiary: '#45518E',
   onTertiary: '#FFFFFF',
   error: '#BA1A1A',
   onError: '#FFFFFF',
   errorContainer: '#FFDAD6',
   onErrorContainer: '#410002',
-  surface: '#FBFBFE',
-  onSurface: '#1A1C1E',
-  surfaceVariant: '#E0E2EC',
-  onSurfaceVariant: '#44474E',
+  surface: '#FBFAF7',
+  onSurface: '#1D1B18',
+  surfaceVariant: '#ECE8E0',
+  onSurfaceVariant: '#57534E',
   surfaceContainerLowest: '#FFFFFF',
-  surfaceContainerLow: '#F4F6FB',
-  surfaceContainer: '#EFF2F9',
-  surfaceContainerHigh: '#FFFFFF',
-  surfaceContainerHighest: '#FFFFFF',
-  outline: '#74777F',
-  outlineVariant: '#C5C8D6',
-  inverseSurface: '#2F3037',
-  inverseOnSurface: '#F1F2F9',
+  surfaceContainerLow: '#F6F4EF',
+  surfaceContainer: '#F0EDE6',
+  surfaceContainerHigh: '#FAF9F6',
+  surfaceContainerHighest: '#F5F3EE',
+  outline: '#79746C',
+  outlineVariant: '#D8D3C8',
+  inverseSurface: '#2E2C29',
+  inverseOnSurface: '#F4F2ED',
   inversePrimary: '#D3E3FD',
   scrim: '#000000',
 };
 
-/** MD3 dark scheme（Google 灰阶：primary #A8C7FA，画布 #131314） */
+/** MD3 dark scheme（Google 灰阶：primary #A8C7FA；中性轴 = 暖炭黑，与画布 #161513 同族） */
 export const MD3_DARK: Md3Scheme = {
   primary: '#A8C7FA',
   onPrimary: '#062E6F',
   primaryContainer: '#0842A0',
   onPrimaryContainer: '#D3E3FD',
-  secondary: '#C4C6CF',
-  onSecondary: '#23252B',
-  secondaryContainer: '#3E4148',
-  onSecondaryContainer: '#DFE2F3',
+  secondary: '#C7C3BA',
+  onSecondary: '#201E1A',
+  secondaryContainer: '#3A372F',
+  onSecondaryContainer: '#E5E2DC',
   tertiary: '#B5C4F2',
   onTertiary: '#1A2C55',
   error: '#FFB4AB',
   onError: '#690005',
   errorContainer: '#93000A',
   onErrorContainer: '#FFDAD6',
-  surface: '#131314',
-  onSurface: '#E3E3E3',
-  surfaceVariant: '#444746',
-  onSurfaceVariant: '#C4C7C5',
-  surfaceContainerLowest: '#0E0E0F',
-  surfaceContainerLow: '#1B1B1D',
-  surfaceContainer: '#202124',
-  surfaceContainerHigh: '#28292B',
-  surfaceContainerHighest: '#303134',
-  outline: '#8E918F',
-  outlineVariant: '#444746',
-  inverseSurface: '#E3E3E3',
-  inverseOnSurface: '#303030',
+  surface: '#161513',
+  onSurface: '#E5E2DC',
+  surfaceVariant: '#45423B',
+  onSurfaceVariant: '#C9C4BA',
+  surfaceContainerLowest: '#100F0E',
+  surfaceContainerLow: '#1D1B19',
+  surfaceContainer: '#22201D',
+  surfaceContainerHigh: '#292723',
+  surfaceContainerHighest: '#302D28',
+  outline: '#948F85',
+  outlineVariant: '#45423C',
+  inverseSurface: '#E5E2DC',
+  inverseOnSurface: '#2E2C29',
   inversePrimary: '#0B57D0',
   scrim: '#000000',
 };
@@ -367,10 +368,20 @@ export function md3CssVariableStyle(mode: Md3Mode): Record<string, string> {
     '--md3-on-accent': s.onPrimary,
     '--md3-accent-soft': mode === 'light' ? 'rgba(11, 87, 208, 0.10)' : 'rgba(168, 199, 250, 0.16)',
     '--md3-success': mode === 'light' ? '#268029' : '#7FD985',
-    // 发丝分隔线（黑白系的悬浮物描边）
-    '--md3-hairline': mode === 'light' ? 'rgba(26, 28, 30, 0.10)' : 'rgba(255, 255, 255, 0.13)',
-    // 面板表面（工具栏/island 等悬浮面板专属，暖纸模式下与画布 #FAF9F6 拉开）
-    '--md3-surface-panel': mode === 'light' ? '#FFFFFF' : '#202124',
+    // 发丝分隔线（黑白系的悬浮物描边；暖黑基色呼应暖纸中性轴）
+    '--md3-hairline': mode === 'light' ? 'rgba(56, 50, 42, 0.11)' : 'rgba(255, 255, 255, 0.13)',
+    // 面板表面（工具栏/island 等悬浮面板专属，暖纸模式下与画布 #F3F0E9 拉开）
+    '--md3-surface-panel': mode === 'light' ? '#FDFCF9' : '#22201D',
+    // 悬浮坞令牌（画布上的工具条/缩放器/输入卡共用）：暖白半透玻璃 + 暖发丝
+    // 描边 + 大而软的双层阴影，让浮层「落」在画布上而非「贴」在画布上
+    '--md3-dock-bg':
+      mode === 'light' ? 'rgba(252, 251, 248, 0.94)' : 'rgba(30, 28, 25, 0.92)',
+    '--md3-dock-border':
+      mode === 'light' ? 'rgba(93, 86, 76, 0.16)' : 'rgba(245, 245, 244, 0.10)',
+    '--md3-dock-shadow':
+      mode === 'light'
+        ? '0 12px 36px rgba(43, 38, 32, 0.14), 0 2px 8px rgba(43, 38, 32, 0.07)'
+        : '0 12px 36px rgba(0, 0, 0, 0.44), 0 2px 8px rgba(0, 0, 0, 0.28)',
     // 排版字阶（MD3 type scale 收敛版）：复合 font 简写，消费方 font: var(...)
     '--md3-text-title-lg': `600 17px/1.4 ${FONT_FAMILY}`,
     '--md3-text-title': `600 15px/1.45 ${FONT_FAMILY}`,

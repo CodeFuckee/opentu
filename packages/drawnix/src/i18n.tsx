@@ -54,7 +54,8 @@ export interface Translations {
   'zoom.fitFrame': string;
   'zoom.fitPPTGlobal': string;
   'zoom.100': string;
-  
+  'zoom.slider': string;
+
   // Themes
   'theme.default': string;
   'theme.colorful': string;
@@ -251,6 +252,7 @@ const translations: Record<Language, Translations> = {
     'zoom.fitFrame': '自适应 PPT 页面',
     'zoom.fitPPTGlobal': 'PPT全局',
     'zoom.100': '缩放至 100%',
+    'zoom.slider': '调整缩放比例',
     
     // Themes
     'theme.default': '默认',
@@ -445,6 +447,7 @@ const translations: Record<Language, Translations> = {
     'zoom.fitFrame': 'Fit PPT Page',
     'zoom.fitPPTGlobal': 'Fit All PPT Pages',
     'zoom.100': 'Zoom to 100%',
+    'zoom.slider': 'Adjust zoom level',
     
     // Themes
     'theme.default': 'Default',

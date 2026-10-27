@@ -311,8 +311,8 @@ function detectMobileViewport(): boolean {
 }
 
 // 画板静态配置：内容不可变，模块级常量避免每次渲染重建
-// 黑白主题内容化：亮色模式画布底浅灰、思维导图分支色灰阶化（原紫系彩支
-// 与黑白 UI 冲突）；暗色模式保留 plait 原值
+// 黑白主题内容化：亮色模式画布底暖纸色（参照专业画布工具的纸感，
+// 比白色浮层深且偏暖，浮动工具条/输入卡才有「浮」的对比度）；暗色模式保留 plait 原值
 const DRAWNIX_BRANCH_COLORS = [
   '#0B57D0',
   '#1A73E8',
@@ -330,7 +330,7 @@ const DRAWNIX_THEME_COLORS = MindThemeColors.map((themeColor) => ({
     themeColor.mode === ThemeColorMode.dark ||
     themeColor.mode === ThemeColorMode.starry
       ? themeColor.boardBackground
-      : '#ECEDEF',
+      : '#F3F0E9',
   branchColors:
     themeColor.mode === ThemeColorMode.dark ||
     themeColor.mode === ThemeColorMode.starry

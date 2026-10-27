@@ -1,5 +1,28 @@
 ## Unreleased
 
+### style(drawnix): 画布视觉对齐 infinite-canvas 参照——暖纸中性轴、细线网格、悬浮坞令牌、缩放滑杆
+
+用户给出新参照项目（basketikun/infinite-canvas，本地实跑拆解其设计
+语言：暖纸画布 #f4f2ed + 细线网格 + 暖白玻璃悬浮坞 + 缩放滑杆 +
+几乎无彩的暖灰激活态）。Round 7 在保持 MD3 框架与蓝品牌色的前提下
+把中性轴整体转暖：
+
+- **暖纸中性轴**：MD3 light/dark scheme 中性角色（surface 系 /
+  outline 系 / on-surface-variant / secondary 容器对）从冷灰转暖纸，
+  hairline/surface-panel 同步转暖——品牌蓝 primary 全部保持不变
+- **画布暖纸 + 细线网格**：亮色 #ECEDEF→#F3F0E9、点阵改 24px 细线
+  网格（低对比读作纸面纹理）；暗色 #131314→#161513 暖炭黑并补同款
+  网格（drawnix.tsx 与 react-board mixins.scss 同步）
+- **悬浮坞令牌**：新增 `--md3-dock-bg/border/shadow`（暖白半透玻璃 +
+  暖发丝描边 + 大而软双层阴影），统一工具坞、视图导航、AI 输入卡
+  三类浮层的「落」在画布上的质感；工具坞 hover 修为暖砂
+  （原 light 模式 hover 底为纯白，等于无 hover 反馈的存量问题）
+- **缩放滑杆**：视图导航新增 30–300% 连续缩放滑杆（参照项目同款
+  「滑杆+读数」组合；保留 +/-、百分比菜单与小地图，既有 testid
+  全部不变），小屏 640px 以下自动收起
+- 视觉基线全量重录：visual 套件 41 例稳定为 40 过 / 1 挂（唯一失败
+  为已登记的移动端输入栏重叠存量问题，不在 CI 门禁）
+
 ### style(drawnix): 灵感分类引入 MD3 色调容器色——蓝/琥珀/绿三卡成色相体系
 
 用户反馈界面颜色单调。按 Material Design 3 的自定义色彩规范加色：

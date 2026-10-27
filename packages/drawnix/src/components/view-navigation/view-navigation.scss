@@ -16,15 +16,25 @@
   transition: right 0.3s ease-out;
   user-select: none;
 
-  // 缩放控制区域
+  // 缩放控制区域（悬浮坞语言：暖白玻璃 + 暖发丝描边 + 双层软阴影）
   &__zoom {
     display: flex;
     align-items: center;
     gap: 0;
-    background: var(--md3-surface-container, #fff);
+    background: var(--md3-dock-bg, rgba(252, 251, 248, 0.94));
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--md3-dock-border, rgba(93, 86, 76, 0.16));
     border-radius: var(--md3-radius-full, 999px);
-    padding: 4px 8px;
-    box-shadow: var(--md3-elevation-2, 0 1px 4px rgba(0, 0, 0, 0.08));
+    padding: 4px 10px;
+    box-shadow: var(--md3-dock-shadow, 0 12px 36px rgba(43, 38, 32, 0.14));
+  }
+
+  // 缩放滑杆
+  &__zoom-slider {
+    width: 76px;
+    margin: 0 6px;
+    accent-color: var(--md3-primary, #0b57d0);
+    cursor: pointer;
   }
 
   // 缩放按钮（减号/加号）
@@ -233,6 +243,10 @@
       }
     }
 
+    &__zoom-slider {
+      width: 60px;
+    }
+
     &__zoom-percent {
       min-width: 44px;
       height: 36px;
@@ -288,6 +302,11 @@
       height: 32px;
       font-size: 11px;
       padding: 0 2px;
+    }
+
+    // 小屏收起滑杆，保 +/- 与读数
+    &__zoom-slider {
+      display: none;
     }
 
     // 移动端隐藏 minimap toggle 按钮，节省空间

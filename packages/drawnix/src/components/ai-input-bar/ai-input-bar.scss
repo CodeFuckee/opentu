@@ -340,12 +340,13 @@ $ai-input-small-expanded-max-height: $ai-input-small-line-height * 6 +
     display: flex;
     flex-direction: column-reverse; // 倒序排列，底部栏在下，输入区向上扩展
     width: 100%;
-    // MD3：纯白面 + elevation-3 + 发丝描边，28dp 大圆角
-    background: var(--md3-surface-container-high, var(--island-bg-color, #fff));
+    // 悬浮坞语言：暖白玻璃面 + 暖发丝描边 + 双层软阴影，28dp 大圆角
+    background: var(--md3-dock-bg, rgba(252, 251, 248, 0.94));
+    backdrop-filter: blur(10px);
     border-radius: var(--md3-radius-xl, 28px);
     padding: 6px 10px;
-    box-shadow: var(--md3-elevation-3, 0 2px 12px rgba(0, 0, 0, 0.08));
-    border: 1px solid var(--md3-hairline, rgba(0, 0, 0, 0.1));
+    box-shadow: var(--md3-dock-shadow, 0 12px 36px rgba(43, 38, 32, 0.14));
+    border: 1px solid var(--md3-dock-border, rgba(93, 86, 76, 0.16));
     transition: all 0.2s ease;
 
     // 展开状态（聚焦或有选中内容时）
@@ -360,7 +361,7 @@ $ai-input-small-expanded-max-height: $ai-input-small-line-height * 6 +
       border-color: rgba(11, 87, 208, 0.4);
       box-shadow:
         0 0 0 4px rgba(11, 87, 208, 0.07),
-        var(--md3-elevation-3, 0 2px 12px rgba(0, 0, 0, 0.08));
+        var(--md3-dock-shadow, 0 12px 36px rgba(43, 38, 32, 0.14));
     }
   }
 

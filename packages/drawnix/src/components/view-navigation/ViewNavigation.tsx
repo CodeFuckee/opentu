@@ -255,6 +255,24 @@ export const ViewNavigation: React.FC<ViewNavigationProps> = ({
           </button>
         </HoverTip>
 
+        {/* 缩放滑杆：拖动连续调焦（参照专业画布工具的滑杆 + 读数组合） */}
+        <input
+          className="view-navigation__zoom-slider"
+          type="range"
+          min={30}
+          max={300}
+          step={5}
+          value={zoomPercentage}
+          onChange={(e) => {
+            const next = Number(e.target.value);
+            if (Number.isFinite(next) && next > 0) {
+              BoardTransforms.updateZoom(board, next / 100);
+            }
+          }}
+          aria-label={t('zoom.slider')}
+          data-track="view_nav_zoom_slider"
+        />
+
         <Popover
           sideOffset={8}
           open={zoomMenuOpen}
