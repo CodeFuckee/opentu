@@ -162,17 +162,21 @@
     <meta name="app-version" content="1.0.10" />
     <style>
       :root {
+        /* 暖纸底 + 顶部品牌蓝微光：加载页是画布的「序」，与工作台
+           暖纸中性轴（画布 #F3F0E9 / dock 暖白玻璃）同一气质 */
         --app-boot-bg: radial-gradient(
-            circle at top,
-            rgba(11, 87, 208, 0.05),
-            transparent 38%
+            circle at 50% 0%,
+            rgba(11, 87, 208, 0.07),
+            transparent 42%
           ),
-          linear-gradient(180deg, #F8FAFD 0%, #ffffff 58%, #F1F4F9 100%);
-        --app-boot-text: #191C20;
-        --app-boot-muted: #44474F;
-        --app-boot-accent: #0B57D0;
-        --app-boot-accent-soft: rgba(11, 87, 208, 0.05);
-        --app-boot-shadow: 0 20px 60px rgba(45, 52, 54, 0.08);
+          linear-gradient(180deg, #f7f4ed 0%, #fbfaf6 55%, #f1eee6 100%);
+        --app-boot-text: #1d1b18;
+        --app-boot-muted: #57534e;
+        --app-boot-accent: #0b57d0;
+        --app-boot-accent-soft: rgba(11, 87, 208, 0.06);
+        --app-boot-shadow: 0 24px 70px rgba(43, 38, 32, 0.16),
+          0 4px 14px rgba(43, 38, 32, 0.08);
+        --app-boot-hairline: rgba(93, 86, 76, 0.14);
       }
 
       #app-boot-loading {
@@ -190,6 +194,30 @@
         pointer-events: auto;
       }
 
+      /* 细线网格暗纹：加载页预告「这是一块画布」 */
+      #app-boot-loading::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background-image: linear-gradient(
+            rgba(74, 68, 60, 0.05) 1px,
+            transparent 1px
+          ),
+          linear-gradient(90deg, rgba(74, 68, 60, 0.05) 1px, transparent 1px);
+        background-size: 24px 24px;
+        mask-image: radial-gradient(
+          circle at 50% 42%,
+          transparent 0,
+          #000 72%
+        );
+        -webkit-mask-image: radial-gradient(
+          circle at 50% 42%,
+          transparent 0,
+          #000 72%
+        );
+      }
+
       #app-boot-loading.is-visible {
         opacity: 1;
         visibility: visible;
@@ -203,11 +231,12 @@
       }
 
       .app-boot-card {
+        position: relative;
         width: min(420px, calc(100vw - 48px));
-        padding: 28px 24px;
-        border-radius: 24px;
-        background: rgba(255, 255, 255, 0.92);
-        border: 1px solid rgba(255, 255, 255, 0.72);
+        padding: 30px 26px 26px;
+        border-radius: 28px;
+        background: rgba(253, 252, 249, 0.92);
+        border: 1px solid var(--app-boot-hairline);
         box-shadow: var(--app-boot-shadow);
         backdrop-filter: blur(14px);
         text-align: center;
@@ -216,23 +245,37 @@
       .app-boot-mark {
         min-width: 52px;
         height: 52px;
-        padding: 0 16px;
-        margin: 0 auto 16px;
+        padding: 0 18px;
+        margin: 0 auto 18px;
         border-radius: 16px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(
-          135deg,
-          rgba(0, 0, 0, 0.08),
-          rgba(0, 0, 0, 0.04)
-        );
+        background: linear-gradient(135deg, #e8f0fe, #d3e3fd);
+        border: 1px solid rgba(11, 87, 208, 0.16);
         color: var(--app-boot-accent);
         font-size: 16px;
         font-weight: 700;
         letter-spacing: 0.02em;
         white-space: nowrap;
         text-decoration: none;
+      }
+
+      @media (prefers-reduced-motion: no-preference) {
+        .app-boot-mark {
+          animation: app-boot-breathe 2.4s ease-in-out infinite alternate;
+        }
+
+        @keyframes app-boot-breathe {
+          from {
+            transform: scale(1);
+            box-shadow: 0 0 0 rgba(11, 87, 208, 0);
+          }
+          to {
+            transform: scale(1.035);
+            box-shadow: 0 6px 22px rgba(11, 87, 208, 0.14);
+          }
+        }
       }
 
       .app-boot-title {
@@ -270,7 +313,7 @@
         height: 8px;
         overflow: hidden;
         border-radius: 999px;
-        background: rgba(0, 0, 0, 0.05);
+        background: rgba(56, 50, 42, 0.08);
       }
 
       .app-boot-progress-fill {
@@ -278,13 +321,37 @@
         inset: 0 auto 0 0;
         width: 0%;
         border-radius: inherit;
+        overflow: hidden;
+        background: linear-gradient(90deg, #0b57d0, #4285f4);
+        box-shadow: 0 0 12px rgba(26, 115, 232, 0.35);
+        transition: width 0.24s ease;
+      }
+
+      /* 流光扫过：进度在走的时候有「活着」的质感 */
+      .app-boot-progress-fill::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        transform: translateX(-100%);
         background: linear-gradient(
           90deg,
-          rgba(0, 0, 0, 0.78),
-          rgba(0, 0, 0, 1)
+          transparent,
+          rgba(255, 255, 255, 0.38),
+          transparent
         );
-        box-shadow: 0 0 16px rgba(0, 0, 0, 0.18);
-        transition: width 0.24s ease;
+        animation: app-boot-shimmer 1.6s ease-in-out infinite;
+      }
+
+      @keyframes app-boot-shimmer {
+        to {
+          transform: translateX(100%);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .app-boot-progress-fill::after {
+          animation: none;
+        }
       }
 
       .app-boot-progress-value {
@@ -295,7 +362,7 @@
 
       .app-boot-note {
         margin-top: 14px;
-        color: rgba(99, 110, 114, 0.84);
+        color: rgba(87, 83, 78, 0.78);
         font-size: 12px;
         line-height: 1.5;
       }
