@@ -121,6 +121,13 @@ test.describe('@visual 交互状态视觉回归', () => {
     test('AI输入栏 - 模型下拉', async ({ page }) => {
       const aiInputBar = app.aiInputBar.container;
 
+      // 空画布时灵感板会挂进输入条容器：等它挂载稳定，避免元素盒高漂移
+      await page
+        .waitForSelector('[data-testid="inspiration-board"]', {
+          timeout: 15000,
+        })
+        .catch(() => {});
+
       // 关闭状态
       await expect(aiInputBar).toHaveScreenshot('ai-input-model-closed.png', {
         maxDiffPixelRatio: 0.10,
@@ -256,6 +263,13 @@ test.describe('@visual 交互状态视觉回归', () => {
   test.describe('输入交互', () => {
     test('AI输入栏 - 输入前后', async ({ page }) => {
       const aiInputBar = app.aiInputBar.container;
+
+      // 空画布时灵感板会挂进输入条容器：等它挂载稳定，避免元素盒高漂移
+      await page
+        .waitForSelector('[data-testid="inspiration-board"]', {
+          timeout: 15000,
+        })
+        .catch(() => {});
 
       // 模板卡图片为懒加载：首帧加载与否会改变元素盒高，等全部加载完再截
       await page

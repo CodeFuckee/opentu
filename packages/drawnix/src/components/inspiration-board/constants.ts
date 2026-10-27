@@ -15,7 +15,7 @@ const GRID_IMAGE_URL =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(`
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 320">
-  <rect width="420" height="320" rx="30" fill="#EDF2FB"/>
+  <rect width="420" height="320" rx="30" fill="#E9F0FC"/>
   <rect x="36" y="32" width="348" height="256" rx="20" fill="#ffffff"/>
   <g transform="translate(100 68)" stroke="#D3E3FD" stroke-width="2.5">
     <rect width="64" height="52" rx="12" fill="#E8F0FE"/>
@@ -37,48 +37,48 @@ const PPT_OUTLINE_IMAGE_URL =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(`
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 320">
-  <rect width="420" height="320" rx="30" fill="#EDF2FB"/>
+  <rect width="420" height="320" rx="30" fill="#FEF7E0"/>
   <rect x="34" y="32" width="352" height="256" rx="20" fill="#ffffff"/>
-  <rect x="34" y="32" width="352" height="44" rx="20" fill="#E8F0FE"/>
-  <rect x="56" y="96" width="150" height="13" rx="6.5" fill="#0B57D0"/>
-  <rect x="56" y="126" width="252" height="11" rx="5.5" fill="#D3E3FD"/>
-  <rect x="56" y="150" width="200" height="11" rx="5.5" fill="#E8F0FE"/>
-  <rect x="56" y="190" width="92" height="62" rx="12" fill="#F7FAFF" stroke="#A8C7FA"/>
-  <rect x="168" y="190" width="92" height="62" rx="12" fill="#F7FAFF" stroke="#A8C7FA"/>
-  <rect x="280" y="190" width="52" height="62" rx="12" fill="#F7FAFF" stroke="#A8C7FA"/>
-  <circle cx="80" cy="221" r="12" fill="#0B57D0"/>
-  <circle cx="212" cy="221" r="12" fill="#4285F4"/>
-  <circle cx="306" cy="221" r="12" fill="#A8C7FA"/>
+  <rect x="34" y="32" width="352" height="44" rx="20" fill="#FEEFC3"/>
+  <rect x="56" y="96" width="150" height="13" rx="6.5" fill="#E37400"/>
+  <rect x="56" y="126" width="252" height="11" rx="5.5" fill="#FEEFC3"/>
+  <rect x="56" y="150" width="200" height="11" rx="5.5" fill="#FEF7E0"/>
+  <rect x="56" y="190" width="92" height="62" rx="12" fill="#FFFDF5" stroke="#F9AB00"/>
+  <rect x="168" y="190" width="92" height="62" rx="12" fill="#FFFDF5" stroke="#F9AB00"/>
+  <rect x="280" y="190" width="52" height="62" rx="12" fill="#FFFDF5" stroke="#F9AB00"/>
+  <circle cx="80" cy="221" r="12" fill="#E37400"/>
+  <circle cx="212" cy="221" r="12" fill="#F9AB00"/>
+  <circle cx="306" cy="221" r="12" fill="#FEEFC3"/>
   <path d="M150 221h16M262 221h16" stroke="#C5C8D6" stroke-width="7" stroke-linecap="round"/>
-  <rect x="56" y="264" width="276" height="9" rx="4.5" fill="#E8F0FE"/>
+  <rect x="56" y="264" width="276" height="9" rx="4.5" fill="#FEEFC3"/>
 </svg>`);
 
 const MINDMAP_IMAGE_URL =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(`
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 320">
-  <rect width="420" height="320" rx="30" fill="#EDF2FB"/>
+  <rect width="420" height="320" rx="30" fill="#E6F4EA"/>
   <rect x="34" y="32" width="352" height="256" rx="20" fill="#ffffff"/>
-  <g fill="none" stroke="#A8C7FA" stroke-width="2.5" stroke-linecap="round">
+  <g fill="none" stroke="#81C995" stroke-width="2.5" stroke-linecap="round">
     <path d="M210 160C178 144 162 118 140 96"/>
     <path d="M210 160C180 170 158 192 138 220"/>
     <path d="M210 160C242 142 262 116 284 96"/>
     <path d="M210 160C244 174 268 196 290 222"/>
   </g>
-  <rect x="176" y="134" width="68" height="52" rx="14" fill="#D3E3FD" stroke="#0B57D0" stroke-width="2.5"/>
-  <circle cx="210" cy="160" r="12" fill="#0B57D0"/>
-  <rect x="86" y="78" width="88" height="32" rx="11" fill="#F7FAFF" stroke="#C9DCF8"/>
-  <rect x="86" y="210" width="92" height="32" rx="11" fill="#F7FAFF" stroke="#C9DCF8"/>
-  <rect x="282" y="78" width="92" height="32" rx="11" fill="#F7FAFF" stroke="#C9DCF8"/>
-  <rect x="278" y="212" width="98" height="32" rx="11" fill="#F7FAFF" stroke="#C9DCF8"/>
-  <circle cx="104" cy="94" r="6" fill="#0B57D0"/>
-  <circle cx="104" cy="226" r="6" fill="#4285F4"/>
-  <circle cx="300" cy="94" r="6" fill="#A8C7FA"/>
-  <circle cx="296" cy="228" r="6" fill="#0B57D0"/>
-  <rect x="120" y="90" width="38" height="6" rx="3" fill="#D3E3FD"/>
-  <rect x="120" y="222" width="40" height="6" rx="3" fill="#D3E3FD"/>
-  <rect x="314" y="90" width="38" height="6" rx="3" fill="#D3E3FD"/>
-  <rect x="318" y="224" width="42" height="6" rx="3" fill="#D3E3FD"/>
+  <rect x="176" y="134" width="68" height="52" rx="14" fill="#CEEAD6" stroke="#188038" stroke-width="2.5"/>
+  <circle cx="210" cy="160" r="12" fill="#188038"/>
+  <rect x="86" y="78" width="88" height="32" rx="11" fill="#F5FBF7" stroke="#A8DAB5"/>
+  <rect x="86" y="210" width="92" height="32" rx="11" fill="#F5FBF7" stroke="#A8DAB5"/>
+  <rect x="282" y="78" width="92" height="32" rx="11" fill="#F5FBF7" stroke="#A8DAB5"/>
+  <rect x="278" y="212" width="98" height="32" rx="11" fill="#F5FBF7" stroke="#A8DAB5"/>
+  <circle cx="104" cy="94" r="6" fill="#188038"/>
+  <circle cx="104" cy="226" r="6" fill="#34A853"/>
+  <circle cx="300" cy="94" r="6" fill="#81C995"/>
+  <circle cx="296" cy="228" r="6" fill="#188038"/>
+  <rect x="120" y="90" width="38" height="6" rx="3" fill="#CEEAD6"/>
+  <rect x="120" y="222" width="40" height="6" rx="3" fill="#CEEAD6"/>
+  <rect x="314" y="90" width="38" height="6" rx="3" fill="#CEEAD6"/>
+  <rect x="318" y="224" width="42" height="6" rx="3" fill="#CEEAD6"/>
 </svg>`);
 
 /**
@@ -123,21 +123,70 @@ export const INSPIRATION_TEMPLATES: InspirationTemplate[] = [
  * 分类对应的颜色配置
  */
 /**
- * 分类对应的颜色配置
+ * 分类对应的颜色配置（MD3 色调容器体系）
  *
- * 全部分类统一为品牌蓝 chip（M3 primary-container）：原先七分类七彩
- * （紫/蓝/绿/黄…），三张卡三个色系让首屏像「三个产品拼的」——统一后
- * 与主题强调色同族，画面成套。
+ * 每个分类一个色相的「container 底 + on-container 文字」，与 Google
+ * Workspace 的蓝/绿/黄/红容器同族；插画用同色相的 tint/accent/mid
+ * 成套绘制（chip 色相 = 插画色相），表面仍保持中性——多彩但成体系。
  */
 export const CATEGORY_COLORS: Record<
   InspirationCategory,
-  { bg: string; text: string }
+  { bg: string; text: string; accent: string; mid: string; tint: string }
 > = {
-  [InspirationCategory.VIDEO]: { bg: '#D3E3FD', text: '#041E49' },
-  [InspirationCategory.IMAGE]: { bg: '#D3E3FD', text: '#041E49' },
-  [InspirationCategory.MINDMAP]: { bg: '#D3E3FD', text: '#041E49' },
-  [InspirationCategory.FLOWCHART]: { bg: '#D3E3FD', text: '#041E49' },
-  [InspirationCategory.PPT]: { bg: '#D3E3FD', text: '#041E49' },
-  [InspirationCategory.GRID]: { bg: '#D3E3FD', text: '#041E49' },
-  [InspirationCategory.SVG]: { bg: '#D3E3FD', text: '#041E49' },
+  // 蓝（primary-container 同族）
+  [InspirationCategory.GRID]: {
+    bg: '#D3E3FD',
+    text: '#041E49',
+    accent: '#0B57D0',
+    mid: '#A8C7FA',
+    tint: '#E9F0FC',
+  },
+  // 琥珀
+  [InspirationCategory.PPT]: {
+    bg: '#FEEFC3',
+    text: '#715100',
+    accent: '#E37400',
+    mid: '#F9AB00',
+    tint: '#FEF7E0',
+  },
+  // 绿
+  [InspirationCategory.MINDMAP]: {
+    bg: '#CEEAD6',
+    text: '#0D652D',
+    accent: '#188038',
+    mid: '#81C995',
+    tint: '#E6F4EA',
+  },
+  // 红
+  [InspirationCategory.VIDEO]: {
+    bg: '#FCE8E6',
+    text: '#C5221F',
+    accent: '#D93025',
+    mid: '#F28B82',
+    tint: '#FDECEA',
+  },
+  // 紫
+  [InspirationCategory.IMAGE]: {
+    bg: '#E9DDFF',
+    text: '#3F1D6E',
+    accent: '#7248B9',
+    mid: '#A585E8',
+    tint: '#F1EBFF',
+  },
+  // 青
+  [InspirationCategory.FLOWCHART]: {
+    bg: '#CDE9E5',
+    text: '#0B5C54',
+    accent: '#0E8A7D',
+    mid: '#5FB8AC',
+    tint: '#E5F4F1',
+  },
+  // 粉
+  [InspirationCategory.SVG]: {
+    bg: '#FCE0EE',
+    text: '#A1125C',
+    accent: '#D3307F',
+    mid: '#F08CC0',
+    tint: '#FDEBF5',
+  },
 };
