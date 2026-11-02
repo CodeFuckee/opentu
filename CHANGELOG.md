@@ -1,5 +1,29 @@
 ## Unreleased
 
+### feat: 视频模型使用白名单——Supabase 配置、ai-proxy 服务端硬拦截（上线即收紧）
+
+在 Supabase 里配置哪些用户可以使用视频模型（全部视频模型统一门禁），名单外
+用户立即拒用、管理员（`user_profiles.role='admin'`）恒放行：
+
+- **数据库**：新增迁移 `supabase/migrations/video_model_access.sql`——白名单表
+  `video_model_access`（一行=该用户可用全部视频模型，RLS 不对客户端暴露名单）+
+  服务端判定 RPC `has_video_model_access`（白名单或 admin 放行）+ 前端自查 RPC
+  `get_my_video_access`；管理员在 Dashboard Table Editor 增/删行即实时生效
+- **服务端**：ai-proxy 对所有 POST 视频提交端点（`/v1/videos`、
+  `/kling/v1/videos/text2video|image2video`、happyhorse `/videos` 等）在转发前
+  调白名单 RPC，不通过返回 `403 {error:'video_access_denied'}` 不调上游；
+  GET 轮询与图片/MJ/文本路径不受影响；新增 `GET /video-access` 自查端点
+  （仿 `/quota`，只返回本人 allowed）
+- **前端**：托管传输层识别 403 抛 `VideoAccessDeniedError`（任务队列展示清晰
+  文案）；视频对话框打开时自查权限，无权限禁用生成按钮并提示"视频模型使用
+  权限未开放，请联系管理员开通"；MV Creator / AI 输入条 / MCP 等其它入口由
+  代理 403 兜底
+- **测试**：ai-proxy 单测新增 8 例（非白名单 403/白名单放行/RPC 异常 503/
+  GET 轮询与图片提交不受影响/video-access 端点），28/28 绿；drawnix 新增
+  managed-runtime 单测 10 例
+- **部署注意**：上线即收紧——生产部署前需先在 Supabase 的 `video_model_access`
+  表加好初始名单，迁移命令与管理说明见 `docs/ai-proxy-edge-function.md` 视频专节
+
 ### feat: 嵌入 infinite-canvas 无限画布工作台（/infinite 子路径 + /canvas-ai 宿主页）
 
 按用户决策把 [basketikun/infinite-canvas](https://github.com/basketikun/infinite-canvas)

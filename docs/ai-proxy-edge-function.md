@@ -1,4 +1,4 @@
-# ai-proxy 边缘函数：生图额度管控代理
+# ai-proxy 边缘函数：生图额度管控与视频使用权白名单代理
 
 对应 OpenSpec 变更：`openspec/changes/add-image-generation-quota/`
 
@@ -28,6 +28,8 @@ POST http://<SUPABASE_URL>/functions/v1/ai-proxy/<原上游路径>?<query>
 - **API Key 不再下发到浏览器**，无法绕开页面直连中转站滥用；
 - 每用户每自然月生图 ≤200 张（限额解析顺序：**用户级覆盖 `user_quota_configs`** →
   部门覆盖 `department_configs` → 全局 `image_monthly_quota_default` → 缺省 200）；
+- **视频模型按白名单管控**（`video_model_access` 表，上线即收紧：名单内用户或
+  管理员可用，其余视频提交一律 403，详见下文专节）；
 - 失败自动退额度；月度边界惰性计算，无需定时任务；
 - 未登录（或托管未启用）行为完全不变：仍走本地直连 + 用户手填 Key。
 
@@ -130,6 +132,42 @@ user_quota_configs（用户级，优先级最高）
 - `user_quota_configs` / `user_quota_overview` 均不授予 anon/authenticated，
   只能经 Dashboard（表属主）或 service_role 访问，普通用户无法读取他人配额。
 
+## 视频模型使用权白名单（2026-11 新增，上线即收紧）
+
+视频生成（全部视频模型统一门禁）按 **白名单 + 管理员** 管控，服务端硬拦截：
+
+```
+浏览器 POST …/videos（/v1/videos、/kling/v1/videos/text2video|image2video、
+happyhorse /videos 等所有视频适配器提交端点）
+   │
+   ├─ ai-proxy 转发前调 RPC has_video_model_access(p_user_id)
+   │    ├─ video_model_access 表有该用户行 → 放行
+   │    ├─ user_profiles.role = 'admin'    → 放行（管理员恒可用）
+   │    └─ 其余 → 403 {error:'video_access_denied'}，不调用上游
+   └─ GET 轮询 /videos/{id} 不拦（无新增成本）
+```
+
+- 白名单表：`video_model_access`（user_id 主键 → auth.users、note 备注、时间戳）；
+  RLS 不授予任何客户端角色，**名单不对前端暴露**；
+- 前端自查：`GET /functions/v1/ai-proxy/video-access` 返回当前用户 `{allowed}`；
+  视频对话框打开时自查，无权限禁用生成按钮并提示；其余入口（MV Creator /
+  AI 输入条 / MCP 工具）由代理 403 经 `VideoAccessDeniedError` 在任务队列展示；
+- 边界：门禁只约束经 ai-proxy 的托管调用（登录用户）；用户自配 baseUrl/apiKey
+  直连上游不经代理，与生图额度同一边界。
+
+迁移与管理（Supabase Dashboard → Table Editor → `video_model_access`）：
+
+```bash
+docker exec -i supabase-db psql -U supabase_admin -d postgres < supabase/migrations/video_model_access.sql
+```
+
+1. 找到用户 UUID：`select user_id from user_profiles where oa_account = 'zhangsan';`
+   （或 Dashboard Authentication 页查看）；
+2. 给可用的用户各插一行：`user_id = <用户UUID>`（note 可填部门/原因）；
+   **删除行 = 该用户立即拒用**（管理员除外）；
+3. ⚠️ 上线即收紧：部署新版 ai-proxy 之前，先在表里加好初始名单
+   （管理员账号本就豁免，普通用户不加行即被拒）。
+
 ## 超时配置（2026-09-15 调整，服务器侧）
 
 同步生图经 ai-proxy 在 edge-runtime 内等待上游完成（可达数分钟），链路上有三个
@@ -191,6 +229,10 @@ cd supabase/functions/ai-proxy && node --test core.test.ts
 8. 用户级覆盖：给测试用户插入 `user_quota_configs(user_id, quota_limit=3)` →
    `get_image_quota` 立即返回 `limit=3` → 生成第 4 张被 403 → 删除该行后恢复
    部门/全局限额；`user_quota_overview` 视图中 override_limit/effective_limit 正确。
+9. 视频白名单：不在名单的用户（非 admin）经代理 POST `/v1/videos` → 403
+   video_access_denied 且无上游调用，画布视频对话框提示"权限未开放"且生成按钮
+   置灰；给该用户在 `video_model_access` 插行后立即恢复；`GET
+   .../functions/v1/ai-proxy/video-access` 返回 `{allowed:true/false}` 与名单一致。
 
 ## 回滚
 

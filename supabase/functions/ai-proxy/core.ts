@@ -15,6 +15,12 @@
  * - Google 协议 :generateContent/:streamGenerateContent 且 responseModalities 含 IMAGE：按 1 扣减
  * - 其余（文本/音频/视频等）：透传不计费
  *
+ * 视频模型使用权门禁（白名单 + 管理员，上线即收紧）：
+ * - POST 提交型视频请求（路径含 /videos）在转发前调 RPC has_video_model_access
+ *   判定，名单外且非管理员返回 403 video_access_denied；GET 轮询不拦
+ * - GET …/video-access 返回当前用户 { allowed }（前端自查，不暴露名单）
+ * - 白名单表与 RPC 见 supabase/migrations/video_model_access.sql
+ *
  * 响应归档已移至前端（providerTransport 在拿到上游响应时 fire-and-forget 转存
  * huabu bucket + 写 task_submissions.upstream_response）：edge 函数内不再 await
  * 大型归档，避免长时间占用 worker 触发 supervisor 取消（500 WorkerRequestCancelled）。
@@ -188,6 +194,18 @@ export function isPollingPath(path: string): boolean {
   return /\/videos\/[^/]+(\?|$)|\/mj\/task\/[^/]+\/fetch(\?|$)|\/mj\/task\/[^/]+(\?|$)/.test(
     path
   );
+}
+
+/**
+ * 是否为视频任务提交型请求（POST 且路径含 /videos 段）。
+ * 覆盖通用 /v1/videos、kling /kling/v1/videos/text2video|image2video、
+ * happyhorse /videos 等所有视频适配器提交端点；轮询 GET 不属于提交。
+ */
+export function isVideoSubmitPath(method: string, path: string): boolean {
+  if (method.toUpperCase() !== 'POST') {
+    return false;
+  }
+  return /\/videos(\/|$)/i.test(path);
 }
 
 function clampImageCount(n: unknown): number {
@@ -366,6 +384,11 @@ export async function handleAiProxyRequest({
     return handleQuotaQuery({ env, request, deps });
   }
 
+  // ---------- 视频使用权自查端点 ----------
+  if (pathSuffix === '/video-access' || pathSuffix === 'video-access') {
+    return handleVideoAccessQuery({ env, request, deps });
+  }
+
   // ---------- 身份校验 ----------
   const jwt = extractBearerToken(request.headers.get('Authorization'));
   if (!jwt) {
@@ -423,6 +446,29 @@ export async function handleAiProxyRequest({
   const searchIndex = pathSuffix.indexOf('?');
   const pathOnly = searchIndex >= 0 ? pathSuffix.slice(0, searchIndex) : pathSuffix;
   const query = searchIndex >= 0 ? pathSuffix.slice(searchIndex) : '';
+
+  // ---------- 视频模型使用权门禁（白名单 + 管理员，上线即收紧） ----------
+  // 提交型视频请求在读取 body / 转发前短路判定；轮询 GET 与其余路径不受影响
+  if (isVideoSubmitPath(method, pathOnly)) {
+    try {
+      const access = await callProfileRpc(
+        env,
+        'has_video_model_access',
+        { p_user_id: userId },
+        deps
+      );
+      if (!access || access.allowed !== true) {
+        return jsonResponse(403, {
+          error: 'video_access_denied',
+          message: '视频模型使用权限未开放，请联系管理员开通',
+        });
+      }
+    } catch (error) {
+      console.warn('[ai-proxy] video access service error:',
+        error instanceof Error ? error.message : error);
+      return jsonResponse(503, { error: 'video access service error' });
+    }
+  }
 
   let upstreamHeadersInit: HeadersInit = {};
   const incomingContentType = request.headers.get('content-type');
@@ -631,6 +677,34 @@ async function handleQuotaQuery({
     console.warn('[ai-proxy] quota service error:',
       error instanceof Error ? error.message : error);
     return jsonResponse(503, { error: 'quota service error' });
+  }
+}
+
+async function handleVideoAccessQuery({
+  env,
+  request,
+  deps,
+}: Omit<HandleArgs, 'pathSuffix'>): Promise<Response> {
+  const jwt = extractBearerToken(request.headers.get('Authorization'));
+  if (!jwt) {
+    return jsonResponse(401, { error: 'unauthorized: missing bearer token' });
+  }
+  const identity = await verifyUserJwt(env, jwt, deps).catch(() => null);
+  if (!identity) {
+    return jsonResponse(401, { error: 'unauthorized: invalid token' });
+  }
+  try {
+    const access = await callProfileRpc(
+      env,
+      'has_video_model_access',
+      { p_user_id: identity.id },
+      deps
+    );
+    return jsonResponse(200, { allowed: access?.allowed === true });
+  } catch (error) {
+    console.warn('[ai-proxy] video access service error:',
+      error instanceof Error ? error.message : error);
+    return jsonResponse(503, { error: 'video access service error' });
   }
 }
 

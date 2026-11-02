@@ -7,6 +7,7 @@
  *   - Authorization: Bearer <Supabase JWT>（必需）
  *   - 方法/请求体原样转发到 configs.NEWAPI_URL 指向的上游
  *   - GET /functions/v1/ai-proxy/quota → { "quota": { limit, used, remaining, period } }
+ *   - GET /functions/v1/ai-proxy/video-access → { "allowed": boolean }（视频模型白名单自查）
  * 响应：上游响应透传（已过滤受限头）；管控错误返回 401/403/503 JSON。
  *
  * 自托管实例：环境变量 SUPABASE_SERVICE_ROLE_KEY / SUPABASE_URL（容器内已配置）。

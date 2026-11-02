@@ -10,6 +10,8 @@ import {
   ImageQuotaExceededError,
   isManagedUpstreamEnabled,
   parseQuotaErrorFromResponse,
+  parseVideoAccessErrorFromResponse,
+  VideoAccessDeniedError,
 } from '../managed-routing/managed-runtime';
 import { archiveUpstreamResponseFromFetch } from '../task-supabase-archive/service';
 
@@ -358,6 +360,10 @@ export class ProviderTransport {
         if (quotaError) {
           throw quotaError;
         }
+        const videoAccessError = await parseVideoAccessErrorFromResponse(response);
+        if (videoAccessError) {
+          throw videoAccessError;
+        }
       }
 
       // 响应归档（方案 B，替代原 ai-proxy 服务端归档）：
@@ -371,7 +377,10 @@ export class ProviderTransport {
 
       return response;
     } catch (error) {
-      if (error instanceof ImageQuotaExceededError) {
+      if (
+        error instanceof ImageQuotaExceededError ||
+        error instanceof VideoAccessDeniedError
+      ) {
         throw error;
       }
       if (timeoutControl.didTimeout()) {

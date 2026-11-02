@@ -10,6 +10,8 @@
  * - 视频模型提交（模型名不含 image）→ 不计费直通
  * - quota 端点返回剩余额度
  * - 非 JSON 响应原样透传
+ * - 视频模型使用权门禁：非白名单 POST /videos → 403 video_access_denied；
+ *   白名单放行；RPC 异常 503；GET 轮询/图片提交不受影响；video-access 自查端点
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -18,6 +20,7 @@ import {
   classifyBilling,
   extractBearerToken,
   isPollingPath,
+  isVideoSubmitPath,
   detectTerminalFailure,
 } from './core.ts';
 
@@ -76,6 +79,7 @@ function standardRoutes(options: {
   configApiKey?: string | null;
   consumeResult?: Record<string, unknown>;
   quotaResult?: Record<string, unknown>;
+  videoAccessResult?: Record<string, unknown>;
   upstream?: (url: string, init?: RequestInit) => Response;
   extra?: Route[];
 }): Route[] {
@@ -95,6 +99,10 @@ function standardRoutes(options: {
     },
     ...baseRoutes(),
     ...(options.extra || []),
+    {
+      match: (url) => url.includes('/rest/v1/rpc/has_video_model_access'),
+      respond: () => json(200, options.videoAccessResult ?? { allowed: true }),
+    },
     {
       match: (url) => url.includes('/rest/v1/rpc/consume_image_quota'),
       respond: () =>
@@ -802,4 +810,206 @@ test('上游非 JSON 错误 + 带 x-task-id → 不归档、状态透传', async
   });
   assert.equal(response.status, 502);
   assert.equal(rows.length, 0, '非 JSON 响应不归档');
+});
+
+// ============================================================
+// 视频模型使用权门禁（白名单 + 管理员，上线即收紧）
+// ============================================================
+
+test('isVideoSubmitPath：POST 视频提交端点命中，GET 轮询与非视频路径不命中', () => {
+  assert.equal(isVideoSubmitPath('POST', '/v1/videos'), true);
+  assert.equal(isVideoSubmitPath('POST', '/kling/v1/videos/text2video'), true);
+  assert.equal(isVideoSubmitPath('POST', '/kling/v1/videos/image2video'), true);
+  assert.equal(isVideoSubmitPath('POST', '/videos'), true);
+  assert.equal(isVideoSubmitPath('post', '/V1/Videos'), true, '大小写不敏感');
+  assert.equal(isVideoSubmitPath('GET', '/v1/videos/task-123'), false);
+  assert.equal(isVideoSubmitPath('POST', '/v1/images/generations'), false);
+  assert.equal(isVideoSubmitPath('POST', '/mj/submit/imagine'), false);
+  assert.equal(isVideoSubmitPath('POST', '/v1/videosomes'), false, '路径段边界不应误命中');
+});
+
+test('视频提交：非白名单 → 403 video_access_denied，不调用上游', async () => {
+  const calls: string[] = [];
+  const rpcBodies: string[] = [];
+  const response = await handleAiProxyRequest({
+    env: { SUPABASE_URL: SUPABASE_URL, SERVICE_ROLE_KEY: SRK },
+    request: makeRequest('/v1/videos', {
+      body: 'model=kling-v2&prompt=cute%20cat',
+      headers: {
+        Authorization: 'Bearer test-jwt',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    }),
+    pathSuffix: '/v1/videos',
+    deps: {
+      fetch: routeFetch(
+        standardRoutes({
+          extra: [
+            {
+              match: (url) => url.includes('/rest/v1/rpc/has_video_model_access'),
+              respond: (_url, init) => {
+                rpcBodies.push(String(init?.body));
+                return json(200, { allowed: false });
+              },
+            },
+          ],
+        }),
+        calls
+      ) as typeof fetch,
+    },
+  });
+  assert.equal(response.status, 403);
+  const body = await response.json();
+  assert.equal(body.error, 'video_access_denied');
+  assert.match(body.message, /权限/);
+  assert.equal(JSON.parse(rpcBodies[0])['p_user_id'], 'user-1', '以可信 user_id 判定');
+  assert.ok(!calls.some((c) => c.includes(NEWAPI_URL)), '无权限时不应转发上游');
+});
+
+test('视频提交：白名单用户放行并转发上游（kling 提交端点）', async () => {
+  const calls: string[] = [];
+  const response = await handleAiProxyRequest({
+    env: { SUPABASE_URL: SUPABASE_URL, SERVICE_ROLE_KEY: SRK },
+    request: makeRequest('/kling/v1/videos/text2video', {
+      body: JSON.stringify({ model: 'kling-v2', prompt: 'cat' }),
+    }),
+    pathSuffix: '/kling/v1/videos/text2video',
+    deps: {
+      fetch: routeFetch(
+        standardRoutes({
+          videoAccessResult: { allowed: true },
+          upstream: () => json(200, { id: 'kling-task-1' }),
+        }),
+        calls
+      ) as typeof fetch,
+    },
+  });
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.id, 'kling-task-1');
+  assert.ok(calls.some((c) => c === `${NEWAPI_URL}/kling/v1/videos/text2video`));
+});
+
+test('视频提交：使用权 RPC 异常 → 503，不调用上游', async () => {
+  const calls: string[] = [];
+  const response = await handleAiProxyRequest({
+    env: { SUPABASE_URL: SUPABASE_URL, SERVICE_ROLE_KEY: SRK },
+    request: makeRequest('/v1/videos', {
+      body: 'model=kling-v2&prompt=x',
+      headers: {
+        Authorization: 'Bearer test-jwt',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    }),
+    pathSuffix: '/v1/videos',
+    deps: {
+      fetch: routeFetch(
+        standardRoutes({
+          extra: [
+            {
+              match: (url) => url.includes('/rest/v1/rpc/has_video_model_access'),
+              respond: () => json(500, { message: 'rpc boom' }),
+            },
+          ],
+        }),
+        calls
+      ) as typeof fetch,
+    },
+  });
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, 'video access service error');
+  assert.ok(!calls.some((c) => c.includes(NEWAPI_URL)), '判定服务异常时不应转发上游');
+});
+
+test('轮询 GET /videos/{id} 不触发使用权判定', async () => {
+  const calls: string[] = [];
+  // 移除白名单 RPC 默认路由：若门禁误拦 GET，会 unrouted 抛错而非透传
+  const routes = standardRoutes({
+    upstream: () => json(200, { id: 'v-1', status: 'processing' }),
+  }).filter(
+    (r) => !r.match(`${SUPABASE_URL}/rest/v1/rpc/has_video_model_access`)
+  );
+  const response = await handleAiProxyRequest({
+    env: { SUPABASE_URL: SUPABASE_URL, SERVICE_ROLE_KEY: SRK },
+    request: new Request('http://proxy.local/functions/v1/ai-proxy/v1/videos/v-1', {
+      method: 'GET',
+      headers: { Authorization: 'Bearer test-jwt' },
+    }),
+    pathSuffix: '/v1/videos/v-1',
+    deps: { fetch: routeFetch(routes, calls) as typeof fetch },
+  });
+  assert.equal(response.status, 200);
+  assert.ok(
+    !calls.some((c) => c.includes('has_video_model_access')),
+    'GET 轮询不应调使用权 RPC'
+  );
+});
+
+test('图片提交不受视频门禁影响（无使用权 RPC 路由也正常转发）', async () => {
+  const calls: string[] = [];
+  const routes = standardRoutes({
+    upstream: () => json(200, { data: [{ url: 'http://img/x.png' }] }),
+  }).filter(
+    (r) => !r.match(`${SUPABASE_URL}/rest/v1/rpc/has_video_model_access`)
+  );
+  const response = await handleAiProxyRequest({
+    env: { SUPABASE_URL: SUPABASE_URL, SERVICE_ROLE_KEY: SRK },
+    request: makeRequest('/v1/images/generations', {
+      body: JSON.stringify({ model: 'gpt-image-2' }),
+    }),
+    pathSuffix: '/v1/images/generations',
+    deps: { fetch: routeFetch(routes, calls) as typeof fetch },
+  });
+  assert.equal(response.status, 200);
+  assert.ok(
+    !calls.some((c) => c.includes('has_video_model_access')),
+    '图片提交不应调使用权 RPC'
+  );
+});
+
+test('video-access 端点：按白名单结果返回 allowed', async () => {
+  const makeAccessRequest = () =>
+    new Request('http://proxy.local/functions/v1/ai-proxy/video-access', {
+      headers: { Authorization: 'Bearer test-jwt' },
+    });
+
+  const allowed = await handleAiProxyRequest({
+    env: { SUPABASE_URL: SUPABASE_URL, SERVICE_ROLE_KEY: SRK },
+    request: makeAccessRequest(),
+    pathSuffix: '/video-access',
+    deps: {
+      fetch: routeFetch(
+        standardRoutes({ videoAccessResult: { allowed: true } }),
+        []
+      ) as typeof fetch,
+    },
+  });
+  assert.equal(allowed.status, 200);
+  assert.deepEqual(await allowed.json(), { allowed: true });
+
+  const denied = await handleAiProxyRequest({
+    env: { SUPABASE_URL: SUPABASE_URL, SERVICE_ROLE_KEY: SRK },
+    request: makeAccessRequest(),
+    pathSuffix: '/video-access',
+    deps: {
+      fetch: routeFetch(
+        standardRoutes({ videoAccessResult: { allowed: false } }),
+        []
+      ) as typeof fetch,
+    },
+  });
+  assert.equal(denied.status, 200);
+  assert.deepEqual(await denied.json(), { allowed: false });
+});
+
+test('video-access 端点：无 JWT → 401', async () => {
+  const response = await handleAiProxyRequest({
+    env: { SUPABASE_URL: SUPABASE_URL, SERVICE_ROLE_KEY: SRK },
+    request: new Request('http://proxy.local/functions/v1/ai-proxy/video-access'),
+    pathSuffix: '/video-access',
+    deps: {
+      fetch: routeFetch(standardRoutes({}), []) as typeof fetch,
+    },
+  });
+  assert.equal(response.status, 401);
 });

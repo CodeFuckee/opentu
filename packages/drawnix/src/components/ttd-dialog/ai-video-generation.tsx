@@ -38,6 +38,10 @@ import {
   loadScopedAIVideoToolPreferences,
   saveAIVideoToolPreferences,
 } from '../../services/ai-generation-preferences-service';
+import {
+  fetchVideoAccess,
+  isManagedUpstreamEnabled,
+} from '../../services/managed-routing/managed-runtime';
 import { promptStorageService } from '../../services/prompt-storage-service';
 import { useTaskQueue } from '../../hooks/useTaskQueue';
 import { TaskType, type KnowledgeContextRef } from '../../types/task.types';
@@ -246,6 +250,34 @@ const AIVideoGeneration = ({
     KnowledgeContextRef[]
   >(initialKnowledgeContextRefs);
   const [error, setError] = useState<string | null>(null);
+
+  // 视频模型使用权白名单（托管模式）：无权限时禁用生成并提示；
+  // 查询失败不阻塞生成，服务端 ai-proxy 提交时仍有硬门禁兜底
+  const [videoAccessDenied, setVideoAccessDenied] = useState(false);
+  useEffect(() => {
+    if (!isManagedUpstreamEnabled()) {
+      return;
+    }
+    let cancelled = false;
+    fetchVideoAccess()
+      .then((allowed) => {
+        if (!cancelled && !allowed) {
+          setVideoAccessDenied(true);
+          setError(
+            language === 'zh'
+              ? '视频模型使用权限未开放，请联系管理员开通'
+              : 'Video model access is not enabled for your account. Please contact an administrator.'
+          );
+        }
+      })
+      .catch(() => {
+        // 忽略自查失败，提交时由服务端判定
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 任务列表面板状态 - 使用像素宽度
   const [isTaskListVisible, setIsTaskListVisible] = useState(true);
@@ -1048,6 +1080,15 @@ const AIVideoGeneration = ({
   };
 
   const handleGenerate = async (count = 1) => {
+    // 无权限（白名单自查结果）直接拦截，不创建任务
+    if (videoAccessDenied) {
+      setError(
+        language === 'zh'
+          ? '视频模型使用权限未开放，请联系管理员开通'
+          : 'Video model access is not enabled for your account. Please contact an administrator.'
+      );
+      return;
+    }
     // 防止快速双击/重复触发导致多次创建任务
     if (generatingLockRef.current) return;
     generatingLockRef.current = true;
@@ -1435,9 +1476,10 @@ const AIVideoGeneration = ({
             isGenerating={isGenerating}
             hasGenerated={false}
             canGenerate={
-              storyboardEnabled
+              !videoAccessDenied &&
+              (storyboardEnabled
                 ? storyboardScenes.length > 0
-                : !!(prompt && prompt.trim())
+                : !!(prompt && prompt.trim()))
             }
             onGenerate={handleGenerate}
             onReset={handleReset}

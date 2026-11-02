@@ -79,6 +79,14 @@ export class ImageQuotaExceededError extends Error {
   }
 }
 
+/** 视频模型未开通的专用错误：UI 可据此给出明确文案 */
+export class VideoAccessDeniedError extends Error {
+  constructor(message: string = '视频模型使用权限未开放，请联系管理员开通') {
+    super(message);
+    this.name = 'VideoAccessDeniedError';
+  }
+}
+
 interface ProxyQuotaPayload {
   quota?: Partial<ImageQuotaInfo> | null;
   error?: string;
@@ -134,6 +142,61 @@ export async function parseQuotaErrorFromResponse(
       return new ImageQuotaExceededError(
         payload.message ?? '本月图片生成额度已用完',
         Number(payload.remaining ?? 0)
+      );
+    }
+  } catch {
+    // 非 JSON 响应按普通错误处理
+  }
+  return null;
+}
+
+interface ProxyVideoAccessPayload {
+  allowed?: boolean;
+  error?: string;
+  message?: string;
+}
+
+/** 查询当前用户是否可使用视频模型（托管模式专用；未登录/未注册时抛错） */
+export async function fetchVideoAccess(): Promise<boolean> {
+  if (!currentConfig) {
+    throw new Error('托管路由未启用');
+  }
+  const proxyBase = getManagedProxyBase();
+  if (!proxyBase) {
+    throw new Error('托管路由配置不完整');
+  }
+  const token = await currentConfig.getToken();
+  if (!token) {
+    throw new Error('请先登录');
+  }
+
+  const response = await fetch(`${proxyBase}/video-access`, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    throw new Error(`视频权限查询失败（${response.status}）`);
+  }
+  const payload = (await response.json()) as ProxyVideoAccessPayload;
+  return payload?.allowed === true;
+}
+
+/**
+ * 判断代理错误响应是否为视频模型未开通。
+ * 返回 VideoAccessDeniedError 或 null（非权限类错误）。
+ */
+export async function parseVideoAccessErrorFromResponse(
+  response: Response
+): Promise<VideoAccessDeniedError | null> {
+  if (response.status !== 403) {
+    return null;
+  }
+  try {
+    const cloned = response.clone();
+    const payload = (await cloned.json()) as ProxyVideoAccessPayload;
+    if (payload?.error === 'video_access_denied') {
+      return new VideoAccessDeniedError(
+        payload.message ?? '视频模型使用权限未开放，请联系管理员开通'
       );
     }
   } catch {
