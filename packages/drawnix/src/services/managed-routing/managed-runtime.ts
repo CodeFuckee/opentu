@@ -81,7 +81,7 @@ export class ImageQuotaExceededError extends Error {
 
 /** 视频模型未开通的专用错误：UI 可据此给出明确文案 */
 export class VideoAccessDeniedError extends Error {
-  constructor(message: string = '视频模型使用权限未开放，请联系管理员开通') {
+  constructor(message = '视频模型使用权限未开放，请联系管理员开通') {
     super(message);
     this.name = 'VideoAccessDeniedError';
   }
