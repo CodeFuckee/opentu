@@ -5,8 +5,10 @@ import type {
 } from './types';
 import { registerModelAdapter } from './registry';
 import { sendAdapterRequest } from './context';
+import { DEFAULT_VIDEO_MODEL_ID } from '../../constants/model-config';
 
 const SEEDANCE_MODELS = [
+  'seedance-2.5-pro',
   'seedance-1.5-pro',
   'seedance-1.0-pro',
   'seedance-1.0-pro-fast',
@@ -34,10 +36,21 @@ const DEFAULT_POLL_INTERVAL_MS = 5000;
 const DEFAULT_POLL_MAX_ATTEMPTS = 1080; // ~90 min
 
 /**
+ * Seedance 2.5 的上游实际模型名。
+ * 火山 2.x 起模型名携带日期版本且不再拼接分辨率后缀
+ * （1.x 是 doubao-seedance-1-5-pro_720p，2.5 是 doubao-seedance-2-5-260628）；
+ * 分辨率/比例改走表单 resolution/ratio 字段（均经网关真实任务实测验证）。
+ */
+const SEEDANCE_2_5_ACTUAL_MODEL = 'doubao-seedance-2-5-260628';
+
+/**
  * 将逻辑模型 ID + 分辨率拼接为 API 实际模型名
  * seedance-1.5-pro + 720p → doubao-seedance-1-5-pro_720p
  */
 const resolveActualModel = (logicalId: string, resolution: string): string => {
+  if (logicalId === 'seedance-2.5-pro') {
+    return SEEDANCE_2_5_ACTUAL_MODEL;
+  }
   // 将 "." 替换为 "-"：seedance-1.5-pro → seedance-1-5-pro
   const normalized = logicalId.replace(/\./g, '-');
   return `doubao-${normalized}_${resolution}`;
@@ -101,6 +114,8 @@ const submitSeedanceVideo = async (
     prompt: string;
     seconds?: string;
     size?: string;
+    ratio?: string;
+    resolution?: string;
     firstFrameImage?: string;
     lastFrameImage?: string;
     inputReferences?: string[];
@@ -116,8 +131,17 @@ const submitSeedanceVideo = async (
     formData.append('seconds', params.seconds);
   }
 
+  // 比例：1.x 走 size 字段；2.x 起火山 API 改用 ratio 字段（size=16:9 会被忽略并回退默认 9:16）
   if (params.size) {
     formData.append('size', params.size);
+  }
+  if (params.ratio) {
+    formData.append('ratio', params.ratio);
+  }
+
+  // 分辨率（Seedance 2.x：模型名无分辨率后缀，分辨率改由表单字段携带）
+  if (params.resolution) {
+    formData.append('resolution', params.resolution);
   }
 
   // 首帧图
@@ -203,13 +227,15 @@ export const seedanceVideoAdapter: VideoModelAdapter = {
   matchProtocols: ['seedance.task'],
   matchRequestSchemas: ['seedance.video.form-auto'],
   supportedModels: SEEDANCE_MODELS,
-  defaultModel: 'seedance-1.5-pro',
+  defaultModel: DEFAULT_VIDEO_MODEL_ID,
 
   async generateVideo(context, request: VideoGenerationRequest) {
-    const logicalModel = request.model || 'seedance-1.5-pro';
+    const logicalModel = request.model || DEFAULT_VIDEO_MODEL_ID;
     const resolution = extractResolution(request.size);
     const actualModel = resolveActualModel(logicalModel, resolution);
     const parsedSize = parseSeedanceSize(request.size);
+    // Seedance 2.x：模型名无分辨率后缀，分辨率由表单 resolution 字段携带
+    const isSeedance25 = logicalModel === 'seedance-2.5-pro';
 
     // 宽高比优先取显式参数，其次回退到 size 中的组合值
     const aspectRatio =
@@ -239,7 +265,9 @@ export const seedanceVideoAdapter: VideoModelAdapter = {
       model: actualModel,
       prompt: request.prompt,
       seconds: request.duration ? String(request.duration) : '5',
-      size: aspectRatio,
+      size: isSeedance25 ? undefined : aspectRatio,
+      ratio: isSeedance25 ? aspectRatio : undefined,
+      resolution: isSeedance25 ? resolution : undefined,
       firstFrameImage: isLite ? undefined : firstFrameImage,
       lastFrameImage: isLite ? undefined : lastFrameImage,
       inputReferences,

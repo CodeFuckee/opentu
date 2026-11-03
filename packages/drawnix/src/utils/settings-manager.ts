@@ -99,7 +99,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     chatModel: getDefaultTextModel(),
     audioModelName: 'suno_music',
     imageModelName: getDefaultImageModel(),
-    videoModelName: 'seedance-1.5-pro',
+    videoModelName: getDefaultVideoModel(),
     textModelName: getDefaultTextModel(),
   },
   tts: {

@@ -1,5 +1,24 @@
 ## Unreleased
 
+### feat: 视频生成模型更新——新增 Seedance 2.5 Pro 并设为默认模型
+
+画布视频模型目录从 Seedance 1.5 升级到 2.5（上游网关实测模型名 `doubao-seedance-2-5-260628`）：
+
+- **模型目录**：`VIDEO_MODEL_CONFIGS` / `BUILT_IN_VIDEO_MODELS` / `SEEDANCE_MODEL_IDS` /
+  seedance adapter `SEEDANCE_MODELS` / `VideoModel` 类型联合 全部新增 `seedance-2.5-pro`
+  （shortCode sc25p、isVip、推荐分 99 置顶）；云端 `model_catalog` 表同步插入该行
+  （迁移 `model_catalog_seedance25.sql`，**必须在含本改造的前端部署到生产后执行**——
+  catalog 非空即完全接管模型列表，旧前端无 2.5 映射会选了即失败）
+- **默认模型切换**：`DEFAULT_VIDEO_MODEL_ID` → `seedance-2.5-pro`（画布/对话框/AI 输入条/
+  MCP/settings 全部消费点自动跟随），settings 默认值与 normalize 兜底同步
+- **adapter 2.x 契约**（经网关真实任务两次实测）：火山 2.x 模型名带日期版本且**无分辨率
+  后缀**——`resolveActualModel` 对 2.5 显式映射 `doubao-seedance-2-5-260628`；分辨率/比例
+  改走表单 `resolution` / `ratio` 字段（1.x 的"分辨率拼模型名 + size 传比例"契约对 2.5
+  不适用：实测 `size=16:9` 被忽略回退默认 9:16，`ratio=16:9` 才生效）
+- **测试**：新增 `seedance-adapter.test.ts` 3 例（2.5 映射+resolution/ratio 断言、
+  1.5 契约回归守卫、注册表路由）；端到端已真实验证（480p 与 720p@16:9 各出片一次）
+- **部署顺序**：前端部署（preview 自动/生产手动）→ 生产库执行 catalog 迁移 SQL
+
 ### feat: 视频模型使用白名单——Supabase 配置、ai-proxy 服务端硬拦截（上线即收紧）
 
 在 Supabase 里配置哪些用户可以使用视频模型（全部视频模型统一门禁），名单外

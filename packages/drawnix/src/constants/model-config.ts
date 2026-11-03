@@ -229,6 +229,7 @@ const BUILT_IN_MODEL_RECOMMENDATION_SCORES: Readonly<Record<string, number>> = {
   'gemini-3-pro-image-preview-4k': 41,
 
   kling_video: 98,
+  'seedance-2.5-pro': 99,
   'seedance-1.5-pro': 97,
   'seedance-1.0-pro': 96,
   'seedance-1.0-pro-fast': 95,
@@ -724,6 +725,16 @@ const BUILT_IN_VIDEO_MODELS: ModelConfig[] = [
     vendor: ModelVendor.KLING,
     supportsTools: true,
     videoDefaults: KLING_DEFAULT_PARAMS,
+  },
+  {
+    id: 'seedance-2.5-pro',
+    label: 'Seedance 2.5 Pro',
+    shortCode: 'sc25p',
+    description: '即梦 2.5 有声视频，支持首尾帧',
+    type: 'video',
+    vendor: ModelVendor.DOUBAO,
+    isVip: true,
+    videoDefaults: SEEDANCE_DEFAULT_PARAMS,
   },
   {
     id: 'seedance-1.5-pro',
@@ -1622,10 +1633,10 @@ export function getDefaultImageModel(): string {
 /**
  * 默认视频模型 ID
  */
-export const DEFAULT_VIDEO_MODEL_ID = 'seedance-1.5-pro';
+export const DEFAULT_VIDEO_MODEL_ID = 'seedance-2.5-pro';
 
 /**
- * 获取默认视频模型 ID（目前固定为 veo3）
+ * 获取默认视频模型 ID（目前固定为即梦 2.5）
  */
 export function getDefaultVideoModel(): string {
   return DEFAULT_VIDEO_MODEL_ID;
@@ -1705,6 +1716,7 @@ const SORA_2_FIXED_MODEL_IDS = [
 
 /** Seedance 视频模型 ID */
 const SEEDANCE_MODEL_IDS = [
+  'seedance-2.5-pro',
   'seedance-1.5-pro',
   'seedance-1.0-pro',
   'seedance-1.0-pro-fast',

@@ -289,6 +289,24 @@ export const VIDEO_MODEL_CONFIGS: Record<string, VideoModelConfig> = {
   },
 
   // Seedance models
+  'seedance-2.5-pro': {
+    id: 'seedance-2.5-pro',
+    label: 'Seedance 2.5 Pro',
+    provider: 'seedance',
+    description: '即梦 2.5 有声视频，支持首尾帧',
+    durationOptions: [
+      { label: '5秒', value: '5' },
+      { label: '10秒', value: '10' },
+    ],
+    defaultDuration: '5',
+    sizeOptions: SEEDANCE_SIZE_OPTIONS,
+    defaultSize: '720p@16:9',
+    imageUpload: {
+      maxCount: 2,
+      mode: 'frames',
+      labels: ['首帧', '尾帧'],
+    },
+  },
   'seedance-1.5-pro': {
     id: 'seedance-1.5-pro',
     label: 'Seedance 1.5 Pro',
@@ -518,13 +536,13 @@ export const VIDEO_MODEL_CONFIGS: Record<string, VideoModelConfig> = {
 };
 
 /**
- * Normalize model name to a known config key; fallback to默认模型（veo3）避免崩溃。
+ * Normalize model name to a known config key; fallback to默认模型（即梦 2.5）避免崩溃。
  */
 export function normalizeVideoModel(model?: string | null): VideoModel {
   if (model) {
     return model;
   }
-  return 'seedance-1.5-pro';
+  return 'seedance-2.5-pro';
 }
 
 function isStandardKlingVideoModel(modelId: string): boolean {

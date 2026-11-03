@@ -23,6 +23,7 @@ export type KnownVideoModel =
   | 'veo3.1-pro-4k'
   | 'omni-flash'
   | 'omni-flash-components'
+  | 'seedance-2.5-pro'
   | 'seedance-1.5-pro'
   | 'seedance-1.0-pro'
   | 'seedance-1.0-pro-fast'
