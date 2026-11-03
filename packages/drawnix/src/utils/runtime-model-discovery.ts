@@ -14,6 +14,9 @@ import {
   isRemoteModelCatalogAuthoritative,
   setRuntimeModelConfigs,
 } from '../constants/model-config';
+import {
+  isRemovedVideoModelFamily,
+} from '../constants/video-model-config';
 import { normalizeApiBase } from '../services/media-api/utils';
 import {
   LEGACY_DEFAULT_PROVIDER_PROFILE_ID,
@@ -1324,7 +1327,13 @@ class RuntimeModelDiscoveryStore {
         decorateStaticModels(getStaticModelsByType(type))
       );
     }
-    return sortModelsByDisplayPriority(sources.flat());
+    return sortModelsByDisplayPriority(
+      sources.flat().filter(
+        // 已下架视频模型家族（kling/veo/happyhorse/gemini-veo 系）一律不进下拉
+        (model) =>
+          type !== 'video' || !isRemovedVideoModelFamily(model.id)
+      )
+    );
   }
 
   getPinnedSelectableModel(
@@ -1333,6 +1342,11 @@ class RuntimeModelDiscoveryStore {
     modelRef?: ModelRef | null
   ): ModelConfig | null {
     if (!modelId) {
+      return null;
+    }
+
+    // 已下架视频模型家族不参与钉住（防老设置/运行时发现复活进下拉）
+    if (type === 'video' && isRemovedVideoModelFamily(modelId)) {
       return null;
     }
 

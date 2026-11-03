@@ -72,7 +72,7 @@ interface PromptPdfAttachment {
 const DEFAULT_ANALYSIS_MODEL = 'gemini-3.1-pro-preview';
 const STORAGE_KEY_MODEL = 'video-analyzer:model';
 const STORAGE_KEY_VIDEO_MODEL = 'video-analyzer:video-model';
-const DEFAULT_VIDEO_MODEL = 'veo3';
+const DEFAULT_VIDEO_MODEL = 'seedance-2.5-pro';
 const DEFAULT_PROMPT_TARGET_DURATION = 30;
 const SETTINGS_PROVIDER_NAV_EVENT = 'aitu:settings:provider-nav';
 const MAX_PROMPT_PDF_SIZE = 20 * 1024 * 1024;

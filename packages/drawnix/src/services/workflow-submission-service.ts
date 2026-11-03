@@ -452,16 +452,7 @@ class WorkflowSubmissionService {
     const extraParams = parsedInput.extraParams
       ? { ...parsedInput.extraParams }
       : undefined;
-    if (
-      parsedInput.modelId === 'happyhorse-1.0-video-edit' &&
-      parsedInput.selection?.videos?.[0]
-    ) {
-      args.params = {
-        ...(extraParams || {}),
-        input_video:
-          extraParams?.input_video || parsedInput.selection.videos[0],
-      };
-    } else if (extraParams) {
+    if (extraParams) {
       args.params = extraParams;
     }
 

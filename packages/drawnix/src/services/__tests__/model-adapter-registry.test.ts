@@ -249,14 +249,6 @@ describe('model adapter registry', () => {
     expect(adapter?.id).toBe('happyhorse-video');
   });
 
-  it('routes Omni Flash video models to the generic async video adapter', () => {
-    expect(resolveAdapterForModel('omni-flash', 'video')?.id).toBe(
-      'generic-video'
-    );
-    expect(resolveAdapterForModel('omni-flash-components', 'video')?.id).toBe(
-      'generic-video'
-    );
-  });
 
   it('routes Omni Flash provider bindings to the generic async video adapter', () => {
     const bindings = inferBindingsForProviderModel(

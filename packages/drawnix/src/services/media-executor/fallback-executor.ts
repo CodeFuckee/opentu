@@ -644,7 +644,7 @@ export class FallbackMediaExecutor implements IMediaExecutor {
     const {
       taskId,
       prompt,
-      model = 'veo3',
+      model = 'seedance-2.5-pro',
       modelRef,
       duration,
       size = '1280x720',
@@ -733,7 +733,7 @@ export class FallbackMediaExecutor implements IMediaExecutor {
       const videoApiConfig = {
         ...config.videoConfig,
         params: params.params,
-        defaultModel: 'veo3' as const,
+        defaultModel: 'seedance-2.5-pro' as const,
       };
       const videoId = await submitVideoGeneration(
         {

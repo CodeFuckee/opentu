@@ -22,7 +22,7 @@ import { extractJsonObject } from '../../utils/llm-json-extractor';
 const DEFAULT_SEGMENT_DURATION = 8;
 
 /** 默认长视频模型（支持首尾帧） */
-const DEFAULT_LONG_VIDEO_MODEL: VideoModel = 'veo3.1';
+const DEFAULT_LONG_VIDEO_MODEL: VideoModel = 'seedance-2.5-pro';
 
 /**
  * 长视频生成参数
@@ -34,7 +34,7 @@ export interface LongVideoGenerationParams {
   totalDuration?: number;
   /** 每段视频时长（秒），默认 8 */
   segmentDuration?: number;
-  /** 视频模型，默认 veo3.1（支持首尾帧） */
+  /** 视频模型，默认 seedance-2.5-pro（支持首尾帧） */
   model?: VideoModel;
   /** 视频尺寸 */
   size?: string;
@@ -274,7 +274,7 @@ export async function createLongVideoTask(
   // 检查模型是否支持首尾帧
   const modelConfig = VIDEO_MODEL_CONFIGS[model];
   if (!modelConfig || modelConfig.imageUpload.mode !== 'frames') {
-    console.warn(`[LongVideo] Model ${model} does not support first/last frame, using veo3.1`);
+    console.warn(`[LongVideo] Model ${model} does not support first/last frame, using seedance-2.5-pro`);
   }
 
   try {

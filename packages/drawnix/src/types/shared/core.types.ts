@@ -206,7 +206,7 @@ export interface GenerationParams {
   infillEndS?: number;
   /** Style or model to use for generation */
   style?: string;
-  /** AI model to use (e.g., 'veo3', 'sora-2') */
+  /** AI model to use (e.g., 'seedance-2.5-pro', 'sora-2') */
   model?: string;
   /** 运行时模型来源引用（用于按供应商路由） */
   modelRef?: ModelRef | null;

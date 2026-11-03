@@ -58,7 +58,7 @@ export async function submitVideoGeneration(
   const fetchFn = config.fetchImpl || fetch;
   const baseUrl = normalizeApiBase(config.baseUrl);
   const providerContext = buildProviderContextFromApiConfig(config, baseUrl);
-  const model = params.model || config.defaultModel || 'veo3';
+  const model = params.model || config.defaultModel || 'seedance-2.5-pro';
   // seconds can come from duration (number/string) or explicit seconds
   const secondsParam = params.duration ?? (params as any).seconds;
   const submission = resolveVideoSubmission(

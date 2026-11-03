@@ -60,14 +60,14 @@ export async function generateVideo(
   const now = Date.now();
   const invocationRoute = createTaskInvocationRouteSnapshot(
     'video',
-    options.modelRef || options.model || 'veo3'
+    options.modelRef || options.model || 'seedance-2.5-pro'
   );
   await taskStorageWriter.createTask(
     taskId,
     'video',
     {
       prompt: sanitizedParams.prompt,
-      model: options.model || 'veo3',
+      model: options.model || 'seedance-2.5-pro',
       modelRef: options.modelRef || null,
       duration:
         typeof options.duration === 'string'
@@ -87,7 +87,7 @@ export async function generateVideo(
     status: QueueTaskStatus.PROCESSING,
     params: {
       prompt: sanitizedParams.prompt,
-      model: options.model || 'veo3',
+      model: options.model || 'seedance-2.5-pro',
       modelRef: options.modelRef || null,
       size: options.size,
       params: options.params,
@@ -108,7 +108,7 @@ export async function generateVideo(
   const executorParams: VideoGenerationParams = {
     taskId,
     prompt: sanitizedParams.prompt,
-    model: options.model || 'veo3',
+    model: options.model || 'seedance-2.5-pro',
     modelRef: options.modelRef || null,
     duration: options.duration?.toString(),
     size: options.size || '1280x720',

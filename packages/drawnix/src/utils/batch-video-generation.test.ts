@@ -91,7 +91,7 @@ describe('buildBatchVideoReferenceImages', () => {
 
   it('keeps character references separate from global extras outside frame mode', () => {
     const result = buildBatchVideoReferenceImages({
-      model: 'kling_video',
+      model: 'seedance-1.0-lite',
       firstFrameUrl: 'first-url',
       extraReferenceUrls: ['style-url'],
       characterReferenceUrls: ['char-url'],

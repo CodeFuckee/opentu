@@ -595,7 +595,7 @@ class GenerationAPIService {
         | undefined;
       const adapter = resolveAdapterForInvocation(
         'video',
-        requestedModel || 'veo3',
+        requestedModel || 'seedance-2.5-pro',
         requestedModelRef || null
       );
 

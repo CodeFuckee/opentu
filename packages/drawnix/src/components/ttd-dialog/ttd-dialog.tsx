@@ -96,7 +96,7 @@ const TTDDialogComponent = ({
       imageRoute.profileId,
       nextImageModel
     );
-    const nextVideoModel = videoRoute.modelId || 'veo3';
+    const nextVideoModel = videoRoute.modelId || 'seedance-2.5-pro';
     const nextVideoModelRef = createModelRef(
       videoRoute.profileId,
       nextVideoModel

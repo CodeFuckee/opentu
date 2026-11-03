@@ -80,10 +80,10 @@ export const AnalyzePage: React.FC<AnalyzePageProps> = ({
   // 视频模型
   const videoModels = useSelectableModels('video');
   const [videoModel, setVideoModelState] = useState(
-    () => existingRecord?.videoModel || readStoredModelSelection(STORAGE_KEY_VIDEO_MODEL, 'veo3').modelId
+    () => existingRecord?.videoModel || readStoredModelSelection(STORAGE_KEY_VIDEO_MODEL, 'seedance-2.5-pro').modelId
   );
   const [videoModelRef, setVideoModelRef] = useState<ModelRef | null>(
-    () => existingRecord?.videoModelRef || readStoredModelSelection(STORAGE_KEY_VIDEO_MODEL, 'veo3').modelRef
+    () => existingRecord?.videoModelRef || readStoredModelSelection(STORAGE_KEY_VIDEO_MODEL, 'seedance-2.5-pro').modelRef
   );
   const cfg = useMemo(() => getVideoModelConfig(videoModel), [videoModel]);
   const [segmentDuration, setSegmentDuration] = useState<number>(

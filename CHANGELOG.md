@@ -1,5 +1,32 @@
 ## Unreleased
 
+### feat: 视频模型下架 gemini/veo/kling/happyhorse——画布仅保留 seedance 系
+
+按运营决策（2026-11-03）下架四家视频模型，画布视频模型只保留 seedance 系
+（2.5/1.5/1.0×3；sora 本就隐藏、kling 生图连带下架、adapter 代码保留供历史任务重试）：
+
+- **云端目录（即时生效）**：迁移 `model_catalog_disable_video_families.sql` 将 22 行
+  置 enabled=false（kling_video/o1/o1-edit、happyhorse×4、omni-flash×2、veo×12、
+  kling_image）；catalog 非空即接管前端列表，应用后面板下拉立即不再出现（TTL 10 分钟
+  /启动强刷）；回滚即把行改回 enabled=true（迁移文件头有语句）；seed 文件同步追加
+  同款下架语句保证重装一致
+- **静态配置清理**：`VIDEO_MODEL_CONFIGS` 删 20 条（含无引号键 kling_video/veo3）、
+  `BUILT_IN_VIDEO_MODELS` 删 21 条、四家推荐分、VEO/HAPPYHORSE 参数组及 22 条
+  VIDEO_PARAMS（veo+sora 混合条目拆分保留 sora 部分）、`KnownVideoModel` 联合删
+  16 个成员；**保留** ModelVendor 枚举、VideoProvider 类型、sora 全部、kling_image
+  静态、任务队列老任务回显、gemini-api 旧链路
+- **下拉出口硬过滤**：新增 `isRemovedVideoModelFamily()`（`^(kling|veo|omni-flash|
+  happyhorse)`），挂 `getSelectableModels('video')` 与 `getPinnedSelectableModel`
+  出口——云端目录、运行时发现、老设置钉住三条来源一律不再出现四家模型
+- **死兜底清理**：约 20 处 'veo3'/'veo3.1' 字面兜底统一改 `seedance-2.5-pro`
+  （长视频两入口 DEFAULT_LONG_VIDEO_MODEL、MCP 视频工具 default 与
+  `VIDEO_MODEL_CONFIGS['veo3']` 字面兜底（原删后会 TypeError）、MV Creator/
+  video-analyzer 存储兜底、服务层默认、agent 提示词示例）；MCP 工具 schema 的
+  kling 专属参数段移除；workflow 链路 happyhorse-video-edit 特判删除
+- **测试**：新增 `video-model-config.test.ts` 3 例（四家识别/静态目录无四家/默认
+  模型守卫）；更新 6 文件（kling/omni fixture 换 seedance 或删除已废行为用例，
+  机制覆盖不变）
+
 ### feat: 视频生成模型更新——新增 Seedance 2.5 Pro 并设为默认模型
 
 画布视频模型目录从 Seedance 1.5 升级到 2.5（上游网关实测模型名 `doubao-seedance-2-5-260628`）：

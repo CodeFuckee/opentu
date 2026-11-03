@@ -102,7 +102,7 @@ export interface VideoGenerationParams {
 async function executeAsync(params: VideoGenerationParams): Promise<MCPResult> {
   const {
     prompt,
-    model = 'veo3',
+    model = 'seedance-2.5-pro',
     modelRef,
     seconds = '8',
     size = '1280x720',
@@ -172,8 +172,8 @@ async function executeAsync(params: VideoGenerationParams): Promise<MCPResult> {
 
 /** 视频任务队列配置 */
 function getVideoQueueConfig(params: VideoGenerationParams) {
-  const model = (params.model || 'veo3') as VideoModel;
-  const modelConfig = VIDEO_MODEL_CONFIGS[model] || VIDEO_MODEL_CONFIGS['veo3'];
+  const model = (params.model || 'seedance-2.5-pro') as VideoModel;
+  const modelConfig = VIDEO_MODEL_CONFIGS[model] || VIDEO_MODEL_CONFIGS['seedance-2.5-pro'];
   const uploadedImages = toUploadedImages(params.referenceImages);
 
   return {
@@ -259,60 +259,10 @@ export const videoGenerationTool: MCPTool = {
       },
       params: {
         type: 'object',
-        description:
-          '额外模型参数，Kling 可用字段包括 model_name、klingAction2、mode、cfg_scale、negative_prompt 与 camera_*；其中 cfg_scale 取值 0 到 1，camera_* 取值 -10 到 10 且需为整数',
+        description: '额外模型参数（如 negative_prompt）',
         properties: {
-          model_name: {
-            type: 'string',
-            enum: [
-              'kling-v3',
-              'kling-v2-6',
-              'kling-v2-1',
-              'kling-v1-6',
-              'kling-v1-5',
-            ],
-          },
-          klingAction2: {
-            type: 'string',
-            enum: ['text2video', 'image2video'],
-          },
-          mode: {
-            type: 'string',
-            enum: ['std', 'pro'],
-          },
-          cfg_scale: {
-            type: 'number',
-            description: 'Kling 自由度，取值范围 0 到 1',
-          },
           negative_prompt: {
             type: 'string',
-          },
-          camera_control_type: {
-            type: 'string',
-          },
-          camera_horizontal: {
-            type: 'number',
-            description: 'Kling 水平运镜，取值范围 -10 到 10，且必须为整数',
-          },
-          camera_vertical: {
-            type: 'number',
-            description: 'Kling 垂直运镜，取值范围 -10 到 10，且必须为整数',
-          },
-          camera_pan: {
-            type: 'number',
-            description: 'Kling 水平摇镜，取值范围 -10 到 10，且必须为整数',
-          },
-          camera_tilt: {
-            type: 'number',
-            description: 'Kling 垂直摇镜，取值范围 -10 到 10，且必须为整数',
-          },
-          camera_roll: {
-            type: 'number',
-            description: 'Kling 旋转运镜，取值范围 -10 到 10，且必须为整数',
-          },
-          camera_zoom: {
-            type: 'number',
-            description: 'Kling 变焦，取值范围 -10 到 10，且必须为整数',
           },
         },
       },
@@ -334,7 +284,7 @@ export const videoGenerationTool: MCPTool = {
     parameterGuidance: {
       prompt:
         '将用户描述扩展为详细的英文视频提示词，包含：主体动作（walking, flying, spinning）、场景描述、镜头运动（camera pan, zoom in, tracking shot）、氛围（cinematic, dreamy）、时间节奏（slow motion, timelapse）。',
-      model: '默认使用 veo3，支持高质量视频生成。可选其他模型如需特定效果。',
+      model: '默认使用 seedance-2.5-pro，支持高质量视频生成。可选其他模型如需特定效果。',
       seconds:
         '根据内容复杂度选择：简单动作用 5-8 秒，复杂场景用 8-10 秒。默认 8 秒。',
       size: '横屏视频用 1280x720 或 1920x1080，竖屏用 720x1280，正方形用 1024x1024。',
@@ -410,9 +360,9 @@ export const videoGenerationTool: MCPTool = {
     // 规范化 size：将不在可用范围内的 size 自动转换为最接近的可用值
     let normalizedSize = rawParams.size;
     if (rawParams.size) {
-      const model = (rawParams.model || 'veo3') as VideoModel;
+      const model = (rawParams.model || 'seedance-2.5-pro') as VideoModel;
       const modelConfig =
-        VIDEO_MODEL_CONFIGS[model] || VIDEO_MODEL_CONFIGS['veo3'];
+        VIDEO_MODEL_CONFIGS[model] || VIDEO_MODEL_CONFIGS['seedance-2.5-pro'];
       const validSizes = modelConfig.sizeOptions.map((opt) => opt.value);
       normalizedSize = normalizeToClosestVideoSize(
         rawParams.size,

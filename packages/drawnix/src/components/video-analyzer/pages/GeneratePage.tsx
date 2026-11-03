@@ -222,14 +222,14 @@ export const GeneratePage: React.FC<GeneratePageProps> = ({
   const [videoModel, setVideoModelState] = useState(
     () =>
       record.productInfo?.videoModel ||
-      readStoredModelSelection(STORAGE_KEY_VIDEO_MODEL, 'veo3').modelId
+      readStoredModelSelection(STORAGE_KEY_VIDEO_MODEL, 'seedance-2.5-pro').modelId
   );
   const [videoModelRef, setVideoModelRef] = useState<ModelRef | null>(
     () =>
       record.productInfo?.videoModelRef ||
       readStoredModelSelection(
         STORAGE_KEY_VIDEO_MODEL,
-        record.productInfo?.videoModel || 'veo3'
+        record.productInfo?.videoModel || 'seedance-2.5-pro'
       ).modelRef
   );
   const [videoSelectedParams, setVideoSelectedParams] = useState<
@@ -237,7 +237,7 @@ export const GeneratePage: React.FC<GeneratePageProps> = ({
   >(() => {
     const stored = readStoredModelSelection(
       STORAGE_KEY_VIDEO_MODEL,
-      record.productInfo?.videoModel || 'veo3'
+      record.productInfo?.videoModel || 'seedance-2.5-pro'
     );
     const initialModel = record.productInfo?.videoModel || stored.modelId;
     const initialModelRef = record.productInfo?.videoModelRef || stored.modelRef;

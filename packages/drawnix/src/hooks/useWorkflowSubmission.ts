@@ -232,7 +232,7 @@ export function useWorkflowSubmission(
               },
               defaultModels: {
                 image: globalSettings.imageModelName || 'gemini-3-pro-image-preview-vip',
-                video: globalSettings.videoModelName || 'veo3.1',
+                video: globalSettings.videoModelName || 'seedance-2.5-pro',
                 audio: globalSettings.audioModelName || 'suno_music',
               } as any,
               defaultModelRefs: undefined,
@@ -492,7 +492,7 @@ export function useWorkflowSubmission(
           video:
             parsedInput.defaultModels?.video ||
             globalSettings.videoModelName ||
-            'veo3.1',
+            'seedance-2.5-pro',
           audio:
             parsedInput.defaultModels?.audio ||
             globalSettings.audioModelName ||

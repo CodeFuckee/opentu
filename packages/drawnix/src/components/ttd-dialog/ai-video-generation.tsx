@@ -330,13 +330,13 @@ const AIVideoGeneration = ({
     const initialVideoSelectionKey = getSelectionKey(
       ((initialMatchedModel?.id as VideoModel) ||
         videoModels[0]?.id ||
-        normalizeVideoModel('veo3')) as VideoModel,
+        normalizeVideoModel('seedance-2.5-pro')) as VideoModel,
       initialResolvedModelRef
     );
     const initialScopedVideoPreferences = loadScopedAIVideoToolPreferences(
       ((initialMatchedModel?.id as VideoModel) ||
         videoModels[0]?.id ||
-        normalizeVideoModel('veo3')) as VideoModel,
+        normalizeVideoModel('seedance-2.5-pro')) as VideoModel,
       initialVideoSelectionKey
     );
     return {
@@ -353,7 +353,7 @@ const AIVideoGeneration = ({
   const [currentModel, setCurrentModel] = useState<VideoModel>(
     (initialMatchedModel?.id as VideoModel) ||
       videoModels[0]?.id ||
-      normalizeVideoModel('veo3')
+      normalizeVideoModel('seedance-2.5-pro')
   );
   const [currentModelRef, setCurrentModelRef] = useState<ModelRef | null>(
     initialResolvedModelRef
@@ -608,7 +608,7 @@ const AIVideoGeneration = ({
     }
 
     const handleSettingsChange = (newSettings: any) => {
-      const newModel = newSettings.videoModelName || 'veo3';
+      const newModel = newSettings.videoModelName || 'seedance-2.5-pro';
       if (newModel !== currentModel) {
         setCurrentModel(newModel);
         const nextModelRef = resolveVideoModelRef(

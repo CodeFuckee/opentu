@@ -11,27 +11,11 @@ export type KnownVideoModel =
   | 'sora-2-4s'
   | 'sora-2-8s'
   | 'sora-2-12s'
-  | 'kling_video'
-  | 'kling-v1-6'
-  | 'veo3'
-  | 'veo3-pro'
-  | 'veo3.1'
-  | 'veo3.1-pro'
-  | 'veo3.1-components'
-  | 'veo3.1-4k'
-  | 'veo3.1-components-4k'
-  | 'veo3.1-pro-4k'
-  | 'omni-flash'
-  | 'omni-flash-components'
   | 'seedance-2.5-pro'
   | 'seedance-1.5-pro'
   | 'seedance-1.0-pro'
   | 'seedance-1.0-pro-fast'
   | 'seedance-1.0-lite'
-  | 'happyhorse-1.0-t2v'
-  | 'happyhorse-1.0-i2v'
-  | 'happyhorse-1.0-r2v'
-  | 'happyhorse-1.0-video-edit';
 
 // Video generation models also allow runtime-discovered ids.
 export type VideoModel = KnownVideoModel | string;

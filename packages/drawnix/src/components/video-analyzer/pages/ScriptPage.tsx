@@ -78,7 +78,7 @@ function findUpdatedRecord(
 const STORAGE_KEY_SCRIPT_MODEL = 'video-analyzer:script-model';
 const STORAGE_KEY_VIDEO_MODEL = 'video-analyzer:video-model';
 const DEFAULT_SCRIPT_MODEL = 'gemini-3.1-pro-preview';
-const DEFAULT_VIDEO_MODEL = 'veo3';
+const DEFAULT_VIDEO_MODEL = 'seedance-2.5-pro';
 
 const CAMERA_MOVEMENT_OPTIONS = [
   '固定镜头 (Static)',

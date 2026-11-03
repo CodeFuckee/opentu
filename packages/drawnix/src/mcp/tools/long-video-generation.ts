@@ -22,7 +22,7 @@ import { extractJsonObject } from '../../utils/llm-json-extractor';
 const DEFAULT_SEGMENT_DURATION = 8;
 
 /** 默认长视频模型（支持首尾帧） */
-const DEFAULT_LONG_VIDEO_MODEL: VideoModel = 'veo3.1';
+const DEFAULT_LONG_VIDEO_MODEL: VideoModel = 'seedance-2.5-pro';
 
 /**
  * 长视频生成参数
@@ -34,7 +34,7 @@ export interface LongVideoGenerationParams {
   totalDuration?: number;
   /** 每段视频时长（秒），默认 8 */
   segmentDuration?: number;
-  /** 视频模型，默认 veo3.1（支持首尾帧） */
+  /** 视频模型，默认 seedance-2.5-pro（支持首尾帧） */
   model?: VideoModel;
   /** 视频尺寸 */
   size?: string;
@@ -290,7 +290,7 @@ async function executeLongVideoGeneration(
   // 检查模型是否支持首尾帧
   const modelConfig = VIDEO_MODEL_CONFIGS[model];
   if (!modelConfig || modelConfig.imageUpload.mode !== 'frames') {
-    console.warn(`[LongVideo] Model ${model} does not support first/last frame, using veo3.1`);
+    console.warn(`[LongVideo] Model ${model} does not support first/last frame, using seedance-2.5-pro`);
   }
 
   try {
@@ -426,8 +426,8 @@ export const longVideoGenerationTool: MCPTool = {
       },
       model: {
         type: 'string',
-        description: '视频生成模型，默认使用 veo3.1（支持首尾帧）',
-        default: 'veo3.1',
+        description: '视频生成模型，默认使用 seedance-2.5-pro（支持首尾帧）',
+        default: 'seedance-2.5-pro',
       },
       size: {
         type: 'string',
@@ -451,7 +451,7 @@ export const longVideoGenerationTool: MCPTool = {
       prompt: '用户的视频主题或故事描述，可以是一个完整的故事大纲。工具会自动将其拆分为多个连贯的片段。',
       totalDuration: '默认60秒（1分钟）。用户说"1分钟视频"时设为60，"30秒"设为30。',
       segmentDuration: '每段视频时长，默认8秒。这个值通常不需要用户指定。',
-      model: '默认使用 veo3.1，因为它支持首尾帧，能保证片段间的连贯性。',
+      model: '默认使用 seedance-2.5-pro，因为它支持首尾帧，能保证片段间的连贯性。',
       firstFrameImage: '可选参数。当用户选中图片并希望从该图片开始生成视频时使用。传递 "[图片1]" 等占位符，系统会自动替换为真实URL。',
     },
 
@@ -490,7 +490,7 @@ export const longVideoGenerationTool: MCPTool = {
     warnings: [
       '长视频生成需要较长时间，每个片段约1-3分钟，且串行生成',
       '生成完成后会产生多个独立的视频文件，需要用户手动下载或合并',
-      '确保使用支持首尾帧的模型（如 veo3.1）以保证片段间的连贯性',
+      '确保使用支持首尾帧的模型（如 seedance-2.5-pro）以保证片段间的连贯性',
     ],
   },
 

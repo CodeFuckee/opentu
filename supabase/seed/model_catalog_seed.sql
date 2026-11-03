@@ -1269,3 +1269,15 @@ on conflict (id) do update set
   tags = excluded.tags,
   enabled = true,
   updated_at = now();
+
+-- 下架 gemini/veo/kling/happyhorse 模型（含 kling 生图）——2026-11-03 运营决策，
+-- 与 model_catalog_disable_video_families.sql 保持一致；恢复上架见该迁移文件回滚语句。
+update public.model_catalog
+   set enabled = false,
+       updated_at = now()
+ where enabled = true
+   and (id ilike 'kling%'
+        or id ilike 'veo%'
+        or id ilike 'omni-flash%'
+        or id ilike 'happyhorse%')
+   and (type = 'video' or type = 'image');

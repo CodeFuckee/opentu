@@ -287,19 +287,22 @@ describe('ai-generation-preferences-service', () => {
       await import('../ai-generation-preferences-service');
 
     saveAIVideoToolPreferences({
-      currentModel: 'kling_video',
-      currentSelectionKey: 'provider-a::kling_video',
-      extraParams: { model_name: 'kling-v3' },
+      currentModel: 'seedance-2.5-pro',
+      currentSelectionKey: 'provider-a::seedance-2.5-pro',
+      extraParams: { aspect_ratio: '9:16' },
       duration: '10',
-      size: '1024x1024',
+      size: '720p@9:16',
     });
 
     expect(
-      loadScopedAIVideoToolPreferences('kling_video', 'provider-a::kling_video')
+      loadScopedAIVideoToolPreferences(
+        'seedance-2.5-pro',
+        'provider-a::seedance-2.5-pro'
+      )
     ).toMatchObject({
-      extraParams: { model_name: 'kling-v3' },
+      extraParams: { aspect_ratio: '9:16' },
       duration: '10',
-      size: '1024x1024',
+      size: '720p@9:16',
     });
   });
 
@@ -311,33 +314,34 @@ describe('ai-generation-preferences-service', () => {
     } = await import('../ai-generation-preferences-service');
 
     saveAIVideoToolPreferences({
-      currentModel: 'kling_video',
-      currentSelectionKey: 'provider-a::kling_video',
-      extraParams: { model_name: 'kling-v1-6' },
+      currentModel: 'seedance-2.5-pro',
+      currentSelectionKey: 'provider-a::seedance-2.5-pro',
+      extraParams: { aspect_ratio: '9:16' },
       duration: '5',
-      size: '1280x720',
+      size: '720p@16:9',
     });
     saveScopedAIInputModelParams(
       'video',
-      'kling_video',
+      'seedance-2.5-pro',
       {
         duration: '10',
-        size: '1024x1024',
-        model_name: 'kling-v3',
-        klingAction2: 'text2video',
+        size: '720p@9:16',
+        aspect_ratio: '1:1',
       },
-      'provider-a::kling_video'
+      'provider-a::seedance-2.5-pro'
     );
 
     expect(
-      loadScopedAIVideoToolPreferences('kling_video', 'provider-a::kling_video')
+      loadScopedAIVideoToolPreferences(
+        'seedance-2.5-pro',
+        'provider-a::seedance-2.5-pro'
+      )
     ).toMatchObject({
       extraParams: {
-        model_name: 'kling-v3',
-        klingAction2: 'text2video',
+        aspect_ratio: '1:1',
       },
       duration: '10',
-      size: '1024x1024',
+      size: '720p@9:16',
     });
   });
 
@@ -350,36 +354,34 @@ describe('ai-generation-preferences-service', () => {
 
     saveScopedAIInputModelParams(
       'video',
-      'kling_video',
+      'seedance-2.5-pro',
       {
         duration: '5',
-        size: '1280x720',
-        model_name: 'kling-v1-6',
+        size: '720p@16:9',
+        aspect_ratio: '16:9',
       },
-      'provider-a::kling_video'
+      'provider-a::seedance-2.5-pro'
     );
     saveAIVideoToolPreferences({
-      currentModel: 'kling_video',
-      currentSelectionKey: 'provider-a::kling_video',
+      currentModel: 'seedance-2.5-pro',
+      currentSelectionKey: 'provider-a::seedance-2.5-pro',
       extraParams: {
-        model_name: 'kling-v3',
-        klingAction2: 'text2video',
+        aspect_ratio: '9:16',
       },
       duration: '10',
-      size: '1024x1024',
+      size: '720p@9:16',
     });
 
     expect(
       loadScopedAIInputModelParams(
         'video',
-        'kling_video',
-        'provider-a::kling_video'
+        'seedance-2.5-pro',
+        'provider-a::seedance-2.5-pro'
       )
     ).toMatchObject({
       duration: '10',
-      size: '1024x1024',
-      model_name: 'kling-v3',
-      klingAction2: 'text2video',
+      size: '720p@9:16',
+      aspect_ratio: '9:16',
     });
   });
 });

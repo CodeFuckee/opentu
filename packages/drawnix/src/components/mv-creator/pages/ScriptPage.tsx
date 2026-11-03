@@ -107,10 +107,10 @@ export const ScriptPage: React.FC<ScriptPageProps> = ({
   const videoModels = useSelectableModels('video');
   const STORAGE_KEY_VIDEO_MODEL = 'mv-creator:video-model';
   const [videoModel, setVideoModelState] = useState(
-    () => record.videoModel || readStoredModelSelection(STORAGE_KEY_VIDEO_MODEL, 'veo3').modelId
+    () => record.videoModel || readStoredModelSelection(STORAGE_KEY_VIDEO_MODEL, 'seedance-2.5-pro').modelId
   );
   const [videoModelRef, setVideoModelRef] = useState<ModelRef | null>(
-    () => record.videoModelRef || readStoredModelSelection(STORAGE_KEY_VIDEO_MODEL, 'veo3').modelRef
+    () => record.videoModelRef || readStoredModelSelection(STORAGE_KEY_VIDEO_MODEL, 'seedance-2.5-pro').modelRef
   );
   const videoModelConfig = useMemo(() => getVideoModelConfig(videoModel), [videoModel]);
   const [selectedSegmentDuration, setSelectedSegmentDuration] = useState<number>(
