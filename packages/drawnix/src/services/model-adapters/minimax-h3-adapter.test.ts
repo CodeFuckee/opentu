@@ -12,11 +12,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   normalizeH3Seconds,
   parseSizeToPixels,
-  registerMinimaxH3Adapter,
   minimaxH3VideoAdapter,
 } from './minimax-h3-adapter';
-import { resolveAdapterForModel } from './registry';
+import { registerDefaultModelAdapters } from './default-adapters';
+import { clearModelAdapters, resolveAdapterForBinding, resolveAdapterForModel } from './registry';
 import type { AdapterContext } from './types';
+import type { ProviderModelBinding } from '../provider-routing/types';
 
 const submitResponse = () =>
   new Response(JSON.stringify({ id: 'task-1', status: 'queued' }), {
@@ -145,10 +146,33 @@ describe('minimaxH3VideoAdapter', () => {
   });
 });
 
-describe('registry 按模型解析', () => {
-  it('minimax-h3 路由到 minimax-h3 视频适配器', () => {
-    registerMinimaxH3Adapter();
-    const adapter = resolveAdapterForModel('minimax-h3', 'video');
+describe('registry 全量注册下解析（事故回归守卫）', () => {
+  it(
+    '全量注册时 minimax-h3 仍路由到专属适配器，不被 gemini 兜底适配器截胡',
+    () => {
+      // 复刻 2026-11-04 线上事故：geminiVideoAdapter 的 matchPredicate 捕获所有
+      // 非 kling/seedance/happyhorse 视频模型，minimax-h3 被截胡走
+      // videoAPIService → 托管态无本地 apiKey → 「API Key 未配置」。
+      // 修复 = gemini matchPredicate 排除 minimax + minimax.h3.task 专属 binding。
+      clearModelAdapters();
+      registerDefaultModelAdapters();
+      const adapter = resolveAdapterForModel('minimax-h3', 'video');
+      expect(adapter?.id).toBe('minimax-h3-video-adapter');
+    },
+  );
+
+  it('minimax.h3.task binding 解析到专属适配器（binding 优先级高于 supportedModels）', () => {
+    clearModelAdapters();
+    registerDefaultModelAdapters();
+    const binding = {
+      bindingId: 'inferred-minimax-h3',
+      modelId: 'minimax-h3',
+      protocol: 'minimax.h3.task',
+      requestSchema: 'minimax.h3.video.form',
+      submitPath: '/v1/videos',
+      priority: 615,
+    } as unknown as ProviderModelBinding;
+    const adapter = resolveAdapterForBinding(binding, 'video');
     expect(adapter?.id).toBe('minimax-h3-video-adapter');
   });
 });

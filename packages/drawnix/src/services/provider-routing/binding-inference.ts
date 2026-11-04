@@ -165,6 +165,11 @@ function isSeedanceModel(model: ModelConfig): boolean {
   return model.id.toLowerCase().includes('seedance');
 }
 
+/** 本地部署 MiniMax H3（逻辑 ID 精确匹配；中转模型如 MiniMax-H3-Context-IR 不命中，走通用路径） */
+function isMinimaxH3VideoModel(model: ModelConfig): boolean {
+  return model.id.toLowerCase() === 'minimax-h3';
+}
+
 function shouldPreferAsyncImageBinding(
   profile: ProviderProfileSnapshot,
   model: ModelConfig
@@ -666,6 +671,32 @@ function inferVideoBindings(
           },
         },
         priority: 630,
+        confidence: 'high',
+        source: 'template',
+      })
+    );
+  }
+
+  if (isMinimaxH3VideoModel(model)) {
+    bindings.push(
+      buildBinding(profile, model, {
+        protocol: 'minimax.h3.task',
+        requestSchema: 'minimax.h3.video.form',
+        responseSchema: 'minimax.h3.video.task',
+        submitPath: '/v1/videos',
+        pollPathTemplate: '/v1/videos/{taskId}',
+        metadata: {
+          video: {
+            allowedDurations: ['5', '10'],
+            defaultDuration: '5',
+            durationMode: 'request-param',
+            durationField: 'seconds',
+            strictDurationValidation: false,
+            resultMode: 'download-content',
+            downloadPathTemplate: '/v1/videos/{taskId}/content',
+          },
+        },
+        priority: 615,
         confidence: 'high',
         source: 'template',
       })

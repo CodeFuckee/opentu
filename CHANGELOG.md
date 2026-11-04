@@ -40,6 +40,23 @@
   对新素材下载全面拦截（2026-09 的浏览器内嵌 img 绕过已失效），53+ 新素材
   download_failed 将每日重试——按定时任务「失败≥50 告警」标准会触发钉钉告警，
   属 CDN WAF 问题非爬取逻辑问题
+### fix: MiniMax H3 被 gemini 兜底视频适配器截胡——托管态报「API Key 未配置」
+
+AI 输入条/工作流选 MiniMax H3 生成报「API Key 未配置，请先配置 API Key」——
+`geminiVideoAdapter`（通用 openai 视频兜底）经三条通道捕获 minimax-h3，托管态
+（浏览器不持 key，由 ai-proxy 服务端注入）走到 `videoAPIService.submitVideoGeneration`
+的前置 apiKey 校验必炸：
+
+- `matchPredicate` 捕获所有非 kling/seedance/happyhorse 视频模型 → **排除 minimax**
+- `supportedModels: videoModelIds` 由 VIDEO_MODELS 目录派生，新增目录条目自动混入
+  → **过滤 minimax**
+- binding 推断无 minimax 专属模板 → 落到通用 `openai.async.video`（schema 命中
+  400 分压过 supportedModels 200 分）→ **新增 `minimax.h3.task` 专属 binding**
+  （priority 615、submitPath `/v1/videos`、downloadPathTemplate `/content`），
+  minimax-h3-adapter 声明 `matchProtocols` 命中
+- 回归守卫升级：适配器测试改用**全量注册**（registerDefaultModelAdapters）断言
+  `resolveAdapterForModel('minimax-h3')` 与 `minimax.h3.task` binding 双路由——
+  事故前的测试只注册单适配器，测不出截胡
 
 ### fix(e2e): 工具箱「全部」断言加 exact——「运行全部」按钮入箱后非精确匹配 strict 双元素冲突
 

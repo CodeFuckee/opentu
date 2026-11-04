@@ -187,6 +187,7 @@ export const minimaxH3VideoAdapter: VideoModelAdapter = {
   id: 'minimax-h3-video-adapter',
   label: 'MiniMax H3 Video',
   kind: 'video',
+  matchProtocols: ['minimax.h3.task'],
   supportedModels: MINIMAX_H3_MODELS,
   defaultModel: 'minimax-h3',
 

@@ -55,7 +55,9 @@ const videoModelIds = VIDEO_MODELS.map((model) => model.id).filter(
   (modelId) =>
     !modelId.startsWith('kling') &&
     !modelId.startsWith('seedance') &&
-    !modelId.includes('happyhorse')
+    !modelId.includes('happyhorse') &&
+    // minimax-h3 有专属 adapter（minimax.h3.task binding），不走通用 openai 路径
+    !modelId.includes('minimax')
 );
 
 const audioModelIds = AUDIO_MODELS.map((model) => model.id);
@@ -232,7 +234,9 @@ export const geminiVideoAdapter: VideoModelAdapter = {
     return (
       !lowerId.includes('kling') &&
       !lowerId.includes('seedance') &&
-      !lowerId.includes('happyhorse')
+      !lowerId.includes('happyhorse') &&
+      // minimax-h3 有专属 adapter（minimax.h3.task binding），不走通用 openai 路径
+      !lowerId.includes('minimax')
     );
   },
   supportedModels: videoModelIds,
