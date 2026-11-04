@@ -21,7 +21,10 @@ test.describe('工具箱抽屉', () => {
   test('打开工具箱并展示分类', async ({ page }) => {
     const drawer = await openToolbox(page);
 
-    await expect(drawer.getByRole('button', { name: '全部' })).toBeVisible();
+    await expect(
+      // exact: drawer 内还有「运行全部」按钮（wf-run-all），非精确匹配会 strict 冲突
+      drawer.getByRole('button', { name: '全部', exact: true })
+    ).toBeVisible();
     await expect(
       drawer.getByRole('button', { name: /AI 工具/ })
     ).toBeVisible();
@@ -45,7 +48,7 @@ test.describe('工具箱抽屉', () => {
     await expect(content).toContainText('爆款视频生成');
 
     // 切回全部：内容工具与实用工具回归
-    await drawer.getByRole('button', { name: '全部' }).click();
+    await drawer.getByRole('button', { name: '全部', exact: true }).click();
     await page.waitForTimeout(400);
     await expect(content).toContainText('我的提示词', { timeout: 5000 });
     await expect(content).toContainText('知识库');

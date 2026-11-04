@@ -1,5 +1,12 @@
 ## Unreleased
 
+### fix(e2e): 工具箱「全部」断言加 exact——「运行全部」按钮入箱后非精确匹配 strict 双元素冲突
+
+流水线 #4522 暴露：toolbox-drawer 两用例失败——工作流编排收尾把「运行全部」（wf-run-all）
+加进工具箱后，`getByRole('button', { name: '全部' })`（Playwright 默认子串匹配）同时命中
+分类 Tab「全部」与「运行全部」→ strict mode violation。三处定位器加 `exact: true`
+（toolbox-drawer.spec ×2、features.spec ×1 同类隐患顺手加固）；改测试选择器而非改 UI。
+
 ### fix: 模板每日同步连日尾部页失败——列表哈希剔除易变计数 + 调用脚本 JWT 时间驱动重铸/空响应重试
 
 每日模板同步连续 20 天收尾阶段页调用失败（invalid token/空响应，约 60 条/轮未刷新）：

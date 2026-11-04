@@ -156,8 +156,8 @@ test.describe('@feature 功能测试', () => {
     });
     await expect(toolboxTitle).toBeVisible();
 
-    // 工具分类按钮（必须通过）
-    const allToolsBtn = page.getByRole('button', { name: '全部' });
+    // 工具分类按钮（必须通过）；exact: 工具箱内另有「运行全部」按钮，非精确会 strict 冲突
+    const allToolsBtn = page.getByRole('button', { name: '全部', exact: true });
     const contentToolsBtn = page.getByRole('button', { name: '内容工具' });
     const aiToolsBtn = page.getByRole('button', { name: 'AI 工具' });
     await expect(allToolsBtn).toBeVisible();
