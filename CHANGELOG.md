@@ -58,6 +58,12 @@ AI 输入条/工作流选 MiniMax H3 生成报「API Key 未配置，请先配�
   `resolveAdapterForModel('minimax-h3')` 与 `minimax.h3.task` binding 双路由——
   事故前的测试只注册单适配器，测不出截胡
 
+截胡修复上线后第二段 404「Not Found」：适配器提交路径 `/v1/videos` 与供应商档案
+baseUrl（自带 `/v1`，如 `https://api.tu-zi.com/v1`）拼出 **`/v1/v1/videos`**，本地网关
+实测 404（网关日志 `POST /v1/v1/videos`）。修复：`resolveBaseUrl` 剥掉基座尾部 `/v1`
+（对齐通用路径 normalizeApiBase 语义），保证任意档案基座下恰好一个 `/v1`；新增带
+`/v1` 基座的提交路径回归断言。
+
 ### fix(e2e): 工具箱「全部」断言加 exact——「运行全部」按钮入箱后非精确匹配 strict 双元素冲突
 
 流水线 #4522 暴露：toolbox-drawer 两用例失败——工作流编排收尾把「运行全部」（wf-run-all）

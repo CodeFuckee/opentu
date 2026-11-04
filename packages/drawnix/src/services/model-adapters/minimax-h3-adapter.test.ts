@@ -53,7 +53,8 @@ interface CapturedRequest {
 
 function makeContext(
   captured: CapturedRequest[],
-  finalResponse: () => Response = completedResponse
+  finalResponse: () => Response = completedResponse,
+  baseUrl = 'http://gateway.local'
 ): AdapterContext {
   const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
@@ -67,7 +68,7 @@ function makeContext(
     return finalResponse();
   }) as unknown as typeof fetch;
 
-  return { baseUrl: 'http://gateway.local', fetcher };
+  return { baseUrl, fetcher };
 }
 
 describe('parseSizeToPixels', () => {
@@ -132,6 +133,19 @@ describe('minimaxH3VideoAdapter', () => {
           duration: 5,
         })
       ).rejects.toThrow('comfy execution error');
+    },
+    30_000
+  );
+
+  it(
+    'baseUrl 自带 /v1 时剥掉再拼路径——不得出现 /v1/v1/videos（2026-11-04 线上 404 事故）',
+    async () => {
+      const captured: CapturedRequest[] = [];
+      await minimaxH3VideoAdapter.generateVideo(
+        makeContext(captured, completedResponse, 'https://api.tu-zi.com/v1'),
+        { model: 'minimax-h3', prompt: '一只猫', size: '720p@16:9', duration: 5 }
+      );
+      expect(captured[0].url).toBe('https://api.tu-zi.com/v1/videos');
     },
     30_000
   );

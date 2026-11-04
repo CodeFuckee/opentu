@@ -86,7 +86,10 @@ const resolveBaseUrl = (context: AdapterContext): string => {
   if (!context.baseUrl) {
     throw new Error('Missing baseUrl for MiniMax H3 adapter');
   }
-  return context.baseUrl.replace(/\/$/, '');
+  // 供应商档案 baseUrl 通常自带 /v1（如 https://api.tu-zi.com/v1），而本适配器
+  // 的提交/轮询路径已含 /v1——先剥掉基座尾部的 /v1，避免拼出 /v1/v1/videos
+  // （本地网关实测 404：POST /v1/v1/videos，2026-11-04）
+  return context.baseUrl.replace(/\/+$/, '').replace(/\/v1$/i, '');
 };
 
 const extractErrorMessage = (data: unknown, fallback: string): string => {
