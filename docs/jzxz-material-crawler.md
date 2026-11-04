@@ -1,6 +1,6 @@
 # 建筑学长贴图素材库爬虫（jzxz-material-crawler）
 
-本机 selenium 无头浏览器爬取建筑学长贴图素材库（家居/植物/配景），图片转存
+本机 selenium 浏览器爬取建筑学长贴图素材库（配景库 12 分类贴图/抠像素材），图片转存
 Supabase 公开桶 `jzxz-materials`，元数据 upsert 到表 `jzxz_materials`。
 真实页面自行完成接口签名，**无需逆向签名算法**（wallpaper.soutushenqi.com
 网关的签名与 community 网关不同源且含时间因子，已放弃逆向改走 UI 驱动）。
@@ -9,31 +9,45 @@ Supabase 公开桶 `jzxz-materials`，元数据 upsert 到表 `jzxz_materials`�
 > [jzxz-material-crawler-flow.md](jzxz-material-crawler-flow.md)，
 > 配套流程图 [jzxz-material-crawler-flow.drawio](jzxz-material-crawler-flow.drawio)。
 
-## 架构
+> **⚠ 2026-11 站点二次改版，入口与面板全部重写**：编辑器改为 AI 对话优先形态，
+> 「上传探针图 → 贴图推荐面板」链路整条消失（全站 `input[type=file]` 移除、
+> 粘贴进 AI 创作输入条、`wallpaper/reference` 不再由粘贴触发）。素材库迁入
+> 左侧工具栏「素材库」弹窗（`ProductMaterialPopover`），内含家居库/植物库/
+> 材质库/配景库四个 tab：前三个是新 3D 模型库（`commodity_materials` 接口，
+> ref/modelUrl 字段，与本表贴图模式不同，暂不爬取）；**配景库沿用
+> wallpaper/reference 接口**，12 个分类与子分类（素材分类）以 swiper 行呈现，
+> 网格为 ReactVirtualized 虚拟滚动。分类 chip 必须真实鼠标点击（JS `.click()`
+> 无效）；翻页靠**重复点击同一 chip**（面板预取 pageNum=0/1[/2]，无「下一页」
+> 按钮，点击被吞重试一次，翻尽后响应为空即到库尾）。推广弹窗关闭控件变为
+> ant-modal 内 `close_icon/close_btn`。**覆盖边界**：新 UI 每个 tag 只暴露
+> 预取的 ~60 条，更深的页无 UI 入口（签名含参数+时间因子无法构造），每日
+> 增量依赖新增素材出现在 tag 前部页面；若上游改为尾部追加将静默漏采，
+> 届时需回头逆向签名或与上游要接口。
+
+## 架构（2026-11-04 重写后）
 
 ```
-无头 Chrome（专用 profile，会话持久化）
-  → 打开 www.jianzhuxuezhang.com/home → 关推广弹窗
-  → 点「本地上传」格子 → 塞探针图 → 编辑对话框（右侧贴图面板）
+Chrome（专用 profile，会话持久化；headless 由配置决定——修复了无头开关失效 bug）
+  → enter_editor：/canvas/detail 编辑器（记忆 URL，失效走 /home）
+  → close_overlays：关 ant-modal 推广弹窗（close_icon/close_btn）
+  → open_scenery_panel：点「素材库」→ 弹窗切「配景库」tab → 点 ⧉ 展开视图
   → 页面注入 fetch/XHR 钩子（捕获 wallpaper/reference 响应）
-  → 遍历 分类行(first_cate_list, 11 类) → tag 行(sub_cate_list, 箭头滚动全量收集)
-  → 逐 tag 点击翻页；双通道收割：
-     ① 网络捕获（首次浏览的 tag 发真实请求）
-     ② DOM 网格收割（命中应用内存/localStorage 缓存时无请求，直接收割渲染出的 img）
+  → 遍历 分类行(配景分类, 12 类，swiper 行扫描 + 真实点击) 
+  → 每分类重开面板 → 枚举 素材分类 子 tag 行 → 逐 tag 真实点击收割预取页
+  → 双通道收割：
+     ① 网络捕获（点击发 wallpaper/reference 请求，pageNum=0/1 起步）
+     ② DOM 网格收割（ReactVirtualized__Masonry 容器内 img，兜底缓存命中有响应缺失）
   → 图片按 {分类}/{md5}.{ext} 内容寻址上传桶（upsert 幂等）
-  → 元数据按 source_id upsert 表（翻页乱序无影响）
+  → 元数据按 (source_id, category) upsert 表（翻页乱序无影响）
 ```
 
-- 面板按 tag 记忆翻页位置：点击 tag 不一定回到第 0 页，脚本为事件驱动收割
-  （等任意新响应、按 tag 归账），乱序页靠 source_id 去重，不影响覆盖。
-- swiper 虚拟渲染移除滚出视口的 slide：配景库「滚一批、点一批、收一批」；
-  点击前用行内箭头把目标 chip 滚入可视区（transform 偏移会让 ActionChains 落空）。
-- 面板命中内存/localStorage 缓存时不发网络请求：DOM 网格文档级扫描兜底
-  （网络捕获与 DOM 收割双通道合并，按 source_id 去重）。
-- 分类切换强校验：点击后 sub_cate 行须出现该分类已知 tag（CATE_TAGS 种子随爬取累积），
-  未生效重取元素重试；连续零新增熔断防空转。
-- 网格图片可能在 iframe/shadow DOM：收割为文档级扫描，域名过滤
-  `image(-assets)?.soutushenqi.com`。
+- 请求 tag 与面板 chip 文本不严格相等（chip「青年」的请求是「免抠-青年人」、
+  「绿树」的是「免抠-绿树.」）：归属判定用双向包含（tag_matches）。
+- 点击被吞/缓存命中不发请求：连续 2 轮无响应且无新网格才判到库尾，中途自动
+  重点；连续 3 轮有响应但零新增熔断防空转。
+- 分类切换强校验：点击后素材分类行须变化或出现该分类已知 tag
+  （CATE_TAGS 种子随爬取累积），未生效重试 ≤6 次。
+- 展开视图（⧉）分类/子分类行全量可见，无需箭头滚动；行内箭头逻辑保留兜底。
 - 已知素材无名称字段（响应仅 largeUrl/thumbUrl/width/height），
   source_id 取 URL 内 UUID 文件名。
 

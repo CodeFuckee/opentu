@@ -54,7 +54,9 @@ PROFILE_DIR_DEFAULT = ROOT / "data" / "jzxz-chrome-profile"
 BUCKET = "jzxz-materials"
 TABLE = "jzxz_materials"
 PAGE_URL = "https://www.jianzhuxuezhang.com/home"
-GALLERIES = ["家居库", "植物库", "配景库"]
+# 2026-11 素材库弹窗四库：家居库/植物库/材质库（commodity_materials 接口的
+# 3D 模型，ref/modelUrl 字段，与本表贴图素材模式不同，暂不爬取）+ 配景库
+# （wallpaper/reference 贴图体系，本爬虫目标，见 crawl()）
 
 # 配景库已知分类(DOM 枚举空时的兜底;来源:库内 distinct category + 上游面板)
 KNOWN_SCENERY_CATEGORIES = [
@@ -121,50 +123,17 @@ HARVEST_GRID = r"""
 () => {
   const out = [];
   const seen = new Set();
-  // 网格作用域：以一级分类行为锚锁定右侧面板区域。整页扫描会把画布侧边
-  // 缩略条、首页信息流与上一状态残留网格里的图错标进当前 tag
-  //（舞台构建装置 11 条错标的根因）
-  const cateRow = [...document.querySelectorAll('[class*="first_cate_list"]')]
-    .find(r => r.offsetWidth > 0);
-  let xMin, xMax, yMin;
-  if (cateRow) {
-    const cr = cateRow.getBoundingClientRect();
-    xMin = cr.x - 80; xMax = cr.x + cr.width + 80; yMin = cr.y - 80;
-  } else {
-    // 平铺库（家居/植物库）无分类行：改锚「家居库|植物库|配景库」tab 行并集
-    //（2026-09 改版后平铺视图 first_cate_list 不在 DOM，原锚直接空手而归；
-    // 单个 tab 比网格窄，右界借「下一页」分页按钮补齐到面板右缘）
-    const tabs = [...document.querySelectorAll('[class*="tab_btn"]')]
-      .filter(t => t.offsetWidth > 0);
-    if (!tabs.length) return out;
-    let tx0 = 1e9, ty0 = 1e9, tx1 = 0, ty1 = 0;
-    for (const t of tabs) {
-      const r = t.getBoundingClientRect();
-      tx0 = Math.min(tx0, r.x); ty0 = Math.min(ty0, r.y);
-      tx1 = Math.max(tx1, r.x + r.width); ty1 = Math.max(ty1, r.y + r.height);
-    }
-    xMin = tx0 - 80; xMax = tx1 + 80; yMin = ty1 - 10;
-    const pager0 = [...document.querySelectorAll('div,span,button')]
-      .find(e => (e.textContent || '').trim() === '下一页' && e.offsetWidth > 0
-                 && e.getBoundingClientRect().y > yMin);
-    if (pager0) {
-      const pr = pager0.getBoundingClientRect();
-      xMax = Math.max(xMax, pr.x + pr.width + 80);
-    }
-  }
-  // 网格下边界锚「下一页」按钮：挡住面板下方同域（ai-assets）的首页信息流图
-  const pager = [...document.querySelectorAll('div,span,button')]
-    .find(e => (e.textContent || '').trim() === '下一页' && e.offsetWidth > 0
-               && e.getBoundingClientRect().x >= xMin
-               && e.getBoundingClientRect().y > yMin);
-  const yMax = pager ? pager.getBoundingClientRect().y + 60 : yMin + 700;
-  const inGrid = (r) => r.width >= 40 && r.height >= 40
-    && r.x >= xMin && r.x <= xMax && r.y >= yMin && r.y <= yMax;
-  const push = (raw, r) => {
-    if (!raw || !r || !inGrid(r)) return;
-    // 素材图域名实测（2026-09-25 探针实证）：贴图走 soutushenqi，动物/总平
-    // 走 image-assets，舞台构建装置（AI 生成舞台设计）走 ai-assets；首页
-    // 信息流大图同为 ai-assets，靠上方网格区域边界排除，不能靠域名
+  // 2026-11 改版：网格迁入 ReactVirtualized Masonry 虚拟滚动容器
+  //（素材库弹窗内），直接以该容器为收割作用域——容器外的画布缩略条、
+  // 首页信息流图天然排除（旧版靠分类行/分页按钮矩形围栏的方案随
+  // first_cate_list/下一页按钮一起失效）
+  const grids = [...document.querySelectorAll('.ReactVirtualized__Masonry')]
+    .filter(m => { const r = m.getBoundingClientRect();
+                   return r.height > 100 && r.width > 100; });
+  const push = (raw) => {
+    if (!raw) return;
+    // 素材图域名实测（2026-09-25 探针实证，2026-11 复核）：贴图走
+    // soutushenqi / image-assets，舞台构建装置走 ai-assets
     const m = raw.match(/https:\/\/[^"')]*(soutushenqi\.com|image-assets\.jianzhuxuezhang\.com|ai-assets\.jianzhuxuezhang\.com)[^"')]*/i);
     if (!m) return;
     const clean = m[0].split('?')[0];
@@ -174,43 +143,66 @@ HARVEST_GRID = r"""
     out.push({ source_id: stem, url: clean, thumb: m[0],
                width: null, height: null, name: null });
   };
-  for (const img of document.querySelectorAll('img')) {
-    const r = img.getBoundingClientRect();
-    push(img.currentSrc || img.src || '', r);
-    push(img.getAttribute('data-src') || '', r);
-  }
-  for (const el of document.querySelectorAll('*')) {
-    const r = el.getBoundingClientRect();
-    if (r.width < 50 || r.height < 50) continue;
-    const bg = getComputedStyle(el).backgroundImage || '';
-    if (bg && bg !== 'none') push(bg, r);
-  }
-  return out;
-}
-"""
-
-SUB_TEXTS = ("return JSON.stringify(Array.from(document.querySelectorAll("
-             "'div[class*=sub_cate_list] div[class*=swiper-slide]'))"
-             ".map(s => (s.innerText||'').trim()))")
-
-SCAN_CHIPS = r"""
-() => {
-  const out = { first_cate_list: [], sub_cate_list: [] };
-  for (const frag of ['first_cate_list', 'sub_cate_list']) {
-    const row = [...document.querySelectorAll('div[class*=' + JSON.stringify(frag) + ']')]
-      .find(r => r.offsetWidth > 0);
-    if (!row) continue;
-    for (const s of row.querySelectorAll('div[class*=swiper-slide]')) {
-      const t = (s.innerText || '').trim();
-      if (t && t.length <= 12 && !out[frag].includes(t)) out[frag].push(t);
+  for (const grid of grids) {
+    for (const img of grid.querySelectorAll('img')) {
+      push(img.currentSrc || img.src || '');
+      push(img.getAttribute('data-src') || '');
+    }
+    for (const el of grid.querySelectorAll('*')) {
+      const bg = getComputedStyle(el).backgroundImage || '';
+      if (bg && bg !== 'none') push(bg);
     }
   }
   return out;
 }
 """
 
-PROBE_PNG_B64 = ("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGA"
-                 "WjR9awAAAABJRU5ErkJggg==")
+# 2026-11 改版：分类/子分类行由「category_title 标题 + swiper 行」构成
+#（配景分类：/素材分类：），旧 first_cate_list/sub_cate_list 容器类消失。
+# 行定位改为按标题文本找行容器。
+SCAN_CHIPS = r"""
+() => {
+  const out = { cate: [], sub: [] };
+  const vis = (el) => { const r = el.getBoundingClientRect();
+                        return r.width > 0 && r.height > 0; };
+  for (const title of document.querySelectorAll("[class*='category_title']")) {
+    const t = (title.innerText || '').trim();
+    const key = t.includes('配景分类') ? 'cate' : (t.includes('素材分类') ? 'sub' : null);
+    if (!key || !vis(title)) continue;
+    let row = title.parentElement;
+    for (const s of row.querySelectorAll('.swiper-slide')) {
+      const txt = (s.innerText || '').trim();
+      if (txt && txt.length <= 12 && !out[key].includes(txt)) out[key].push(txt);
+    }
+  }
+  return out;
+}
+"""
+
+# 行内查找单个 chip 的元素（供真实点击）；swiper 虚拟渲染下屏幕外 slide
+# 可能不在 DOM：行有箭头时先点击 next 滚动。expanded 视图行全量可见，
+# 箭头通常不存在，直接命中。
+FIND_CHIP = r"""
+(args) => {
+  const [titleKey, name] = args;
+  const vis = (el) => { const r = el.getBoundingClientRect();
+                        return r.width > 0 && r.height > 0; };
+  const titles = [...document.querySelectorAll("[class*='category_title']")]
+    .filter(t => (t.innerText || '').includes(titleKey) && vis(t));
+  if (!titles.length) return null;
+  const row = titles[0].parentElement;
+  for (const s of row.querySelectorAll('.swiper-slide')) {
+    const txt = (s.innerText || '').trim();
+    if (txt === name && vis(s)) return s;
+  }
+  // 精确未命中退化为前缀包含（chip 文本可能带冒号等修饰）
+  for (const s of row.querySelectorAll('.swiper-slide')) {
+    const txt = (s.innerText || '').trim();
+    if (txt && (txt.startsWith(name) || name.startsWith(txt)) && vis(s)) return s;
+  }
+  return null;
+}
+"""
 
 _LAST_PROGRESS = time.time()
 
@@ -245,10 +237,56 @@ def norm_tag(tag):
 
 
 def subcate_texts(driver):
+    return scan_rows(driver).get("sub", [])
+
+
+def scan_rows(driver):
+    """批量扫描两行 chips（2026-11 改版行结构：category_title 标题 + swiper 行）"""
     try:
-        return json.loads(driver.execute_script(SUB_TEXTS) or "[]")
+        return json.loads(driver.execute_script(
+            "return JSON.stringify((" + SCAN_CHIPS + ")());") or "{}")
     except Exception:
-        return []
+        return {}
+
+
+def tag_matches(req_tag, chip):
+    """请求 tag 与面板 chip 文本的归属判定（包含式）。
+
+    实测请求 tag 与 chip 不严格相等：人物配景 chip「青年」的请求是
+    「免抠-青年人」，植物配景「绿树」的请求是「免抠-绿树.」（带点后缀）。
+    norm_tag 去掉免抠前缀/点后缀后仍可能多出「人」等字，相等匹配会整
+    tag 漏收（2026-11 改版实测），改为双向包含。"""
+    nt = norm_tag(req_tag)
+    c = (chip or "").strip()
+    if not nt or not c:
+        return False
+    return nt == c or nt.startswith(c) or c.startswith(nt)
+
+
+def _click_row_arrow(driver, which):
+    """点击分类行内 next 箭头滚出屏外 slide（expanded 视图行全量可见，
+    一般无箭头，此路仅为兼容兜底）"""
+    title_key = "配景分类" if which == "cate" else "素材分类"
+    try:
+        return bool(driver.execute_script(r"""
+          const key = arguments[0];
+          const t = [...document.querySelectorAll("[class*='category_title']")]
+            .find(e => e.getBoundingClientRect().height > 0 &&
+                       (e.innerText||'').includes(key));
+          if (!t) return false;
+          const row = t.parentElement;
+          const arrs = [...row.querySelectorAll("[class*='arrow']")]
+            .filter(e => e.getBoundingClientRect().width > 0);
+          const a = arrs.find(e => /next/i.test(e.className.toString())) ||
+                    arrs.find(e => !/prev/i.test(e.className.toString()));
+          if (!a) return false;
+          const r = a.getBoundingClientRect();
+          const hit = document.elementFromPoint(r.x + r.width/2, r.y + r.height/2);
+          (hit || a).click();
+          return true;
+        """, title_key))
+    except Exception:
+        return False
 
 
 def load_config():
@@ -268,6 +306,36 @@ def _service(cfg):
 
 def real_click(driver, el):
     ActionChains(driver).move_to_element(el).pause(0.1).click().perform()
+
+
+def click_chip(driver, which, name, tries=3):
+    """定位 chip 并在其当前位置真实点击（返回是否完成点击序列）。
+
+    swiper 行带 transform 偏移且会过渡动画：move_to_element 的矩形中心
+    在点击瞬间可能落空（旧文档已知坑，实测 ~1/10 tag 被吞）。改为点击
+    前一刻取 rect 中心 → elementFromPoint 取命中元素 → ActionChains 点它，
+    失败重试。"""
+    title_key = "配景分类" if which == "cate" else "素材分类"
+    for _ in range(tries):
+        el = chip_element(driver, which, name)
+        if el is None:
+            time.sleep(0.8)
+            continue
+        try:
+            r = el.rect
+            cx, cy = r["x"] + r["width"] / 2, r["y"] + r["height"] / 2
+        except Exception:
+            real_click(driver, el)
+            return True
+        hit = driver.execute_script(
+            "return document.elementFromPoint(arguments[0], arguments[1]);", cx, cy)
+        target = hit if hit is not None else el
+        try:
+            real_click(driver, target)
+            return True
+        except Exception:
+            time.sleep(0.8)
+    return False
 
 
 def drain(driver):
@@ -541,187 +609,48 @@ def wait_any(driver, gallery, category, timeout=20):
     return out
 
 
-def row_arrows(driver, row):
-    """行内前/后箭头（按 y 坐标同行配对；相邻行箭头 y 不同）"""
-    try:
-        ry = row.rect["y"]
-    except Exception:
-        return None, None
-    parent = row.find_element(By.XPATH, "..")
-    prev = nxt = None
-    for el in parent.find_elements(By.XPATH, ".//*[contains(@class,'arrow_icon')]"):
-        cls = el.get_attribute("class") or ""
-        try:
-            r = el.rect
-        except Exception:
-            continue
-        if abs(r["y"] - ry) > 25:
-            continue
-        if "prev_" in cls:
-            prev = el
-        elif "next_" in cls:
-            nxt = el
-    return prev, nxt
-
-
-def scan_chips(driver):
-    """单次 JS 批量扫描两行 chips（受脚本超时保护）；返回 {行: [texts]}"""
-    try:
-        return json.loads(driver.execute_script(
-            "return JSON.stringify((" + SCAN_CHIPS + ")());") or "{}")
-    except Exception:
-        return {}
-
-
-def enumerate_row_texts(driver, row_class_frag, rounds=40):
-    """箭头翻页全量枚举行内 chip 文本（swiper 虚拟渲染安全）；
-    连续 2 轮无新 chip 才视为到行尾（点击后 0.6s 内 swiper 可能尚未渲染出
-    新 slide，单轮无新即停曾漏掉行尾最后一个分类——舞台构建装置），
-    箭头消失即止，最后滚回行首"""
+def enumerate_row_texts(driver, which, rounds=10):
+    """全量枚举行内 chip 文本（2026-11 改版：expanded 视图行全量可见，
+    直接扫描即可；保留箭头翻页兼容兜底）。连续 2 轮无新 chip 视为到行尾
+    （行渲染有时序，单轮无新即停曾漏行尾分类）"""
     texts, seen = [], set()
-    row = next((r for r in driver.find_elements(
-        By.XPATH, f"//div[contains(@class,'{row_class_frag}')]") if r.is_displayed()), None)
-    if row is None:
-        return texts
-    # 滚回行首
-    for _ in range(40):
-        prv, _n = row_arrows(driver, row)
-        if not prv:
-            break
-        try:
-            real_click(driver, prv)
-        except Exception:
-            break
-        time.sleep(0.3)
     miss = 0
     for _ in range(rounds):
-        chips = scan_chips(driver).get(row_class_frag, [])
+        chips = scan_rows(driver).get(which, [])
         new = False
         for t in chips:
             if t and t not in seen:
                 seen.add(t)
                 texts.append(t)
                 new = True
-        row = next((r for r in driver.find_elements(
-            By.XPATH, f"//div[contains(@class,'{row_class_frag}')]") if r.is_displayed()), None)
-        _, nxt = row_arrows(driver, row)
-        if not nxt:
-            break
         if not new:
             miss += 1
             if miss >= 2:
                 break
         else:
             miss = 0
-        try:
-            real_click(driver, nxt)
-        except Exception:
+        if not _click_row_arrow(driver, which):
             break
-        time.sleep(0.8)
+        time.sleep(0.6)
     return texts
 
 
-def chip_element(driver, row_class_frag, name):
-    """把目标 chip 滚入可视区并返回其元素。
-    文档级 XPath 定位（不受 swiper 重渲染/作用域影响）；
-    方向用行 y 配对的箭头：目标在可视窗左侧点 prev、右侧/未渲染点 next"""
-    row = next((r for r in driver.find_elements(
-        By.XPATH, f"//div[contains(@class,'{row_class_frag}')]") if r.is_displayed()), None)
-    if row is None:
-        return None
-    try:
-        row_rect = row.rect
-    except Exception:
-        return None
-    base = f"//div[contains(@class,'{row_class_frag}')]//*[contains(@class,'swiper-slide')]"
-
-    def arrows_near(y):
-        arrs = driver.find_elements(By.XPATH, ".//*[contains(@class,'arrow_icon')]")
-        prv = nxt = None
-        for el in arrs:
-            try:
-                r = el.rect
-            except Exception:
-                continue
-            if abs(r["y"] - y) <= 25:
-                if "prev_" in (el.get_attribute("class") or ""):
-                    prv = el
-                elif "next_" in (el.get_attribute("class") or ""):
-                    nxt = el
-        return prv, nxt
-
-    def find_visible():
+def chip_element(driver, which, name):
+    """把目标 chip 滚入可视区并返回其元素（行按标题文本定位；
+    swiper 虚拟渲染下屏外 slide 不在 DOM，行内箭头滚动兜底）"""
+    title_key = "配景分类" if which == "cate" else "素材分类"
+    for _ in range(40):
         try:
-            els = driver.find_elements(
-                By.XPATH,
-                base + f"[contains(normalize-space(.), '{name}')]")
+            el = driver.execute_script(
+                "return (" + FIND_CHIP + ")(arguments[0]);", [title_key, name])
         except Exception:
-            return None, None
-        for el in els:
-            try:
-                r = el.rect
-                if row_rect["x"] - 5 <= r["x"] + r["width"] / 2 <= row_rect["x"] + row_rect["width"] + 5:
-                    return el, None
-            except Exception:
-                continue
-        # 存在但不在可视窗：返回第一个元素与其中心，供方向判断
-        if els:
-            return None, els[0]
-        return None, None
-
-    for _ in range(60):
-        el, off = find_visible()
+            el = None
         if el is not None:
             return el
-        if off is not None:
-            try:
-                r = off.rect
-                cx = r["x"] + r["width"] / 2
-            except Exception:
-                cx = None
-            prv, nxt = arrows_near(r["y"] if cx is None else r["y"])
-            if cx is not None and cx < row_rect["x"] + row_rect["width"] / 2:
-                use = prv
-            else:
-                use = nxt
-            if use is None:
-                use = nxt or prv
-            if use is None:
-                return None
-            try:
-                real_click(driver, use)
-            except Exception:
-                return None
-        else:
-            prv, nxt = arrows_near(row_rect["y"])
-            use = nxt or prv
-            if use is None:
-                return None
-            try:
-                real_click(driver, use)
-            except Exception:
-                return None
-        time.sleep(0.4)
+        if not _click_row_arrow(driver, which):
+            return None
+        time.sleep(0.5)
     return None
-
-
-def click_chip_verified(driver, name, row_class_frag, attempts=3):
-    for _ in range(attempts):
-        el = chip_element(driver, row_class_frag, name)
-        if el is None:
-            time.sleep(1)
-            continue
-        real_click(driver, el)
-        deadline = time.time() + 8
-        while time.time() < deadline:
-            sel = driver.find_elements(
-                By.XPATH,
-                f"//div[contains(@class,'{row_class_frag}')]//*[contains(@class,'swiper-slide')]"
-                f"[contains(normalize-space(.), '{name}')][contains(@class,'active')]")
-            if sel:
-                return True
-            time.sleep(0.5)
-    return False
 
 
 def login_mode(cfg):
@@ -750,7 +679,7 @@ PROJECT_STATE_PATH = ROOT / "data" / "jzxz-canvas-project.json"
 def create_project(driver, cfg):
     """站点 2026-09 改版后 /home 是工作台而非编辑器；从「新建项目」进画布编辑器。
 
-    编辑器 URL 形如 /canvas/detail?projectId=<id>，落盘记忆供 open_panel 复用。"""
+    编辑器 URL 形如 /canvas/detail?projectId=<id>，落盘记忆供面板重开复用。"""
     driver.get(cfg.get("page_url", PAGE_URL))
     time.sleep(6)
     tgt = None
@@ -832,61 +761,6 @@ def enter_editor(driver, cfg):
     raise RuntimeError("参考图输入页未就绪(25s×2)")
 
 
-def submit_probe_image(driver):
-    """提交探针图触发贴图(wallpaper/reference)推荐面板。
-
-    2026-10 上游改版:全站 input[type=file] 大多已移除(改原生
-    showOpenFilePicker,Selenium 无法对话)。双通道:
-    ①旧通道——图片 input 仍出现时(改版灰度/回归)直接 send_keys;
-    ②粘贴通道——向参考图输入框合成 ClipboardEvent(File+DataTransfer)
-    粘贴,与真实 Ctrl+V 同链路。输入框可能因面板重挂载短暂离场,
-    20s 内重试(单次扑空曾是"间歇性失败"根因)。"""
-    probe = DATA_DIR / "_probe.png"
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    if not probe.exists():
-        probe.write_bytes(base64.b64decode(PROBE_PNG_B64))
-
-    # 通道①:图片 input(前 8s 探测,存在则优先——最稳)
-    deadline = time.time() + 8
-    while time.time() < deadline:
-        inputs = [i for i in driver.find_elements(By.CSS_SELECTOR, "input[type='file']")
-                  if "png" in (i.get_attribute("accept") or "").lower()
-                  or "image" in (i.get_attribute("accept") or "").lower()]
-        if inputs:
-            driver.execute_script("arguments[0].style.display='block';", inputs[0])
-            inputs[0].send_keys(str(probe))
-            return True
-        time.sleep(1)
-
-    # 通道②:合成粘贴(带重试)
-    paste_js = """
-      const target = document.querySelector('textarea') ||
-                     document.querySelector('[contenteditable="true"]');
-      if (!target) return false;
-      target.focus();
-      const b64 = arguments[0];
-      const bin = atob(b64); const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      const file = new File([bytes], '_probe.png', { type: 'image/png' });
-      const dt = new DataTransfer();
-      dt.items.add(file);
-      target.dispatchEvent(new ClipboardEvent('paste', {
-        bubbles: true, cancelable: true, clipboardData: dt }));
-      return true;
-    """
-    with open(probe, "rb") as f:
-        probe_b64 = base64.b64encode(f.read()).decode()
-    deadline = time.time() + 20
-    while time.time() < deadline:
-        try:
-            if driver.execute_script(paste_js, probe_b64):
-                return True
-        except Exception:
-            pass
-        time.sleep(2)
-    return False
-
-
 def merge_into_result(matched, dom_items, gallery, cate, tag):
     """网络响应 + DOM 收割双通道合并"""
     if matched and dom_items:
@@ -926,28 +800,84 @@ def upload_from_json(path):
     log(f"上传完成：新 {stats['downloaded']}，已知跳过 {stats['skipped_known']}，失败 {stats['failed']}")
 
 
-def open_panel(driver, editor_url):
-    """重进画布编辑器并重开贴图面板（每次分类切换前调用，规避长会话面板状态漂移）"""
+def close_overlays(driver):
+    """关掉挡面板的运营弹窗（2026-11 改版：推广弹窗换成 ant-modal +
+    CSS Modules 关闭图标（close_icon/close_btn），旧 button[class*=close]
+    选择器扑空，弹窗常驻遮挡曾是每日失败的一环）"""
+    for _ in range(3):
+        n = driver.execute_script(r"""
+          let n = 0;
+          for (const m of document.querySelectorAll('.ant-modal')) {
+            if (m.getBoundingClientRect().height <= 100) continue;
+            const b = m.querySelector("[class*='close_icon'], [class*='close_btn']");
+            if (b) { b.click(); n++; }
+          }
+          document.querySelector("button[class*='close']")?.click();
+          return n;
+        """)
+        if not n:
+            break
+        time.sleep(1.2)
+
+
+def open_scenery_panel(driver, editor_url):
+    """重进编辑器并打开素材库弹窗的配景库（每次分类前调用，规避长会话漂移）。
+
+    2026-11 改版：贴图推荐面板不再由「上传探针图」触发（旧链路整条消失：
+    全站 input[type=file] 移除、粘贴进 AI 创作输入条、wallpaper/reference
+    不再发出）。素材库改从左侧工具栏「素材库」按钮进入，弹窗内含
+    家居库/植物库/材质库/配景库四个 tab；配景库沿用 wallpaper/reference
+    接口，分类行/翻页交互全新。返回 editor_url。"""
     driver.get(editor_url)
     time.sleep(6)
-    driver.execute_script("document.querySelector(\"button[class*='close']\")?.click();")
+    close_overlays(driver)
     time.sleep(1)
     driver.execute_script(CAPTURE_HOOK)
-    boxes = [e for e in driver.find_elements(By.XPATH, "//*[contains(@class,'upload_btn_box')]") if e.is_displayed()]
-    if boxes:
-        real_click(driver, boxes[0])
-        time.sleep(2)
-    if not submit_probe_image(driver):
-        raise RuntimeError("参考图粘贴失败")
-    deadline = time.time() + 40
+    # 1. 点左侧工具栏「素材库」（可见且高度合理的文本节点，JS click 实测有效）
+    opened = driver.execute_script(r"""
+      const cands = [...document.querySelectorAll('div,span,button')]
+        .filter(e => (e.innerText || '').trim() === '素材库'
+                     && e.getBoundingClientRect().height > 0
+                     && e.getBoundingClientRect().height < 120);
+      if (!cands.length) return false;
+      cands[cands.length - 1].click();
+      return true;
+    """)
+    if not opened:
+        raise RuntimeError("素材库入口按钮未找到")
+    # 2. 等弹窗 tab 行出现 → 点「配景库」
+    deadline = time.time() + 15
     while time.time() < deadline:
-        if driver.find_elements(By.XPATH, "//div[contains(@class,'first_cate_list')]"):
+        if driver.execute_script(r"""
+          return [...document.querySelectorAll('button')]
+            .some(e => (e.innerText||'').trim() === '配景库'
+                       && /library_tab/.test(e.className.toString()));
+        """):
             break
         time.sleep(1)
     else:
-        raise RuntimeError("贴图面板未出现")
-    time.sleep(2)
+        raise RuntimeError("素材库弹窗未出现（library tab 缺失）")
+    for _try in range(4):
+        driver.execute_script(r"""
+          [...document.querySelectorAll('button')]
+            .filter(e => (e.innerText||'').trim() === '配景库'
+                         && /library_tab/.test(e.className.toString()))[0]?.click();
+        """)
+        time.sleep(2.5)
+        if driver.execute_script(r"""
+          return [...document.querySelectorAll("[class*='category_title']")]
+            .some(e => (e.innerText||'').includes('配景分类')
+                       && e.getBoundingClientRect().height > 0);
+        """):
+            break
+    else:
+        raise RuntimeError("配景库 tab 切换未生效（分类行未出现）")
+    # 3. 展开弹窗（⧉）：展开视图分类/子分类行全量可见，网格更宽（收割窗口更大）
+    driver.execute_script(
+        "document.querySelector(\"[class*='product_material_expand_button']\")?.click();")
+    time.sleep(2.5)
     driver.execute_script(CAPTURE_HOOK)
+    time.sleep(1)
 
 
 def crawl():
@@ -968,7 +898,11 @@ def crawl():
     profile_dir = Path(cfg.get("chrome_profile_dir", str(PROFILE_DIR_DEFAULT))).resolve()
     profile_dir.mkdir(parents=True, exist_ok=True)
     opts.add_argument(f"--user-data-dir={profile_dir}")
-    opts.add_argument("--headless=new")
+    if headless:
+        # 修复 P0（曾长期带病运行）：此前无条件无头，配置 headless:false 与
+        # --headed 从不生效。无头下 ActionChains 真实点击系统性失效，2026-11
+        # 改版后的分类切换/翻页全靠真实点击，必须尊重配置
+        opts.add_argument("--headless=new")
     opts.add_argument("--no-first-run")
     opts.add_argument("--no-sandbox")
     opts.add_argument("--disable-gpu")
@@ -989,269 +923,150 @@ def crawl():
     try:
         editor_url = enter_editor(driver, cfg)
         log(f"画布编辑器就绪（{'有头' if not headless else '无头'}）：{editor_url}")
-        driver.execute_script("document.querySelector(\"button[class*='close']\")?.click();")
-        time.sleep(1)
-        driver.execute_script(CAPTURE_HOOK)
-        # 2026-10 改版:上传按钮不再挂 input(全站改原生 showOpenFilePicker),
-        # 直接向参考图输入框粘贴探针;若旧 upload_btn_box 仍在则先点它再粘贴(双保险)
-        boxes = [e for e in driver.find_elements(By.XPATH, "//*[contains(@class,'upload_btn_box')]") if e.is_displayed()]
-        if boxes:
-            real_click(driver, boxes[0])
-            time.sleep(2)
-        if not submit_probe_image(driver):
+        try:
+            open_scenery_panel(driver, editor_url)
+        except Exception as exc:
             try:
-                driver.save_screenshot("data/jzxz-captured/entry-fail.png")
+                DATA_DIR.mkdir(parents=True, exist_ok=True)
+                driver.save_screenshot(str(DATA_DIR / "entry-fail.png"))
             except Exception:
                 pass
-            sys.exit("参考图粘贴失败（输入框未就绪，现场已存 entry-fail.png）")
-        log("探针图已提交，等待贴图面板…")
-        deadline = time.time() + 40
-        while time.time() < deadline:
-            if driver.find_elements(By.XPATH, "//div[contains(@class,'first_cate_list')]"):
-                break
-            time.sleep(1)
-        else:
-            sys.exit("贴图面板未出现（first_cate_list 不存在）")
-        time.sleep(2)
-        driver.execute_script(CAPTURE_HOOK)
-        log("贴图面板已就绪")
+            sys.exit(f"素材库配景库面板未打开（{exc}），现场已存 data/jzxz-captured/entry-fail.png")
+        log("贴图面板已就绪（素材库弹窗·配景库）")
 
-        for gallery in GALLERIES:
-            # tab 行可能晚于面板就绪渲染，且有运营弹窗遮挡：重试等待可见
-            tab_spans = []
-            for _tab_wait in range(8):
-                tab_spans = [e for e in driver.find_elements(
-                    By.XPATH, f"//span[contains(@class,'tab_btn')][normalize-space(text())='{gallery}']") if e.is_displayed()]
-                if tab_spans:
-                    break
-                driver.execute_script(
-                    "document.querySelector(\"button[class*='close']\")?.click();")
-                time.sleep(2)
-            if not tab_spans:
-                log(f"[warn] {gallery}: tab 不可见，跳过")
-                if gallery == GALLERIES[0]:
-                    try:
-                        DATA_DIR.mkdir(parents=True, exist_ok=True)
-                        driver.save_screenshot(str(DATA_DIR / "tab-invisible.png"))
-                        log("[diag] 现场已存 data/jzxz-captured/tab-invisible.png")
-                    except Exception:
-                        pass
+        # 2026-11 改版：素材库弹窗中只有配景库沿用贴图（wallpaper/reference）
+        # 体系；旧「家居库/植物库」平铺贴图已并入配景库分类，弹窗新增的
+        # 家居/植物/材质三库是 3D 模型（commodity_materials 接口，ref/
+        # modelUrl 字段），与本表贴图素材模式不同，暂不纳入
+        gallery = "配景库"
+
+        def grid_ids():
+            try:
+                return {d["source_id"] for d in json.loads(
+                    driver.execute_script(
+                        "return JSON.stringify((" + HARVEST_GRID + ")());") or "[]")}
+            except Exception:
+                return set()
+
+        def fresh_dom(cate, tag, exclude):
+            """网格 DOM 兜底，仅收 exclude 之外新出现的图（排除面板残留）"""
+            rows = parse_grid(json.loads(driver.execute_script(
+                "return JSON.stringify((" + HARVEST_GRID + ")());") or "[]"),
+                gallery, cate, tag)
+            return [d for d in rows if d["source_id"] not in exclude]
+
+        cate_names = [t for t in enumerate_row_texts(driver, "cate") if len(t) <= 12]
+        if not cate_names:
+            # 面板 DOM 枚举偶发空(渲染时序/结构漂移)：兜底已知分类常量
+            #（与库内 distinct category 一致，新分类由 DOM 通道发现后补充）
+            cate_names = list(KNOWN_SCENERY_CATEGORIES)
+            log(f"[warn] 分类行 DOM 枚举为空，回退已知分类 {len(cate_names)} 个")
+        if categories:
+            cate_names = [c for c in cate_names if c in categories]
+        log(f"分类：{cate_names}")
+
+        for cate in cate_names:
+            # 每个分类前重开面板（dd1b6f08 的设计意图：规避长会话状态漂移）
+            try:
+                open_scenery_panel(driver, editor_url)
+            except Exception as exc:
+                log(f"  [warn] {cate}: 面板重开失败（{exc}），跳过")
                 continue
-            tab_ok = False
-            for _tab_try in range(4):
-                real_click(driver, tab_spans[0])
-                time.sleep(2.5)
-                tabs_now = [e for e in driver.find_elements(
-                    By.XPATH, f"//span[contains(@class,'tab_btn')][normalize-space(text())='{gallery}']") if e.is_displayed()]
-                if tabs_now and "active" in (tabs_now[0].get_attribute("class") or ""):
-                    tab_ok = True
-                    break
-            if not tab_ok:
-                log(f"[warn] {gallery}: tab 点击未生效（active 未迁移），跳过")
-                continue
-            time.sleep(1)
             drain(driver)
-
-            if gallery != "配景库":
-                log(f"== {gallery} ==（属性筛选库，直接翻页）")
-                flat_stall = 0
-                for page in range(max_pages):
-                    got = wait_any(driver, gallery, None, timeout=10)
-                    items = [it for _, its in got for it in its]
-                    dom_items = parse_grid(json.loads(driver.execute_script(
-                        "return JSON.stringify((" + HARVEST_GRID + ")());") or "[]"),
-                        gallery, None, None)
-                    merged = {i["source_id"]: i for i in items}
-                    for i in dom_items:
-                        merged.setdefault(i["source_id"], i)
-                    items = list(merged.values())
-                    if not items:
-                        log(f"  {gallery}: 无数据，到库尾")
+            # 点一级分类：chip_element 滚入可视区，以子分类行变化/已知 tag 验证
+            before_sub = subcate_texts(driver)
+            known = CATE_TAGS.get(cate, set())
+            ok = any(t in known for t in before_sub if t)
+            # 分类点击前的网格快照：DOM 兜底只收「快照之后新出现」的图，
+            # 防止面板残留的上一分类网格被错标（面板本就在本分类——
+            # 快速通道时当前网格即本分类内容，快照置空全收）
+            cat_before_ids = set() if ok else grid_ids()
+            for _attempt in range(6):
+                if ok:
+                    break
+                if not click_chip(driver, "cate", cate):
+                    time.sleep(1)
+                    continue
+                deadline = time.time() + 15
+                while time.time() < deadline:
+                    cur_sub = subcate_texts(driver)
+                    if known and any(t in known for t in cur_sub):
+                        ok = True
                         break
-                    n, new_n = process_batch(cfg, driver, items, stats, all_items)
-                    log(f"  {gallery} 第 {page + 1} 轮：{n} 条（新 {new_n}）")
-                    if new_n == 0:
-                        flat_stall += 1
-                        if flat_stall >= 3:
-                            log(f"  {gallery}: 连续 {flat_stall} 轮零新增，熔断")
-                            break
-                    else:
-                        flat_stall = 0
-                    nxt = [e for e in driver.find_elements(
-                        By.XPATH,
-                        "//div[normalize-space(text())='下一页'] | //span[normalize-space(text())='下一页'] | //button[normalize-space(text())='下一页']")
-                        if e.is_displayed()]
-                    if not nxt:
-                        log(f"  {gallery}: 无下一页，到库尾")
+                    if before_sub is not None and cur_sub != before_sub and cur_sub:
+                        ok = True
                         break
-                    real_click(driver, nxt[0])
-                    time.sleep(delay)
+                    time.sleep(0.5)
+                if ok:
+                    break
+                time.sleep(1.5)
+            if not ok:
+                log(f"  [warn] {cate}: 分类点击未生效，跳过")
                 continue
+            tags = [t for t in enumerate_row_texts(driver, "sub") if len(t) <= 12]
+            CATE_TAGS.setdefault(cate, set()).update(tags)
+            processed_tag = set()
+            dom_seen = set(cat_before_ids)  # 本分类 DOM 通道已归账的 id（防复收）
 
-            # 配景库：逐分类处理——每个分类前重开面板（dd1b6f08 的设计意图，
-            # 此前 open_panel 未接线），分类 chip 用 chip_element 滚入可视区
-            # （swiper 虚拟渲染下屏幕外 slide 不在 DOM，按文本直找必然落空）
-            log("== 配景库 ==")
-            cate_names = [t for t in enumerate_row_texts(driver, "first_cate_list") if len(t) <= 12]
-            if not cate_names:
-                # 2026-10 改版后面板 DOM 枚举偶发空(面板渲染时序/结构漂移):
-                # 兜底用已知分类常量(与库内 distinct category 一致,新分类由
-                # DOM 通道发现后补充)
-                cate_names = list(KNOWN_SCENERY_CATEGORIES)
-                log(f"[warn] 分类行 DOM 枚举为空，回退已知分类 {len(cate_names)} 个")
-            if categories:
-                cate_names = [c for c in cate_names if c in categories]
-            log(f"分类：{cate_names}")
-
-            for cate in cate_names:
-                try:
-                    open_panel(driver, editor_url)
-                except Exception as exc:
-                    log(f"  [warn] {cate}: 面板重开失败（{exc}），跳过")
+            log(f"== 爬取 {cate}（{len(tags) or 1} tags）==")
+            for tag in (tags or [None]):
+                if tag in processed_tag:
                     continue
-                # 重开面板后回到配景库 tab
-                tab_ok = False
-                for _tab_try in range(5):
-                    tabs_now = [e for e in driver.find_elements(
-                        By.XPATH, "//span[contains(@class,'tab_btn')][normalize-space(text())='配景库']") if e.is_displayed()]
-                    if tabs_now and "active" in (tabs_now[0].get_attribute("class") or ""):
-                        tab_ok = True
+                processed_tag.add(tag)
+                chip_name = tag or cate  # 无子分类行：以分类 chip 为点击/翻页锚
+                stale_noop = 0   # 连续「无响应且无新网格」（点击被吞/已翻尽）
+                stale_known = 0  # 连续有响应但零新增（全已知安全网）
+                for _round in range(max_pages):
+                    # 2026-11 改版：面板无「下一页」按钮，重复点击也不推进
+                    # 页码——每 tag 由面板预取页（实测 30~144 条，约至空或
+                    # 5 页上限），第 1 轮即收割该预取面；后续轮只作「点击被
+                    # 吞重试 + 空转探测」，连续无响应判库尾
+                    if not click_chip(driver, "sub" if tag else "cate", chip_name):
+                        log(f"    [warn] {cate}/{chip_name}: chip 不可见，跳过")
                         break
-                    if tabs_now:
-                        real_click(driver, tabs_now[0])
-                    time.sleep(2.5)
-                if not tab_ok:
-                    log(f"  [warn] {cate}: 重开面板后配景库 tab 未就位，跳过")
-                    continue
-                drain(driver)
-                # 点一级分类：chip_element 滚入可视区，以子分类行变化/已知 tag 验证
-                before_sub = subcate_texts(driver)
-                known = CATE_TAGS.get(cate, set())
-                ok = any(t in known for t in before_sub if t)
-
-                def grid_ids():
-                    try:
-                        return {d["source_id"] for d in json.loads(
-                            driver.execute_script(
-                                "return JSON.stringify((" + HARVEST_GRID + ")());") or "[]")}
-                    except Exception:
-                        return set()
-
-                # 分类点击前的网格快照：后续 DOM 兜底只收「快照之后新出现」的图，
-                # 防止面板残留的上一状态网格被错标成本分类（面板本就在本分类——
-                # 快速通道时当前网格即本分类内容，快照置空全收）
-                cat_before_ids = set() if ok else grid_ids()
-                for _attempt in range(6):
-                    if ok:
-                        break
-                    slide = chip_element(driver, "first_cate_list", cate)
-                    if slide is None:
-                        time.sleep(1)
-                        continue
-                    real_click(driver, slide)
-                    deadline = time.time() + 15
-                    while time.time() < deadline:
-                        cur_sub = subcate_texts(driver)
-                        if known and any(t in known for t in cur_sub):
-                            ok = True
-                            break
-                        if before_sub is not None and cur_sub != before_sub and cur_sub:
-                            ok = True
-                            break
-                        time.sleep(0.5)
-                    if ok:
-                        break
-                    time.sleep(1.5)
-                if not ok:
-                    log(f"  [warn] {cate}: 分类点击未生效，跳过")
-                    continue
-                tags = [t for t in enumerate_row_texts(driver, "sub_cate_list") if len(t) <= 12]
-                CATE_TAGS.setdefault(cate, set()).update(tags)
-                processed_tag = set()
-
-                def fresh_dom(tag, exclude):
-                    """网格 DOM 兜底，仅收快照之后新出现的图（排除面板残留）"""
-                    rows = parse_grid(json.loads(driver.execute_script(
-                        "return JSON.stringify((" + HARVEST_GRID + ")());") or "[]"),
-                        gallery, cate, tag)
-                    return [d for d in rows if d["source_id"] not in exclude]
-
-                log(f"== 爬取 {cate}（{len(tags)} tags）==")
-                for tag in tags:
-                    if tag in processed_tag:
-                        continue
-                    processed_tag.add(tag)
-                    tag_el = chip_element(driver, "sub_cate_list", tag)
-                    if tag_el is None:
-                        log(f"    [warn] {cate}/{tag}: chip 不可见，跳过")
-                        continue
-                    real_click(driver, tag_el)
                     time.sleep(3)
                     got = wait_any(driver, gallery, cate, timeout=8)
-                    matched = [(tg, its) for tg, its in got if norm_tag(tg) == tag]
-                    matched = merge_into_result(matched, fresh_dom(tag, cat_before_ids),
-                                                gallery, cate, tag)
-                    if not matched:
-                        # 点击可能被吞：重找 chip 重点一次再判定
-                        tag_el = chip_element(driver, "sub_cate_list", tag)
-                        if tag_el is not None:
-                            real_click(driver, tag_el)
-                            time.sleep(3)
-                            got = wait_any(driver, gallery, cate, timeout=8)
-                            matched = [(tg, its) for tg, its in got
-                                       if norm_tag(tg) == tag]
-                            matched = merge_into_result(
-                                matched, fresh_dom(tag, cat_before_ids),
-                                gallery, cate, tag)
-                    if not matched:
-                        # 留现场：一致失败的 tag 需要看面板当时到底显示了什么
-                        if stats.get("nodata_dumped", 0) < 3:
-                            stats["nodata_dumped"] = stats.get("nodata_dumped", 0) + 1
-                            try:
-                                DATA_DIR.mkdir(parents=True, exist_ok=True)
-                                driver.save_screenshot(str(DATA_DIR / "tag-nodata.png"))
-                                (DATA_DIR / "tag-nodata.json").write_text(json.dumps({
-                                    "cate": cate, "tag": tag,
-                                    "sub_row": subcate_texts(driver),
-                                    "body_text": (driver.execute_script(
-                                        "return (document.body.innerText||'');") or "")[:2000],
-                                }, ensure_ascii=False, indent=2), encoding="utf-8")
-                                log(f"    [diag] 无响应现场已存 tag-nodata.png/json")
-                            except Exception:
-                                pass
-                        log(f"    [warn] {cate}/{tag}: 无响应且无网格，跳过")
-                        continue
-                    known_streak = 0
-                    for _round in range(max_pages):
-                        tg, items = matched[-1]
-                        if not items:
-                            log(f"    {cate}/{tag}: 空页，到库尾")
+                    items = [it for _, its in got for it in its]
+                    dom_new = fresh_dom(cate, tag, dom_seen)
+                    for d in dom_new:
+                        dom_seen.add(d["source_id"])
+                    if not items and not dom_new:
+                        stale_noop += 1
+                        if stale_noop >= 2:
+                            # 留现场：一致失败的 tag 需要看面板当时显示了什么
+                            if stats.get("nodata_dumped", 0) < 3:
+                                stats["nodata_dumped"] = stats.get("nodata_dumped", 0) + 1
+                                try:
+                                    DATA_DIR.mkdir(parents=True, exist_ok=True)
+                                    driver.save_screenshot(str(DATA_DIR / "tag-nodata.png"))
+                                    (DATA_DIR / "tag-nodata.json").write_text(json.dumps({
+                                        "cate": cate, "tag": chip_name,
+                                        "sub_row": subcate_texts(driver),
+                                        "body_text": (driver.execute_script(
+                                            "return (document.body.innerText||'');") or "")[:2000],
+                                    }, ensure_ascii=False, indent=2), encoding="utf-8")
+                                    log("    [diag] 无响应现场已存 tag-nodata.png/json")
+                                except Exception:
+                                    pass
+                            log(f"    {cate}/{chip_name}: 无响应且无新网格，到库尾")
                             break
-                        n, new_n = process_batch(cfg, driver, items, stats, all_items)
-                        log(f"    {cate}/{tag}：{n} 条（新 {new_n}）")
-                        if stop_known > 0 and n >= 5 and new_n == 0:
-                            known_streak += 1
-                            if known_streak >= stop_known:
-                                log(f"    {cate}/{tag}: 连续 {known_streak} 页全已知，提前收尾")
-                                break
-                        else:
-                            known_streak = 0
-                        nxt2 = [e for e in driver.find_elements(
-                            By.XPATH,
-                            "//div[normalize-space(text())='下一页'] | //span[normalize-space(text())='下一页'] | //button[normalize-space(text())='下一页']")
-                            if e.is_displayed()]
-                        if not nxt2:
-                            log(f"    {cate}/{tag}: 无下一页，到库尾")
+                        continue  # 点击可能被吞，下一轮原样重点
+                    stale_noop = 0
+                    merged = merge_into_result(list(got), dom_new, gallery, cate, tag)
+                    batch = [it for _, its in merged for it in its]
+                    n, new_n = process_batch(cfg, driver, batch, stats, all_items)
+                    log(f"    {cate}/{chip_name} 第 {_round + 1} 轮：{n} 条（新 {new_n}）")
+                    if new_n == 0:
+                        stale_known += 1
+                        if stop_known > 0 and n >= 5 and stale_known >= stop_known:
+                            log(f"    {cate}/{chip_name}: 连续 {stale_known} 页全已知，提前收尾")
                             break
-                        real_click(driver, nxt2[0])
-                        time.sleep(delay)
-                        got = wait_any(driver, gallery, cate, timeout=8)
-                        matched = [(tg, its) for tg, its in got if norm_tag(tg) == tag]
-                        matched = merge_into_result(matched, fresh_dom(tag, cat_before_ids),
-                                                    gallery, cate, tag)
-                        if not matched:
-                            log(f"    {cate}/{tag}: 翻页无响应，到库尾")
+                        if stale_known >= 3:
+                            log(f"    {cate}/{chip_name}: 连续 {stale_known} 轮零新增，熔断")
                             break
+                    else:
+                        stale_known = 0
+                    time.sleep(delay)
 
         log(f"汇总：页面 {stats['pages']}，条目 {stats['items']}，新下载 {stats['downloaded']}，"
             f"已知跳过 {stats['skipped_known']}，失败 {stats['failed']}")
