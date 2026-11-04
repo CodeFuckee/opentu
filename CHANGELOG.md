@@ -1,5 +1,25 @@
 ## Unreleased
 
+### fix: 模板每日同步连日尾部页失败——列表哈希剔除易变计数 + 调用脚本 JWT 时间驱动重铸/空响应重试
+
+每日模板同步连续 20 天收尾阶段页调用失败（invalid token/空响应，约 60 条/轮未刷新）：
+
+- **根因①**：`template-crawler` 的 `listHashOf` 把 viewCount/collectCount/useCount 三个上游
+  易变计数计入列表哈希——上游计数每日自然漂移令存量 `extra.list_hash` 几乎全部失配，
+  增量预判失效 → 每日全量拉详情+转存封面，60 页跑满 ≈15 分钟，贴近调用方自铸 JWT 的
+  15 分钟时效 → 尾部页 token 过期 invalid token（2026-10-05 的修复只处理了 JWT 侧症状，
+  哈希含易变计数这一触发源头未动，故复发）
+- **根因②**：`crawl-templates.sh` 对空响应（curl -m 90 超时/网络抖动）无重试，直接计错
+  exit 1（invalid token 才有重试）
+- **修复①**：`listHashOf` 只保留 title/coverUrl/templateVersion 内容字段——计数漂移不再
+  触发重爬，每日回到真增量（分钟级完成），JWT 时效问题自然消失；部署后首次同步因存量
+  哈希口径变化会做最后一轮全量刷新，此后稳定增量
+- **修复②**：脚本 JWT 重铸改为时间驱动（距上次铸发 >12 分钟即重铸，替换每 40 页）；
+  空响应与 invalid token 一并重铸重试一次
+- **验证**：template-crawler core.test 20 例（新增 3：易变计数漂移哈希不变/内容字段
+  变化哈希仍变守卫/漂移行走增量跳过路径不拉详情不 upsert），supabase 全部边缘函数
+  单测 237 例通过，nx typecheck 全绿
+
 ### feat: 视频模型下架 gemini/veo/kling/happyhorse——画布仅保留 seedance 系
 
 按运营决策（2026-11-03）下架四家视频模型，画布视频模型只保留 seedance 系
@@ -544,6 +564,23 @@ Lucide 圆线条图标体系 + MD3 布局语言。主要变更：
   ErrorBoundary/静态兜底全部随主题；dashboard-stats 看板配色对齐
 - **验证**：drawnix/web 构建与单测全绿；typecheck 显式通过（此前 web 构建
   typecheck 静默失败导致 dist 不更新，已根治）
+
+### feat: 工作流编排收尾——工具箱内置运行控制、死代码清理、粘贴连线修复
+
+承接「去工作流编排工具壳、节点工具直接进工具箱、参考图节点改画布图片连线」的收尾：
+
+- 工具箱「工作流节点」区新增「运行全部/停止」按钮（`wf-run-all`/`wf-run-stop`），
+  与节点卡片同源订阅 run-service 运行态——旧编排面板下线后整体运行入口不再缺失
+- 删除孤儿组件 `WorkflowOrchestratorPalette`（及其样式）与无引用常量
+  `WORKFLOW_ORCHESTRATOR_TOOL_ID`（全仓库零引用的死代码）
+- `OrchestratorNodeTypeName` 拆为 `UserCreatableNodeTypeName`（7 种可创建节点）+
+  `VirtualSourceNodeTypeName`（`reference-image` 降级为内部虚拟源类型）：参考图不再
+  是可创建节点，画布图片经连线虚拟接入；旧画布存量参考图节点运行期继续兼容
+- fix: 复制粘贴工作流图时连线仅重映射了不存在的 `source/target` 字符串字段，
+  `wfSource/wfTarget` 与箭头线 handle 的 `boundId` 均未重映射——粘贴出的连线仍指向
+  旧节点（图不连通、拖动不跟随）
+- fix: `deleteWorkflowNodeWithConnections` 同样取错字段导致出/入连线匹配不到
+- 验证：drawnix 全量 vitest 1644 例通过（含 workflow-orchestrator 21 例），typecheck 通过
 
 ### feat: 数据看板长周期显示「区间总用量」（openspec add-dashboard-window-usage-total）
 

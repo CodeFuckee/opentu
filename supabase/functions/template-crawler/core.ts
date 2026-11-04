@@ -229,15 +229,18 @@ export function mapDetailToRow(
   };
 }
 
-/** 列表哈希：列表阶段即可判定是否变化的轻量哈希（免拉详情） */
+/**
+ * 列表哈希：列表阶段即可判定「内容」是否变化的轻量哈希（免拉详情）。
+ * 只计入内容字段（title/coverUrl/templateVersion）——viewCount/collectCount/useCount
+ * 等上游易变计数不计入：计数每日自然漂移会令存量 list_hash 全部失配，增量预判失效
+ * → 每日全量拉详情+转存封面 → 同步时长贴近调用方 JWT 15 分钟时效 → 尾部页
+ * invalid token/空响应（2026-10 连日复现，2026-11-04 修复）。
+ */
 export function listHashOf(listRow: UpstreamListRow): string {
   return md5(JSON.stringify({
     title: listRow.title,
     coverUrl: listRow.coverUrl,
     templateVersion: listRow.templateVersion,
-    collectCount: listRow.collectCount,
-    viewCount: listRow.viewCount,
-    useCount: listRow.useCount,
   }));
 }
 

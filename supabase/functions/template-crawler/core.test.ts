@@ -119,6 +119,57 @@ describe('mapDetailToRow / contentHashOf', () => {
   });
 });
 
+// ==================== 列表哈希稳定性（每日同步增量判定） ====================
+
+describe('listHashOf（增量判定稳定性）', () => {
+  test('易变计数漂移不改变列表哈希——上游 viewCount/collectCount 每日自然增长，', () => {
+    // 复现 2026-10 每日同步全量重爬：计数计入哈希 → 库中 list_hash 全部失配
+    // → 每日全量拉详情+转存封面 → 同步时长贴近 JWT 15 分钟时效 → 尾部页 invalid token/空响应
+    const drifted = {
+      ...LIST_FIXTURE,
+      viewCount: (LIST_FIXTURE.viewCount ?? 0) + 37,
+      collectCount: (LIST_FIXTURE.collectCount ?? 0) + 5,
+      useCount: (LIST_FIXTURE.useCount ?? 0) + 2,
+    };
+    assert.equal(listHashOf(drifted), listHashOf(LIST_FIXTURE));
+  });
+
+  test('内容字段变化仍改变列表哈希（title/coverUrl/templateVersion）', () => {
+    assert.notEqual(listHashOf({ ...LIST_FIXTURE, title: '改名后的标题' }), listHashOf(LIST_FIXTURE));
+    assert.notEqual(
+      listHashOf({ ...LIST_FIXTURE, coverUrl: 'https://image-assets.soutushenqi.com/other/cover.png' }),
+      listHashOf(LIST_FIXTURE)
+    );
+    assert.notEqual(
+      listHashOf({ ...LIST_FIXTURE, templateVersion: 'GPT_IMAGE_3' }),
+      listHashOf(LIST_FIXTURE)
+    );
+  });
+
+  test('计数漂移的行走增量跳过路径（不拉详情、不 upsert）', async () => {
+    // 端到端复现：库中存的是「昨日」列表哈希，今日计数已漂移；修复后仍应命中跳过
+    const driftedRow = { ...LIST_FIXTURE, viewCount: 9999, collectCount: 888, useCount: 77 };
+    const yesterdayHash = listHashOf(LIST_FIXTURE); // 库中存量（旧口径或昨日计数）
+    const captures: Capture[] = [];
+    const env = buildEnv();
+    const fetchImpl = routerFetch(
+      [
+        ...adminRoutes(),
+        { match: /\/templates\?/, handler: () => ({ status: 200, body: JSON.stringify([driftedRow]) }) },
+        { match: /ai_templates\?select=content_hash,extra/, handler: () => ({ status: 200, body: JSON.stringify([{ content_hash: 'any', extra: { list_hash: yesterdayHash } }]) }) },
+      ],
+      captures
+    );
+    const summary = await syncTemplateType(
+      env, { fetch: fetchImpl, sleep: noSleep }, 'BANANA_CASE',
+      { maxPages: 1, pageSize: 30, pageDelayMs: 0, detailDelayMs: 0, withCovers: false }
+    );
+    assert.equal(summary.skipped, 1, '仅计数漂移应跳过');
+    assert.ok(!captures.some((c) => c.url.includes('/templates/6aa8')), '不应拉取详情');
+    assert.ok(!captures.some((c) => c.url.includes('on_conflict=')), '不应有 upsert 请求');
+  });
+});
+
 // ==================== 同步编排 ====================
 
 function buildEnv() {

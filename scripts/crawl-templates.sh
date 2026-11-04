@@ -8,6 +8,11 @@
 #   unauthorized，深页模板静默断供多日；改为每 40 页重铸 + 遇 invalid token
 #   立即重铸重试一次。②脚本原先不识别 error 行、恒以 0 退出——每日
 #   automation 判定"正常"从未告警；改为统计错误行，非零即 exit 1。
+# 2026-11-04 加固：①JWT 重铸从「每 40 页」改为时间驱动（距上次铸发
+#   >12 分钟即重铸）——页耗时波动大，按页数重铸仍会在长耗时轮次贴近
+#   15 分钟时效（连日尾部页 invalid token 的残余根因）。②空响应
+#   （curl -m 90 超时/网络抖动）与 invalid token 一并重铸重试一次
+#   ——空响应此前无重试，直接计错导致 exit 1。
 END_PAGE="${1:-59}"
 PAGE_SIZE="${2:-30}"
 FORCE="${3:-false}"
@@ -30,16 +35,30 @@ PY
 }
 
 JWT=$(mint_jwt)
+LAST_MINT=$(date +%s)
+# JWT 有效期 15 分钟，距上次铸发 >12 分钟即重铸（页级粒度，贴合时效本质）
+mint_if_stale() {
+  local now
+  now=$(date +%s)
+  if (( now - LAST_MINT >= 720 )); then
+    JWT=$(mint_jwt)
+    LAST_MINT=$now
+  fi
+}
+# 当前页重铸重试一次：invalid token（token 过期）与空响应（curl 超时）共用
+retry_page_once() {
+  JWT=$(mint_jwt)
+  LAST_MINT=$(date +%s)
+  RESP=$(curl -s -m 90 -X POST "http://localhost:8021/functions/v1/template-crawler"     -H "Authorization: Bearer $JWT" -H "Content-Type: application/json"     -d "{\"action\":\"crawl\",\"startPage\":$p,\"maxPages\":1,\"pageSize\":$PAGE_SIZE,\"withCovers\":true,\"force\":$FORCE}")
+}
+
 ERRORS=0
 ZEROS=0
 for ((p=0; p<=END_PAGE; p++)); do
-  if (( p > 0 && p % 40 == 0 )); then
-    JWT=$(mint_jwt)
-  fi
+  mint_if_stale
   RESP=$(curl -s -m 90 -X POST "http://localhost:8021/functions/v1/template-crawler"     -H "Authorization: Bearer $JWT" -H "Content-Type: application/json"     -d "{\"action\":\"crawl\",\"startPage\":$p,\"maxPages\":1,\"pageSize\":$PAGE_SIZE,\"withCovers\":true,\"force\":$FORCE}")
-  if echo "$RESP" | grep -q "invalid token"; then
-    JWT=$(mint_jwt)
-    RESP=$(curl -s -m 90 -X POST "http://localhost:8021/functions/v1/template-crawler"       -H "Authorization: Bearer $JWT" -H "Content-Type: application/json"       -d "{\"action\":\"crawl\",\"startPage\":$p,\"maxPages\":1,\"pageSize\":$PAGE_SIZE,\"withCovers\":true,\"force\":$FORCE}")
+  if echo "$RESP" | grep -q "invalid token" || [ -z "$RESP" ]; then
+    retry_page_once
   fi
   echo "[page $p] $RESP"
   if echo "$RESP" | grep -qE '"error"|invalid token|WorkerRequestCancelled' || [ -z "$RESP" ]; then
