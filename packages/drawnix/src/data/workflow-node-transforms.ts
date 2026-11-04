@@ -114,8 +114,8 @@ export class WorkflowNodeTransforms {
     const bound = board.children.filter(
       (child) =>
         isWorkflowConnectionElement(child as PlaitElement) &&
-        ((child as unknown as PlaitWorkflowConnection).source === nodeId ||
-          (child as unknown as PlaitWorkflowConnection).target === nodeId)
+        ((child as unknown as PlaitWorkflowConnection).wfSource === nodeId ||
+          (child as unknown as PlaitWorkflowConnection).wfTarget === nodeId)
     );
     const nodeIndex = board.children.findIndex((child) => child.id === nodeId);
     if (bound.length > 0) {

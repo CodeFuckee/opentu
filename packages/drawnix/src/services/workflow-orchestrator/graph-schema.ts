@@ -11,16 +11,30 @@ export const ORCHESTRATOR_GRAPH_SCHEMA_VERSION = 1;
 /** M1 节点数上限:防误操作拖垮主线程 */
 export const MAX_GRAPH_NODES = 64;
 
-/** 节点类型名(M1 三类 8 种) */
-export type OrchestratorNodeTypeName =
+/**
+ * 用户可在工具箱创建的节点类型。
+ * 参考图节点已移除:需要参考图时,把画布上已有的图片元素用连线接入生成节点,
+ * 由适配层虚拟为参考源(见 canvas-graph-adapter / VirtualSourceNodeTypeName)。
+ */
+export type UserCreatableNodeTypeName =
   | 'prompt'
-  | 'reference-image'
   | 'model-picker'
   | 'image-generation'
   | 'image-variation'
   | 'insert-canvas'
   | 'save-library'
   | 'preview';
+
+/**
+ * 内部虚拟源类型:不是用户可创建的节点。
+ * 画布图片元素连入工作流时虚拟为本类型;旧画布存量的 reference-image 节点运行期也按此兼容。
+ */
+export type VirtualSourceNodeTypeName = 'reference-image';
+
+/** 节点类型名(图模型内部使用 = 用户可建 + 内部虚拟) */
+export type OrchestratorNodeTypeName =
+  | UserCreatableNodeTypeName
+  | VirtualSourceNodeTypeName;
 
 export interface OrchestratorNode {
   id: string;

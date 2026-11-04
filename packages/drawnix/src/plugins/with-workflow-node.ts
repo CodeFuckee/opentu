@@ -181,11 +181,26 @@ export const withWorkflowNode: PlaitPlugin = (board: PlaitBoard) => {
           id: newId,
           points,
         };
-        // 连线重映射到新节点 id(复制的图保持连通)
+        // 连线重映射到新节点 id(复制的图保持连通)。
+        // 注意:语义字段是 wfSource/wfTarget;plait 箭头线的 source/target 是
+        // handle 对象,绑定元素 id 在其 boundId 上,同样需要重映射。
         if (isWorkflowConnectionElement(nextElement as PlaitElement)) {
           const conn = nextElement as unknown as PlaitWorkflowConnection;
-          conn.source = idMap.get(conn.source) ?? conn.source;
-          conn.target = idMap.get(conn.target) ?? conn.target;
+          const remapId = (id: unknown): unknown =>
+            idMap.get(String(id)) ?? id;
+          conn.wfSource = remapId(conn.wfSource) as string;
+          conn.wfTarget = remapId(conn.wfTarget) as string;
+          const remapHandle = (handle: unknown): unknown =>
+            handle && typeof handle === 'object'
+              ? {
+                  ...(handle as Record<string, unknown>),
+                  boundId: remapId(
+                    (handle as { boundId?: string }).boundId
+                  ),
+                }
+              : handle;
+          conn.source = remapHandle(conn.source) as typeof conn.source;
+          conn.target = remapHandle(conn.target) as typeof conn.target;
         }
         Transforms.insertNode(board, nextElement as PlaitElement, [
           board.children.length,

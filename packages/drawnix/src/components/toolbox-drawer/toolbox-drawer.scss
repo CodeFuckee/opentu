@@ -413,3 +413,36 @@
     }
   }
 }
+
+// 运行全部/停止行
+.toolbox-drawer__wf-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.toolbox-drawer__wf-btn--run {
+  border-color: #16a34a;
+  color: #16a34a;
+
+  &:hover {
+    border-color: #15803d;
+    color: #15803d;
+  }
+}
+
+.toolbox-drawer__wf-btn--stop {
+  border-color: #dc2626;
+  color: #dc2626;
+
+  &:hover {
+    border-color: #b91c1c;
+    color: #b91c1c;
+  }
+}
+
+.toolbox-drawer__wf-hint {
+  font-size: 11px;
+  color: #94a3b8;
+}

@@ -11,6 +11,7 @@ import React, {
   useMemo,
   useRef,
   useEffect,
+  useSyncExternalStore,
 } from 'react';
 import { Button, Input, MessagePlugin } from 'tdesign-react';
 import { SearchIcon, AddIcon } from 'tdesign-icons-react';
@@ -27,6 +28,8 @@ import {
   sortToolCategories,
 } from '../../constants/toolbox-shared';
 import { toolRegistry } from '../../tools/registry';
+import { workflowRunService } from '../../services/workflow-orchestrator/workflow-run-service';
+import type { UserCreatableNodeTypeName } from '../../services/workflow-orchestrator/graph-schema';
 import { ToolList } from './ToolList';
 import { WorkflowNodeTransforms } from '../../data/workflow-node-transforms';
 import { CustomToolDialog } from '../custom-tool-dialog/CustomToolDialog';
@@ -56,6 +59,11 @@ export const ToolboxDrawer: React.FC<ToolboxDrawerProps> = ({
   onOpenChange,
 }) => {
   const { board, appState, setAppState } = useDrawnix();
+  // 工作流运行态(运行全部/停止按钮),与节点卡片同源订阅 run-service
+  const wfRunSnapshot = useSyncExternalStore(
+    workflowRunService.subscribe,
+    workflowRunService.getSnapshot
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [customToolDialogVisible, setCustomToolDialogVisible] = useState(false);
@@ -567,7 +575,7 @@ export const ToolboxDrawer: React.FC<ToolboxDrawerProps> = ({
         <div className="toolbox-drawer__wf-section" data-testid="toolbox-wf-nodes">
           <div className="toolbox-drawer__wf-title">工作流节点</div>
           <div className="toolbox-drawer__wf-grid">
-            {[
+            {([
               { type: 'prompt', label: '提示词' },
               { type: 'model-picker', label: '模型与参数' },
               { type: 'image-generation', label: '文生图' },
@@ -575,14 +583,14 @@ export const ToolboxDrawer: React.FC<ToolboxDrawerProps> = ({
               { type: 'insert-canvas', label: '插入画布' },
               { type: 'save-library', label: '存素材库' },
               { type: 'preview', label: '预览' },
-            ].map((n) => (
+            ] as Array<{ type: UserCreatableNodeTypeName; label: string }>).map((n) => (
               <button
                 key={n.type}
                 type="button"
                 className="toolbox-drawer__wf-btn"
                 onClick={() => {
                   if (board) {
-                    WorkflowNodeTransforms.insertWorkflowNode(board, n.type as never);
+                    WorkflowNodeTransforms.insertWorkflowNode(board, n.type);
                   }
                 }}
               >
@@ -614,6 +622,28 @@ export const ToolboxDrawer: React.FC<ToolboxDrawerProps> = ({
               无限画布 ↗
             </button>
           </HoverTip>
+          <div className="toolbox-drawer__wf-row">
+            {wfRunSnapshot.running ? (
+              <button
+                type="button"
+                className="toolbox-drawer__wf-btn toolbox-drawer__wf-btn--stop"
+                data-testid="wf-run-stop"
+                onClick={() => workflowRunService.stop()}
+              >
+                停止运行
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="toolbox-drawer__wf-btn toolbox-drawer__wf-btn--run"
+                data-testid="wf-run-all"
+                onClick={() => workflowRunService.runAll()}
+              >
+                运行全部
+              </button>
+            )}
+            <span className="toolbox-drawer__wf-hint">连通的一簇节点按序执行</span>
+          </div>
         </div>
       </BaseDrawer>
 
