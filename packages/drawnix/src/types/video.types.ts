@@ -16,6 +16,7 @@ export type KnownVideoModel =
   | 'seedance-1.0-pro'
   | 'seedance-1.0-pro-fast'
   | 'seedance-1.0-lite'
+  | 'minimax-h3'
 
 // Video generation models also allow runtime-discovered ids.
 export type VideoModel = KnownVideoModel | string;
@@ -26,7 +27,8 @@ export type VideoProvider =
   | 'veo'
   | 'kling'
   | 'seedance'
-  | 'happyhorse';
+  | 'happyhorse'
+  | 'minimax';
 
 // Image upload mode
 export type ImageUploadMode = 'reference' | 'frames' | 'components';

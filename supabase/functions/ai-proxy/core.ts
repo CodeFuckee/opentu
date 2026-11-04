@@ -208,6 +208,34 @@ export function isVideoSubmitPath(method: string, path: string): boolean {
   return /\/videos(\/|$)/i.test(path);
 }
 
+/**
+ * 是否为视频任务子路径（GET 轮询或内容拉取）：/videos/{id} 与 /videos/{id}/content。
+ * 仅用于本地视频网关分流的转发目标判定；
+ * 注意与 isPollingPath 区分——/content 是二进制响应，禁止进入终态检测的缓冲重建
+ * （文本往返会损坏 mp4）。
+ */
+export function isVideoTaskPath(path: string): boolean {
+  return /\/videos\/[^/]+(\/content)?(\?|$)/i.test(path);
+}
+
+/**
+ * 模型名是否命中本地视频网关分流模式。
+ * pattern / model 未配置时不分流（功能关闭语义）；非法正则按不分流处理。
+ */
+export function matchesLocalVideoPattern(
+  model: string | undefined | null,
+  pattern: string | undefined | null
+): boolean {
+  if (!model || !pattern) {
+    return false;
+  }
+  try {
+    return new RegExp(pattern, 'i').test(model);
+  } catch {
+    return false;
+  }
+}
+
 function clampImageCount(n: unknown): number {
   const parsed =
     typeof n === 'number' ? n : typeof n === 'string' ? parseInt(n, 10) : NaN;
@@ -274,7 +302,8 @@ export function classifyBilling(
     if (model && new RegExp(pattern, 'i').test(model)) {
       return { billable: true, mode: 'submit', count: 1, detectedModel: model };
     }
-    return { billable: false, mode: 'none', count: 0 };
+    // 非计费视频提交也带出模型名：本地视频网关分流按它判定转发目标
+    return { billable: false, mode: 'none', count: 0, detectedModel: model };
   }
 
   // Google 协议：body 声明图像模态才算图
@@ -447,6 +476,23 @@ export async function handleAiProxyRequest({
   const pathOnly = searchIndex >= 0 ? pathSuffix.slice(0, searchIndex) : pathSuffix;
   const query = searchIndex >= 0 ? pathSuffix.slice(searchIndex) : '';
 
+  // ---------- 本地视频网关分流配置（仅视频提交/任务路径读取，缺省 = 功能关闭） ----------
+  const isVideoRoutingCandidate =
+    isVideoSubmitPath(method, pathOnly) ||
+    (method === 'GET' && isVideoTaskPath(pathOnly));
+  let localVideoGatewayUrl: string | null = null;
+  let localVideoPattern: string | null = null;
+  if (isVideoRoutingCandidate) {
+    try {
+      localVideoGatewayUrl = await readConfigValue(env, 'LOCAL_VIDEO_GATEWAY_URL', deps);
+      localVideoPattern = await readConfigValue(env, 'LOCAL_VIDEO_MODEL_PATTERN', deps);
+    } catch (error) {
+      // 配置读取失败按功能关闭处理，走默认上游
+      console.warn('[ai-proxy] local video config unavailable:',
+        error instanceof Error ? error.message : error);
+    }
+  }
+
   // ---------- 视频模型使用权门禁（白名单 + 管理员，上线即收紧） ----------
   // 提交型视频请求在读取 body / 转发前短路判定；轮询 GET 与其余路径不受影响
   if (isVideoSubmitPath(method, pathOnly)) {
@@ -509,6 +555,49 @@ export async function handleAiProxyRequest({
     asyncImagePattern
   );
 
+  // ---------- 转发目标分流：本地视频网关（MiniMax H3 等，configs 可配） ----------
+  // 提交：按表单/JSON 里的 model 判定；轮询：按任务路由表记录的提交模型判定。
+  // 未命中/功能关闭/查询失败一律走默认上游（NEWAPI_URL），现有行为不受影响。
+  let requestUpstream = upstreamBaseUrl;
+  let routedLocalVideo = false;
+  if (localVideoGatewayUrl && localVideoPattern) {
+    if (isVideoSubmitPath(method, pathOnly)) {
+      routedLocalVideo = matchesLocalVideoPattern(
+        classification.detectedModel,
+        localVideoPattern
+      );
+    } else if (method === 'GET' && isVideoTaskPath(pathOnly)) {
+      const taskId = extractUpstreamId(pathOnly, null);
+      if (taskId) {
+        try {
+          const routeModel = await callProfileRpc(
+            env,
+            'get_local_video_route_model',
+            { p_upstream_id: taskId },
+            deps
+          );
+          // PostgREST 标量函数返回 JSON 标量（字符串），兼容对象包装形态
+          const model =
+            typeof routeModel === 'string'
+              ? routeModel
+              : typeof (routeModel as Record<string, unknown>)
+                    ?.get_local_video_route_model === 'string'
+                ? ((routeModel as Record<string, string>)
+                    .get_local_video_route_model as string)
+                : null;
+          routedLocalVideo = matchesLocalVideoPattern(model, localVideoPattern);
+        } catch (error) {
+          // 路由查询失败按默认上游处理
+          console.warn('[ai-proxy] local video route lookup failed:',
+            error instanceof Error ? error.message : error);
+        }
+      }
+    }
+  }
+  if (routedLocalVideo && localVideoGatewayUrl) {
+    requestUpstream = localVideoGatewayUrl.replace(/\/$/, '');
+  }
+
   // ---------- 预扣额度 ----------
   if (classification.billable) {
     try {
@@ -557,7 +646,7 @@ export async function handleAiProxyRequest({
   }
 
   // ---------- 转发 ----------
-  const upstreamUrl = `${upstreamBaseUrl}${pathOnly}${query}`;
+  const upstreamUrl = `${requestUpstream}${pathOnly}${query}`;
   let upstreamResponse: Response;
   try {
     upstreamResponse = await doFetch(upstreamUrl, {
@@ -619,6 +708,43 @@ export async function handleAiProxyRequest({
         console.warn('[ai-proxy] record_task_bill retry failed:',
           retryError instanceof Error ? retryError.message : retryError);
       }
+    }
+  }
+
+  // ---------- 本地视频网关任务：提交成功后记录路由（供轮询分流），非计费语义 ----------
+  if (
+    !respondBuffered &&
+    routedLocalVideo &&
+    classification.mode !== 'submit' &&
+    method === 'POST' &&
+    upstreamResponse.ok
+  ) {
+    let buffer: ConsumedBody | null = null;
+    try {
+      buffer = await consumeResponseText(upstreamResponse);
+    } catch {
+      // 读不出响应体则原样透传，不记路由（后续轮询走默认上游）
+    }
+    if (buffer) {
+      try {
+        const json = tryParseJson(buffer.text);
+        const id = extractUpstreamId(pathOnly, json);
+        if (id && classification.detectedModel) {
+          await callVoidRpc(
+            env,
+            'record_local_video_route',
+            { p_upstream_id: id, p_model: classification.detectedModel },
+            deps
+          );
+        }
+      } catch (error) {
+        // 路由记录失败不影响主流程：前端拿到的 video_url 指向本地网关，
+        // 播放/下载直连网关不受影响；仅代理路径轮询会回落默认上游
+        console.warn('[ai-proxy] record_local_video_route failed:',
+          error instanceof Error ? error.message : error);
+      }
+      upstreamResponse = rebuildResponse(buffer);
+      respondBuffered = true;
     }
   }
 

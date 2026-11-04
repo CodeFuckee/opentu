@@ -93,6 +93,8 @@ docker exec -i supabase-db psql -U supabase_admin -d postgres < supabase/migrati
 |---|---|
 | `NEWAPI_URL` | **必需**，自建 new-api 地址（已有） |
 | `ASYNC_IMAGE_MODEL_PATTERN` | 正则，识别异步图像表单提交的模型名，缺省 `image` |
+| `LOCAL_VIDEO_GATEWAY_URL` | 本地视频网关基地址（如 `http://10.0.0.220:8788`）；**缺省不配置 = 分流功能关闭** |
+| `LOCAL_VIDEO_MODEL_PATTERN` | 命中该正则（不区分大小写）的模型名走本地网关，如 `^MiniMax-H3$`；缺省不分流 |
 | `image_monthly_quota_default` | 全局月度限额，缺省 200 |
 | `image_monthly_quota_{部门名}` | 部门级覆盖限额 |
 
@@ -167,6 +169,42 @@ docker exec -i supabase-db psql -U supabase_admin -d postgres < supabase/migrati
    **删除行 = 该用户立即拒用**（管理员除外）；
 3. ⚠️ 上线即收紧：部署新版 ai-proxy 之前，先在表里加好初始名单
    （管理员账号本就豁免，普通用户不加行即被拒）。
+
+## 本地视频网关分流（MiniMax H3，2026-11 新增）
+
+服务器本地部署的 MiniMax H3 视频网关（`~/h3-video/`，ComfyUI 后端，端口 8788）
+按 **模型名分流** 接入：命中 `LOCAL_VIDEO_MODEL_PATTERN` 的请求改转
+`LOCAL_VIDEO_GATEWAY_URL`，其余流量不受影响：
+
+```
+POST …/videos（视频提交）
+   ├─ 解析表单/JSON 的 model（复用计费分类的解析）
+   ├─ model 命中 LOCAL_VIDEO_MODEL_PATTERN（不区分大小写）
+   │    → 转发 LOCAL_VIDEO_GATEWAY_URL（仍先过视频使用权白名单门禁）
+   └─ 未命中/未配置 → 默认转发 NEWAPI_URL（行为不变）
+
+GET …/videos/{id}、GET …/videos/{id}/content（轮询/取流）
+   ├─ 按任务路由表 local_video_task_routes 记录的提交模型判定
+   │    → 命中 → 转发本地网关；无记录/未命中 → 默认 NEWAPI_URL
+   └─ /content 为二进制透传（不进入终态检测缓冲，mp4 不损坏）
+```
+
+- 计费语义不变：本地视频同样不计费、不扣额度（白名单门禁仍生效）；
+- 路由记录只在提交成功且命中分流时写入（量小，不参与退额）；
+- 功能开关 = 是否配置 `LOCAL_VIDEO_GATEWAY_URL`（未配置时两条配置都不读，
+  零额外开销，行为与旧版完全一致）；
+- 分流模式建议锚定（如 `^MiniMax-H3$`），避免误吞第三方中转的同前缀模型
+  （tu-zi 网关上有 MiniMax-H3 / MiniMax-H3-Context-IR 等 API 中转模型）。
+
+迁移（含两条 configs 幂等写入 + 路由表 + RPC）：
+
+```bash
+docker exec -i supabase-db psql -U supabase_admin -d postgres < supabase/migrations/local_video_gateway.sql
+```
+
+⚠️ 部署顺序：先上线前端（含 minimax-h3 adapter）与 ai-proxy，再应用本迁移的
+configs 写入（迁移文件可提前执行表结构部分）；pattern 生效前老前端不会提交
+命中模型，无副作用。
 
 ## 超时配置（2026-09-15 调整，服务器侧）
 

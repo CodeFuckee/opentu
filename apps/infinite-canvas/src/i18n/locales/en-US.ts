@@ -490,6 +490,7 @@ export default {
             defaultName: "Default provider",
             newName: "New provider",
             indexedName: "Provider {{index}}",
+            h3LocalName: "MiniMax H3 (local)",
         },
         preferences: {
             interface: "Interface",

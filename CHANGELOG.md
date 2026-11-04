@@ -26,6 +26,40 @@
 - **验证**：template-crawler core.test 20 例（新增 3：易变计数漂移哈希不变/内容字段
   变化哈希仍变守卫/漂移行走增量跳过路径不拉详情不 upsert），supabase 全部边缘函数
   单测 237 例通过，nx typecheck 全绿
+### feat: 接入本地部署 MiniMax H3 视频模型——两个画布可用，不设默认
+
+把服务器本地部署的 MiniMax H3 视频网关（`~/h3-video/`，ComfyUI 后端 127.0.0.1:8188 +
+FastAPI 网关 0.0.0.0:8788，Ref2VA INT8 + Turbo LoRA）接入 opentu 两个画布的视频模型列表
+（仅加入，不改默认模型）：
+
+- **infinite-canvas 无限画布（/canvas-ai）**：`use-config-store` 新增内置渠道
+  `h3-local`（baseUrl `http://10.37.80.25:8788`，与网关 PUBLIC_BASE 同址——画布用户
+  网段可达；apiKey 占位 `local` 满足就绪校验，
+  模型 `MiniMax-H3` 显式 video capability——`guessCapability` 关键字不含 minimax）；
+  持久化 merge 增强 `ensureBuiltInChannels()`：老用户 localStorage 无该渠道时自动补上
+  （按 id 或 baseUrl 去重，内置渠道删除后下次加载恢复）；i18n 渠道名 zh/en 各加一条
+- **drawnix 主画布**：`KnownVideoModel`/`VideoProvider` 加 `minimax-h3`/`minimax`；
+  `VIDEO_MODEL_CONFIGS` / `BUILT_IN_VIDEO_MODELS` 新增条目（推荐分 70，不抢 seedance
+  置顶；分辨率档仅 720p/480p——网关像素预算 ~0.52MP，1080p 会被缩回）；新增
+  `minimax-h3-adapter`（POST /v1/videos multipart：model=MiniMax-H3 + seconds 钳 1~10 +
+  `720p@16:9` 组合串先换算成 `宽x高`（网关只按数字x数字正则解析，floor 对齐 32 与网关
+  规则一致）+ 参考图 `image[]` 最多 9 张；轮询 GET /v1/videos/{id} 取 video_url）；
+  注册进 `registerDefaultModelAdapters()`
+- **ai-proxy 按模型分流（服务端）**：configs 新键 `LOCAL_VIDEO_GATEWAY_URL` +
+  `LOCAL_VIDEO_MODEL_PATTERN`（未配置 = 功能关闭，零开销走原 NEWAPI_URL）；提交按
+  表单/JSON model 命中 pattern → 转发本地网关（白名单门禁/计费语义不变）；轮询与
+  /content 按任务路由表 `local_video_task_routes`（新迁移 `local_video_gateway.sql`：
+  表 + record/get RPC + configs 幂等写入）记录的提交模型分流；/content 二进制透传
+  不进终态检测缓冲。迁移 `model_catalog_minimax_h3.sql` 上架云端目录行（**必须在前端
+  + ai-proxy 分流生效后执行**，catalog 非空即接管）
+- **测试**：infinite-canvas `builtin-h3-channel.test.ts` 5 例；drawnix
+  `minimax-h3-adapter.test.ts` 7 例（尺寸换算/秒数钳制/提交与轮询契约/注册路由）；
+  ai-proxy `core.test.ts` 新增 7 例（分流命中/不命中/功能关闭/轮询按路由/无记录回退/
+  /content 二进制透传），35/35
+- **运维注意**：网关 `PUBLIC_BASE` 需为用户可达地址（建议 `http://10.0.0.220:8788`，
+  改 `~/h3-video/scripts/start.sh` 后重启网关），否则视频 `video_url` 指向不可达 IP；
+  生产生效顺序：前端 + ai-proxy（volumes/functions 拷贝）→ configs（迁移内幂等写入）
+  → `model_catalog_minimax_h3.sql`
 
 ### feat: 视频模型下架 gemini/veo/kling/happyhorse——画布仅保留 seedance 系
 

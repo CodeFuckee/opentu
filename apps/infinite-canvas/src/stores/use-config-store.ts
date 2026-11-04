@@ -79,6 +79,22 @@ const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com";
 export const LOCAL_PROXY_PACKAGE = "@basketikun/canvas-proxy";
 export const DEFAULT_LOCAL_PROXY_URL = "http://127.0.0.1:23210";
 
+export const H3_LOCAL_CHANNEL_ID = "h3-local";
+/** 与网关 PUBLIC_BASE 一致（用户网段可达该地址；其他网段用户可在设置里改渠道地址） */
+export const H3_LOCAL_GATEWAY_URL = "http://10.37.80.25:8788";
+
+/** 内置渠道：服务器本地部署的 MiniMax H3 视频网关（网关不校验鉴权，apiKey 仅为就绪校验占位）。 */
+export function createH3LocalChannel(): ModelChannel {
+    return {
+        id: H3_LOCAL_CHANNEL_ID,
+        name: i18n.t("config.channels.h3LocalName"),
+        baseUrl: H3_LOCAL_GATEWAY_URL,
+        apiKey: "local",
+        apiFormat: "openai",
+        models: [{ name: "MiniMax-H3", capability: "video" }],
+    };
+}
+
 export const defaultConfig: AiConfig = {
     channelMode: "local",
     baseUrl: OPENAI_BASE_URL,
@@ -98,6 +114,7 @@ export const defaultConfig: AiConfig = {
                 { name: "gpt-4o-mini-tts", capability: "audio" },
             ],
         },
+        createH3LocalChannel(),
     ],
     model: "default::gpt-image-2",
     imageModel: "default::gpt-image-2",
@@ -115,7 +132,13 @@ export const defaultConfig: AiConfig = {
     videoMode: "frames",
     systemPrompt: "",
     reasoningEffort: "auto",
-    models: ["default::gpt-image-2", "default::grok-imagine-video", "default::gpt-5.5", "default::gpt-4o-mini-tts"],
+    models: [
+        "default::gpt-image-2",
+        "default::grok-imagine-video",
+        "h3-local::MiniMax-H3",
+        "default::gpt-5.5",
+        "default::gpt-4o-mini-tts",
+    ],
     quality: "auto",
     size: "1:1",
     background: "",
@@ -253,8 +276,8 @@ export const useConfigStore = create<ConfigStore>()(
                 const persistedConfig = (persistedState.config || {}) as Partial<AiConfig>;
                 const persistedWebdav = (persistedState.webdav || {}) as Partial<WebdavSyncConfig>;
                 const config = { ...defaultConfig, ...persistedConfig };
-                if (!Array.isArray(persistedConfig.channels)) config.channels = [];
-                const channels = normalizeChannels(config);
+    if (!Array.isArray(persistedConfig.channels)) config.channels = [];
+    const channels = ensureBuiltInChannels(normalizeChannels(config));
                 const models = modelOptionsFromChannels(channels);
                 return {
                     ...current,
@@ -469,6 +492,15 @@ function normalizeChannels(config: AiConfig) {
         );
     }
     return channels;
+}
+
+/** 追加缺失的内置渠道：老用户 localStorage 无 h3-local 渠道时补上（内置渠道，删除后下次加载会恢复）。 */
+export function ensureBuiltInChannels(channels: ModelChannel[]): ModelChannel[] {
+    const builtIn = createH3LocalChannel();
+    const exists = channels.some(
+        (channel) => channel.id === builtIn.id || normalizedBaseUrlKey(channel.baseUrl) === normalizedBaseUrlKey(builtIn.baseUrl),
+    );
+    return exists ? channels : [...channels, builtIn];
 }
 
 export function defaultBaseUrlForApiFormat(apiFormat: ApiCallFormat) {

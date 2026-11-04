@@ -233,6 +233,7 @@ const BUILT_IN_MODEL_RECOMMENDATION_SCORES: Readonly<Record<string, number>> = {
   'seedance-1.0-pro': 96,
   'seedance-1.0-pro-fast': 95,
   'seedance-1.0-lite': 94,
+  'minimax-h3': 70,
   'sora-2': 60,
   'sora-2-pro': 59,
   'sora-2-4s': 58,
@@ -691,6 +692,13 @@ const HAPPYHORSE_DEFAULT_PARAMS: VideoModelDefaults = {
   aspectRatio: '16:9',
 };
 
+/** MiniMax H3（本地网关）默认参数（5秒，720p；网关像素预算 ~0.52MP，超预算自动缩） */
+const MINIMAX_H3_DEFAULT_PARAMS: VideoModelDefaults = {
+  duration: '5',
+  size: '720p',
+  aspectRatio: '16:9',
+};
+
 /**
  * 视频模型配置
  */
@@ -741,6 +749,15 @@ const BUILT_IN_VIDEO_MODELS: ModelConfig[] = [
     type: 'video',
     vendor: ModelVendor.DOUBAO,
     videoDefaults: SEEDANCE_DEFAULT_PARAMS,
+  },
+  {
+    id: 'minimax-h3',
+    label: 'MiniMax H3（本地）',
+    shortCode: 'mmh3',
+    description: '本地部署 MiniMax H3，支持多参考图与音频',
+    type: 'video',
+    vendor: ModelVendor.MINIMAX,
+    videoDefaults: MINIMAX_H3_DEFAULT_PARAMS,
   },
 ];
 

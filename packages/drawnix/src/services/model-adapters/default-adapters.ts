@@ -33,6 +33,7 @@ import { registerMJImageAdapter } from './mj-image-adapter';
 import { registerFluxAdapter } from './flux-adapter';
 import { registerSeedreamAdapter } from './seedream-adapter';
 import { registerSeedanceAdapter } from './seedance-adapter';
+import { registerMinimaxH3Adapter } from './minimax-h3-adapter';
 import { registerGPTImageAdapter } from './gpt-image-adapter';
 import { registerTuziGPTImageAdapter } from './tuzi-gpt-image-adapter';
 import {
@@ -350,4 +351,5 @@ export function registerDefaultModelAdapters(): void {
   registerFluxAdapter();
   registerSeedreamAdapter();
   registerSeedanceAdapter();
+  registerMinimaxH3Adapter();
 }

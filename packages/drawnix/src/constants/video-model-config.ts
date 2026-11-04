@@ -31,6 +31,21 @@ const SEEDANCE_SIZE_OPTIONS: SizeOption[] = SEEDANCE_RESOLUTION_OPTIONS.flatMap(
     }))
 );
 
+/**
+ * MiniMax H3 本地网关的像素预算约 0.52MP（16G 共享显存保守值，超预算自动等比缩小），
+ * 分辨率档只到 720p，1080p 会被网关缩回，不提供该档。
+ */
+const MINIMAX_H3_RESOLUTION_OPTIONS = ['720p', '480p'] as const;
+
+const MINIMAX_H3_SIZE_OPTIONS: SizeOption[] =
+  MINIMAX_H3_RESOLUTION_OPTIONS.flatMap((resolution) =>
+    SEEDANCE_ASPECT_RATIO_OPTIONS.map(({ label, aspectRatio }) => ({
+      label: `${resolution} · ${label}`,
+      value: `${resolution}@${aspectRatio}`,
+      aspectRatio,
+    }))
+  );
+
 
 
 /**
@@ -127,6 +142,26 @@ export const VIDEO_MODEL_CONFIGS: Record<string, VideoModelConfig> = {
       maxCount: 4,
       mode: 'reference',
       labels: ['首帧', '尾帧', '参考图1', '参考图2'],
+    },
+  },
+
+  // MiniMax H3（服务器本地部署网关，见 ~/h3-video/，Ref2VA 最多 9 张参考图）
+  'minimax-h3': {
+    id: 'minimax-h3',
+    label: 'MiniMax H3（本地）',
+    provider: 'minimax',
+    description: '本地部署 MiniMax H3，支持多参考图与音频',
+    durationOptions: [
+      { label: '5秒', value: '5' },
+      { label: '10秒', value: '10' },
+    ],
+    defaultDuration: '5',
+    sizeOptions: MINIMAX_H3_SIZE_OPTIONS,
+    defaultSize: '720p@16:9',
+    imageUpload: {
+      maxCount: 9,
+      mode: 'reference',
+      labels: ['参考图'],
     },
   },
 

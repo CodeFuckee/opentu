@@ -12,6 +12,9 @@
  * - 非 JSON 响应原样透传
  * - 视频模型使用权门禁：非白名单 POST /videos → 403 video_access_denied；
  *   白名单放行；RPC 异常 503；GET 轮询/图片提交不受影响；video-access 自查端点
+ * - 本地视频网关分流：提交按 model 命中 LOCAL_VIDEO_MODEL_PATTERN 转发
+ *   LOCAL_VIDEO_GATEWAY_URL 并记录路由；轮询//content 按路由表分流；
+ *   未配置 = 功能关闭走默认上游；二进制透传不损坏
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -21,6 +24,8 @@ import {
   extractBearerToken,
   isPollingPath,
   isVideoSubmitPath,
+  isVideoTaskPath,
+  matchesLocalVideoPattern,
   detectTerminalFailure,
 } from './core.ts';
 
@@ -28,6 +33,7 @@ const SUPABASE_URL = 'http://supabase.local';
 const SRK = 'service-role-key';
 const NEWAPI_URL = 'http://newapi.local:3000';
 const NEWAPI_KEY = 'sk-global-newapi-key';
+const LOCAL_VIDEO_URL = 'http://local-video.local:8788';
 
 interface Route {
   match: (url: string, init?: RequestInit) => boolean;
@@ -77,10 +83,14 @@ const baseRoutes = (): Route[] => [
 /** 默认全套依赖路由：auth/config/rpc */
 function standardRoutes(options: {
   configApiKey?: string | null;
-  consumeResult?: Record<string, unknown>;
-  quotaResult?: Record<string, unknown>;
+  /** 本地视频网关分流配置（undefined = 未配置 = 功能关闭） */
+  localVideoGatewayUrl?: string | null;
+  localVideoPattern?: string | null;
+  /** 轮询路由表查询返回的模型名（null = 无记录） */
+  localRouteModel?: string | null;
   videoAccessResult?: Record<string, unknown>;
   upstream?: (url: string, init?: RequestInit) => Response;
+  localUpstream?: (url: string, init?: RequestInit) => Response;
   extra?: Route[];
 }): Route[] {
   return [
@@ -97,8 +107,40 @@ function standardRoutes(options: {
               : [{ value: options.configApiKey }]
         ),
     },
+    {
+      match: (url) =>
+        url.includes('/rest/v1/configs?key=eq.LOCAL_VIDEO_GATEWAY_URL'),
+      respond: () =>
+        json(
+          200,
+          options.localVideoGatewayUrl
+            ? [{ value: options.localVideoGatewayUrl }]
+            : []
+        ),
+    },
+    {
+      match: (url) =>
+        url.includes('/rest/v1/configs?key=eq.LOCAL_VIDEO_MODEL_PATTERN'),
+      respond: () =>
+        json(
+          200,
+          options.localVideoPattern
+            ? [{ value: options.localVideoPattern }]
+            : []
+        ),
+    },
     ...baseRoutes(),
     ...(options.extra || []),
+    {
+      match: (url) =>
+        url.includes('/rest/v1/rpc/get_local_video_route_model'),
+      respond: () => json(200, options.localRouteModel ?? null),
+    },
+    {
+      match: (url) =>
+        url.includes('/rest/v1/rpc/record_local_video_route'),
+      respond: () => json(200, null),
+    },
     {
       match: (url) => url.includes('/rest/v1/rpc/has_video_model_access'),
       respond: () => json(200, options.videoAccessResult ?? { allowed: true }),
@@ -112,6 +154,13 @@ function standardRoutes(options: {
       match: (url) => url.includes('/rest/v1/rpc/get_image_quota'),
       respond: () =>
         json(200, options.quotaResult ?? { limit: 200, used: 37, remaining: 163, period: '2026-08-01' }),
+    },
+    {
+      match: (url) => url.includes(LOCAL_VIDEO_URL),
+      respond: (url, init) =>
+        options.localUpstream
+          ? options.localUpstream(url, init)
+          : json(200, { id: 'tv-1', status: 'queued', model: 'MiniMax-H3' }),
     },
     {
       match: (url) => url.includes(NEWAPI_URL),
@@ -1012,4 +1061,215 @@ test('video-access 端点：无 JWT → 401', async () => {
     },
   });
   assert.equal(response.status, 401);
+});
+
+// ============================================================
+// 本地视频网关分流（LOCAL_VIDEO_GATEWAY_URL + LOCAL_VIDEO_MODEL_PATTERN）
+// ============================================================
+
+test('isVideoTaskPath / matchesLocalVideoPattern 基础行为', () => {
+  assert.equal(isVideoTaskPath('/v1/videos/task-123'), true);
+  assert.equal(isVideoTaskPath('/v1/videos/task-123/content'), true);
+  assert.equal(isVideoTaskPath('/v1/videos/task-123/content?x=1'), true);
+  assert.equal(isVideoTaskPath('/v1/videos'), false);
+  assert.equal(isVideoTaskPath('/v1/images/generations'), false);
+  assert.equal(matchesLocalVideoPattern('MiniMax-H3', '^MiniMax-H3$'), true);
+  assert.equal(
+    matchesLocalVideoPattern('MiniMax-H3-Context-IR', '^MiniMax-H3$'),
+    false,
+    '锚定 pattern 不误吞第三方中转模型'
+  );
+  assert.equal(matchesLocalVideoPattern('MiniMax-H3', null), false, '未配置 pattern 不分流');
+  assert.equal(matchesLocalVideoPattern(undefined, '^MiniMax-H3$'), false);
+  assert.equal(matchesLocalVideoPattern('MiniMax-H3', '('), false, '非法正则不分流');
+});
+
+test('本地视频分流：提交命中 pattern → 转发本地网关并记录路由', async () => {
+  const calls: string[] = [];
+  const rpcBodies: string[] = [];
+  const response = await handleAiProxyRequest({
+    env: { SUPABASE_URL: SUPABASE_URL, SERVICE_ROLE_KEY: SRK },
+    request: makeRequest('/v1/videos', {
+      body: 'model=MiniMax-H3&prompt=cute%20cat',
+      headers: {
+        Authorization: 'Bearer test-jwt',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    }),
+    pathSuffix: '/v1/videos',
+    deps: {
+      fetch: routeFetch(
+        standardRoutes({
+          localVideoGatewayUrl: LOCAL_VIDEO_URL,
+          localVideoPattern: '^MiniMax-H3$',
+          extra: [
+            {
+              match: (url) =>
+                url.includes('/rest/v1/rpc/record_local_video_route'),
+              respond: (_url, init) => {
+                rpcBodies.push(String(init?.body));
+                return json(200, null);
+              },
+            },
+          ],
+        }),
+        calls
+      ) as typeof fetch,
+    },
+  });
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.id, 'tv-1');
+  assert.ok(
+    calls.some((c) => c === `${LOCAL_VIDEO_URL}/v1/videos`),
+    '命中 pattern 的提交应转发本地网关'
+  );
+  assert.ok(
+    !calls.some((c) => c.includes(NEWAPI_URL)),
+    '命中分流的提交不应转发默认上游'
+  );
+  assert.equal(rpcBodies.length, 1, '提交成功应记录路由');
+  const recorded = JSON.parse(rpcBodies[0]);
+  assert.equal(recorded['p_upstream_id'], 'tv-1');
+  assert.equal(recorded['p_model'], 'MiniMax-H3');
+});
+
+test('本地视频分流：pattern 不命中的提交走默认上游且不记路由', async () => {
+  const calls: string[] = [];
+  const response = await handleAiProxyRequest({
+    env: { SUPABASE_URL: SUPABASE_URL, SERVICE_ROLE_KEY: SRK },
+    request: makeRequest('/v1/videos', {
+      body: 'model=kling-v2&prompt=cute%20cat',
+      headers: {
+        Authorization: 'Bearer test-jwt',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    }),
+    pathSuffix: '/v1/videos',
+    deps: {
+      fetch: routeFetch(
+        standardRoutes({
+          localVideoGatewayUrl: LOCAL_VIDEO_URL,
+          localVideoPattern: '^MiniMax-H3$',
+        }),
+        calls
+      ) as typeof fetch,
+    },
+  });
+  assert.equal(response.status, 200);
+  assert.ok(calls.some((c) => c.includes(NEWAPI_URL)));
+  assert.ok(!calls.some((c) => c.includes(LOCAL_VIDEO_URL)));
+  assert.ok(
+    !calls.some((c) => c.includes('/rest/v1/rpc/record_local_video_route')),
+    '未命中分流不记录路由'
+  );
+});
+
+test('本地视频分流：功能关闭（未配置网关）时命中模型也走默认上游', async () => {
+  const calls: string[] = [];
+  const response = await handleAiProxyRequest({
+    env: { SUPABASE_URL: SUPABASE_URL, SERVICE_ROLE_KEY: SRK },
+    request: makeRequest('/v1/videos', {
+      body: 'model=MiniMax-H3&prompt=cute%20cat',
+      headers: {
+        Authorization: 'Bearer test-jwt',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    }),
+    pathSuffix: '/v1/videos',
+    deps: {
+      fetch: routeFetch(standardRoutes({ localVideoPattern: '^MiniMax-H3$' }), calls) as typeof fetch,
+    },
+  });
+  assert.equal(response.status, 200);
+  assert.ok(calls.some((c) => c.includes(NEWAPI_URL)));
+  assert.ok(!calls.some((c) => c.includes(LOCAL_VIDEO_URL)));
+});
+
+test('本地视频分流：轮询按路由表记录转发本地网关', async () => {
+  const calls: string[] = [];
+  const request = new Request('http://proxy.local/functions/v1/ai-proxy/v1/videos/tv-1', {
+    headers: { Authorization: 'Bearer test-jwt' },
+  });
+  const response = await handleAiProxyRequest({
+    env: { SUPABASE_URL: SUPABASE_URL, SERVICE_ROLE_KEY: SRK },
+    request,
+    pathSuffix: '/v1/videos/tv-1',
+    deps: {
+      fetch: routeFetch(
+        standardRoutes({
+          localVideoGatewayUrl: LOCAL_VIDEO_URL,
+          localVideoPattern: '^MiniMax-H3$',
+          localRouteModel: 'MiniMax-H3',
+        }),
+        calls
+      ) as typeof fetch,
+    },
+  });
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.id, 'tv-1');
+  assert.ok(
+    calls.some((c) => c === `${LOCAL_VIDEO_URL}/v1/videos/tv-1`),
+    '路由表命中 model 的轮询应转发本地网关'
+  );
+  assert.ok(!calls.some((c) => c.includes(NEWAPI_URL)));
+});
+
+test('本地视频分流：无路由记录的轮询走默认上游', async () => {
+  const calls: string[] = [];
+  const request = new Request('http://proxy.local/functions/v1/ai-proxy/v1/videos/task-other', {
+    headers: { Authorization: 'Bearer test-jwt' },
+  });
+  const response = await handleAiProxyRequest({
+    env: { SUPABASE_URL: SUPABASE_URL, SERVICE_ROLE_KEY: SRK },
+    request,
+    pathSuffix: '/v1/videos/task-other',
+    deps: {
+      fetch: routeFetch(
+        standardRoutes({
+          localVideoGatewayUrl: LOCAL_VIDEO_URL,
+          localVideoPattern: '^MiniMax-H3$',
+          localRouteModel: null,
+        }),
+        calls
+      ) as typeof fetch,
+    },
+  });
+  assert.equal(response.status, 200);
+  assert.ok(calls.some((c) => c.includes(NEWAPI_URL)));
+  assert.ok(!calls.some((c) => c.includes(LOCAL_VIDEO_URL)));
+});
+
+test('本地视频分流：/content 按路由转发且二进制原样透传', async () => {
+  const calls: string[] = [];
+  const mp4 = new Uint8Array([0x00, 0x01, 0xff, 0xfe, 0x66, 0x74, 0x79, 0x70]);
+  const request = new Request(
+    'http://proxy.local/functions/v1/ai-proxy/v1/videos/tv-1/content',
+    { headers: { Authorization: 'Bearer test-jwt' } }
+  );
+  const response = await handleAiProxyRequest({
+    env: { SUPABASE_URL: SUPABASE_URL, SERVICE_ROLE_KEY: SRK },
+    request,
+    pathSuffix: '/v1/videos/tv-1/content',
+    deps: {
+      fetch: routeFetch(
+        standardRoutes({
+          localVideoGatewayUrl: LOCAL_VIDEO_URL,
+          localVideoPattern: '^MiniMax-H3$',
+          localRouteModel: 'MiniMax-H3',
+          localUpstream: () =>
+            new Response(mp4, {
+              status: 200,
+              headers: { 'Content-Type': 'video/mp4' },
+            }),
+        }),
+        calls
+      ) as typeof fetch,
+    },
+  });
+  assert.equal(response.status, 200);
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  assert.deepEqual(Array.from(bytes), Array.from(mp4), '二进制不应被缓冲重建损坏');
+  assert.ok(calls.some((c) => c === `${LOCAL_VIDEO_URL}/v1/videos/tv-1/content`));
 });

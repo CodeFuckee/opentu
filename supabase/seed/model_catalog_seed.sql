@@ -1281,3 +1281,41 @@ update public.model_catalog
         or id ilike 'omni-flash%'
         or id ilike 'happyhorse%')
    and (type = 'video' or type = 'image');
+
+-- 上架 MiniMax H3（本地网关）——2026-11-04，与 model_catalog_minimax_h3.sql 保持一致；
+-- ⚠️ 仅在前端（含 minimax-h3 adapter）+ ai-proxy 本地网关分流生效后执行。
+insert into public.model_catalog (
+  id, type, vendor, label, short_label, short_code, description,
+  is_vip, supports_tools, recommended_score,
+  image_defaults, video_defaults, tags, enabled
+) values (
+  'minimax-h3',
+  'video',
+  'MINIMAX',
+  'MiniMax H3（本地）',
+  '',
+  'mmh3',
+  '本地部署 MiniMax H3，支持多参考图与音频',
+  false,
+  false,
+  70,
+  null,
+  '{"size": "720p", "duration": "5", "aspectRatio": "16:9"}'::jsonb,
+  '{}'::text[],
+  true
+)
+on conflict (id) do update set
+  type = excluded.type,
+  vendor = excluded.vendor,
+  label = excluded.label,
+  short_label = excluded.short_label,
+  short_code = excluded.short_code,
+  description = excluded.description,
+  is_vip = excluded.is_vip,
+  supports_tools = excluded.supports_tools,
+  recommended_score = excluded.recommended_score,
+  image_defaults = excluded.image_defaults,
+  video_defaults = excluded.video_defaults,
+  tags = excluded.tags,
+  enabled = true,
+  updated_at = now();
