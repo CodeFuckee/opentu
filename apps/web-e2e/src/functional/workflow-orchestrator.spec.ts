@@ -8,6 +8,7 @@
  */
 import type { Page } from '@playwright/test';
 import { test, expect } from '../fixtures/test-base';
+import { disableCloudPullForLocalIsolation } from '../fixtures/cloud-sync-helpers';
 
 async function openToolboxAndAddNode(page: Page, label: string) {
   await page.getByTestId('toolbar-toolbox').click();
@@ -42,6 +43,14 @@ async function connect(page: Page, fromLabel: string, toLabel: string) {
 }
 
 test.describe('工作流编排(主画布)', () => {
+  // 刷新停留原画布修复（6ffbc0ae）后，冷启动不再掉进「种新空白板」兜底而是
+  // 停留树首板——共享账号首板可能带历史工作流节点残留，cardOf().first() 会
+  // 命中残留致删除断言（toHaveCount(0)）失败。本套件只测画布交互、与云无关，
+  // 统一接本地隔离（全新 context 本地 IndexedDB 为空 → 干净画布）。
+  test.beforeEach(async ({ page }) => {
+    await disableCloudPullForLocalIsolation(page);
+  });
+
   test('P0 搭建生图编排:加节点/连线/填提示词', async ({ page }) => {
     test.setTimeout(120_000);
     await page.goto('/');
