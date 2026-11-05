@@ -542,42 +542,47 @@ export function App() {
             }
           }
         }
-        if (!currentBoard && isCloudOnlyStorage()) {
-          // 云端唯一存储（remove-local-persistence）：画板树已在
-          // workspaceService.initialize() 时从云端拉取——此处空即云端确认为空，
-          // 直接种默认板（无等待窗口、无本地/云端二段确认）
-          const board = await createDefaultBoardSafely(workspaceService);
-          if (board) {
-            currentBoard = await workspaceService.switchBoard(board.id);
-          }
-        } else if (
-          !currentBoard &&
-          getSupabaseSyncConfig() &&
-          !isCloudPullDisabled()
-        ) {
-          // 云同步已登录：本地空不代表云端空——等首次登录 reconcile（上限 20s），
-          // 拉到画布直接打开；云端确实为空/离线超时才种默认板
-          //（refactor-cloud-native-sync Phase C.2：消除「我的画板1」抢跑）
-          await waitForFirstReconcile(20_000);
-          await workspaceService.reload().catch(() => undefined);
-          const cloudTree = workspaceService.getTree();
-          const cloudFirstBoard = findFirstBoard(cloudTree);
-          if (cloudFirstBoard) {
-            currentBoard = await workspaceService.switchBoard(
-              cloudFirstBoard.id
-            );
-          } else {
+        // 种默认板兜底链：仅在上述加载全部失败（尚无任何已加载画板）时执行。
+        // 整链必须带 !currentBoard 总守卫——此前只有链内前两个分支各自带守卫、
+        // 末分支裸 else，导致「成功加载画布」也掉进种板分支新建并切换画布
+        //（每次刷新 URL 都换新画板 id，2026-11-05 用户 8089 真机复现）
+        if (!currentBoard) {
+          if (isCloudOnlyStorage()) {
+            // 云端唯一存储（remove-local-persistence）：画板树已在
+            // workspaceService.initialize() 时从云端拉取——此处空即云端确认为空，
+            // 直接种默认板（无等待窗口、无本地/云端二段确认）
             const board = await createDefaultBoardSafely(workspaceService);
             if (board) {
               currentBoard = await workspaceService.switchBoard(board.id);
             }
-          }
-        } else {
-          // No boards exist, create default board
-          const board = await createDefaultBoardSafely(workspaceService);
+          } else if (
+            getSupabaseSyncConfig() &&
+            !isCloudPullDisabled()
+          ) {
+            // 云同步已登录：本地空不代表云端空——等首次登录 reconcile（上限 20s），
+            // 拉到画布直接打开；云端确实为空/离线超时才种默认板
+            //（refactor-cloud-native-sync Phase C.2：消除「我的画板1」抢跑）
+            await waitForFirstReconcile(20_000);
+            await workspaceService.reload().catch(() => undefined);
+            const cloudTree = workspaceService.getTree();
+            const cloudFirstBoard = findFirstBoard(cloudTree);
+            if (cloudFirstBoard) {
+              currentBoard = await workspaceService.switchBoard(
+                cloudFirstBoard.id
+              );
+            } else {
+              const board = await createDefaultBoardSafely(workspaceService);
+              if (board) {
+                currentBoard = await workspaceService.switchBoard(board.id);
+              }
+            }
+          } else {
+            // No boards exist, create default board
+            const board = await createDefaultBoardSafely(workspaceService);
 
-          if (board) {
-            currentBoard = await workspaceService.switchBoard(board.id);
+            if (board) {
+              currentBoard = await workspaceService.switchBoard(board.id);
+            }
           }
         }
         // 更新 URL 参数和当前画布 ID

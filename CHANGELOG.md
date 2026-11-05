@@ -1,5 +1,25 @@
 ## Unreleased
 
+### fix: 刷新带 board 参数的链接不再新建画布——冷启动种默认板兜底链末分支补 `!currentBoard` 总守卫
+
+用户 8089 预览真机复现：访问 `?board=<id>` 后刷新，URL 的 board 参数被替换为新画板
+id，每次刷新都「新建」一块画布（云端该账号已积累 10 块「我的画板1 NNNNN」垃圾板）。
+E2E 复现 + 网络日志 + 种板调用栈定位根因：app 初始化的「种默认板」if/else-if/**else**
+兜底链中，链内前两个分支（云存储空树兜底 / 云同步等待兜底）带 `!currentBoard` 守卫，
+**最后的裸 `else`（"No boards exist"）没有守卫**——`switchBoard(URL 板)` 成功加载后
+两个带守卫的分支不命中，逻辑掉进裸 `else` 无条件种新板并切换，`updateBoardIdInUrl`
+把 URL 换成新板 id（65a33945 只补了前两个分支，漏了末分支）：
+
+- **修复（兜底链重构）**：整条种板兜底链包进 `if (!currentBoard)` 总守卫——成功
+  加载任何画板后整链跳过，URL 保持原板 id；工作区确为空时的三种种板路径
+  （云存储空树直种 / 云同步等待 reconcile 后空树 / 无同步）行为不变
+- **E2E 回归**：新增 `board-url-refresh.spec.ts` 复刻用户场景（登录→新建画板→
+  带 `?board=<id>` 刷新），断言刷新后 board 参数不变、画板数不增、无降级提示；
+  修复前稳定失败、修复后通过
+- **验证**：typecheck/lint/vitest 全绿、supabase 函数测试 244 passed、
+  segment-server pytest 20 passed、E2E 云存储簇 7/7（含悬空引用回退、内容缺失
+  降级两个兜底场景无回归）；真机（8089 同源 + 本地 preview）过目确认
+
 ### fix: 素材爬虫适配站点二次改版——素材库弹窗入口重写，恢复每日增量同步
 
 10 月下旬起每日爬取持续失败（探针图提交后贴图面板 40s 不出现，first_cate_list
