@@ -12,6 +12,9 @@ node_modules
 .pnpm-store
 # 本仓库用 pnpm 管理依赖（pnpm-lock.yaml 入库），npm 误生成的 lockfile 不入库
 package-lock.json
+# 例外：services/mcp-server 是 npm 独立服务（不在 pnpm workspace），
+# Dockerfile/CI 的 npm ci 需要锁文件，入库
+!services/mcp-server/package-lock.json
 
 # ---- Nx 本地缓存与运行数据 ----
 .nx/cache

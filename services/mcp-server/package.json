@@ -1,0 +1,19 @@
+{
+  "name": "@aitu/image-mcp-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Yu画布生图 MCP 服务器：把 opentu 生图能力（经 supabase ai-proxy 托管链路）以标准 MCP 工具暴露给外部 agent",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "start:stdio": "node src/server.js --stdio",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^3.25.76"
+  }
+}

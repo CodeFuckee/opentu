@@ -93,6 +93,26 @@ test:segment-server:
     - cd services/segment-server
     - .venv/bin/python -m pytest tests/ -q
 
+# image-mcp-server（Yu画布生图 MCP 服务器）单元测试：
+# Node ESM 纯 JS + @modelcontextprotocol/sdk，node --test 直跑（fetch 全 mock，不连网）。
+# ckd-runner shell 执行器经 mise shims 有 node 22（与 test:backend 同源）；
+# 依赖用 npm 装进 job 工作区（npmmirror 镜像，与 services/ 下其他服务一样
+# 不在 pnpm workspace 内）。运行时真实链路的验证走部署脚本冒烟，不进 CI。
+test:image-mcp-server:
+  tags:
+    - ckd-runner
+  stage: test
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
+  before_script:
+    - export MISE_CONFIG_DIR="/home/ckd/.config/mise"
+    - export MISE_DATA_DIR="/home/ckd/.local/share/mise"
+    - export PATH="/home/ckd/.local/share/mise/shims:$PATH"
+  script:
+    - cd services/mcp-server
+    - npm ci --registry=https://registry.npmmirror.com
+    - node --test
+
 # E2E 测试（Playwright，Playwright 官方镜像自带全部浏览器与系统依赖）
 # 需要访问内网 Supabase（10.0.0.220:8021，2026-10 宿主机迁移自 10.37.80.25）。
 # yue-e2e 是 runner 22（越秀服务器，

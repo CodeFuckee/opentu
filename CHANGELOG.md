@@ -1,5 +1,30 @@
 ## Unreleased
 
+### feat: 新增生图 MCP 服务器（services/mcp-server）——把画布生图能力以标准 MCP 工具暴露给外部 agent
+
+opentu 生图链路此前只服务浏览器（前端 → supabase Edge Function `ai-proxy` → tu-zi
+网关），外部 AI agent（ZCode 等）无法调用。新增独立常驻服务 `services/mcp-server`
+（Node 20 ESM 纯 JS + `@modelcontextprotocol/sdk`，照 segment-server 先例不入 pnpm
+workspace），agent 经标准 MCP 协议即可生图：
+
+- **工具集**：`generate_image`（文生图/图生图，prompt/model/size/n/quality/
+  reference_images/return_base64）、`list_models`（model_catalog 同步生图模型清单）、
+  `check_quota`（账号月度配额自查）
+- **托管链路复用（零 DB/前端/ai-proxy 改动）**：以配置账号（用户个人账号）经
+  ai-proxy 生图——密码登录 + token 到期刷新 + 401 强制重登（语义同前端
+  auth-context），网关密钥注入与配额扣减全走现有逻辑；`x-task-id` 透传对账；
+  异步图像模型（`gemini-*-async`，受视频白名单门禁）显式拒绝
+- **稳定交付与台账**：上游 URL 下载（UA 伪装 + 4 次退避重试 + 魔数严格校验，
+  语义同 archiveGeneratedMediaToSupabase）→ 转存 `ai-outputs` 公开桶返回稳定直链，
+  失败回退原始 URL 不阻塞交付；`task_submissions` 台账 upsert（submitted→
+  completed/failed），MCP 生图在画布任务台账可见
+- **双 transport**：streamable HTTP（`/mcp`，stateless + Bearer token 鉴权 +
+  `/health`）与 stdio（`--stdio`）；单测 46 例（fetch 全 mock，协议层走
+  InMemoryTransport），HTTP/stdio 本机冒烟通过
+- **CI + 部署**：`test:image-mcp-server` job（node --test，ckd-runner）；部署/冒烟
+  脚本照 segment-server 模式（docker，mdc@10.0.0.220 端口 8301，凭据 env 文件
+  0600 由账号本人填写）；规格见 `openspec/changes/add-image-generation-mcp-server/`
+
 ### fix: 刷新带 board 参数的链接不再新建画布——冷启动种默认板兜底链末分支补 `!currentBoard` 总守卫
 
 用户 8089 预览真机复现：访问 `?board=<id>` 后刷新，URL 的 board 参数被替换为新画板
