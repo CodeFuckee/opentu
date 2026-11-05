@@ -31,6 +31,18 @@ export function createSupabaseAuth({
   let session = null;
   let refreshPromise = null;
 
+  // 快速失败：凭据缺失时启动即报错，而不是等运行期登录 401 才暴露
+  for (const [key, value] of [
+    ['supabaseUrl', supabaseUrl],
+    ['anonKey', anonKey],
+    ['email', email],
+    ['password', password],
+  ]) {
+    if (!value) {
+      throw new SupabaseAuthError(`createSupabaseAuth 缺少参数: ${key}`);
+    }
+  }
+
   async function requestToken(grant, body) {
     let res;
     try {

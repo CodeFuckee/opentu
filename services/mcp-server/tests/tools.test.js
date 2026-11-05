@@ -89,7 +89,9 @@ async function makeServer(fetchImpl, configOverrides = {}) {
     ...configOverrides,
   };
   const auth = createSupabaseAuth({
-    ...config,
+    supabaseUrl: config.supabaseUrl,
+    anonKey: config.supabaseAnonKey,
+    email: 'chen@example.com',
     password: 'pw',
     fetchImpl,
     logger: { warn() {} },
@@ -136,6 +138,15 @@ test('generate_image 文生图全链路：稳定直链 + 台账 submitted→comp
   assert.ok(payload.images[0].url.includes('/object/public/ai-outputs/chen/'));
   assert.equal(payload.images[0].archived, true);
   assert.equal(payload.images[0].source_url, 'https://up/a.png');
+
+  // 登录请求：apikey 头与账密体必须真实携带（守护 server→auth 键名映射，
+  // 防止 undefined 凭据退化成网关 401——2026-11-05 部署实证的缺陷）
+  const authCall = fetchImpl.calls.find((c) => c.url.includes('/auth/v1/token'));
+  assert.equal(authCall.init.headers.apikey, 'anon-key');
+  assert.deepEqual(JSON.parse(authCall.init.body), {
+    email: 'chen@example.com',
+    password: 'pw',
+  });
 
   // 生图请求体：16x9 → 1792x1024
   const genCall = fetchImpl.calls.find((c) => c.url.includes('/images/generations'));

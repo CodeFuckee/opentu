@@ -30,7 +30,16 @@ if (!config.valid) {
   fail(`缺少必需环境变量: ${config.missing.join(', ')}`);
 }
 
-const auth = createSupabaseAuth(config);
+// 注意键名映射：config 用 supabaseEmail/supabasePassword 前缀，
+// createSupabaseAuth 解构的是 email/password/anonKey——直接传 config 会让
+// 登录请求携带 undefined 凭据（表现为网关 401），必须显式映射
+const auth = createSupabaseAuth({
+  supabaseUrl: config.supabaseUrl,
+  anonKey: config.supabaseAnonKey,
+  email: config.supabaseEmail,
+  password: config.supabasePassword,
+  logger,
+});
 const client = createAiProxyClient({ auth, config, logger });
 const store = createMediaStore({ auth, config, logger });
 const deps = { config, auth, client, store, logger };
