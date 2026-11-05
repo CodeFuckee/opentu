@@ -1481,6 +1481,9 @@ const SEEDANCE_MODEL_IDS = [
   'seedance-1.0-lite',
 ];
 
+/** MiniMax H3（本地网关）视频模型 ID */
+const MINIMAX_H3_MODEL_IDS = ['minimax-h3'];
+
 /** HappyHorse 视频模型 ID */
 
 
@@ -1657,6 +1660,55 @@ export const VIDEO_PARAMS: ParamConfig[] = [
     ],
     defaultValue: '16:9',
     compatibleModels: SEEDANCE_MODEL_IDS,
+    modelType: 'video',
+  },
+  // MiniMax H3（本地网关）时长参数（1~10 秒，钳制在网关侧；提供 5/10 两档）
+  {
+    id: 'duration',
+    label: '视频时长',
+    shortLabel: '时长',
+    description: '生成视频的时长（秒）',
+    valueType: 'enum',
+    options: [
+      { value: '5', label: '5秒' },
+      { value: '10', label: '10秒' },
+    ],
+    defaultValue: '5',
+    compatibleModels: MINIMAX_H3_MODEL_IDS,
+    modelType: 'video',
+  },
+  // MiniMax H3 分辨率参数（网关像素预算 ~0.52MP，1080p 会被缩回，不提供）
+  {
+    id: 'size',
+    label: '视频分辨率',
+    shortLabel: '分辨率',
+    description: '生成视频的分辨率',
+    valueType: 'enum',
+    options: [
+      { value: '720p', label: '720p' },
+      { value: '480p', label: '480p' },
+    ],
+    defaultValue: '720p',
+    compatibleModels: MINIMAX_H3_MODEL_IDS,
+    modelType: 'video',
+  },
+  // MiniMax H3 宽高比参数（任意比例网关侧自动适配像素预算）
+  {
+    id: 'aspect_ratio',
+    label: '视频比例',
+    shortLabel: '比例',
+    description: '生成视频的宽高比',
+    valueType: 'enum',
+    options: [
+      { value: '16:9', label: '16:9 横屏' },
+      { value: '9:16', label: '9:16 竖屏' },
+      { value: '1:1', label: '1:1 方形' },
+      { value: '4:3', label: '4:3 横屏' },
+      { value: '3:4', label: '3:4 竖屏' },
+      { value: '21:9', label: '21:9 超宽' },
+    ],
+    defaultValue: '16:9',
+    compatibleModels: MINIMAX_H3_MODEL_IDS,
     modelType: 'video',
   },
 ];

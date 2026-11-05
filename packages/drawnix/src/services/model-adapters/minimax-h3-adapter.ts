@@ -70,6 +70,32 @@ export const parseSizeToPixels = (size?: string): string => {
   return `${align32(w)}x${align32(h)}`;
 };
 
+/**
+ * AI 输入条把尺寸拆成两个参数传：size=分辨率（'720p'）、params.aspect_ratio='16:9'。
+ * 兼容三种形态：组合串 '720p@16:9' 与显式 宽x高 原样透传；裸分辨率/裸比例 +
+ * aspect_ratio 参数则合成为组合串（缺省 720p@16:9）。
+ */
+export const composeH3SizeInput = (
+  size: string | undefined,
+  params?: Record<string, unknown>
+): string => {
+  const trimmed = (size || '').trim();
+  if (trimmed.includes('@') || /^\d+\s*[xX*]\s*\d+$/.test(trimmed)) {
+    return trimmed;
+  }
+  const rawRatio =
+    (params?.aspect_ratio as string | undefined) ??
+    (params?.aspectRatio as string | undefined);
+  const ratio =
+    rawRatio && /^\d+:\d+$/.test(rawRatio.trim())
+      ? rawRatio.trim()
+      : /^\d+:\d+$/.test(trimmed)
+        ? trimmed
+        : '16:9';
+  const resolution = /^\d+p$/.test(trimmed) ? trimmed : '720p';
+  return `${resolution}@${ratio}`;
+};
+
 /** 网关钳制 1~10（缺省 5），提交前先归一；params.seconds 兜底字符串时长 */
 export const normalizeH3Seconds = (
   duration?: number,
@@ -213,7 +239,7 @@ export const minimaxH3VideoAdapter: VideoModelAdapter = {
     const submitResult = await submitH3Video(context, {
       prompt: request.prompt,
       seconds,
-      size: parseSizeToPixels(request.size),
+      size: parseSizeToPixels(composeH3SizeInput(request.size, request.params)),
       referenceImages: request.referenceImages,
     });
 

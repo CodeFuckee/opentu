@@ -10,6 +10,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  composeH3SizeInput,
   normalizeH3Seconds,
   parseSizeToPixels,
   minimaxH3VideoAdapter,
@@ -70,6 +71,35 @@ function makeContext(
 
   return { baseUrl, fetcher };
 }
+
+describe('composeH3SizeInput（输入条拆分参数合成）', () => {
+  it('裸分辨率 + aspect_ratio 参数合成组合串', () => {
+    expect(composeH3SizeInput('720p', { aspect_ratio: '9:16' })).toBe(
+      '720p@9:16'
+    );
+    expect(composeH3SizeInput('480p', {})).toBe('480p@16:9');
+    expect(composeH3SizeInput(undefined, { aspectRatio: '4:3' })).toBe(
+      '720p@4:3'
+    );
+  });
+
+  it('组合串与宽x高原样透传（aspect_ratio 不覆盖显式尺寸）', () => {
+    expect(composeH3SizeInput('720p@9:16', { aspect_ratio: '1:1' })).toBe(
+      '720p@9:16'
+    );
+    expect(composeH3SizeInput('1280x720', { aspect_ratio: '1:1' })).toBe(
+      '1280x720'
+    );
+  });
+
+  it('非法/缺省比例回退 16:9，裸比例值视作比例', () => {
+    expect(composeH3SizeInput('720p', { aspect_ratio: 'keep_ratio' })).toBe(
+      '720p@16:9'
+    );
+    expect(composeH3SizeInput('16:9', {})).toBe('720p@16:9');
+    expect(composeH3SizeInput('', undefined)).toBe('720p@16:9');
+  });
+});
 
 describe('parseSizeToPixels', () => {
   // 720 非整 32，floor 对齐到 704（与网关 _map_size 的 floor 规则一致，所见即所得）
@@ -133,6 +163,26 @@ describe('minimaxH3VideoAdapter', () => {
           duration: 5,
         })
       ).rejects.toThrow('comfy execution error');
+    },
+    30_000
+  );
+
+  it(
+    'AI 输入条拆分参数（size=分辨率 + params.aspect_ratio）合成正确尺寸',
+    async () => {
+      const captured: CapturedRequest[] = [];
+      await minimaxH3VideoAdapter.generateVideo(
+        makeContext(captured),
+        {
+          model: 'minimax-h3',
+          prompt: '一只猫',
+          size: '480p',
+          duration: 5,
+          params: { aspect_ratio: '9:16' },
+        }
+      );
+      // 480p@9:16 → 宽 480、高 480*16/9≈853 → floor32=832
+      expect(captured[0].form?.get('size')).toBe('480x832');
     },
     30_000
   );
