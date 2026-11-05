@@ -18,7 +18,7 @@ fi
 
 call_mcp() {
   # $1=method $2=params $3=id；返回 JSON 响应（enableJsonResponse，纯 JSON）
-  node -e '
+  node --input-type=module -e '
     const [base, token, method, params, id] = process.argv.slice(1);
     const res = await fetch(`${base}/mcp`, {
       method: "POST",
@@ -42,24 +42,24 @@ call_mcp() {
 echo "== 1/4 initialize =="
 INIT_PARAMS='{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}'
 SERVER_INFO=$(call_mcp initialize "${INIT_PARAMS}" 1)
-echo "${SERVER_INFO}" | node -e 'const d=JSON.parse(require("fs").readFileSync(0));console.log("serverInfo:", d.serverInfo.name, d.serverInfo.version)'
+echo "${SERVER_INFO}" | node --input-type=module -e 'const d=JSON.parse((await import("node:fs")).readFileSync(0));console.log("serverInfo:", d.serverInfo.name, d.serverInfo.version)'
 
 echo "== 2/4 tools/list =="
 TOOLS=$(call_mcp tools/list "{}" 2)
-echo "${TOOLS}" | node -e 'const d=JSON.parse(require("fs").readFileSync(0));console.log("tools:", d.tools.map(t=>t.name).join(", "))'
+echo "${TOOLS}" | node --input-type=module -e 'const d=JSON.parse((await import("node:fs")).readFileSync(0));console.log("tools:", d.tools.map(t=>t.name).join(", "))'
 
 echo "== 3/4 check_quota =="
 QUOTA=$(call_mcp tools/call '{"name":"check_quota","arguments":{}}' 3)
-echo "${QUOTA}" | node -e '
-  const d=JSON.parse(require("fs").readFileSync(0));
+echo "${QUOTA}" | node --input-type=module -e '
+  const d=JSON.parse((await import("node:fs")).readFileSync(0));
   const payload=JSON.parse(d.content[0].text);
   if (!payload.success) throw new Error(payload.error);
   console.log("quota:", JSON.stringify(payload.quota));'
 
 echo "== 4/4 generate_image（真实生图，花 1 配额）=="
 GEN=$(call_mcp tools/call '{"name":"generate_image","arguments":{"prompt":"a tiny cute robot mascot, flat vector style, simple background","size":"1x1"}}' 4)
-echo "${GEN}" | node -e '
-  const d=JSON.parse(require("fs").readFileSync(0));
+echo "${GEN}" | node --input-type=module -e '
+  const d=JSON.parse((await import("node:fs")).readFileSync(0));
   if (d.isError) throw new Error(JSON.parse(d.content[0].text).error);
   const payload=JSON.parse(d.content[0].text);
   if (!payload.success) throw new Error(payload.error);
