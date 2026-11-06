@@ -160,6 +160,9 @@ export function createMcpServer(deps) {
         taskId,
         userId,
         status: 'completed',
+        // params 列 NOT NULL：终态 upsert 必须带上（merge-duplicates
+        // 冲突更新缺列会触发 23502，行卡在 submitted——2026-11-06 部署实证）
+        params: paramsSnapshot,
         result: {
           url: images[0]?.url,
           urls: images.map((img) => img.url),
@@ -201,6 +204,7 @@ export function createMcpServer(deps) {
         taskId,
         userId,
         status: 'failed',
+        params: paramsSnapshot,
         result: { prompt, model },
         error: {
           message: error?.message || String(error),

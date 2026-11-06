@@ -164,6 +164,14 @@ test('generate_image 文生图全链路：稳定直链 + 台账 submitted→comp
   assert.equal(submitted.status, 'submitted');
   assert.equal(completed.status, 'completed');
   assert.equal(submitted.task_id, completed.task_id);
+  // params 列 NOT NULL：终态 upsert 必须带 params（缺列会 23502，行卡 submitted）
+  assert.deepEqual(completed.params, {
+    prompt: 'a cat in the rain',
+    model: 'gpt-image-2',
+    size: '1792x1024',
+    n: 1,
+    referenceImages: [],
+  });
   const genTaskId = genCall.init.headers['x-task-id'];
   assert.equal(submitted.task_id, genTaskId);
   assert.ok(completed.result.url.includes('/object/public/ai-outputs/'));
