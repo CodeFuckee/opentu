@@ -82,6 +82,18 @@ interface ConsoleBucket {
   warnings: string[];
 }
 
+/**
+ * 已知外部资源噪音（第三方站点不可达/防盗链等）。
+ * 这类网络失败由浏览器原生记入 console，不代表本应用缺陷——
+ * 记为 warning 留档，不进「控制台无报错」断言（2026-11-13 tu-zi 状态站
+ * CORS 异常曾连续打挂本用例，实证噪音需豁免）。
+ */
+const EXTERNAL_NOISE_URL_PATTERNS = [/apistatus\.tu-zi\.com/];
+
+function isKnownExternalNoise(text: string, location: string): boolean {
+  return EXTERNAL_NOISE_URL_PATTERNS.some((pattern) => pattern.test(text) || pattern.test(location));
+}
+
 /** 监听页面 console / pageerror，返回收集桶与停止函数（error 视为报错，warning 仅记录） */
 function watchConsole(page: Page): { bucket: ConsoleBucket; stop: () => void } {
   const bucket: ConsoleBucket = { errors: [], warnings: [] };
@@ -89,7 +101,11 @@ function watchConsole(page: Page): { bucket: ConsoleBucket; stop: () => void } {
     // 资源加载类报错补充来源 URL，便于定位是哪个资源 403/404
     const loc = msg.location()?.url ? ` @ ${msg.location().url}` : '';
     if (msg.type() === 'error') {
-      bucket.errors.push(`${msg.text()}${loc}`);
+      if (isKnownExternalNoise(msg.text(), loc)) {
+        bucket.warnings.push(`${msg.text()}${loc} [external-noise]`);
+      } else {
+        bucket.errors.push(`${msg.text()}${loc}`);
+      }
     } else if (msg.type() === 'warning') {
       bucket.warnings.push(`${msg.text()}${loc}`);
     }

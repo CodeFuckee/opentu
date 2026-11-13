@@ -93,13 +93,17 @@ test.describe('模板中心', () => {
     await page
       .locator('.template-gallery__sort button', { hasText: '最新' })
       .click();
-    // 种子行 crawled_at 为播种时刻（晚于真实爬取行），B 后播种故排首位
-    await expect(
-      page
-        .locator('[data-testid="template-gallery-card"]')
-        .first()
-        .locator('.template-gallery__card-title')
-    ).toHaveText(TEMPLATE_B.title);
+    // 最新排序下 B（后播种）应排在 A 之前。不断言 B 为全场首位：
+    // 真实爬取行的 crawled_at 随每日同步更新，可能晚于种子播种时刻
+    // （共享库时序不可控，2026-11-13 曾因此连续打挂本用例并连锁 skip 后续用例）。
+    const titles = await page
+      .locator('[data-testid="template-gallery-card"] .template-gallery__card-title')
+      .allTextContents();
+    const indexB = titles.indexOf(TEMPLATE_B.title);
+    const indexA = titles.indexOf(TEMPLATE_A.title);
+    expect(indexB).toBeGreaterThanOrEqual(0);
+    expect(indexA).toBeGreaterThanOrEqual(0);
+    expect(indexB, '最新排序下后播种的种子 B 应先于种子 A').toBeLessThan(indexA);
   });
 
   test('E2E-004 分类过滤', async ({ page }) => {
