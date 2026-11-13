@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, type Dispatch, type MutableRefObject, 
 import { useTranslation } from "react-i18next";
 
 import { requestEdit, requestGeneration, requestImageQuestion, type AiTextMessage } from "@/services/api/image";
+import { ensureLoggedIn } from "@/services/auth-gate";
 import { imageToDataUrl } from "@/services/image-storage";
 import { requestVideoGeneration, storeGeneratedVideo } from "@/services/api/video";
 import { decodeChannelModel, selectableModelsByCapability, type AiConfig, type ModelCapability } from "@/stores/use-config-store";
@@ -42,8 +43,11 @@ export function usePluginHost(params: PluginHostParams) {
     const pluginAi = useMemo<CanvasPluginAi>(() => {
         // Convert plugin reference images (data URLs or URLs) into the ReferenceImage[] expected by the host generation API.
         const toReferences = (refs?: string[]): ReferenceImage[] => (refs || []).filter(Boolean).map((src, index) => ({ id: `plugin-ref-${index}`, name: `ref-${index}.png`, type: "image/png", dataUrl: src }));
-        // Open the configuration dialog and throw when AI is not configured, allowing the plugin to handle the error.
+        // Require login first, then open the configuration dialog and throw when AI is not configured, allowing the plugin to handle the error.
         const ensureReady = (config: AiConfig) => {
+            if (!ensureLoggedIn()) {
+                throw new Error(t("auth.loginRequired"));
+            }
             if (!isAiConfigReady(config, config.model)) {
                 openConfigDialog(true);
                 throw new Error(t("canvas.plugins.aiConfigRequired"));

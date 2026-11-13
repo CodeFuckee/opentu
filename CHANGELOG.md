@@ -1,5 +1,20 @@
 ## Unreleased
 
+### feat: infinite-canvas（8688 独立画布）接入登录门禁——未登录点生成弹登录框
+
+8688 无限画布此前是纯 BYOK 应用（无登录/无后端），未登录也能点生成，失败与黑屏无法在服务端排查
+（2026-11-13 用户视频事故实证：task_submissions/generation_task_bills/user_sync_data 零痕迹）。
+本次接入与主应用同一账号体系的登录门禁：
+
+- **门禁**：9 处生成入口（画布生成/视频与轮询恢复/蒙版编辑/视角生成/重试/图片与视频工作台/插件宿主）
+  在原「渠道未配置拦截」之前统一加 `ensureLoggedIn()`——未登录弹「登录 Yu画布」框 + 提示
+  「生成前请先登录」，登录成功后方可生成；登录态存在本 origin，与主应用各自登录（语义不变）
+- **登录框**：antd Modal，OA 短账号自动补 `@yjk.com`，调生产 supabase auth（8021）
+  （signInWithPassword + 会话持久化/自动刷新，主应用同款语义）；顶栏新增登录/账号/退出入口
+- **请求路径未改**：登录仅做门禁，生成仍走应用内渠道配置（BYOK）；托管分流（登录后走 ai-proxy）
+  作为二期另行立项
+- **验证**：typecheck + 本地构建过目（未登录弹框→登录→放行→退出复测全通过）
+
 ### feat: 新增生图 MCP 服务器（services/mcp-server）——把画布生图能力以标准 MCP 工具暴露给外部 agent
 
 opentu 生图链路此前只服务浏览器（前端 → supabase Edge Function `ai-proxy` → tu-zi

@@ -16,6 +16,7 @@ import { useThemeStore } from "@/stores/use-theme-store";
 import { nanoid } from "nanoid";
 import { formatBytes, formatDuration } from "@/lib/image-utils";
 import { requestEdit, requestGeneration } from "@/services/api/image";
+import { ensureLoggedIn } from "@/services/auth-gate";
 import { deleteStoredImages, ensureImagePreview, getImagePreviewRevision, previewUrlFor, resolveImageUrl, subscribeImagePreviews, uploadImage } from "@/services/image-storage";
 import { useAssetStore } from "@/stores/use-asset-store";
 import { useWorkbenchAgentStore } from "@/stores/use-workbench-agent-store";
@@ -154,6 +155,10 @@ export default function ImagePage() {
         if (!text) {
             message.error(t("imageWorkbench.promptRequired"));
             if (agentTaskId) updateAgentTask(agentTaskId, { status: "failed", error: t("imageWorkbench.promptRequired") });
+            return;
+        }
+        if (!ensureLoggedIn()) {
+            if (agentTaskId) updateAgentTask(agentTaskId, { status: "failed", error: t("auth.loginRequired") });
             return;
         }
         if (!isAiConfigReady(effectiveConfig, model)) {
@@ -310,6 +315,7 @@ export default function ImagePage() {
             message.error(t("imageWorkbench.promptRequired"));
             return null;
         }
+        if (!ensureLoggedIn()) return null;
         if (!isAiConfigReady(effectiveConfig, model)) {
             message.warning(t("workbench.configFirst"));
             openConfigDialog(true);

@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
-import { Tooltip } from "antd";
-import { BookOpen, Keyboard, Puzzle, Settings2 } from "lucide-react";
+import { App, Tooltip } from "antd";
+import { BookOpen, Keyboard, LogIn, LogOut, Puzzle, Settings2, UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
@@ -10,6 +10,7 @@ import { DOCS_URL } from "@/constant/env";
 import { changeAppLocale, type AppLocale } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { canvasThemes } from "@/lib/canvas-theme";
+import { useAuthStore } from "@/stores/use-auth-store";
 import { useConfigStore } from "@/stores/use-config-store";
 import { useThemeStore } from "@/stores/use-theme-store";
 
@@ -22,6 +23,11 @@ type UserStatusActionsProps = {
 
 export function UserStatusActions({ showConfig = true, variant = "default", onOpenShortcuts, onOpenPlugins }: UserStatusActionsProps) {
     const { i18n, t } = useTranslation();
+    const { message } = App.useApp();
+    const authStatus = useAuthStore((state) => state.status);
+    const userEmail = useAuthStore((state) => state.userEmail);
+    const setLoginModalOpen = useAuthStore((state) => state.setLoginModalOpen);
+    const signOut = useAuthStore((state) => state.signOut);
     const theme = useThemeStore((state) => state.theme);
     const setTheme = useThemeStore((state) => state.setTheme);
     const openConfigDialog = useConfigStore((state) => state.openConfigDialog);
@@ -37,6 +43,40 @@ export function UserStatusActions({ showConfig = true, variant = "default", onOp
 
     return (
         <div className="inline-flex shrink-0 items-center gap-1">
+            {authStatus === "authenticated" && userEmail ? (
+                <>
+                    <Tooltip title={`${t("auth.loggedInAs")}: ${userEmail}`} mouseEnterDelay={0.2}>
+                        <span className="inline-flex max-w-[140px] shrink-0 cursor-default items-center justify-center gap-1 rounded-md px-1 text-xs text-stone-600 dark:text-stone-300" style={iconStyle}>
+                            <UserRound className="size-4 shrink-0" />
+                            <span className="truncate" title={userEmail}>
+                                {userEmail.split("@")[0]}
+                            </span>
+                        </span>
+                    </Tooltip>
+                    <Tooltip title={t("auth.logout")} mouseEnterDelay={0.2}>
+                        <button
+                            type="button"
+                            className={naturalIconClass}
+                            style={iconStyle}
+                            onClick={() =>
+                                void signOut().then(() => {
+                                    message.success(t("auth.logoutSuccess"));
+                                })
+                            }
+                            aria-label={t("auth.logout")}
+                            title={t("auth.logout")}
+                        >
+                            <LogOut className="size-4" />
+                        </button>
+                    </Tooltip>
+                </>
+            ) : (
+                <Tooltip title={t("auth.login")} mouseEnterDelay={0.2}>
+                    <button type="button" className={naturalIconClass} style={iconStyle} onClick={() => setLoginModalOpen(true)} aria-label={t("auth.login")} title={t("auth.login")}>
+                        <LogIn className="size-4" />
+                    </button>
+                </Tooltip>
+            )}
             {onOpenPlugins ? (
                 <button type="button" className={naturalIconClass} style={iconStyle} onClick={onOpenPlugins} aria-label={t("topNav.plugins")} title={t("topNav.plugins")}>
                     <Puzzle className="size-4" />

@@ -82,3 +82,6 @@ data
 .ua
 # jzxz 素材爬虫本机配置（爬虫产物落在上方 data/ 内）
 scripts/jzxz-crawler.local.json
+
+# 本地预览构建产物（infinite-canvas 过目用临时输出）
+apps/infinite-canvas/dist-local-preview/

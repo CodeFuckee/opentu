@@ -9,9 +9,12 @@ import dayjs from "dayjs";
 import "dayjs/locale/zh-cn";
 import { useTranslation } from "react-i18next";
 
+import { AuthModal } from "@/components/layout/auth-modal";
 import { ClientRootInit } from "@/components/layout/client-root-init";
 import type { AppLocale } from "@/i18n";
+import { setAuthGateNotifier } from "@/services/auth-gate";
 import { getAntThemeConfig } from "@/lib/app-theme";
+import { useAuthStore } from "@/stores/use-auth-store";
 import { useThemeStore } from "@/stores/use-theme-store";
 
 const queryClient = new QueryClient({
@@ -47,10 +50,29 @@ export function AppProviders({ children }: { children: ReactNode }) {
             <ProConfigProvider dark={dark}>
                 <App>
                     <QueryClientProvider client={queryClient}>
-                        <ClientRootInit>{children}</ClientRootInit>
+                        <AuthBootstrap>
+                            <ClientRootInit>{children}</ClientRootInit>
+                        </AuthBootstrap>
                     </QueryClientProvider>
                 </App>
             </ProConfigProvider>
         </ConfigProvider>
+    );
+}
+
+/** 登录体系引导：注入门禁通知器（antd message）+ 恢复会话 + 挂全局登录弹窗 */
+function AuthBootstrap({ children }: { children: ReactNode }) {
+    const { message } = App.useApp();
+
+    useEffect(() => {
+        setAuthGateNotifier((text) => message.warning(text));
+        void useAuthStore.getState().init();
+    }, [message]);
+
+    return (
+        <>
+            {children}
+            <AuthModal />
+        </>
     );
 }
