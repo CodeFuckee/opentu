@@ -1,5 +1,17 @@
 ## Unreleased
 
+### fix: infinite-canvas 视频提交补发 ratio 字段——修复 seedance 类模型参数被上游拒绝
+
+同事从 8688 画布生成 seedance-2-5 报「ratio 427:240 not valid」：比例参数缺省（选「自动」或
+未选）时前端不发 ratio 字段、仅发像素 size（854x480），tu-zi 中转用 size 约分生造比例
+（854:480 → "427:240"）传火山被拒（火山 ratio 只认标准枚举）。
+
+- **修复**：新增纯函数 `videoRatioFormField`——ratio 字段始终发送，auto/空归一为 16:9
+  （与 videoAspectRatio 兜底语义一致）；标准枚举原样透传
+- **实验闭环**：带 ratio=16:9 + size=854x480 → tu-zi 接受；仅 size 无 ratio → 精确复现
+  427:240 拒绝；`inferVideoRatio` 穷举验证所有尺寸输入均归约出标准枚举
+- **回归**：bun:test 4 例（像素归约/auto 归一/枚举透传/480p 全档位）24 例全绿 + typecheck
+
 ### fix: 主应用 Supabase 地址改为跟随页面 host 运行时推导——修复家庭网段登录 "Failed to fetch"
 
 用户从家庭侧打开 `http://10.0.0.220:8088` 页面正常但登录报 "Failed to fetch"（公司内网

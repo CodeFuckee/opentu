@@ -128,6 +128,18 @@ export function inferVideoRatio(size: string) {
         }, "16:9");
 }
 
+/**
+ * 视频提交表单的 ratio 字段取值（发送给上游的最终值）。
+ *
+ * 必须始终产出标准枚举（不可缺省）：比例缺省（auto/未选）时若仅发像素 size，
+ * 上游中转会用 size 约分生造比例（854x480 → "427:240"）被火山拒绝
+ * （2026-11-16 seedance-2-5 实证）。auto 归一为 16:9（与 videoAspectRatio 兜底一致）。
+ */
+export function videoRatioFormField(size: string): string {
+    const ratio = inferVideoRatio(size || "16:9");
+    return ratio === "auto" || !ratio ? "16:9" : ratio;
+}
+
 export function computeVideoSize(resolution: string, ratio: string) {
     if (ratio === "auto" || !ratio) return "auto";
     const parsed = parseAspectRatio(ratio);

@@ -3,7 +3,7 @@ import { nanoid } from "nanoid";
 
 import i18n from "@/i18n";
 import { dataUrlToFile, readFileAsDataUrl } from "@/lib/image-utils";
-import { clampVideoSeconds, computeVideoSize, inferVideoRatio } from "@/lib/media-size";
+import { clampVideoSeconds, computeVideoSize, inferVideoRatio, videoRatioFormField } from "@/lib/media-size";
 import { getMediaBlob, resolveMediaUrl, uploadMediaFile, type UploadedFile } from "@/services/file-storage";
 import { imageToDataUrl } from "@/services/image-storage";
 import { boolConfig, buildApiUrl, modelOptionName, resolveModelRequestConfig, resolveModelScript, withLocalProxy, type AiConfig } from "@/stores/use-config-store";
@@ -151,15 +151,15 @@ async function createOpenAIVideoTask(config: AiConfig, model: string, prompt: st
     const videos = await Promise.all((options?.videos || []).map((video) => referenceMediaToFile(video, "ref.mp4", "invalidReferenceVideo", options)));
     const audios = await Promise.all((options?.audios || []).map((audio) => referenceMediaToFile(audio, "ref.mp3", "invalidReferenceAudio", options)));
     const mode = resolveVideoMode(config.videoMode, images.length);
-    const ratio = inferVideoRatio(config.size || "16:9");
     const body = new FormData();
     body.append("model", modelOptionName(model));
     body.append("prompt", prompt);
     body.append("seconds", normalizeVideoSeconds(config.videoSeconds));
     body.append("size", normalizeVideoSize(config.size, config.vquality) || "1280x720");
-    if (ratio && ratio !== "auto") {
-        body.append("ratio", ratio);
-    }
+    // ratio 字段必须始终发送：比例缺省（auto/未选）时若仅发像素 size，
+    // 上游中转会用 size 约分生造比例（854x480 → "427:240"）被火山拒绝
+    // （2026-11-16 seedance-2-5 实证）。auto 归一为 16:9（见 videoRatioFormField）。
+    body.append("ratio", videoRatioFormField(config.size || "16:9"));
     body.append("resolution_name", normalizeVideoResolution(config.vquality));
     body.append("generate_audio", String(boolConfig(config.videoGenerateAudio, true)));
     body.append("watermark", String(boolConfig(config.videoWatermark, false)));
