@@ -1,5 +1,21 @@
 ## Unreleased
 
+### fix(ci): safe.directory 改为 "*"——修复 shell runner 上作业落到 ckd 属主并发槽时 get_sources 即挂
+
+main 流水线 `test:image-mcp-server`（job 32138）在 get_sources 阶段 0.4s 即败 `exit status 128`，
+日志原文 `fatal: detected dubious ownership in repository at '/home/ckd/builds/VbJUETEvA/3/chenkaidi/opentu'`。
+根因：shell runner 以 gitlab-runner 用户执行作业，而并发槽 /3 里遗留的检出属主是 ckd；
+CI 既有缓解 `GIT_CONFIG_VALUE_0: "/home/ckd/builds"` 无效——`safe.directory` 不做前缀匹配，
+父目录对嵌套在下面的仓库不起作用（git 2.43 实测），只有精确仓库路径或 `*` 生效；并发槽
+路径随并发数变化无法穷举。2026-10-19 quality 作业的"修复"实际靠把陈旧检出移走生效，同一取值。
+
+- **修复**：`GIT_CONFIG_VALUE_0` 改为 `"*"`（与 tender_system 的 CI 一致），全部作业受益
+- **验证**：本地 git 2.43 对照（父目录取值仍报 dubious ownership，`*` 通过）；清理槽位 3/4
+  陈旧检出后同一作业在槽位 3 重跑通过（job 32158，9.09s）；mcp-server 单测 46 例绿
+- **附带发现（未改）**：`deploy:preview` / `deploy:production` 的 `needs` 不含
+  `test:image-mcp-server` 与 `test:segment-server`——本次该 job 失败后预览仍自动部署，
+  与"全部测试 job 成功才部署"的门禁约定不符
+
 ### fix: 云端唯一存储补媒体二进制直连通道——修复跨浏览器/清存储后画布图片空白 + /asset-library/ 404 刷屏
 
 云端唯一存储（2026-10-24 起默认）下 `reconcileFull` 一律拒绝执行，而媒体二进制的
