@@ -6,6 +6,12 @@
  * 断言恢复原图与叠加。覆盖合并/撤销两路径;取消路径人工过目。
  */
 import { test, expect } from '../fixtures/test-base';
+import { dismissInspirationBoard } from '../fixtures/canvas-helpers';
+import {
+  createNamedBoard,
+  openProjectDrawer,
+  randomBoardName,
+} from '../fixtures/cloud-sync-helpers';
 
 function makeSolidPng(width: number, height: number, rgb: [number, number, number]): Buffer {
   const ihdr = Buffer.alloc(13);
@@ -42,6 +48,14 @@ test.describe('画布即编辑器', () => {
     }
     await expect(page.getByTestId('unified-toolbar')).toBeVisible({ timeout: 15000 });
 
+    // 状态隔离：共享测试账号的当前画板可能带有既有元素（其他 spec/人工测试
+    // 残留，画中画会干扰点击与断言），本用例自建空白画板再操作
+    await openProjectDrawer(page);
+    await createNamedBoard(page, randomBoardName());
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+    await dismissInspirationBoard(page);
+
     const mediaLabel = page
       .locator('label')
       .filter({ has: page.getByRole('radio', { name: /素材库/ }) })
@@ -53,16 +67,23 @@ test.describe('画布即编辑器', () => {
     const view = page.getByTestId('official-library-view');
     await expect(view).toBeVisible({ timeout: 20000 });
     const card = page.locator('.asset-item').first();
-    // 官方库分类聚合（3 万行全表）在 CI 并发/网关抖动下偶发超 15s
-    await expect(card).toBeVisible({ timeout: 30000 });
+    // 官方库分类聚合（3 万行全表）+ 网关抖动下偶发超 30s（2026-11-23 实测
+    // 白天生产高负载窗口曾 >180s），放宽到 90s
+    await expect(card).toBeVisible({ timeout: 90_000 });
     // 悬浮「插入到画布」按钮是 onClick(handleInsertClick);双击=开预览不可用。
     // hover 后直接向按钮派发 click,避开 HoverTip 气泡对 force click 的遮挡
     await card.hover();
     const insertBtn = winbox.locator('button[aria-label="插入到画布"]').first();
     await insertBtn.waitFor({ state: 'visible', timeout: 8000 });
     await insertBtn.dispatchEvent('click');
-    // 插入成功的判定看画布出现图片(toast 3s 即逝不可靠)
-    await winbox.locator('.wb-close').dispatchEvent('click');
+    // 插入成功的判定看画布出现图片(toast 3s 即逝不可用)。
+    // 关窗仅兜底：使用素材后 MediaLibraryModal 会自动 onClose（2025-12 起），
+    // 插入快时窗口先关、慢时保持打开——两种时序都接受，手动关窗最多等 3s，
+    // 窗口已关则跳过（否则 dispatchEvent 会傻等到用例超时）
+    await winbox
+      .locator('.wb-close')
+      .dispatchEvent('click', { timeout: 3000 })
+      .catch(() => undefined);
     await page.waitForTimeout(600);
 
     const canvasImg = page
