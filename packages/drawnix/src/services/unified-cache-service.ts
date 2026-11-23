@@ -282,6 +282,10 @@ class UnifiedCacheService {
   private listeners: Set<() => void> = new Set();
   private quotaExceededListeners: Set<() => void> = new Set();
   private cachedUrls: Set<string> = new Set();
+  /** 云端媒体二进制通道：进行中的按 URL 下载（并发去重，画布 3s 轮询防抖） */
+  private cloudBlobInFlight: Map<string, Promise<Blob | null>> = new Map();
+  /** 云端媒体二进制通道：近期查云未命中的 URL → 时间戳（负缓存，防轮询打爆 REST） */
+  private cloudBlobMisses: Map<string, number> = new Map();
 
   constructor() {
     if (typeof indexedDB !== 'undefined') {
@@ -1068,6 +1072,8 @@ class UnifiedCacheService {
       // 1. 从 IndexedDB 删除
       await this.deleteItem(url);
       this.cachedUrls.delete(url);
+      // 1b. 清云端二进制通道的负缓存：显式删除后允许立即重查云端
+      this.cloudBlobMisses.delete(this.normalizeRemoteCacheUrl(url));
       // 2. 清理 IndexedDB 兜底 Blob 存储（非安全上下文数据源）
       await deleteCacheBlobFallback(this.normalizeRemoteCacheUrl(url));
       if (url !== this.normalizeRemoteCacheUrl(url)) {
@@ -1214,6 +1220,8 @@ class UnifiedCacheService {
       this.cachedUrls.clear();
       // 清理 IndexedDB 兜底 Blob 存储（非安全上下文数据源）
       await clearCacheBlobFallbacks();
+      // 清云端二进制通道负缓存（与本地缓存一并复位）
+      this.cloudBlobMisses.clear();
       await this.sendMessageToSW({ type: 'CLEAR_ALL_CACHE' });
       this.notifyListeners();
 
@@ -1439,13 +1447,75 @@ class UnifiedCacheService {
       this.cachedUrls.add(cacheUrl);
       this.notifyListeners();
 
-      // console.log('[UnifiedCache] Media cached from blob:', { url, type, size: blob.size });
+      // 云端媒体二进制通道：虚拟 URL 媒体落本地后即上云（yue-sync +
+      // user_sync_media）。云端唯一存储模式下 reconcileFull 被拒，这里是二进制
+      // 上云的唯一入口；未登录 / 非虚拟 URL / 超限 / 非媒体字节在通道内静默跳过。
+      // fire-and-forget：失败只 warn，绝不影响本地缓存主流程。
+      void (async () => {
+        try {
+          const { uploadMediaBinaryToCloud } = await import(
+            './supabase-sync/media-binary-channel'
+          );
+          await uploadMediaBinaryToCloud(cacheUrl, blob, type);
+        } catch (error) {
+          console.warn(
+            '[UnifiedCache] 媒体二进制上云失败（本地不受影响）:',
+            cacheUrl,
+            error
+          );
+        }
+      })();
+
+      // console.log('[UnifiedCache] Media cached from blob:', { url: type, size: blob.size });
       return cacheUrl;
     } catch (error) {
       this.handleQuotaError(error);
       console.error('[UnifiedCache] Failed to cache media from blob:', error);
       throw error;
     }
+  }
+
+  /**
+   * 云端媒体二进制通道按 URL 下载（getCachedBlob 本地未命中时兜底）。
+   * - 并发去重：同 URL 进行中的请求复用同一 Promise（画布 3s 轮询下防抖）
+   * - 负缓存：查云无行/失败后 5 分钟内不再重查（防轮询打爆 REST；刷新页面即重置）
+   */
+  private async fetchVirtualBlobFromCloud(
+    cacheUrl: string
+  ): Promise<Blob | null> {
+    const CLOUD_MISS_TTL_MS = 5 * 60 * 1000;
+    const recentMiss = this.cloudBlobMisses.get(cacheUrl);
+    if (
+      recentMiss !== undefined &&
+      Date.now() - recentMiss < CLOUD_MISS_TTL_MS
+    ) {
+      return null;
+    }
+    const inFlight = this.cloudBlobInFlight.get(cacheUrl);
+    if (inFlight) {
+      return inFlight;
+    }
+    const promise = (async (): Promise<Blob | null> => {
+      try {
+        const { fetchMediaBlobFromCloud } = await import(
+          './supabase-sync/media-binary-channel'
+        );
+        const blob = await fetchMediaBlobFromCloud(cacheUrl);
+        if (!blob || blob.size === 0) {
+          this.cloudBlobMisses.set(cacheUrl, Date.now());
+          return null;
+        }
+        this.cloudBlobMisses.delete(cacheUrl);
+        return blob;
+      } catch {
+        this.cloudBlobMisses.set(cacheUrl, Date.now());
+        return null;
+      } finally {
+        this.cloudBlobInFlight.delete(cacheUrl);
+      }
+    })();
+    this.cloudBlobInFlight.set(cacheUrl, promise);
+    return promise;
   }
 
   /**
@@ -1502,7 +1572,21 @@ class UnifiedCacheService {
         !url.startsWith('blob:') &&
         !url.startsWith('data:') &&
         !url.startsWith('/');
-      if (isVirtualUrl || isTaskId) {
+      if (isVirtualUrl) {
+        // 云端媒体二进制通道兜底：本地（Cache API / IDB 兜底库）均未命中时，
+        // 从 yue-sync 下载回填本地后返回——跨浏览器/清存储后只有元数据的虚拟
+        // URL 图片靠这条链恢复显示（画布 3s 轮询 / RetryImage / getImageForAI
+        // 都经此函数，自动受益）。云端也无行则维持 null（由元素错误态呈现）。
+        const cloudBlob = await this.fetchVirtualBlobFromCloud(cacheUrl);
+        if (cloudBlob) {
+          await this.cacheToCacheStorageOnly(cacheUrl, cloudBlob).catch(
+            () => undefined
+          );
+          return cloudBlob;
+        }
+        return null;
+      }
+      if (isTaskId) {
         return null;
       }
 

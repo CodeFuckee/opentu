@@ -1,5 +1,29 @@
 ## Unreleased
 
+### fix: 云端唯一存储补媒体二进制直连通道——修复跨浏览器/清存储后画布图片空白 + /asset-library/ 404 刷屏
+
+云端唯一存储（2026-10-24 起默认）下 `reconcileFull` 一律拒绝执行，而媒体二进制的
+上传/下载（`user_sync_media` + `yue-sync` 桶）只存在于 reconcileFull 内——素材库/
+AI 生成图片的字节只留在上传它的那一个浏览器（per-origin IndexedDB 兜底库），其他
+浏览器/换 origin/清存储后只有元数据：画布图片空白、`GET /asset-library/content-*`
+404 刷屏、AI 输入条带图发送报 "Virtual URL not found in cache"（2026-11-23 生产
+实证：两账号上传的两图 `user_sync_media` 零行，一账号媒体行停在 10-10 模式切换前）。
+
+- **修复（新增 `supabase-sync/media-binary-channel.ts`）**：云直写链路补二进制通道，
+  与 media-sync 同一套 `yue-sync`+`user_sync_media` 语义（`{username}/{type}/{hash}.{ext}`
+  内容寻址、哈希去重、毒化对象自愈）：
+  - 上传：`cacheMediaFromBlob` 落本地后 fire-and-forget 上云（未登录/非虚拟 URL/
+    超 50MB/非媒体字节静默跳过，绝不抛出）
+  - 下载：`getCachedBlob` 本地（Cache API + IDB 兜底库）未命中时按 URL 查行下载回填
+    （魔数校验防毒化、并发去重、5 分钟负缓存防轮询打爆 REST）——画布 3s 轮询 /
+    RetryImage / getImageForAI 全部经此函数自动受益，组件零改动
+- **配套**：repository 新增 `fetchRemoteMediaByUrl` 按 URL 单行查询；`deleteCache`/
+  `clearAllCache` 同步清负缓存；sha256Hex 对 jsdom 跨 realm ArrayBuffer 防御性归一化
+- **回归**：`media-binary-channel.test.ts` 7 例（上云链路/跨浏览器回填/哈希去重/
+  未登录跳过/负缓存/毒化行拒绝/外链不触发）+ 新 E2E
+  `cloud-only-image-display.spec.ts`（设备 A 插图实时上云 → 全新浏览器设备 B 直开
+  画板显示 → 刷新后再显示）；drawnix 全量 239 文件 / 1784 用例绿
+
 ### fix: infinite-canvas 视频提交补发 ratio 字段——修复 seedance 类模型参数被上游拒绝
 
 同事从 8688 画布生成 seedance-2-5 报「ratio 427:240 not valid」：比例参数缺省（选「自动」或

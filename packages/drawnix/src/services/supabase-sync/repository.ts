@@ -735,6 +735,52 @@ export async function fetchRemoteMedia(
   }
 }
 
+/** 按 url 查单条媒体元数据（媒体二进制通道按需查行用；不存在返回 media: null） */
+export async function fetchRemoteMediaByUrl(
+  config: SupabaseSyncConfig,
+  userId: string,
+  url: string
+): Promise<{ media: SyncMediaItem | null; error?: unknown }> {
+  try {
+    const client = config.client as {
+      from: (table: string) => {
+        select: (cols: string) => {
+          eq: (col: string, val: string) => {
+            eq: (col2: string, val2: string) => Promise<{
+              data: Array<Record<string, unknown>> | null;
+              error: unknown;
+            }>;
+          };
+        };
+      };
+    };
+    const { data, error } = await client
+      .from(SYNC_MEDIA_TABLE)
+      .select('*')
+      .eq('user_id', userId)
+      .eq('url', url);
+    if (error) {
+      return { media: null, error };
+    }
+    const row = data?.[0];
+    if (!row) {
+      return { media: null };
+    }
+    return {
+      media: {
+        url: row.url as string,
+        type: (row.type ?? 'image') as SyncMediaItem['type'],
+        mimeType: (row.mime_type as string) ?? undefined,
+        size: (row.size as number) ?? undefined,
+        storagePath: row.storage_path as string,
+        updatedAt: parseTimestamp(row.updated_at),
+      },
+    };
+  } catch (error) {
+    return { media: null, error };
+  }
+}
+
 /** upsert 媒体元数据 */
 export async function upsertRemoteMedia(
   config: SupabaseSyncConfig,
