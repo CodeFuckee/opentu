@@ -1,5 +1,27 @@
 ## Unreleased
 
+### fix: 画板 Base64 迁移适配 HTTP 环境 + 上传去重命中补齐本地/云端二进制——关闭图片孤儿的最后两个缺口
+
+生产 8088 已部署媒体二进制通道后，用户反馈 11-23 前上传的旧图（`content-fnv*`）依然
+404：旧图字节从未上云（`user_sync_media` 零行），新代码本地未命中→查云→无行→仍 404，
+属预期内的存量缺口。本次修掉暴露出的两个缺口 + 一个控制台报错：
+
+- **画板 Base64 迁移适配 HTTP**（`workspace-storage-service.ts`）：打开画板即刷
+  `[Migration] Failed to cache Base64 image: ReferenceError: caches is not defined`——
+  迁移直接 `caches.open(...)`，非安全上下文必然失败且永不完成。改经
+  `unifiedCacheService.cacheLocalMediaByContent`：HTTP 下写 IDB 兜底库、URL 内容寻址
+  （跨设备迁移同一 base64 收敛同一 URL，替代原随机路径分叉），并触发二进制通道上云
+  （旧实现直写 Cache API 绕过统一缓存，迁移产物也从来不上云——同源孤儿）
+- **addAsset 去重命中补二进制**（`asset-storage-service.ts`）：重新上传同一文件时
+  去重直接 return，本机无 blob 不回填、云端无行不上传——「重传也修不好」。现去重
+  命中时：本机无 blob → 回填本地+上云；本机有 blob（唯一持有字节的老设备）→ 补一次
+  幂等云端检查上传。回填失败仅 warn，不阻塞去重返回。**恢复存量 orphan 图：在任意
+  有原文件的浏览器重新上传同一文件即可，无需删除素材**
+- **utils `calculateBlobChecksum` 加固**：digest 参数跨 realm 归一化 + Blob 无
+  `arrayBuffer` 时 FileReader 兜底（与 `readHeadBytes` 同模式，消除 jsdom 测试陷阱）
+- **验证**：新增复现测试 5 例（迁移 HTTP 环境×2 + 去重回填×3，先红后绿）+ utils blob
+  15 例全绿；drawnix 全量 241 文件 / 1789 用例绿；lint 0 error
+
 ### fix(ci): safe.directory 改为 "*"——修复 shell runner 上作业落到 ckd 属主并发槽时 get_sources 即挂
 
 main 流水线 `test:image-mcp-server`（job 32138）在 get_sources 阶段 0.4s 即败 `exit status 128`，

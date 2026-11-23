@@ -359,7 +359,33 @@ class AssetStorageService {
     // 检查是否已存在相同内容的素材
     const existingAsset = await this.findAssetByContentHash(contentHash, data.blob);
     if (existingAsset) {
-      // console.log('[AssetStorageService] Duplicate asset found, skipping:', existingAsset.id);
+      // 去重命中 ≠ 本机/云端有二进制：跨设备同步只回填元数据；历史 orphan
+      // （2026-11-23 前上传，云端 user_sync_media 无行）更是从不上云。此处
+      // 补齐两条腿，失败只 warn 不阻塞去重返回：
+      // - 本机无 blob → cacheMediaFromBlob 写本地（HTTP 下 IDB 兜底库）并经
+      //   其上云钩子上传 → 重传同一文件即可自愈「图片空白 + 404」；
+      // - 本机有 blob → 仍调 uploadMediaBinaryToCloud 补云端检查（幂等，
+      //   哈希一致自动跳过）→ 唯一持有字节的老设备无需删除素材即可上云自愈。
+      try {
+        const cachedBlob = await unifiedCacheService.getCachedBlob(existingAsset.url);
+        const cacheType = existingAsset.type === 'IMAGE' ? 'image' : existingAsset.type === 'AUDIO' ? 'audio' : 'video';
+        if (!cachedBlob || cachedBlob.size === 0) {
+          await unifiedCacheService.cacheMediaFromBlob(existingAsset.url, data.blob, cacheType, {
+            contentHash,
+          });
+        } else {
+          const { uploadMediaBinaryToCloud } = await import(
+            './supabase-sync/media-binary-channel'
+          );
+          await uploadMediaBinaryToCloud(existingAsset.url, cachedBlob, cacheType);
+        }
+      } catch (error) {
+        console.warn(
+          '[AssetStorageService] Failed to backfill media for deduped asset:',
+          existingAsset.url,
+          error
+        );
+      }
       return existingAsset;
     }
 

@@ -130,11 +130,28 @@ export async function blobToDataUrl(blob: Blob): Promise<string> {
  * const checksum = await calculateBlobChecksum(blob);
  * ```
  */
+/** Blob → ArrayBuffer（arrayBuffer 不可用时回退 FileReader，兼容 jsdom） */
+async function blobToArrayBufferCompat(blob: Blob): Promise<ArrayBuffer> {
+  if (typeof blob.arrayBuffer === 'function') {
+    return blob.arrayBuffer();
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as ArrayBuffer);
+    reader.onerror = () =>
+      reject(reader.error ?? new Error('readAsArrayBuffer failed'));
+    reader.readAsArrayBuffer(blob);
+  });
+}
+
 export async function calculateBlobChecksum(blob: Blob): Promise<string> {
-  const arrayBuffer = await blob.arrayBuffer();
+  const arrayBuffer = await blobToArrayBufferCompat(blob);
   const subtle = globalThis.crypto?.subtle;
   if (subtle) {
-    const hashBuffer = await subtle.digest('SHA-256', arrayBuffer);
+    // 防御性归一化：blob.arrayBuffer() 在 jsdom/测试环境可能来自另一 realm，
+    // Node webcrypto 的 instanceof 校验会拒绝——包一层当前 realm 的 Uint8Array
+    // 视图（生产单 realm 无影响）
+    const hashBuffer = await subtle.digest('SHA-256', new Uint8Array(arrayBuffer));
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
   }

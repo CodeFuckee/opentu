@@ -7,6 +7,7 @@
 
 import localforage from 'localforage';
 import { changeBus } from './supabase-sync/change-bus';
+import { unifiedCacheService } from './unified-cache-service';
 import {
   cloudDirectStore,
   isCloudOnlyStorage,
@@ -22,11 +23,6 @@ import { migrateElementsFillData } from '../types/fill.types';
 import type { PlaitElement } from '@plait/core';
 
 /**
- * Cache name for images (must match the one in sw/index.ts)
- */
-const IMAGE_CACHE_NAME = 'drawnix-images';
-
-/**
  * 检测 URL 是否为 Base64 data URL
  */
 function isBase64ImageUrl(url: string): boolean {
@@ -34,9 +30,15 @@ function isBase64ImageUrl(url: string): boolean {
 }
 
 /**
- * 将 Base64 图片缓存到 Cache API，返回虚拟路径 URL
+ * 将 Base64 图片经统一缓存服务落到内容寻址虚拟 URL
+ *
+ * 不能直接 `caches.open(...)`：非安全上下文（纯 HTTP 内网部署）没有 Cache API，
+ * 会 ReferenceError 且每次打开画板重复失败（2026-11-23 生产实证）。经
+ * unifiedCacheService.cacheLocalMediaByContent：HTTP 下写 IndexedDB 兜底库
+ * （getCachedBlob 可读）、URL 内容寻址（跨设备迁移同一 base64 收敛到同一
+ * URL，避免随机路径分叉），并触发媒体二进制通道上云（跨设备可回填）。
  */
-async function cacheBase64ImageToVirtualPath(dataUrl: string): Promise<string> {
+export async function cacheBase64ImageToVirtualPath(dataUrl: string): Promise<string> {
   const match = dataUrl.match(/^data:(image\/[^;]+);base64,(.+)$/);
   if (!match) return dataUrl;
 
@@ -51,24 +53,8 @@ async function cacheBase64ImageToVirtualPath(dataUrl: string): Promise<string> {
     }
     const blob = new Blob([bytes], { type: mimeType });
 
-    // 生成唯一 ID
-    const id = `img-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
-    const ext = mimeType.split('/')[1] || 'png';
-    const virtualPath = `/__aitu_cache__/image/${id}.${ext}`;
-
-    // 缓存到 Cache API
-    const cache = await caches.open(IMAGE_CACHE_NAME);
-    const response = new Response(blob, {
-      status: 200,
-      headers: {
-        'Content-Type': mimeType,
-        'Content-Length': blob.size.toString(),
-        'Cache-Control': 'max-age=31536000',
-      },
-    });
-    await cache.put(virtualPath, response);
-
-    return virtualPath;
+    const { url } = await unifiedCacheService.cacheLocalMediaByContent(blob, 'image');
+    return url;
   } catch (error) {
     console.error('[Migration] Failed to cache Base64 image:', error);
     return dataUrl;
