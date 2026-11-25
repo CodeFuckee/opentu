@@ -65,6 +65,17 @@ export async function ensureBase64ForAI(
     const blob = await res.blob();
     return blobToBase64Under1MB(blob);
   }
+  // 虚拟媒体路径（/asset-library/、/__aitu_cache__/ 等，2026-11-25 起参考图
+  // 落库为内容寻址虚拟 URL）：非安全上下文没有 SW 拦截，直接 fetch 必 404——
+  // 从 Cache Storage / IndexedDB 兜底库读 Blob 后压缩转 base64
+  if (isVirtualMediaUrl(value)) {
+    const { unifiedCacheService } = await import('../unified-cache-service');
+    const blob = await unifiedCacheService.getCachedBlob(value);
+    if (!blob || blob.size === 0) {
+      throw new Error(`虚拟路径图片读取失败: ${value}`);
+    }
+    return blobToBase64Under1MB(blob);
+  }
   if (value.startsWith('http://') || value.startsWith('https://')) {
     const res = await fetch(value, { signal, referrerPolicy: 'no-referrer' });
     if (!res.ok)

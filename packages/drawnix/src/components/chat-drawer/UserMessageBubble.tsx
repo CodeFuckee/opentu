@@ -10,6 +10,7 @@ import { copyToClipboard } from '../../utils/runtime-helpers';
 import type { Message } from '../../types/chat-ui.types';
 import { ServiceIcon, LayersIcon, ImageIcon, BulletpointIcon } from 'tdesign-icons-react';
 import type { MediaItem as UnifiedMediaItem } from '../shared/media-preview';
+import { VirtualMediaImage } from '../shared/VirtualMediaImage';
 import './user-message-bubble.scss';
 
 interface UserMessageBubbleProps {
@@ -219,11 +220,10 @@ export const UserMessageBubble: React.FC<UserMessageBubbleProps> = ({
                   className="user-bubble__image-wrapper"
                   onClick={(event) => handleImageClick(index, event)}
                 >
-                  <img
+                  <VirtualMediaImage
                     src={img.url}
                     alt={img.filename}
                     className="user-bubble__image"
-                    loading="lazy"
                     draggable={false}
                   />
                 </div>

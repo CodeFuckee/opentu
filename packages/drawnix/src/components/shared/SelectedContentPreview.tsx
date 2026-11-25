@@ -14,6 +14,7 @@ import ReactDOM from 'react-dom';
 import { Video, Play, Type, X } from 'lucide-react';
 import type { SelectedContentItem } from '../../types/chat.types';
 import { HoverTip } from './hover';
+import { VirtualMediaImage } from './VirtualMediaImage';
 import './selected-content-preview.scss';
 
 export interface SelectedContentPreviewProps {
@@ -51,7 +52,7 @@ function renderImageWithMask(
   }
 
   if (!item.maskImage) {
-    return <img src={item.url} alt={item.name} />;
+    return <VirtualMediaImage src={item.url} alt={item.name} />;
   }
   const mediaPairStyle =
     item.width && item.height && item.width > 0 && item.height > 0
@@ -62,9 +63,9 @@ function renderImageWithMask(
 
   return (
     <div className={`${className}__media-pair`} style={mediaPairStyle}>
-      <img src={item.url} alt={item.name} />
+      <VirtualMediaImage src={item.url} alt={item.name} />
       <div className={`${className}__mask-thumb`}>
-        <img src={item.maskImage} alt={`${item.name} mask`} />
+        <VirtualMediaImage src={item.maskImage} alt={`${item.name} mask`} />
       </div>
     </div>
   );

@@ -286,6 +286,67 @@ export async function softDeleteRemoteEntities(
 }
 
 /**
+ * 按会话拉取 chat_message（content->>sessionId 服务端过滤，避免全类型
+ * 整表拉取——2026-11-25 事故：单账号 chat_message 1.87GB 时整拉必然 500）。
+ * 分页取全量；JSONB 过滤/排序依赖 PostgREST 的 content->> 语法。
+ */
+export async function fetchRemoteChatMessagesBySession(
+  config: SupabaseSyncConfig,
+  userId: string,
+  sessionId: string
+): Promise<{ contents: unknown[]; error?: unknown }> {
+  try {
+    const client = config.client as {
+      from: (table: string) => {
+        select: (cols: string) => {
+          eq: (col: string, val: string) => {
+            eq: (col2: string, val2: string) => {
+              filter: (col: string, op: string, val: string) => {
+                order: (col: string, opts?: { ascending?: boolean }) => {
+                  range: (from: number, to: number) => Promise<{
+                    data: Array<Record<string, unknown>> | null;
+                    error: unknown;
+                  }>;
+                };
+              };
+            };
+          };
+        };
+      };
+    };
+    const PAGE = 500;
+    const contents: unknown[] = [];
+    let offset = 0;
+    for (;;) {
+      const { data, error } = await client
+        .from(SYNC_DATA_TABLE)
+        .select('*')
+        .eq('user_id', userId)
+        .eq('entity_type', 'chat_message')
+        .filter('content->>sessionId', 'eq', sessionId)
+        .order('content->>timestamp', { ascending: true })
+        .range(offset, offset + PAGE - 1);
+      if (error) {
+        return { contents: [], error };
+      }
+      const rows = data ?? [];
+      for (const row of rows) {
+        if (!row.deleted_at) {
+          contents.push(row.content);
+        }
+      }
+      if (rows.length < PAGE) {
+        break;
+      }
+      offset += PAGE;
+    }
+    return { contents };
+  } catch (error) {
+    return { contents: [], error };
+  }
+}
+
+/**
  * 按实体类型拉取（云端直连读路径，openspec remove-local-persistence）。
  * 分页取全量，防止超过 PostgREST 单次行数上限。
  */

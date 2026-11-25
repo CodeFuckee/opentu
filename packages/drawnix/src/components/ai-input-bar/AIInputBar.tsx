@@ -2487,6 +2487,47 @@ export const AIInputBar: React.FC<AIInputBarProps> = React.memo(
       []
     );
 
+    // 附件落地即归档为内容寻址虚拟 URL（2026-11-25 巨型行事故的入口修复：
+    // 不再把 base64 data URL 存进消息/上下文/步骤参数）。归档失败回退
+    // data URL 兜底；尺寸用 object URL 临时加载获取。
+    const fileToStoredImageWithDimensions = useCallback(
+      async (
+        file: Blob
+      ): Promise<{ url: string; width: number; height: number }> => {
+        try {
+          const { unifiedCacheService } = await import(
+            '../../services/unified-cache-service'
+          );
+          const { url } = await unifiedCacheService.cacheLocalMediaByContent(
+            file,
+            'image'
+          );
+          const objectUrl = URL.createObjectURL(file);
+          try {
+            const dims = await new Promise<{ width: number; height: number }>(
+              (resolve) => {
+                const img = new Image();
+                img.onload = () =>
+                  resolve({
+                    width: img.naturalWidth,
+                    height: img.naturalHeight,
+                  });
+                img.onerror = () => resolve({ width: 0, height: 0 });
+                img.src = objectUrl;
+              }
+            );
+            return { url, ...dims };
+          } finally {
+            URL.revokeObjectURL(objectUrl);
+          }
+        } catch (error) {
+          console.warn('[AIInputBar] 附件归档失败，回退 data URL:', error);
+          return fileToBase64WithDimensions(file);
+        }
+      },
+      [fileToBase64WithDimensions]
+    );
+
     const importLocalImages = useCallback(
       async (files: File[] | FileList) => {
         const fileList = Array.from(files);
@@ -2566,7 +2607,7 @@ export const AIInputBar: React.FC<AIInputBarProps> = React.memo(
               console.warn('[AIInputBar] Failed to add asset to library:', err);
             });
 
-            const { url, width, height } = await fileToBase64WithDimensions(
+            const { url, width, height } = await fileToStoredImageWithDimensions(
               normalizedFile
             );
             newContent.push({
@@ -2586,7 +2627,7 @@ export const AIInputBar: React.FC<AIInputBarProps> = React.memo(
           setUploadedContent((prev) => [...prev, ...newContent]);
         }
       },
-      [addAsset, fileToBase64WithDimensions, localImageMessages]
+      [addAsset, fileToBase64WithDimensions, fileToStoredImageWithDimensions, localImageMessages]
     );
 
     // 处理文件选择

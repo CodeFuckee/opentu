@@ -145,9 +145,21 @@ export async function deleteSession(id: string): Promise<void> {
 // ============================================================================
 
 export async function addMessage(message: ChatMessage): Promise<void> {
+  // 落库守卫：巨型内联 base64（parts/attachments/aiContext/workflow args 里的
+  // 参考图）归档为内容寻址虚拟 URL——防止 2026-11-25 单行 135MB、单账号 2.8GB
+  // 压垮 PostgREST 拉取与渲染进程的事故复发。失败保留原样不阻塞保存。
+  let messageToSave = message;
+  try {
+    const { sanitizeChatMessageForSave } = await import(
+      './chat-media-sanitizer'
+    );
+    messageToSave = (await sanitizeChatMessageForSave(message)).message;
+  } catch (error) {
+    console.warn('[ChatStorage] 消息媒体消毒失败（原样保存）:', error);
+  }
   // 云端唯一存储：消息直写云端（apply-remote 同款语义：本地无则建/已有则覆盖）
   if (isCloudOnlyStorage()) {
-    await cloudDirectStore.saveEntity('chat_message', message.id, message, {
+    await cloudDirectStore.saveEntity('chat_message', messageToSave.id, messageToSave, {
       cas: false,
     });
     const session = await getSession(message.sessionId);
@@ -160,8 +172,8 @@ export async function addMessage(message: ChatMessage): Promise<void> {
     return;
   }
 
-  await messagesStore.setItem(message.id, message);
-  changeBus.emit('chat_message', message.id, message.timestamp ?? Date.now());
+  await messagesStore.setItem(messageToSave.id, messageToSave);
+  changeBus.emit('chat_message', messageToSave.id, messageToSave.timestamp ?? Date.now());
 
   // Update session message count and title if this is the first user message
   const session = await getSession(message.sessionId);
@@ -176,8 +188,34 @@ export async function addMessage(message: ChatMessage): Promise<void> {
 }
 
 export async function getMessages(sessionId: string): Promise<ChatMessage[]> {
-  // 云端唯一存储：类型级拉取后按会话过滤，timestamp 升序
+  // 云端唯一存储：按会话服务端过滤拉取（content->>sessionId），避免全类型
+  // 整表拉取（巨型行事故教训：整拉在 PostgREST 侧序列化失败必然 500）。
+  // 会话过滤失败时回退类型级拉取后客户端过滤。
   if (isCloudOnlyStorage()) {
+    try {
+      const { getSupabaseSyncConfig, getSupabaseSyncUser } = await import(
+        './supabase-sync/runtime'
+      );
+      const { fetchRemoteChatMessagesBySession } = await import(
+        './supabase-sync/repository'
+      );
+      const config = getSupabaseSyncConfig();
+      const user = config ? await getSupabaseSyncUser(config) : null;
+      if (config && user) {
+        const { contents, error } = await fetchRemoteChatMessagesBySession(
+          config,
+          user.id,
+          sessionId
+        );
+        if (!error) {
+          return (contents as ChatMessage[])
+            .filter((message) => message && message.sessionId === sessionId)
+            .sort((a, b) => a.timestamp - b.timestamp);
+        }
+      }
+    } catch (error) {
+      console.warn('[ChatStorage] 按会话拉取失败，回退类型级拉取:', error);
+    }
     const messages = await cloudDirectStore.listContents<ChatMessage>(
       'chat_message'
     );
@@ -200,17 +238,26 @@ export async function updateMessage(
   updates: Partial<ChatMessage>
 ): Promise<void> {
   const message = await messagesStore.getItem<ChatMessage>(id);
-  if (message) {
-    const updated = { ...message, ...updates };
-    if (isCloudOnlyStorage()) {
-      await cloudDirectStore.saveEntity('chat_message', id, updated, {
-        cas: false,
-      });
-      return;
-    }
-    await messagesStore.setItem(id, updated);
-    changeBus.emit('chat_message', id, updated.timestamp ?? Date.now());
+  const updated = { ...(message ?? { id }), ...updates } as ChatMessage;
+  // 落库守卫：与 addMessage 同款媒体消毒（workflow 字段在流式更新中被反复整行
+  // 重写，是巨型行的主要生长点）
+  let updatedToSave = updated;
+  try {
+    const { sanitizeChatMessageForSave } = await import(
+      './chat-media-sanitizer'
+    );
+    updatedToSave = (await sanitizeChatMessageForSave(updated)).message;
+  } catch (error) {
+    console.warn('[ChatStorage] 消息媒体消毒失败（原样保存）:', error);
   }
+  if (isCloudOnlyStorage()) {
+    await cloudDirectStore.saveEntity('chat_message', id, updatedToSave, {
+      cas: false,
+    });
+    return;
+  }
+  await messagesStore.setItem(id, updatedToSave);
+  changeBus.emit('chat_message', id, updatedToSave.timestamp ?? Date.now());
 }
 
 export async function deleteMessage(id: string): Promise<void> {

@@ -1,6 +1,7 @@
 import type { Attachment } from '../../types/chat.types';
 import type { GeminiMessage, GeminiMessagePart } from './types';
 import { fileToBase64 } from './utils';
+import { isVirtualMediaUrl } from '../virtual-media-url';
 
 export type MultimodalAttachmentInput = File | Attachment;
 
@@ -80,6 +81,22 @@ export async function normalizeImageUrlForMultimodalInput(
   }
 
   if (normalizedUrl.startsWith('blob:') || isLocalRelativeImageUrl(normalizedUrl)) {
+    // 虚拟媒体路径（/asset-library/、/__aitu_cache__/ 等，2026-11-25 起聊天
+    // 附件落库为内容寻址虚拟 URL）：非安全上下文没有 SW 拦截，fetch 必 404——
+    // 优先从 Cache Storage / IndexedDB 兜底库读取，再退回网络 fetch
+    if (isVirtualMediaUrl(normalizedUrl)) {
+      try {
+        const { unifiedCacheService } = await import(
+          '../../services/unified-cache-service'
+        );
+        const blob = await unifiedCacheService.getCachedBlob(normalizedUrl);
+        if (blob && blob.size > 0) {
+          return blobToDataUrl(blob);
+        }
+      } catch {
+        // 兜底库读取失败，退回网络 fetch（由下方统一处理错误）
+      }
+    }
     const response = await fetch(normalizedUrl);
     if (!response.ok) {
       throw new Error(`读取本地图片失败: ${response.status}`);

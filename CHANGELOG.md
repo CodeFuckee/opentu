@@ -1,5 +1,32 @@
 ## Unreleased
 
+### fix: 巨型 base64 chat_message 事故根治——附件入口归档化 + 落库媒体守卫 + 会话级拉取
+
+生产实证（zhoushaofeng@yjk.com）：AI 聊天工作流把参考图以 base64 原样存进
+chat_message（parts/attachments/aiContext/workflow.steps[].args/referenceImages 五个
+位置重复内嵌），单行 135MB、单账号 2.8GB——聊天拉取 PostgREST 序列化必然 500，
+渲染进程灌入巨型行后内存耗尽崩溃（STATUS_BREAKPOINT）。与生图任务队列路（有 ≤1MB
+压缩与「避免把大串 base64 存进任务结果」防护）不同，聊天工作流路没有任何防护。
+
+- **入口归档**：AIInputBar 附件落地改走 `cacheLocalMediaByContent` 存内容寻址虚拟
+  URL（不再 readAsDataURL；归档失败回退 data URL 兜底），从源头消灭消息里的 base64
+- **落库守卫**：新增 `chat-media-sanitizer`——addMessage/updateMessage 落库前深遍历，
+  ≥512KB 的媒体 data URL 归档换 URL（同 URL 幂等去重；失败保留原样不阻塞保存）。
+  顺带修复 cloud-only 模式 `updateMessage` 读空本地 store 后静默不保存、导致 workflow
+  消息永远卡在 streaming 的隐藏 bug
+- **请求时转换**：`generation-api-service` 的 referenceImages 统一经 `getImageForAI`
+  转换（虚拟 URL→本地缓存/云端取回转 base64）；`ensureBase64ForAI` 与
+  `normalizeImageUrlForMultimodalInput` 补虚拟 URL 分支（本地兜底库读取）
+- **拉取瘦身**：新增 `fetchRemoteChatMessagesBySession`——按 `content->>sessionId`
+  服务端过滤 + 分页，聊天打开不再整类型拉取；失败自动回退类型级拉取
+- **显示**：新增 `VirtualMediaImage` 组件（虚拟 URL 经本地兜底库解析展示），
+  替换用户气泡/输入条预览/蒙版对三处裸 `<img>`
+- **数据止血（生产已执行）**：zhoushaofeng 账号 120 条 >10MB 行剥离 base64 载荷
+  （1.87GB→255KB；剥离前全量备份于 mdc 机
+  `/home/mdc/backups/user_sync_data_20261125/`，2.2GB CSV）
+- 验证：新增单测 9 例（守卫 4 + 虚拟 URL 转换 3 + 按会话拉取 2）先红后绿；
+  drawnix 全量 244 文件 / 1798 用例绿；lint 0 error
+
 ### test(e2e): canvas-edit 用例加固——消除关窗竞速与共享账号画板状态依赖
 
 流水线 4904 的 test:e2e 失败（canvas-edit 3 连败 + 模板/局部重绘 3 例 flaky），二分

@@ -388,7 +388,13 @@ class GenerationAPIService {
     }
 
     if (Array.isArray((params as any).referenceImages)) {
-      referenceImages.push(...((params as any).referenceImages as string[]));
+      // 2026-11-25 起参考图可能是内容寻址虚拟 URL（/__aitu_cache__/ 等，
+      // 巨型 base64 行事故的入口修复）——统一经 getImageForAI 转换：
+      // 虚拟 URL→本地缓存/云端取回转 base64；data URL 原样；http(s) 保留或转 base64
+      for (const refUrl of (params as any).referenceImages as string[]) {
+        const imageData = await unifiedCacheService.getImageForAI(refUrl);
+        referenceImages.push(imageData.value);
+      }
     }
 
     return referenceImages;
