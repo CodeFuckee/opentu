@@ -27,6 +27,10 @@ deploy:preview:
     - test:backend
     - test:frontend
     - test:e2e
+    # 2026-11-25 补全：此前漏列这两个测试作业——image-mcp 失败（4890）部署仍
+    # 照常运行，与「全部测试 job 成功才部署」的门禁约定不符
+    - test:image-mcp-server
+    - test:segment-server
     - build
   # docker build 在慢速宿主上（含 pnpm install + 全量构建）可能超过默认 1h 超时
   timeout: 2 hours

@@ -1,5 +1,18 @@
 ## Unreleased
 
+### fix(ci): deploy 门禁 needs 补全 test:image-mcp-server 与 test:segment-server
+
+2026-11-23 事故实证：流水线 4890 中 test:image-mcp-server 失败，deploy:preview 仍
+照常部署、deploy:production 仍可点击——两个 deploy 作业的 needs 漏列这两个测试
+作业，与「全部测试 job 成功才部署」的门禁约定不符（经查两个 job 均无 allow_failure，
+GitLab 混合 DAG 下未被 stage 顺序拦截）。
+
+- **修复**：deploy:preview / deploy:production 的 needs 补全两个测试作业
+- **镜像素材本地化说明（现状确认，无需改动）**：根 Dockerfile 构建镜像时已固定
+  `AITU_REWRITE_ENTRY_ASSETS_TO_CDN=0 pnpm build`——容器产物本就全本地化；运行时
+  boot 的「CDN 智能选择器」仍会探测 jsdelivr（内网不可达产生 RESET 噪音+数秒延迟，
+  探测失败自动回落本地、功能无损）；彻底消除探测噪音属后续可选优化
+
 ### fix: 巨型 base64 chat_message 事故根治——附件入口归档化 + 落库媒体守卫 + 会话级拉取
 
 生产实证（zhoushaofeng@yjk.com）：AI 聊天工作流把参考图以 base64 原样存进
